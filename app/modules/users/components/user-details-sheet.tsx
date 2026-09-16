@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import type { DataTableAction } from "@/shared/components/common/data-table";
 import { SheetRowActions } from "@/shared/components/common/sheet-row-actions";
 import {
@@ -13,7 +14,7 @@ import {
 	SheetTitle,
 } from "@/shared/components/ui/sheet";
 import { fullNameOf, initialsOf, type UserRow } from "../utils/to-user-rows";
-import { RoleBadge, StatusBadge } from "./user-badges";
+import { RoleBadge, StatusBadge, TrainerBadge } from "./user-badges";
 
 interface UserDetailsSheetProps {
 	/** `null` cierra el panel; el dato viene del loader del listado. */
@@ -84,8 +85,24 @@ export function UserDetailsSheet({
 						<div className="grid grid-cols-2 gap-x-4 gap-y-5 px-6 pb-6">
 							<div className="col-span-2 flex flex-wrap items-center gap-2">
 								<RoleBadge role={user.role} />
+								<TrainerBadge isTrainer={user.isTrainer} />
 								<StatusBadge archivedAt={user.archivedAt} />
 							</div>
+
+							{/* El perfil de capacitador se administra en su catálogo, que es
+							    global: aquí solo se enlaza para no duplicar la pantalla. */}
+							{user.isTrainer && (
+								<div className="col-span-2">
+									<Field label="Capacitador">
+										<Link
+											to={`/dashboard/capacitadores/${user.documentId}/editar`}
+											className="text-primary underline-offset-4 hover:underline"
+										>
+											Ver su ficha en el catálogo
+										</Link>
+									</Field>
+								</div>
+							)}
 
 							<Field label="Teléfono">{user.phone || "—"}</Field>
 							<Field label="Creado">{formatDate(user.createdAt)}</Field>

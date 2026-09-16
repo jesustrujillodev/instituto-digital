@@ -34,6 +34,7 @@ type FakeUser = {
 	password: string | null;
 	role: string;
 	dependencyId: number | null;
+	isTrainer: boolean;
 	archivedAt: Date | null;
 };
 
@@ -44,6 +45,7 @@ const userOf = (overrides: Partial<FakeUser> = {}): FakeUser => ({
 	password: "hash-en-base",
 	role: "USER",
 	dependencyId: 3,
+	isTrainer: false,
 	archivedAt: null,
 	...overrides,
 });

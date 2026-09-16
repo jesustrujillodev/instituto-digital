@@ -14,4 +14,6 @@ export interface SessionUser {
 	documentId: string;
 	email: string;
 	role: Role;
+	/** A diferencia de `dependencyId`, es un booleano que no identifica nada y la UI lo necesita. */
+	isTrainer: boolean;
 }

@@ -212,12 +212,20 @@ describe("canManageUser", () => {
 describe("canChangeOwnDependency / roleAfterDependencyChange", () => {
 	// Regla 6: dejaría su dependencia sin quien la administre.
 	test("el titular no puede cambiarse mientras lo sea", () => {
-		expect(canChangeOwnDependency("DEPENDENCY_HEAD")).toBe(false);
+		expect(canChangeOwnDependency("DEPENDENCY_HEAD", "INTERNAL")).toBe(false);
 	});
 
-	test("el resto sí puede", () => {
+	test("el resto del personal interno sí puede", () => {
 		for (const role of ROLES.filter((r) => r !== "DEPENDENCY_HEAD")) {
-			expect(canChangeOwnDependency(role)).toBe(true);
+			expect(canChangeOwnDependency(role, "INTERNAL")).toBe(true);
+		}
+	});
+
+	// No por su rol —es `USER`, el que sí puede— sino por su tipo: no pertenece a
+	// ninguna dependencia y el CHECK `users_type_coherence` le prohíbe tener una.
+	test("un externo no puede cambiarse, tenga el rol que tenga", () => {
+		for (const role of ROLES) {
+			expect(canChangeOwnDependency(role, "EXTERNAL")).toBe(false);
 		}
 	});
 

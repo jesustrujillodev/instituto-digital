@@ -1,12 +1,8 @@
-import { data, redirect } from "react-router";
+import { redirect } from "react-router";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { ICradle } from "@/shared/di/container.types";
-import {
-	FORBIDDEN_ROLE_CODE,
-	type ForbiddenRoleData,
-	HTTP_STATUS,
-} from "@/shared/http/route-error";
 import { hasRole, type Role } from "@/shared/rules/atoms.rules";
+import { forbiddenRole } from "./forbidden-role";
 import { requireAuth } from "./require-auth.server";
 
 /**
@@ -36,12 +32,5 @@ export async function requireRole(
 
 	if (options?.redirectTo) throw redirect(options.redirectTo);
 
-	// `statusText` explícito: al convertir un `data()` lanzado en ErrorResponse,
-	// react-router usa "Internal Server Error" por defecto
-	// (dataWithResponseInitToErrorResponse) — sin esto el 403 se mostraría como
-	// un error interno.
-	throw data<ForbiddenRoleData>(
-		{ code: FORBIDDEN_ROLE_CODE, requiredRoles: roles },
-		{ status: HTTP_STATUS.FORBIDDEN, statusText: "Forbidden" },
-	);
+	throw forbiddenRole(roles);
 }

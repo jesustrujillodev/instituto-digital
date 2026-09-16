@@ -49,6 +49,7 @@ const actorOf = (
 	email: "admin@instituto.gob.mx",
 	role,
 	dependencyId,
+	isTrainer: false,
 });
 
 const photoOf = (overrides: Partial<UploadInput> = {}): UploadInput => ({
@@ -340,6 +341,24 @@ describe("createUserService — create", () => {
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(result.error.code).toBe("EMPLOYEE_NUMBER_REQUIRED");
+		}
+		expect(calls.created).toEqual([]);
+	});
+
+	// §4 del alcance: todo externo tiene perfil de capacitador, y esa invariante
+	// cruza dos tablas, así que la base no puede imponerla. El alta de externos
+	// vive en el catálogo, que crea cuenta y perfil en la misma transacción.
+	test("una cuenta externa no se da de alta desde aquí", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			{ ...validDto, type: "EXTERNAL", employeeNumber: undefined },
+			actorOf(),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.code).toBe("EXTERNAL_REQUIRES_TRAINER_PROFILE");
 		}
 		expect(calls.created).toEqual([]);
 	});

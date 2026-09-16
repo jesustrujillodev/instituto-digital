@@ -44,6 +44,7 @@ import {
 	ROLE_FILTER_LABELS,
 	RoleBadge,
 	StatusBadge,
+	TrainerBadge,
 } from "../../components/user-badges";
 import { UserDetailsSheet } from "../../components/user-details-sheet";
 import {
@@ -67,6 +68,9 @@ const ANY_ROLE = "any";
 // Mismo centinela para el filtro de dependencia, por el mismo motivo.
 const ANY_DEPENDENCY = "any";
 
+// Mismo centinela para el filtro de perfil de capacitador.
+const ANY_TRAINER = "any";
+
 export const handle = {
 	breadcrumb: () => [{ label: "Usuarios" }],
 } satisfies BreadcrumbHandle;
@@ -82,7 +86,8 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 		data: { users, filters, canFilterByDependency, dependencies },
 		pagination,
 	} = loaderData;
-	const { search, role, dependency, status, sortBy, sortDir } = filters;
+	const { search, role, dependency, trainer, status, sortBy, sortDir } =
+		filters;
 	const navigate = useNavigate();
 	const [, setSearchParams] = useSearchParams();
 	// Se guarda el id y no la fila: la fila se relee de cada respuesta del loader,
@@ -178,7 +183,10 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 					]
 				: []),
 			columnHelpers.custom<UserRow>("role", "Rol", (user) => (
-				<RoleBadge role={user.role} />
+				<span className="flex flex-wrap gap-1">
+					<RoleBadge role={user.role} />
+					<TrainerBadge isTrainer={user.isTrainer} />
+				</span>
 			)),
 			columnHelpers.custom<UserRow>("archivedAt", "Estado", (user) => (
 				<StatusBadge archivedAt={user.archivedAt} />
@@ -293,6 +301,25 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 									{ROLE_FILTER_LABELS[value]}
 								</SelectItem>
 							))}
+						</SelectContent>
+					</Select>
+
+					<Select
+						value={trainer || ANY_TRAINER}
+						onValueChange={(value) =>
+							updateParams({
+								trainer: value === ANY_TRAINER ? null : value,
+								page: null,
+							})
+						}
+					>
+						<SelectTrigger className="w-44">
+							<SelectValue placeholder="Capacitador" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={ANY_TRAINER}>Con y sin perfil</SelectItem>
+							<SelectItem value="yes">Capacitadores</SelectItem>
+							<SelectItem value="no">Sin perfil</SelectItem>
 						</SelectContent>
 					</Select>
 

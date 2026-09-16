@@ -31,6 +31,12 @@ const SEARCHABLE_FIELDS = [
 	"employeeNumber",
 ] as const;
 
+// `isTrainer` se deriva de esta relación en el mapper: toda lectura que termine
+// en `toDomain` tiene que traerla, o el parseo falla por campo ausente.
+const WITH_TRAINER_PROFILE = {
+	trainerProfile: { select: { archivedAt: true } },
+} as const;
+
 // ── Traducción de errores de Prisma ───────────────────────────────────────────
 // Esta es la ÚNICA capa que puede importar tipos del ORM, así que es también la
 // única que puede convertir sus códigos en errores de dominio. Aguas arriba
@@ -90,6 +96,15 @@ const toFilters = (dto: ListUsersDto, scope: AccessScope) => {
 		...scopeWhere(scope),
 		...(dto.role && { role: dto.role }),
 		...(dto.type && { type: dto.type }),
+		// "no" es ausencia O perfil archivado, así que se expresa negando la única
+		// condición que define al capacitador activo, y no con un `isNot` cuya
+		// semántica frente a una relación nula depende de la versión del ORM.
+		...(dto.trainer === "yes" && {
+			trainerProfile: { is: { archivedAt: null } },
+		}),
+		...(dto.trainer === "no" && {
+			NOT: { trainerProfile: { is: { archivedAt: null } } },
+		}),
 		// El filtro por dependencia usa el identificador público y se resuelve con la
 		// relación, sin una consulta previa. Se SUMA al alcance: si se pide una
 		// distinta de la propia, el `dependencyId` del alcance no casa y no sale nada.
@@ -142,6 +157,7 @@ export const createUserRepository = ({
 				orderBy: toOrderBy(filters),
 				skip: (page - 1) * pageSize,
 				take: pageSize,
+				include: WITH_TRAINER_PROFILE,
 			});
 			return users.map(toDomain);
 		},
@@ -154,22 +170,32 @@ export const createUserRepository = ({
 			// un documentId inexistente.
 			const user = await prisma.user.findFirst({
 				where: { documentId, ...scopeWhere(scope) },
+				include: WITH_TRAINER_PROFILE,
 			});
 			return user ? toDomain(user) : null;
 		},
 		async findByInternalId(userId: number) {
-			const user = await prisma.user.findUnique({ where: { id: userId } });
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+				include: WITH_TRAINER_PROFILE,
+			});
 			return user ? toDomain(user) : null;
 		},
 		async findByEmail(email: string) {
-			const user = await prisma.user.findUnique({ where: { email } });
+			const user = await prisma.user.findUnique({
+				where: { email },
+				include: WITH_TRAINER_PROFILE,
+			});
 			// Único método que conserva la contraseña: lo consume el login de `auth`
 			// para compararla. Pasa por el mapper igual que el resto.
 			return user ? toDomainWithPassword(user) : null;
 		},
 		async create(data: CreateUserData) {
 			try {
-				const user = await prisma.user.create({ data });
+				const user = await prisma.user.create({
+					data,
+					include: WITH_TRAINER_PROFILE,
+				});
 				return toDomain(user);
 			} catch (error) {
 				return translatePrismaError(error);
@@ -183,6 +209,7 @@ export const createUserRepository = ({
 				const user = await prisma.user.update({
 					where: writeWhere(documentId, scope),
 					data: dto,
+					include: WITH_TRAINER_PROFILE,
 				});
 				return toDomain(user);
 			} catch (error) {
@@ -198,6 +225,7 @@ export const createUserRepository = ({
 				const user = await prisma.user.update({
 					where: writeWhere(documentId, scope),
 					data: { photoUrl },
+					include: WITH_TRAINER_PROFILE,
 				});
 				return toDomain(user);
 			} catch (error) {
@@ -223,6 +251,7 @@ export const createUserRepository = ({
 				const user = await prisma.user.update({
 					where: writeWhere(documentId, scope),
 					data: { archivedAt: new Date() },
+					include: WITH_TRAINER_PROFILE,
 				});
 				return toDomain(user);
 			} catch (error) {
@@ -234,6 +263,7 @@ export const createUserRepository = ({
 				const user = await prisma.user.update({
 					where: writeWhere(documentId, scope),
 					data: { archivedAt: null },
+					include: WITH_TRAINER_PROFILE,
 				});
 				return toDomain(user);
 			} catch (error) {
@@ -278,6 +308,7 @@ export const createUserRepository = ({
 					const user = await tx.user.update({
 						where: { id: current.id },
 						data: { dependencyId: toDependencyId, role: nextRole },
+						include: WITH_TRAINER_PROFILE,
 					});
 
 					await tx.dependencyChange.create({

@@ -44,6 +44,8 @@ export const accessTokenPayloadSchema = v.object({
 	 * Es el id interno, como `userId`: no viaja al cliente en `SessionUser`.
 	 */
 	dependencyId: v.nullable(v.number()),
+	/** Perfil de capacitador activo. Se revoca el token al activarlo o desactivarlo. */
+	isTrainer: v.boolean(),
 });
 
 /**

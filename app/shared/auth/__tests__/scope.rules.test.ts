@@ -9,6 +9,7 @@ const authOf = (role: Role, dependencyId: number | null = 3): AuthContext => ({
 	email: "ana@empresa.com",
 	role,
 	dependencyId,
+	isTrainer: false,
 });
 
 describe("resolveScope", () => {

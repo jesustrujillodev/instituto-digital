@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
+import type { Role } from "@/shared/rules/atoms.rules";
 import type { NavItem } from "../navigation.types";
 import { filterNavigationByRole } from "../navigation.utils";
+
+/** Quien navega. Por defecto, sin perfil de capacitador. */
+const viewerOf = (role: Role, isTrainer = false) => ({ role, isTrainer });
 
 describe("filterNavigationByRole", () => {
 	// Sin `roles` el item es visible para cualquier sesión: el layout ya exigió
@@ -8,7 +12,7 @@ describe("filterNavigationByRole", () => {
 	test("keeps items that declare no roles", () => {
 		const items: NavItem[] = [{ label: "Inicio", path: "/dashboard" }];
 
-		expect(filterNavigationByRole(items, "USER")).toEqual(items);
+		expect(filterNavigationByRole(items, viewerOf("USER"))).toEqual(items);
 	});
 
 	test("drops an item whose roles exclude the current one", () => {
@@ -17,7 +21,7 @@ describe("filterNavigationByRole", () => {
 			{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] },
 		];
 
-		const result = filterNavigationByRole(items, "USER");
+		const result = filterNavigationByRole(items, viewerOf("USER"));
 
 		expect(result).toHaveLength(1);
 		expect(result[0].label).toBe("Inicio");
@@ -28,7 +32,7 @@ describe("filterNavigationByRole", () => {
 			{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] },
 		];
 
-		expect(filterNavigationByRole(items, "ADMIN")).toHaveLength(1);
+		expect(filterNavigationByRole(items, viewerOf("ADMIN"))).toHaveLength(1);
 	});
 
 	test("filters children recursively", () => {
@@ -43,7 +47,7 @@ describe("filterNavigationByRole", () => {
 			},
 		];
 
-		const result = filterNavigationByRole(items, "USER");
+		const result = filterNavigationByRole(items, viewerOf("USER"));
 
 		expect(result[0].children).toHaveLength(1);
 		expect(result[0].children?.[0].label).toBe("Perfil");
@@ -59,7 +63,7 @@ describe("filterNavigationByRole", () => {
 			},
 		];
 
-		expect(filterNavigationByRole(items, "USER")).toEqual([]);
+		expect(filterNavigationByRole(items, viewerOf("USER"))).toEqual([]);
 	});
 
 	// El otro lado del mismo criterio: si el contenedor SÍ navega a algún sitio,
@@ -73,7 +77,7 @@ describe("filterNavigationByRole", () => {
 			},
 		];
 
-		const result = filterNavigationByRole(items, "USER");
+		const result = filterNavigationByRole(items, viewerOf("USER"));
 
 		expect(result).toHaveLength(1);
 		expect(result[0].children).toEqual([]);
@@ -90,10 +94,45 @@ describe("filterNavigationByRole", () => {
 			},
 		];
 
-		expect(filterNavigationByRole(items, "USER")).toEqual([]);
+		expect(filterNavigationByRole(items, viewerOf("USER"))).toEqual([]);
+	});
+
+	// Es la condición que `roles` no sabe expresar: el catálogo de capacitadores
+	// lo consulta cualquiera con perfil, tenga el rol que tenga (§3 del alcance).
+	test("un item marcado `trainer` lo ve un participante con perfil", () => {
+		const items: NavItem[] = [
+			{
+				label: "Capacitadores",
+				path: "/capacitadores",
+				roles: ["SUPERADMIN"],
+				trainer: true,
+			},
+		];
+
+		expect(filterNavigationByRole(items, viewerOf("USER", true))).toEqual(
+			items,
+		);
+		expect(filterNavigationByRole(items, viewerOf("USER", false))).toEqual([]);
+	});
+
+	// Las dos condiciones se SUMAN: marcar `trainer` no le quita el item a quien
+	// ya lo tenía por su rol.
+	test("`trainer` no reemplaza a los roles declarados", () => {
+		const items: NavItem[] = [
+			{
+				label: "Capacitadores",
+				path: "/capacitadores",
+				roles: ["SUPERADMIN"],
+				trainer: true,
+			},
+		];
+
+		expect(filterNavigationByRole(items, viewerOf("SUPERADMIN"))).toEqual(
+			items,
+		);
 	});
 
 	test("an empty list stays empty", () => {
-		expect(filterNavigationByRole([], "ADMIN")).toEqual([]);
+		expect(filterNavigationByRole([], viewerOf("ADMIN"))).toEqual([]);
 	});
 });

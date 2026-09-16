@@ -72,5 +72,9 @@ export const USER_ERROR_MESSAGES: ErrorMessageMap = {
 	[USER_ERROR_CODES.HAS_RELATED_RECORDS]:
 		"No se puede eliminar: el usuario tiene registros asociados. Puedes dejarlo archivado.",
 	[USER_ERROR_CODES.INVALID_UPLOAD]: "La imagen seleccionada no es válida.",
+	// El alta de externos vive en el catálogo de capacitadores, que crea cuenta y
+	// perfil en la misma transacción: aquí no hay forma de cumplir §4 del alcance.
+	[USER_ERROR_CODES.EXTERNAL_REQUIRES_TRAINER]:
+		"Los capacitadores externos se registran desde el catálogo de capacitadores.",
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

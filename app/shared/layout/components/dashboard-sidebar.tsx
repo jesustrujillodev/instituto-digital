@@ -218,14 +218,19 @@ export function DashboardSidebar({ user }: { user: SessionUser }) {
 
 	// Filtrado por rol = SOLO UX. La autorización real la impone requireRole en
 	// el loader: navegar directo a una URL oculta sigue devolviendo 403.
+	const viewer = useMemo(
+		() => ({ role: user.role, isTrainer: user.isTrainer }),
+		[user.role, user.isTrainer],
+	);
+
 	const items = useMemo(
-		() => filterNavigationByRole(navigationConfig, user.role),
-		[user.role],
+		() => filterNavigationByRole(navigationConfig, viewer),
+		[viewer],
 	);
 
 	const footerItems = useMemo(
-		() => filterNavigationByRole(footerNavigationConfig, user.role),
-		[user.role],
+		() => filterNavigationByRole(footerNavigationConfig, viewer),
+		[viewer],
 	);
 
 	// `floating` es lo que distingue al bloque 04: la barra se despega del borde

@@ -29,5 +29,6 @@ export async function requireAuth(
 		email: payload.email,
 		role: payload.role,
 		dependencyId: payload.dependencyId,
+		isTrainer: payload.isTrainer,
 	};
 }

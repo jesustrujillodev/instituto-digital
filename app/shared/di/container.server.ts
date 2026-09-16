@@ -26,6 +26,8 @@ import { createSessionRepository } from "@/modules/auth/infrastructure/session.r
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createDependencyService } from "@/modules/dependencies/application/dependencies.service.server";
 import { createDependencyRepository } from "@/modules/dependencies/infrastructure/dependencies.repository.server";
+import { createGroupService } from "@/modules/groups/application/groups.service.server";
+import { createGroupRepository } from "@/modules/groups/infrastructure/groups.repository.server";
 import { createThemeService } from "@/modules/theme/application/theme.service.server";
 import {
 	THEME_CACHE_RETRY_S,
@@ -34,6 +36,8 @@ import {
 import { createCachedThemeRepository } from "@/modules/theme/infrastructure/theme.cache.server";
 import { createThemeRepository } from "@/modules/theme/infrastructure/theme.repository.server";
 import { createFileThemeSnapshot } from "@/modules/theme/infrastructure/theme.snapshot.server";
+import { createTrainerService } from "@/modules/trainers/application/trainers.service.server";
+import { createTrainerRepository } from "@/modules/trainers/infrastructure/trainers.repository.server";
 import { createUserService } from "@/modules/users/application/users.service.server";
 import { createUserPhotoReferenceSource } from "@/modules/users/infrastructure/user-photo.references.server";
 import { createUserRepository } from "@/modules/users/infrastructure/users.repository.server";
@@ -42,7 +46,7 @@ import { createConsoleLogger } from "@/shared/logging/logger.console";
 import { createMemoryRateLimiter } from "@/shared/rate-limit/rate-limiter.memory";
 import { createAssetUrlResolver } from "@/shared/storage/public-url";
 import { createStorageProviderFromEnv } from "@/shared/storage/storage.factory";
-import prisma from "../../core/db.server";
+import prisma, { runInTransaction } from "../../core/db.server";
 import type { ApiContext } from "../types";
 import type { ICradle } from "./container.types";
 
@@ -150,6 +154,7 @@ export const configureContainer = async (
 
 	freshContainer.register({
 		prisma: asValue(prisma),
+		runInTransaction: asValue(runInTransaction),
 		authConfig: asValue(authConfig),
 		env: asValue(env),
 		storageBucket: asValue(env.STORAGE_BUCKET_NAME ?? null),
@@ -170,6 +175,10 @@ export const configureContainer = async (
 		userService: asSingleton(createUserService),
 		dependencyRepository: asSingleton(createDependencyRepository),
 		dependencyService: asSingleton(createDependencyService),
+		trainerRepository: asSingleton(createTrainerRepository),
+		trainerService: asSingleton(createTrainerService),
+		groupRepository: asSingleton(createGroupRepository),
+		groupService: asSingleton(createGroupService),
 		// Una fuente por módulo que guarda keys de storage. Añadir un módulo con
 		// archivos = añadir su fuente aquí; el gestor de nube no cambia.
 		objectReferenceSources: asSingleton((cradle: ICradle) => [

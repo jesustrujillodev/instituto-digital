@@ -63,7 +63,7 @@ Los roles **se acumulan**. Por ejemplo, una misma persona puede ser auxiliar, ca
 | Activar o desactivar perfil de capacitador | ✔ | ✔ su dep. | ✔ su dep. | — | — |
 | Registrar capacitadores externos | ✔ | ✔ | ✔ | — | — |
 | Consultar catálogo de capacitadores | ✔ | ✔ | ✔ | ✔ | — |
-| Crear y administrar grupos | — | ✔ su dep. | ✔ su dep. | — | — |
+| Crear y administrar grupos | consulta | ✔ su dep. | ✔ su dep. | — | — |
 | Crear cursos | ✔ en cualquier dep. | ✔ su dep. | ✔ su dep. | ✔ interno, su dep. | — |
 | Editar, publicar y cancelar cursos | ✔ todos | ✔ cursos de su dep. | ✔ cursos de su dep. | ✔ los que creó | — |
 | Invitar o asignar participantes | ✔ | ✔ | ✔ | ✔ los que creó | — |
@@ -108,7 +108,7 @@ Sólo incluye los campos necesarios para el MVP. Todos los registros llevan `cre
 | **dependencia** | nombre, siglas, activa |
 | **usuario** | nombre completo, correo (único, es el login), tipo (interno / externo), **número de empleado (obligatorio y único para los internos)**, puesto (texto), dependencia_id (obligatoria si es interno), es_superadmin, activo |
 | **rol** | *No es una tabla.* El rol vive como columna de `usuario` (superadmin / titular / auxiliar / participante) junto a su `dependencia_id`. Un titular por dependencia activa lo garantiza un **índice único parcial** en la base, no la aplicación. Ver `docs/adr/0001-modelo-de-roles-y-alcance-por-dependencia.md`. |
-| **perfil_capacitador** | usuario_id (PK), especialidad (texto), institución (texto, para externos), teléfono, semblanza breve, activo |
+| **perfil_capacitador** | usuario_id (**PK y a la vez FK**: garantiza un perfil por persona), especialidad (texto), institución (texto, solo para externos), semblanza breve, archivado_en. El teléfono NO se duplica: es el de `usuario`. |
 | **cambio_dependencia** | usuario_id, dependencia_origen, dependencia_destino, fecha, hecho_por. Historial, sin aprobaciones ni solicitudes: el cambio ya ocurrió cuando se escribe la fila. |
 | **grupo** · **grupo_miembro** | dependencia_id, nombre, descripción · grupo_id, usuario_id |
 | **curso** | dependencia_id (organizadora), título, descripción, modalidad, acceso, cupo (opcional), fecha límite de inscripción (opcional), asistencia mínima % (80 por defecto), requiere_evaluacion, estado, creado_por, linea_plan_id (opcional) |
@@ -201,15 +201,17 @@ Lo único que sí hay que sostener desde ahora, porque cambiarlo después sí se
 > * Activación del perfil de capacitador para un usuario interno, capturando sus datos adicionales.
 > * Alta de capacitadores externos.
 > * Desactivación del perfil.
-> * Ficha del capacitador con cursos impartidos y valoración promedio. Ambos datos se calculan solos, sin captura.
+> * Ficha del capacitador con cursos impartidos y valoración promedio. Ambos datos se calculan solos, sin captura. Hasta que existan las tablas de cursos (PRD-03) y valoraciones (PRD-06), la ficha los muestra con su estado vacío en vez de un cero que mentiría.
 
 ### **6.4 · Grupos**
 
 > * Alta, edición y baja de grupos dentro de una dependencia.
-> * Se agregan miembros buscando por nombre o correo. Pueden ser usuarios internos de **cualquier** dependencia.
+> * Se agregan miembros buscando por nombre o correo. Son usuarios internos y activos **de la dependencia del grupo**.
 
 **Reglas**
 > * La pertenencia al grupo se evalúa al momento de ver el curso o inscribirse. Si alguien sale del grupo después de inscrito, su inscripción no se ve afectada.
+> * Quien cambia de dependencia después de haber entrado **no se retira del grupo**: la pertenencia se evalúa al usarla, no antes. La lista lo muestra con su dependencia actual.
+> * Un grupo es, por construcción, una lista de una sola dependencia. Para una audiencia mixta se usa el acceso **restringido a varias dependencias** de §6.5.
 
 ### **6.5 · Cursos y sesiones**
 

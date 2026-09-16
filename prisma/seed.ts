@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { env } from "@/core/env.server";
 import { THEME_PRESETS } from "@/modules/theme/domain/theme.config";
 import { seedOrganization } from "./seed-organization";
+import { seedTrainers } from "./seed-trainers";
 
 // Must use the PG adapter — plain new PrismaClient() is not valid in this project
 const adapter = new PrismaPg({
@@ -14,9 +15,13 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
 	console.log("🌱 Seeding database...");
 
-	// Clean existing test data (idempotent on re-runs). El orden lo fija la FK
-	// users.dependency_id, que es ON DELETE RESTRICT: las dependencias no se
-	// pueden borrar mientras quede alguien adscrito.
+	// Clean existing test data (idempotent on re-runs). El orden lo fijan dos FK
+	// ON DELETE RESTRICT: users.dependency_id y groups.dependency_id. Las
+	// dependencias no se pueden borrar mientras quede alguien adscrito ni ningún
+	// grupo colgando.
+	await prisma.groupMember.deleteMany({});
+	await prisma.group.deleteMany({});
+	await prisma.trainerProfile.deleteMany({});
 	await prisma.session.deleteMany({});
 	await prisma.user.deleteMany({});
 	await prisma.dependencyChange.deleteMany({});
@@ -55,6 +60,10 @@ async function main() {
 			dependencyId: organization.unassignedId,
 		},
 	});
+
+	// Va DESPUÉS de la organización: los perfiles y los grupos cuelgan de cuentas
+	// y dependencias que tienen que existir antes.
+	const trainers = await seedTrainers(prisma, password);
 
 	// Fila única del estado de seguridad. El adaptador LANZA si no existe —
 	// preferimos que un entorno mal sembrado falle a que se comporte como si
@@ -119,6 +128,19 @@ async function main() {
 	);
 	console.log(
 		"     carlos.sop@instituto.gob.mx / carlos.sds@instituto.gob.mx (auxiliares)",
+	);
+	console.log("✅ Capacitadores y grupos:");
+	console.log(
+		`   • ${trainers.profiles} perfiles internos (uno desactivado) y ${trainers.externals} externos`,
+	);
+	console.log(
+		"     carlos.sop@instituto.gob.mx (auxiliar Y capacitador — los roles se acumulan)",
+	);
+	console.log(
+		"     elena.torres@universidad.mx (externa, sin dependencia ni número de empleado)",
+	);
+	console.log(
+		`   • ${trainers.groups} grupos en Obras Públicas (uno con miembros, uno vacío)`,
 	);
 	console.log("✅ Cuentas de la plantilla:");
 	console.log(`   • ${admin.email} (ADMIN)  — password: Password123!`);

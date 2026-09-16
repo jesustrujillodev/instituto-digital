@@ -104,6 +104,7 @@ describe("accessTokenPayloadSchema", () => {
 		email: "ana@empresa.com",
 		role: "ADMIN",
 		dependencyId: null,
+		isTrainer: false,
 	};
 
 	test("accepts a valid payload", () => {
@@ -133,6 +134,7 @@ describe("verifiedAccessTokenPayloadSchema", () => {
 		email: "ana@empresa.com",
 		role: "USER",
 		dependencyId: 3,
+		isTrainer: false,
 		iat: 1_800_000_000,
 	};
 

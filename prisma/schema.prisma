@@ -70,7 +70,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions Session[]
+  sessions         Session[]
+  trainerProfile   TrainerProfile?
+  groupMemberships GroupMember[]
 
   // documentId y email son @unique — el índice lo crea la constraint;
   // no declarar @@index duplicados.
@@ -217,7 +219,8 @@ model Dependency {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  users User[]
+  users  User[]
+  groups Group[]
 
   @@map("dependencies")
   @@schema("org")
@@ -242,5 +245,57 @@ model DependencyChange {
 
   @@index([userId, createdAt])
   @@map("dependency_changes")
+  @@schema("org")
+}
+
+model TrainerProfile {
+  userId Int  @id @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  specialty   String
+  institution String?
+  bio         String?
+
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([archivedAt])
+  @@map("trainer_profiles")
+  @@schema("org")
+}
+
+model Group {
+  id           Int        @id @default(autoincrement())
+  documentId   String     @unique @default(uuid()) @db.Uuid
+  dependencyId Int        @map("dependency_id")
+  dependency   Dependency @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  name        String
+  description String?
+
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  members GroupMember[]
+
+  @@index([dependencyId, archivedAt])
+  @@map("groups")
+  @@schema("org")
+}
+
+model GroupMember {
+  groupId   Int      @map("group_id")
+  userId    Int      @map("user_id")
+  addedById Int      @map("added_by_id")
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+  @@map("group_members")
   @@schema("org")
 }

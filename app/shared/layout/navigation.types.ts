@@ -8,5 +8,14 @@ export interface NavItem {
 	readonly icon?: LucideIcon;
 	/** Ausente ⇒ visible para cualquier rol autenticado (el layout ya exige sesión). */
 	readonly roles?: readonly Role[];
+	/**
+	 * Visible ADEMÁS para quien tenga perfil de capacitador activo.
+	 *
+	 * Existe porque el catálogo de capacitadores es la primera pantalla cuya
+	 * condición de entrada no se expresa con una lista de roles: sin esto, un
+	 * participante con perfil no vería el enlace a una pantalla a la que sí
+	 * entra, que es peor que no tenerla.
+	 */
+	readonly trainer?: boolean;
 	readonly children?: readonly NavItem[];
 }

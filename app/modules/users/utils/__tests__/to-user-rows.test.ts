@@ -15,6 +15,7 @@ const userOf = (overrides: Partial<SafeUser> = {}): SafeUser => ({
 	employeeNumber: null,
 	jobTitle: null,
 	dependencyId: null,
+	isTrainer: false,
 	archivedAt: null,
 	createdAt: new Date("2026-01-01T00:00:00.000Z"),
 	updatedAt: new Date("2026-01-01T00:00:00.000Z"),

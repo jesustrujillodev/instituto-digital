@@ -57,11 +57,22 @@ export function StatusBadge({
 	);
 }
 
-/** Interno o externo. El externo llega en PRD-02 con el capacitador externo. */
+/** Interno (personal del Ayuntamiento) o externo (capacitador de fuera). */
 export function UserTypeBadge({ type }: { type: "INTERNAL" | "EXTERNAL" }) {
 	return (
 		<Badge variant="outline">
 			{type === "INTERNAL" ? "Interno" : "Externo"}
 		</Badge>
 	);
+}
+
+/**
+ * Perfil de capacitador activo.
+ *
+ * Se suma al rol en vez de sustituirlo: §3 del alcance exige que los roles se
+ * acumulen —alguien es auxiliar y capacitador a la vez— y por eso el perfil no
+ * entra en la tupla `ROLES`.
+ */
+export function TrainerBadge({ isTrainer }: { isTrainer: boolean }) {
+	return isTrainer ? <Badge variant="secondary">Capacitador</Badge> : null;
 }

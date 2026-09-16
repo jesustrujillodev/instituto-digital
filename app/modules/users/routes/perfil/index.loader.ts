@@ -40,7 +40,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 		dependencies: options.success ? options.data : [],
 		// El titular no puede cambiarse mientras lo sea: la pantalla lo explica en
 		// vez de esconder el control, para que se sepa qué hay que hacer antes.
-		canChangeDependency: canChangeOwnDependency(auth.role),
+		canChangeDependency: canChangeOwnDependency(auth.role, user.type),
 		history: history.success ? history.data : [],
 	});
 };

@@ -1,6 +1,6 @@
 # Inventario de tests
 
-Estado de la suite al 15 de septiembre de 2026. **128 archivos, 1703 tests, todos
+Estado de la suite al 15 de septiembre de 2026. **159 archivos, 1884 tests, todos
 en verde.** El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
 `vitest.config.ts` con entorno `node`, resolución de alias vía
 `vite-tsconfig-paths` y descubrimiento sobre `app/**/__tests__/**/*.test.{ts,tsx}`.
@@ -61,13 +61,15 @@ que queda fuera está listado como hueco al final de este documento.
 |---|---:|---:|---|
 | [Auth](#auth) | 23 | 274 | dominio, aplicación, infraestructura, rutas, utilidades |
 | [Theme](#theme) | 13 | 360 | dominio, aplicación, infraestructura, rutas, utilidades |
-| [Users](#users) | 20 | 255 | dominio, aplicación, rutas, utilidades |
+| [Users](#users) | 20 | 258 | dominio, aplicación, rutas, utilidades |
 | [Dependencies](#dependencies) | 17 | 159 | dominio, aplicación, infraestructura, rutas, utilidades |
+| [Trainers](#trainers) | 16 | 100 | dominio, aplicación, rutas, utilidades |
+| [Groups](#groups) | 14 | 74 | dominio, aplicación, rutas, utilidades |
 | [Cloud](#cloud) | 7 | 88 | dominio, aplicación, rutas, utilidades |
-| [Shared](#shared) | 41 | 482 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
+| [Shared](#shared) | 42 | 486 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
 | [Core](#core) | 2 | 35 | entorno y cookies |
 | [Lib](#lib) | 5 | 50 | utilidades puras |
-| **Total** | **128** | **1703** | |
+| **Total** | **159** | **1884** | |
 
 La distribución sigue reflejando la prioridad del proyecto: la superficie de
 seguridad (epoch de validez, lockdown, rotación del refresh, autorización por
@@ -300,6 +302,126 @@ tranquilizadora.
 | `to-dependency-rows.test.ts` | 7 | El id numérico se **sustituye** por `documentId`: la PK interna no viaja al cliente. |
 | `parse-dependency-form-data.test.ts` | 6 | Descarta los campos vacíos: para un campo opcional "" es ausencia, no valor. |
 | `build-dependency-form-defaults.test.ts` | 4 | Ningún campo queda `undefined`, o `isDirty` dejaría de ser fiable y el aviso de cambios sin guardar con él. |
+
+---
+
+## Trainers
+
+Catálogo de capacitadores (PRD-02). Lo que estas pruebas protegen es la excepción
+del módulo: **es la única lista sin recorte por dependencia**, y a cambio sus
+mutaciones sí llevan alcance.
+
+### `domain/__tests__/` — 45 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `trainer.access.test.ts` | 9 | Que `canViewCatalog` deje pasar a un participante **con perfil** y corte a uno sin él —la condición que `requireRole` no sabe expresar—, y que sobre un externo mande el rol y no el alcance, porque no pertenece a ninguna dependencia. |
+| `trainer.rules.test.ts` | 17 | Que la especialidad sea obligatoria, que la institución solo exista para externos, que la regla de activación no declare institución y que la de alta externa no declare dependencia ni número de empleado —el CHECK los prohíbe—. Y la allowlist de orden, que acaba en un `orderBy`. |
+| `trainer.errors.test.ts` | 2 | El `code` estable de cada error y que todos desciendan de `DomainError`, que es lo que deja viajar el código en el envelope. |
+| `trainer.mapper.test.ts` | 3 | Que el join se aplane en la frontera y que un externo salga sin dependencia, con su institución en su lugar. |
+| `trainer.validators.test.ts` | 2 | Que devuelvan el dto parseado y que lancen `ValiError` para que `parseInput` lo convierta en la rama de validación. |
+| `trainer.config.test.ts` | 2 | Los defaults de paginación y que los contadores pendientes nazcan vacíos (`0` / `null`), no inventados. |
+
+### `application/__tests__/` — 20 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `trainers.service.server.test.ts` | 20 | Que `list` **no reciba ningún `AccessScope`**; que activar y desactivar revoquen los tokens y que un fallo al revocar no tumbe la operación; que un titular no active el perfil fuera de su dependencia y sí sobre un externo; que `createExternal` corra dentro de `runInTransaction` y **no cree la cuenta si el perfil falla**; y que el choque de correo se traduzca al código del catálogo. |
+
+### `routes/**/__tests__/` — 26 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `capacitadores/index.loader.test.ts` | 12 | Que un participante con perfil entre y uno sin él reciba 403; que el modo consulta no pida candidatos; y que los candidatos de activación lleguen acotados al alcance del actor. |
+| `capacitadores/index.action.test.ts` | 7 | Que el guard del action sea **por rol** aunque el del loader no lo sea: ver el catálogo y modificarlo son permisos distintos. |
+| `nuevo/index.action.test.ts` | 4 | Que sin institución no se llegue al servicio y que el correo duplicado vuelva marcando su campo. |
+| `$documentId.editar/index.loader.test.ts` | 4 | Que la ficha exija rol de gestión y valide el parámetro de la URL antes de consultar. |
+| `$documentId.editar/index.action.test.ts` | 5 | Que la incoherencia de institución vuelva al campo y que un documentId inválido no llegue al servicio. |
+
+### `utils/__tests__/` — 9 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `to-trainer-rows.test.ts` | 4 | Que la fila se identifique por el `documentId` de la **cuenta** —el perfil no tiene uno propio— y que la procedencia sea la dependencia o la institución según el tipo. |
+| `trainer-error-messages.test.ts` | 3 | Que el diccionario cubra todos los códigos del módulo y tenga su entrada de reserva. |
+| `build-trainer-form-defaults.test.ts` | 2 | Que ningún campo quede `undefined`, que es lo que hace fiable a `isDirty`. |
+
+---
+
+## Groups
+
+Listas nominales por dependencia (PRD-02). Lo que estas pruebas protegen es la
+regla central del módulo: **los candidatos se filtran por la dependencia DEL
+GRUPO, nunca por la de quien administra**.
+
+### `domain/__tests__/` — 24 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `group.access.test.ts` | 6 | Que `self` y `none` den un predicado imposible al leer y `null` al escribir —jamás `{}`, que sería acceso a todo— y que solo el alcance de dependencia pueda escribir. |
+| `group.rules.test.ts` | 10 | Que el nombre se recorte antes de validarse, que la regla de creación **no declare dependencia** —la pone el alcance— y que un lote de miembros vacío no pase. |
+| `group.errors.test.ts` | 2 | El `code` estable de cada error y su herencia de `DomainError`. |
+| `group.validators.test.ts` | 2 | Que devuelvan el dto parseado y que lancen cuando el dato no cumple. |
+| `group.mapper.test.ts` | 2 | Que el conteo de miembros y el nombre de la dependencia se aplanen en la frontera. |
+| `group.config.test.ts` | 2 | Los defaults de paginación y el tope del selector de miembros. |
+
+### `application/__tests__/` — 15 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `groups.service.server.test.ts` | 15 | Que `findAll` y `count` reciban **el mismo alcance**; que un alcance global lea y **no escriba** —es el superadministrador—; que la dependencia del grupo salga del alcance y no del dto; que una dependencia archivada no admita grupos nuevos; y que `addMembers` consulte la elegibilidad contra la dependencia del GRUPO y **rechace el lote entero** si alguna cuenta no cumple. |
+
+### `routes/**/__tests__/` — 23 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `grupos/index.loader.test.ts` | 11 | Que el alcance llegue al servicio, que el superadministrador entre en modo consulta y que un titular sin dependencia se traduzca a `{kind:"none"}` sin administrar nada. |
+| `grupos/index.action.test.ts` | 4 | Que un alcance que no administra vuelva con la copia del módulo y no con un 403: el corte lo da el servicio, no el guard. |
+| `$documentId.editar/index.action.test.ts` | 8 | Que el alta mande **todos** los identificadores del envío —quedarse con el último dejaría el grupo con un solo miembro sin avisar— y que el nombre duplicado vuelva marcando su campo. |
+
+### `utils/__tests__/` — 12 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `parse-group-form-data.test.ts` | 4 | Que conserve **todas** las claves repetidas, que es lo que distingue a este parser del de los demás módulos. |
+| `to-group-rows.test.ts` | 3 | Que la fila se identifique por `documentId` y que el nombre de un miembro caiga a su correo. |
+| `group-error-messages.test.ts` | 3 | Cobertura de códigos y entrada de reserva. |
+| `build-group-form-defaults.test.ts` | 2 | Que ningún campo quede `undefined`. |
+
+---
+
+## Cloud
+
+Gestor de nube (`/dashboard/nube`). Lo que estas pruebas protegen es que el
+árbol unificado sobre **dos buckets** no confunda uno con otro, y que el borrado
+en cascada suelte la referencia en la base **antes** de tocar ningún objeto.
+
+### `domain/__tests__/` — 37 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `cloud.paths.test.ts` | 20 | Las migas de la raíz a la carpeta actual, la carpeta común de una selección —y que un segmento que solo *empieza* igual no cuente como común— y que el cursor compuesto conserve el token de cada bucket en la ida y la vuelta. |
+| `cloud.rules.test.ts` | 17 | Que una carpeta acabe en `/`, que **el path traversal se rechace**, que la raíz no se pueda seleccionar como carpeta y que el lote tenga tope. |
+
+### `application/__tests__/` — 22 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `cloud.service.server.test.ts` | 22 | Que la raíz fusione los dos buckets sin colar lo que está en el equivocado; que un cursor inventado sea un error tipado y no un 500; que un ZIP demasiado grande se rechace **antes de firmar nada**; que el borrado suelte la referencia en la base y solo después borre en cada bucket —**si soltarla falla, no se borra ningún objeto**—; y que sea huérfano solo lo que no tiene referencia y ya pasó la ventana de gracia. |
+
+### `routes/**/__tests__/` — 14 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `nube/index.loader.test.ts` | 6 | Que un rol insuficiente corte con 403 **antes de listar**, que una ruta con `..` sea un 400 y no un listado, y que sin storage configurado se pinte la pantalla vacía en vez de un error. |
+| `nube/index.action.test.ts` | 8 | Que una selección con la raíz o con `..` no llegue al servicio, que el borrado pase quién borra, y que los fallos salgan con copia de usuario y su código. |
+
+### `utils/__tests__/` — 15 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `cloud-format.test.ts` | 7 | La escala de `formatBytes` de bytes a gigabytes, y que el plural elija forma por la cantidad. |
+| `to-cloud-rows.test.ts` | 8 | Que las carpetas vayan primero y sin duplicados entre páginas, que la ruta se codifique, y que la frase de confirmación pida el nombre de la carpeta cuando hay una sola. |
 
 ---
 

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { createContext } from "react-router";
+import type { RunInTransaction } from "@/core/db.server";
 import type { Env } from "@/core/env.server";
 import type { AuthConfig } from "@/modules/auth/domain/auth.config";
 import type { AuthService } from "@/modules/auth/domain/auth.service";
@@ -13,8 +14,12 @@ import type { TokenService } from "@/modules/auth/domain/token.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
 import type { IDependencyRepository } from "@/modules/dependencies/domain/dependency.repository";
 import type { IDependencyService } from "@/modules/dependencies/domain/dependency.service";
+import type { IGroupRepository } from "@/modules/groups/domain/group.repository";
+import type { IGroupService } from "@/modules/groups/domain/group.service";
 import type { IThemeRepository } from "@/modules/theme/domain/theme.repository";
 import type { IThemeService } from "@/modules/theme/domain/theme.service";
+import type { ITrainerRepository } from "@/modules/trainers/domain/trainer.repository";
+import type { ITrainerService } from "@/modules/trainers/domain/trainer.service";
 import type { IUserRepository } from "@/modules/users/domain/user.repository";
 import type { IUserService } from "@/modules/users/domain/user.service";
 import type { SingleFlight } from "@/shared/concurrency/single-flight";
@@ -26,6 +31,8 @@ import type { IStorageProvider } from "@/shared/storage/storage.port";
 
 export interface ICradle {
 	prisma: PrismaClient;
+	/** Frontera transaccional ambiental: los repositorios que reciben `prisma` entran sin saberlo. */
+	runInTransaction: RunInTransaction;
 	authConfig: AuthConfig;
 	// Entorno YA validado. Se resuelve por el cradle y nunca por import directo:
 	// un adaptador que importa `env` no se puede ejercitar sin el .env real.
@@ -64,6 +71,10 @@ export interface ICradle {
 	userService: IUserService;
 	dependencyRepository: IDependencyRepository;
 	dependencyService: IDependencyService;
+	trainerRepository: ITrainerRepository;
+	trainerService: ITrainerService;
+	groupRepository: IGroupRepository;
+	groupService: IGroupService;
 	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo
 	// resuelve en TODA petición, así que `resolve` evita bajar a la base salvo en
 	// el caso de dispositivo nuevo (docs/theme/00-modo-oscuro.md).

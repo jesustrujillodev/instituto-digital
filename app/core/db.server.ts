@@ -60,3 +60,5 @@ export default prisma;
 export { prisma };
 
 export type PrismaClientType = typeof prisma;
+
+export type RunInTransaction = typeof runInTransaction;

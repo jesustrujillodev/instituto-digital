@@ -14,6 +14,7 @@ const PAYLOAD: VerifiedAccessTokenPayload = {
 	email: "ana@empresa.com",
 	role: "USER",
 	dependencyId: 3,
+	isTrainer: false,
 	iat: 1_800_000_000,
 };
 

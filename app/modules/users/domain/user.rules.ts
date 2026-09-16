@@ -62,11 +62,17 @@ export const userSchema = v.object({
 	// porque el refresh relee al usuario por aquí para volver a firmar el claim:
 	// si el mapper lo descartara, cada rotación emitiría un token sin dependencia.
 	dependencyId: v.nullable(v.number()),
+	/** Derivado de `trainer_profiles`, no es columna. Lo arma el mapper. */
+	isTrainer: v.boolean(),
 	// Soft-delete: null = activo, fecha = instante en que se archivó.
 	archivedAt: v.nullable(v.date()),
 	createdAt: v.date(),
 	updatedAt: v.date(),
 });
+
+/** Filtro por perfil de capacitador. Llega del query string, de ahí el picklist. */
+export const USER_TRAINER_FILTERS = ["yes", "no"] as const;
+export type UserTrainerFilter = (typeof USER_TRAINER_FILTERS)[number];
 
 /** Estados por los que se puede filtrar el listado. Sin valor ⇒ "active". */
 export const USER_STATUSES = ["active", "archived", "all"] as const;
@@ -222,6 +228,7 @@ export const listUsersRule = createListRule({
 	 */
 	dependency: v.optional(dependencyDocumentId),
 	type: v.optional(v.picklist(USER_TYPES)),
+	trainer: v.optional(v.picklist(USER_TRAINER_FILTERS)),
 	status: v.optional(v.picklist(USER_STATUSES)),
 	sortBy: v.optional(v.picklist(USER_SORT_FIELDS)),
 	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),

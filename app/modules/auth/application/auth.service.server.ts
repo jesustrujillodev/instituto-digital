@@ -66,6 +66,7 @@ export const createAuthService = ({
 			email: string;
 			role: string;
 			dependencyId: number | null;
+			isTrainer: boolean;
 		},
 		userId: number,
 	): AccessTokenPayload =>
@@ -76,6 +77,7 @@ export const createAuthService = ({
 			email: user.email,
 			role: user.role,
 			dependencyId: user.dependencyId,
+			isTrainer: user.isTrainer,
 		});
 
 	// ── Login ────────────────────────────────────────────────────────────────────

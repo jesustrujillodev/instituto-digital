@@ -24,6 +24,7 @@ const PAYLOAD: AccessTokenPayload = {
 	email: "ana@empresa.com",
 	role: "ADMIN",
 	dependencyId: null,
+	isTrainer: false,
 };
 
 afterEach(() => {
@@ -164,6 +165,7 @@ describe("createTokenService — sign and verify", () => {
 			"email",
 			"exp",
 			"iat",
+			"isTrainer",
 			"iss",
 			"role",
 			"sub",

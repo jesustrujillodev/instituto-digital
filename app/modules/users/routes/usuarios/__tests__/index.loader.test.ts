@@ -164,6 +164,7 @@ describe("usuarios loader — respuesta", () => {
 			role: "",
 			dependency: "",
 			type: "",
+			trainer: "",
 			status: "active",
 			sortBy: "createdAt",
 			sortDir: "desc",

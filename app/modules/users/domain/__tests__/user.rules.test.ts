@@ -84,6 +84,7 @@ describe("userSchema / safeUserSchema", () => {
 		employeeNumber: "EMP-0007",
 		jobTitle: null,
 		dependencyId: 3,
+		isTrainer: false,
 		archivedAt: null,
 		createdAt: new Date(0),
 		updatedAt: new Date(0),

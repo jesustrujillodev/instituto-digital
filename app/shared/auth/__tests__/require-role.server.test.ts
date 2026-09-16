@@ -19,6 +19,7 @@ const payloadOf = (role: Role): VerifiedAccessTokenPayload => ({
 	email: "ana@empresa.com",
 	role,
 	dependencyId: 3,
+	isTrainer: false,
 	iat: 1_800_000_000,
 });
 

@@ -1,10 +1,12 @@
 import {
 	Building2,
 	Cloud,
+	GraduationCap,
 	LayoutDashboard,
 	MonitorSmartphone,
 	Palette,
 	Users,
+	UsersRound,
 } from "lucide-react";
 import type { NavItem } from "./navigation.types";
 
@@ -12,6 +14,8 @@ import type { NavItem } from "./navigation.types";
  * Navegación declarativa del dashboard.
  *
  * `roles` está tipado como `readonly Role[]`: un rol inexistente NO compila.
+ * `trainer` marca los items que además ve cualquier capacitador; es la única
+ * condición de este menú que no se expresa con roles.
  *
  * Esto es UX, no seguridad — ocultar un enlace no protege nada. La autorización
  * real la impone `requireRole` en el loader de cada ruta, así que un usuario que
@@ -47,6 +51,23 @@ export const navigationConfig: readonly NavItem[] = [
 		path: "/dashboard/usuarios",
 		icon: Users,
 		roles: ["ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
+	},
+	{
+		// `trainer` no es un rol: el catálogo es global y lo consulta también
+		// cualquier capacitador, tenga el rol que tenga (§3 del alcance).
+		label: "Capacitadores",
+		path: "/dashboard/capacitadores",
+		icon: GraduationCap,
+		roles: ["ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
+		trainer: true,
+	},
+	{
+		// El superadministrador entra a consultar: en PRD-03 elegirá audiencias de
+		// cualquier dependencia. Administrar sigue siendo del titular y el auxiliar.
+		label: "Grupos",
+		path: "/dashboard/grupos",
+		icon: UsersRound,
+		roles: ["SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
 	},
 ];
 

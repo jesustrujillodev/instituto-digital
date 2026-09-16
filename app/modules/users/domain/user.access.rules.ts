@@ -1,6 +1,7 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { type AccessScope, resolveScope } from "@/shared/auth/scope.rules";
 import { ROLES, type Role } from "@/shared/rules/atoms.rules";
+import type { UserType } from "./user.rules";
 import type { SafeUser } from "./user.types";
 
 /**
@@ -197,9 +198,15 @@ export const canManageUser = (
  *
  * El auxiliar sí puede: pierde el rol al salir, y eso lo resuelve
  * `roleAfterDependencyChange`.
+ *
+ * Un externo tampoco, y no por su rol —es `USER`, el que sí puede— sino por su
+ * tipo: no pertenece a ninguna dependencia y el CHECK `users_type_coherence` le
+ * prohíbe tener una.
  */
-export const canChangeOwnDependency = (actorRole: Role): boolean =>
-	actorRole !== "DEPENDENCY_HEAD";
+export const canChangeOwnDependency = (
+	actorRole: Role,
+	actorType: UserType,
+): boolean => actorType === "INTERNAL" && actorRole !== "DEPENDENCY_HEAD";
 
 /**
  * Rol que le queda a quien cambia de dependencia.

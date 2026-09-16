@@ -38,6 +38,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 		// aplica igual, así que pedir otra dependencia no devuelve nada.
 		dependency: searchParams.get("dependency") || undefined,
 		type: searchParams.get("type") || undefined,
+		trainer: searchParams.get("trainer") || undefined,
 		status: searchParams.get("status") || undefined,
 		// El orden también es del servidor: con paginación, ordenar en el cliente
 		// solo reordenaría la página visible y mentiría sobre el conjunto.
@@ -80,6 +81,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 				role: filters.role ?? "",
 				dependency: filters.dependency ?? "",
 				type: filters.type ?? "",
+				trainer: filters.trainer ?? "",
 				status: filters.status ?? "active",
 				sortBy: filters.sortBy ?? "createdAt",
 				sortDir: filters.sortDir ?? "desc",

@@ -22,6 +22,7 @@ const failOf = (code: string) => ({
 const createHarness = (
 	options: {
 		role?: Role | null;
+		type?: "INTERNAL" | "EXTERNAL";
 		dependencyId?: number | null;
 		findFails?: string;
 		dependencyFails?: boolean;
@@ -57,6 +58,7 @@ const createHarness = (
 							firstName: "Ana",
 							lastName: "Ruiz",
 							role: options.role ?? "USER",
+							type: options.type ?? "INTERNAL",
 							employeeNumber: "EMP-0007",
 							jobTitle: "Coordinadora",
 							dependencyId,
@@ -164,6 +166,16 @@ describe("perfil loader — datos", () => {
 		);
 
 		expect(result.success && result.data.canChangeDependency).toBe(true);
+	});
+
+	// No por su rol —es `USER`, el que sí puede— sino por su tipo: no pertenece a
+	// ninguna dependencia y el CHECK `users_type_coherence` le prohíbe tener una.
+	test("un capacitador externo no puede cambiar de dependencia", async () => {
+		const result = await run(
+			createHarness({ role: "USER", type: "EXTERNAL" }).context,
+		);
+
+		expect(result.success && result.data.canChangeDependency).toBe(false);
 	});
 
 	test("una cuenta que no se alcanza corta con 404", async () => {

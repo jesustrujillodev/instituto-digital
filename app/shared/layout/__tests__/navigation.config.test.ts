@@ -8,8 +8,8 @@ import { filterNavigationByRole } from "../navigation.utils";
 const flatten = (items: readonly NavItem[]): NavItem[] =>
 	items.flatMap((item) => [item, ...flatten(item.children ?? [])]);
 
-const pathsFor = (items: readonly NavItem[], role: Role) =>
-	flatten(filterNavigationByRole(items, role))
+const pathsFor = (items: readonly NavItem[], role: Role, isTrainer = false) =>
+	flatten(filterNavigationByRole(items, { role, isTrainer }))
 		.map((item) => item.path)
 		.filter(Boolean);
 

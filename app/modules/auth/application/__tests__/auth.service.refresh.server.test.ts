@@ -71,6 +71,7 @@ const createHarness = (
 			email: string;
 			role: string;
 			dependencyId: number | null;
+			isTrainer?: boolean;
 			archivedAt?: Date | null;
 		} | null;
 		rotateOutcomes?: RotateOutcome[];
@@ -118,6 +119,7 @@ const createHarness = (
 						email: "ana@empresa.com",
 						role: "USER",
 						dependencyId: 3,
+						isTrainer: false,
 						archivedAt: null,
 					}
 				: options.user,
@@ -230,6 +232,7 @@ describe("createAuthService — normal rotation", () => {
 				email: "ana@empresa.com",
 				role: "ADMIN",
 				dependencyId: null,
+				isTrainer: false,
 			},
 		});
 
@@ -408,6 +411,7 @@ describe("createAuthService — lockdown except-admin during refresh", () => {
 		email: "ana@empresa.com",
 		role,
 		dependencyId: 3,
+		isTrainer: false,
 	});
 
 	// El alcance `all` corta al principio de `refresh`, antes del single-flight.
@@ -487,6 +491,7 @@ describe("createAuthService — cuenta archivada durante el refresh", () => {
 		email: "ana@empresa.com",
 		role: "USER",
 		dependencyId: 3,
+		isTrainer: false,
 		archivedAt: new Date(),
 	};
 

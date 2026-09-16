@@ -15,6 +15,7 @@ const baseUser: SafeUser = {
 	employeeNumber: "EMP-0007",
 	jobTitle: "Coordinadora",
 	dependencyId: 3,
+	isTrainer: false,
 	archivedAt: null,
 	createdAt: new Date("2026-01-01T10:00:00Z"),
 	updatedAt: new Date("2026-01-02T10:00:00Z"),

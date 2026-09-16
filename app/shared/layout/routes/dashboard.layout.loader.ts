@@ -38,6 +38,7 @@ export const loader = async ({
 			documentId: auth.documentId,
 			email: auth.email,
 			role: auth.role,
+			isTrainer: auth.isTrainer,
 		},
 		securityState,
 	});

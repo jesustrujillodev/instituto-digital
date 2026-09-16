@@ -6,11 +6,13 @@ import {
 import { cloudAdminRoutes } from "./modules/cloud/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
 import { dependenciesRoutes } from "./modules/dependencies/routes/routes.config";
+import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
 import {
 	themeAdminRoutes,
 	themeRoutes,
 } from "./modules/theme/routes/routes.config";
+import { trainersRoutes } from "./modules/trainers/routes/routes.config";
 import { usersRoutes } from "./modules/users/routes/routes.config";
 import { DASHBOARD_LAYOUT_ID } from "./shared/layout/layout.constants";
 import { storageRoutes } from "./shared/storage/routes.config";
@@ -42,6 +44,8 @@ export default [
 					...dashboardRoutes, // /dashboard
 					...dependenciesRoutes, // /dashboard/dependencias  (SUPERADMIN)
 					...usersRoutes, // /dashboard/usuarios  (gestión con alcance)
+					...trainersRoutes, // /dashboard/capacitadores  (catálogo global)
+					...groupsRoutes, // /dashboard/grupos  (alcance por dependencia)
 					...cloudAdminRoutes, // /dashboard/nube  (ADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (ADMIN)
 					...themeAdminRoutes, // /dashboard/personalizacion  (ADMIN)

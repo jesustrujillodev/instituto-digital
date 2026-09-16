@@ -54,6 +54,7 @@ const createHarness = (
 			password: "hashed",
 			role,
 			dependencyId: null,
+			isTrainer: false,
 		}),
 		findByInternalId: async () => ({
 			id: 1,
@@ -61,6 +62,7 @@ const createHarness = (
 			email: "admin@test.com",
 			role,
 			dependencyId: null,
+			isTrainer: false,
 		}),
 	} as unknown as ICradle["userRepository"];
 

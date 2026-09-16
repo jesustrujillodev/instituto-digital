@@ -26,6 +26,7 @@ export const USER_ERROR_CODES = {
 	NOT_ARCHIVED: "USER_NOT_ARCHIVED",
 	HAS_RELATED_RECORDS: "USER_HAS_RELATED_RECORDS",
 	INVALID_UPLOAD: "INVALID_UPLOAD",
+	EXTERNAL_REQUIRES_TRAINER: "EXTERNAL_REQUIRES_TRAINER_PROFILE",
 } as const;
 
 /**
@@ -175,5 +176,19 @@ export class InvalidUploadError extends UserError {
 	constructor(reason: string) {
 		super(`Invalid upload: ${reason}`);
 		this.details = { reason };
+	}
+}
+
+/**
+ * Una cuenta externa no se da de alta desde aquí.
+ *
+ * §4 del alcance exige que todo externo tenga perfil de capacitador, y esa
+ * invariante cruza dos tablas, así que la base no puede imponerla: la sostienen
+ * los dos únicos caminos que escriben `type`, y este es el que dice que no.
+ */
+export class ExternalUserRequiresTrainerProfileError extends UserError {
+	readonly code = USER_ERROR_CODES.EXTERNAL_REQUIRES_TRAINER;
+	constructor() {
+		super("External accounts are created from the trainer catalog");
 	}
 }

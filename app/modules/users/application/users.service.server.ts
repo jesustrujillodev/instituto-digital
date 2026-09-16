@@ -18,6 +18,7 @@ import {
 import { USER_LIST_DEFAULTS, USER_PHOTO } from "../domain/user.config";
 import {
 	EmployeeNumberRequiredError,
+	ExternalUserRequiresTrainerProfileError,
 	ForbiddenScopeError,
 	HeadCannotLeaveDependencyError,
 	InvalidCurrentPasswordError,
@@ -167,12 +168,19 @@ export const createUserService = ({
 				// regla de negocio y el formulario se puede enviar a mano.
 				if (!canAssignRole(actor.role, role)) throw new ForbiddenScopeError();
 
-				const isInternal = dto.type !== "EXTERNAL";
+				// Todo externo tiene perfil de capacitador (§4 del alcance), y esa
+				// invariante cruza dos tablas: la base no puede imponerla. La sostienen
+				// los dos únicos caminos que escriben `type`, y este es el que dice que
+				// no — el alta de externos vive en el catálogo de capacitadores, que
+				// crea cuenta y perfil en la misma transacción.
+				if (dto.type === "EXTERNAL") {
+					throw new ExternalUserRequiresTrainerProfileError();
+				}
 
 				// La regla de valibot ya lo exige en la frontera; esto cubre la escritura
 				// que no pasa por un formulario antes de que el CHECK de la base la
 				// rechace con un error sin código de dominio.
-				if (isInternal && !dto.employeeNumber) {
+				if (!dto.employeeNumber) {
 					throw new EmployeeNumberRequiredError();
 				}
 
@@ -186,9 +194,9 @@ export const createUserService = ({
 							return scope.dependencyId;
 						case "global": {
 							// El superadministrador es el único interno exento, porque su
-							// alcance no es una dependencia. Los externos llegan en PRD-02.
+							// alcance no es una dependencia.
 							if (!dto.dependency) {
-								if (role === "SUPERADMIN" || !isInternal) return null;
+								if (role === "SUPERADMIN") return null;
 								throw new UserDependencyNotFoundError();
 							}
 							return (await resolveTargetDependency(dto.dependency)).id;
@@ -376,7 +384,7 @@ export const createUserService = ({
 					// Autoservicio: sin aprobación, pero el titular no puede irse mientras
 					// lo sea (regla 6). Dejaría su dependencia sin quien la administre, y
 					// el índice único parcial le impediría ser titular de la nueva.
-					if (!canChangeOwnDependency(actor.role)) {
+					if (!canChangeOwnDependency(actor.role, user.type)) {
 						throw new HeadCannotLeaveDependencyError();
 					}
 				} else {

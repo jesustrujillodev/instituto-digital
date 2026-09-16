@@ -22,6 +22,7 @@ const payloadOf = (
 	email: "ana@empresa.com",
 	role,
 	dependencyId,
+	isTrainer: false,
 	iat: 1_800_000_000,
 });
 
