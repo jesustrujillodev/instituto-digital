@@ -82,7 +82,7 @@ Dos cosas que **no** se guardan porque se derivan:
 - La **escala de sombras** `--shadow-2xs … --shadow-2xl`. El admin edita seis
   parámetros y `deriveShadowScale` abre los ocho pasos. Editar los ocho a mano
   daría más control y garantizaría escalas incoherentes.
-- La **pila de `font-family`**. Se guarda la *clave* del catálogo (`"geist"`), no
+- La **pila de `font-family`**. Se guarda la *clave* del catálogo (`"avant-garde"`), no
   la pila. Así solo se puede elegir lo que la aplicación auto-hospeda, y el valor
   guardado no puede ser un vector de nada.
 
@@ -314,58 +314,72 @@ por qué token le falta.
 
 ## 8. Presets de fábrica
 
-`Neutro`, `Índigo`, `Esmeralda` y `Editorial`, definidos en `theme.config.ts` y
-sembrados por `prisma/seed.ts` con `isPreset: true` y **ya publicados** — un tema
-sin publicar no se puede activar.
+Uno solo, `Institucional`, con la identidad del Ayuntamiento de Tijuana: es el
+mismo objeto que `DEFAULT_THEME_TOKENS`, así que una instalación sin tema activo
+ya se ve institucional. Se define en `theme.config.ts` y lo siembra
+`prisma/seed.ts` con `isPreset: true` y **ya publicado** — un tema sin publicar
+no se puede activar.
+
+Los colores salen del hexadecimal del manual de identidad convertido a OKLCH
+(la tabla está en el comentario de `theme.config.ts`). Lo que no es un color del
+manual —el guinda profundo de la barra lateral, las variantes oscuras, los textos
+sobre fondos suaves— conserva el tono y solo mueve luminosidad y croma hasta
+cumplir su par de contraste. `theme.config.test.ts` lo comprueba en claro y en
+oscuro.
+
+Dos decisiones de la variante oscura que conviene no deshacer:
+
+- El **primario** se aclara y lleva texto oscuro. El mismo token es fondo del
+  botón y color de enlace sobre la página, y ningún guinda con texto claro cumple
+  las dos cosas a la vez.
+- La **barra lateral** sigue guinda. Es la pieza que identifica la plataforma, y
+  la landing y el login usan la misma superficie (`bg-sidebar`) para el logo
+  blanco, que solo se lee sobre guinda.
 
 Se clonan; no se editan ni se borran, y la invariante vive en `theme.rules.ts`
 con su test, no solo en la UI. Ocultar el botón no impide un `POST` a mano, y los
 presets son lo único a lo que se puede volver cuando un tema publicado sale mal.
 
-El seed es **idempotente por nombre y no destructivo**: un re-run actualiza los
-presets pero no toca los temas creados por el admin ni cuál está activo. Un seed
-que borrara `themes` se llevaría por delante el tema en producción de cualquier
-entorno donde alguien lo ejecutara por error.
+El seed es **idempotente por nombre y no toca lo del admin**: un re-run actualiza
+los presets pero no toca los temas creados por el admin ni cuál está activo. Lo
+único que borra son las filas `isPreset` cuyo nombre ya no está en
+`THEME_PRESETS` (los antiguos Neutro, Índigo, Esmeralda y Editorial): son de
+fábrica, el builder no permite borrarlas y sus fuentes ya no validan. Si alguno
+estaba activo, la FK con `SetNull` deja la plataforma en el tema base.
 
 ## 9. Fuentes
 
-Catálogo curado (`FONT_CATALOG`), en tres grupos:
+Catálogo curado (`FONT_CATALOG`):
 
 | Grupo | Opciones |
 |---|---|
-| Sans auto-hospedadas | Inter, Geist, Roboto, Open Sans, Montserrat, Poppins, Architects Daughter |
-| Serif auto-hospedadas | Playfair Display, Merriweather, Libre Baskerville |
-| Mono auto-hospedadas | JetBrains Mono, Fira Code, Space Mono |
+| Institucional | ITC Avant Garde (`public/font`) |
 | Sin descarga | Del sistema (sans / serif / mono), Times New Roman, Courier New |
 
-Curado y no libre porque solo se puede ofrecer lo que el bundle sirve de verdad:
-una caja de texto libre acabaría con `font-family` apuntando a una fuente que
-existe en la máquina del admin y en ninguna otra.
+Curado y no libre porque solo se puede ofrecer lo que la aplicación sirve de
+verdad: una caja de texto libre acabaría con `font-family` apuntando a una fuente
+que existe en la máquina del admin y en ninguna otra.
 
-Las 13 auto-hospedadas se importan en `app.css`. Casi todas son variables
-(`@fontsource-variable/*`): un archivo cubre todo el rango de pesos. Poppins,
-Architects Daughter y Space Mono **no tienen versión variable**, así que se piden
-los pesos uno a uno (`@fontsource/poppins/600.css`); importar el paquete a secas
-declararía solo el 400 y `font-semibold` acabaría en negrita sintética.
+ITC Avant Garde es la tipografía que fija el manual de identidad. Sus
+`@font-face` están en `app.css` (woff2 con woff de reserva) y los archivos en
+`public/font`: **ninguna petición a terceros en runtime**. Los pesos son Extra
+Light 200, Book 400, Medium 500, Demi 600 y Bold 700. Book va en 400 y no en 300
+como en la hoja de la que se tomó: en 300 el texto sin clase no encontraba su
+peso y el navegador subía a Medium. La pila lleva Arial detrás, la reserva que
+usa el propio manual.
 
-El `@import` de las 13 familias **no** descarga 13 familias: solo declara los
-`@font-face`, y el navegador baja únicamente las que el tema activo llega a usar.
-**Ninguna petición a Google en runtime**, y por tanto ninguna fuga de IPs de
-usuarios ni un tercero en la ruta crítica del render. El `links` de
-`fonts.googleapis.com` que quedaba en `root.tsx` se eliminó: era redundante con
-el `@fontsource-variable/inter` de `app.css` y contradecía esta decisión.
-
-Las cinco entradas con `packageName: null` no descargan nada. Tres son pilas
-genéricas del sistema; Times New Roman y Courier New nombran una familia concreta
-que Windows y macOS traen instalada —en un Linux sin las fuentes de Microsoft se
-cae a `serif` / `monospace`—. Existen para poder reproducir un tema de tweakcn
-que no pedía ninguna fuente web, en vez de sustituirle la tipografía en silencio.
+Las entradas con `source: null` no descargan nada. Tres son pilas genéricas del
+sistema; Times New Roman y Courier New nombran una familia concreta que Windows y
+macOS traen instalada —en un Linux sin las fuentes de Microsoft se cae a
+`serif` / `monospace`—. Existen para poder reproducir un tema de tweakcn que no
+pedía ninguna fuente web, en vez de sustituirle la tipografía en silencio.
 
 Al importar un CSS, la pila declarada se reconoce en dos pasadas (`readFontKey`):
 primero comparando la pila COMPLETA —lo que hace exacta la ida y vuelta de
 nuestro propio export, incluidas las opciones "del sistema", que no tienen nombre
 que buscar—, y después buscando el nombre de la familia dentro de la pila, que es
-lo que entiende un `--font-sans: Poppins, sans-serif` pegado desde fuera. Un test
+lo que entiende un `--font-sans: 'ITC Avant Garde Std', sans-serif` pegado desde
+fuera. Un test
 recorre el catálogo entero: dos pilas que se contienen la una a la otra
 (`courier-new` aparece dentro de `system-mono`) se reconocerían cruzadas.
 

@@ -1,25 +1,45 @@
 import {
-	BookOpen,
 	BookOpenCheck,
 	Building2,
-	CalendarCheck,
 	CalendarDays,
 	Cloud,
-	GraduationCap,
 	LayoutDashboard,
+	LibraryBig,
 	MonitorSmartphone,
+	NotebookPen,
 	Palette,
+	Presentation,
 	Users,
 	UsersRound,
 } from "lucide-react";
-import type { NavItem } from "./navigation.types";
+import type { Role } from "@/shared/rules/atoms.rules";
+import type { NavItem, NavSection } from "./navigation.types";
+
+const LEARNER_ROLES = [
+	"USER",
+	"DEPENDENCY_HEAD",
+	"DEPENDENCY_DEPUTY",
+] as const satisfies readonly Role[];
+const DEPENDENCY_ROLES = [
+	"DEPENDENCY_HEAD",
+	"DEPENDENCY_DEPUTY",
+] as const satisfies readonly Role[];
+const PLATFORM_ROLES = [
+	"ADMIN",
+	"SUPERADMIN",
+] as const satisfies readonly Role[];
 
 /**
- * Navegación declarativa del dashboard.
+ * Navegación declarativa del dashboard, en secciones ordenadas por intención.
+ *
+ * Quien cursa ve primero lo suyo —la plataforma existe para tomar cursos— y
+ * después lo que imparte u organiza. Los roles de plataforma no cursan (§3):
+ * para ellos la administración va primero. Por eso Usuarios, Cursos, Grupos,
+ * Capacitadores y Calendario aparecen en dos secciones con roles disjuntos;
+ * nadie ve el mismo destino dos veces.
  *
  * `roles` está tipado como `readonly Role[]`: un rol inexistente NO compila.
- * `trainer` marca los items que además ve cualquier capacitador; es la única
- * condición de este menú que no se expresa con roles.
+ * `trainer` marca los items que además ve cualquier capacitador.
  *
  * Esto es UX, no seguridad — ocultar un enlace no protege nada. La autorización
  * real la impone `requireRole` en el loader de cada ruta, así que un usuario que
@@ -28,79 +48,110 @@ import type { NavItem } from "./navigation.types";
  * Es `.ts` y no `.tsx` a propósito: los iconos son *referencias* a componentes,
  * aquí no hay JSX.
  */
-export const navigationConfig: readonly NavItem[] = [
+export const navigationSections: readonly NavSection[] = [
 	{
-		label: "Resumen",
-		path: "/dashboard",
-		icon: LayoutDashboard,
+		items: [{ label: "Resumen", path: "/dashboard", icon: LayoutDashboard }],
 	},
 	{
-		label: "Nube",
-		path: "/dashboard/nube",
-		icon: Cloud,
-		roles: ["ADMIN"],
+		// Aquí entran créditos, calificaciones y constancias cuando existan.
+		label: "Mi capacitación",
+		roles: LEARNER_ROLES,
+		items: [
+			{
+				label: "Mis cursos",
+				path: "/dashboard/mis-cursos",
+				icon: BookOpenCheck,
+			},
+			{
+				// Lo ve también el capacitador externo, que tiene rol USER; el loader le responde 403.
+				label: "Cursos disponibles",
+				path: "/dashboard/cursos-disponibles",
+				icon: LibraryBig,
+			},
+			{
+				label: "Calendario",
+				path: "/dashboard/calendario",
+				icon: CalendarDays,
+			},
+		],
 	},
 	{
-		label: "Dependencias",
-		path: "/dashboard/dependencias",
-		icon: Building2,
-		roles: ["SUPERADMIN"],
+		// Incluye USER para el capacitador interno, que crea cursos sin rol de
+		// dependencia. El externo también ve Cursos —`SessionUser` no distingue el
+		// tipo de cuenta— y el loader le responde 403.
+		label: "Gestión",
+		roles: LEARNER_ROLES,
+		items: [
+			{
+				label: "Cursos",
+				path: "/dashboard/cursos",
+				icon: NotebookPen,
+				roles: DEPENDENCY_ROLES,
+				trainer: true,
+			},
+			{
+				label: "Grupos",
+				path: "/dashboard/grupos",
+				icon: UsersRound,
+				roles: DEPENDENCY_ROLES,
+			},
+			{
+				// El catálogo es global y lo consulta cualquier capacitador (§3 del alcance).
+				label: "Capacitadores",
+				path: "/dashboard/capacitadores",
+				icon: Presentation,
+				roles: DEPENDENCY_ROLES,
+				trainer: true,
+			},
+			{
+				// La MISMA pantalla que usa el superadministrador: el alcance la recorta
+				// a su dependencia. Una segunda lista duplicaría el query con otro guard,
+				// que es donde se cuelan los fallos de aislamiento.
+				label: "Usuarios",
+				path: "/dashboard/usuarios",
+				icon: Users,
+				roles: DEPENDENCY_ROLES,
+			},
+		],
 	},
 	{
-		// El titular y el auxiliar entran a la MISMA pantalla que el
-		// superadministrador: el alcance ya la recorta a su dependencia. Una
-		// segunda lista "directorio de mi personal" duplicaría el query con otro
-		// guard, que es donde se cuelan los fallos de aislamiento.
-		label: "Usuarios",
-		path: "/dashboard/usuarios",
-		icon: Users,
-		roles: ["ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
+		label: "Administración",
+		roles: PLATFORM_ROLES,
+		items: [
+			{
+				label: "Dependencias",
+				path: "/dashboard/dependencias",
+				icon: Building2,
+				roles: ["SUPERADMIN"],
+			},
+			{ label: "Usuarios", path: "/dashboard/usuarios", icon: Users },
+			{ label: "Nube", path: "/dashboard/nube", icon: Cloud, roles: ["ADMIN"] },
+		],
 	},
 	{
-		// `trainer` no es un rol: el catálogo es global y lo consulta también
-		// cualquier capacitador, tenga el rol que tenga (§3 del alcance).
-		label: "Capacitadores",
-		path: "/dashboard/capacitadores",
-		icon: GraduationCap,
-		roles: ["ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
-		trainer: true,
-	},
-	{
-		// El superadministrador entra a consultar: elige audiencias de cursos de
-		// cualquier dependencia. Administrar sigue siendo del titular y el auxiliar.
-		label: "Grupos",
-		path: "/dashboard/grupos",
-		icon: UsersRound,
-		roles: ["SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
-	},
-	{
-		// `trainer` porque el capacitador interno crea cursos en su dependencia. El
-		// externo también ve el enlace —`SessionUser` no distingue el tipo de
-		// cuenta— y el loader le responde 403.
-		label: "Cursos",
-		path: "/dashboard/cursos",
-		icon: BookOpen,
-		roles: ["ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
-		trainer: true,
-	},
-	{
-		// Lo ve también el capacitador externo, que tiene rol USER; el loader le responde 403.
-		label: "Cursos disponibles",
-		path: "/dashboard/cursos-disponibles",
-		icon: BookOpenCheck,
-		roles: ["USER", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
-	},
-	{
-		label: "Mis cursos",
-		path: "/dashboard/mis-cursos",
-		icon: CalendarCheck,
-		roles: ["USER", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
-	},
-	{
-		// Sin `roles`: cada quien ve lo suyo, incluido el capacitador externo.
-		label: "Calendario",
-		path: "/dashboard/calendario",
-		icon: CalendarDays,
+		label: "Capacitación",
+		roles: PLATFORM_ROLES,
+		items: [
+			{ label: "Cursos", path: "/dashboard/cursos", icon: NotebookPen },
+			{
+				// El superadministrador entra a consultar: elige audiencias de cursos de
+				// cualquier dependencia. Administrar sigue siendo del titular y el auxiliar.
+				label: "Grupos",
+				path: "/dashboard/grupos",
+				icon: UsersRound,
+				roles: ["SUPERADMIN"],
+			},
+			{
+				label: "Capacitadores",
+				path: "/dashboard/capacitadores",
+				icon: Presentation,
+			},
+			{
+				label: "Calendario",
+				path: "/dashboard/calendario",
+				icon: CalendarDays,
+			},
+		],
 	},
 ];
 

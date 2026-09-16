@@ -1,37 +1,79 @@
 import { describe, expect, test } from "vitest";
 import type { Role } from "@/shared/rules/atoms.rules";
 import { DASHBOARD_LAYOUT_ID } from "../layout.constants";
-import { footerNavigationConfig, navigationConfig } from "../navigation.config";
+import {
+	footerNavigationConfig,
+	navigationSections,
+} from "../navigation.config";
 import type { NavItem } from "../navigation.types";
-import { filterNavigationByRole } from "../navigation.utils";
+import {
+	filterNavigationByRole,
+	filterNavigationSections,
+} from "../navigation.utils";
+
+const ALL_ROLES = [
+	"USER",
+	"DEPENDENCY_HEAD",
+	"DEPENDENCY_DEPUTY",
+	"SUPERADMIN",
+	"ADMIN",
+] as const;
 
 const flatten = (items: readonly NavItem[]): NavItem[] =>
 	items.flatMap((item) => [item, ...flatten(item.children ?? [])]);
+
+const allMainItems = navigationSections.flatMap((section) => section.items);
 
 const pathsFor = (items: readonly NavItem[], role: Role, isTrainer = false) =>
 	flatten(filterNavigationByRole(items, { role, isTrainer }))
 		.map((item) => item.path)
 		.filter(Boolean);
 
-describe("navigationConfig", () => {
+const mainPathsFor = (role: Role, isTrainer = false) =>
+	filterNavigationSections(navigationSections, { role, isTrainer })
+		.flatMap((section) => flatten(section.items))
+		.map((item) => item.path)
+		.filter(Boolean);
+
+const sectionLabelsFor = (role: Role, isTrainer = false) =>
+	filterNavigationSections(navigationSections, { role, isTrainer }).map(
+		(section) => section.label,
+	);
+
+describe("navigationSections", () => {
 	test("cada entrada declara una etiqueta y un destino o hijos", () => {
-		for (const item of flatten(navigationConfig)) {
+		for (const item of flatten(allMainItems)) {
 			expect(item.label).toBeTruthy();
 			expect(Boolean(item.path) || Boolean(item.children)).toBe(true);
 		}
 	});
 
-	test("no hay dos entradas apuntando al mismo path", () => {
-		const paths = flatten([...navigationConfig, ...footerNavigationConfig])
-			.map((item) => item.path)
+	// Un mismo destino puede vivir en dos secciones con roles disjuntos; lo que
+	// no puede pasar es que alguien lo vea dos veces.
+	test("nadie ve dos entradas apuntando al mismo path", () => {
+		for (const role of ALL_ROLES) {
+			for (const isTrainer of [false, true]) {
+				const paths = [
+					...mainPathsFor(role, isTrainer),
+					...pathsFor(footerNavigationConfig, role, isTrainer),
+				];
+
+				expect(new Set(paths).size).toBe(paths.length);
+			}
+		}
+	});
+
+	test("cada sección con etiqueta la tiene única", () => {
+		const labels = navigationSections
+			.map((section) => section.label)
 			.filter(Boolean);
 
-		expect(new Set(paths).size).toBe(paths.length);
+		expect(new Set(labels).size).toBe(labels.length);
 	});
 
 	test("todas las rutas cuelgan de /dashboard", () => {
 		for (const path of flatten([
-			...navigationConfig,
+			...allMainItems,
 			...footerNavigationConfig,
 		]).map((item) => item.path)) {
 			if (path) expect(path.startsWith("/dashboard")).toBe(true);
@@ -39,18 +81,60 @@ describe("navigationConfig", () => {
 	});
 });
 
-describe("navigationConfig — filtrado por rol", () => {
+describe("navigationSections — orden por intención", () => {
+	// La plataforma existe para tomar cursos: quien cursa ve lo suyo antes que lo
+	// que administra.
+	test("quien cursa empieza por Mis cursos, justo después del resumen", () => {
+		for (const role of [
+			"USER",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+		] as const) {
+			expect(mainPathsFor(role, true).slice(0, 2)).toEqual([
+				"/dashboard",
+				"/dashboard/mis-cursos",
+			]);
+			expect(sectionLabelsFor(role, true)[1]).toBe("Mi capacitación");
+		}
+	});
+
+	test("el titular ve su capacitación antes que la gestión", () => {
+		expect(sectionLabelsFor("DEPENDENCY_HEAD")).toEqual([
+			undefined,
+			"Mi capacitación",
+			"Gestión",
+		]);
+	});
+
+	// Los roles de plataforma no cursan (§3): su trabajo principal es la estructura.
+	test("los roles de plataforma empiezan por la administración", () => {
+		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
+			expect(sectionLabelsFor(role, true)).toEqual([
+				undefined,
+				"Administración",
+				"Capacitación",
+			]);
+		}
+	});
+
+	test("un participante sin perfil de capacitador no ve la sección de gestión", () => {
+		expect(sectionLabelsFor("USER")).toEqual([undefined, "Mi capacitación"]);
+		expect(sectionLabelsFor("USER", true)).toContain("Gestión");
+	});
+});
+
+describe("navigationSections — filtrado por rol", () => {
 	// Ocultar un enlace es UX, NO seguridad: la autorización real la impone
 	// requireRole en el loader de cada ruta. Aun así, enseñar un destino que
 	// devolverá 403 es un callejón sin salida que conviene no pintar.
 	test("un USER no ve ningún destino de administración", () => {
-		const paths = pathsFor(navigationConfig, "USER");
+		const paths = mainPathsFor("USER");
 
 		expect(paths).not.toContain("/dashboard/usuarios");
 	});
 
 	test("un USER sí ve el resumen, que no tiene rol declarado", () => {
-		expect(pathsFor(navigationConfig, "USER")).toContain("/dashboard");
+		expect(mainPathsFor("USER")).toContain("/dashboard");
 	});
 
 	// Los roles globales administran pero no cursan (§3): lo único de un USER que
@@ -61,8 +145,8 @@ describe("navigationConfig — filtrado por rol", () => {
 	];
 
 	test("un ADMIN ve todo lo que ve un USER salvo lo de participante, y además lo suyo", () => {
-		const userPaths = pathsFor(navigationConfig, "USER");
-		const adminPaths = pathsFor(navigationConfig, "ADMIN");
+		const userPaths = mainPathsFor("USER");
+		const adminPaths = mainPathsFor("ADMIN");
 
 		for (const path of userPaths) {
 			if (path && !PARTICIPANT_PATHS.includes(path)) {
@@ -78,38 +162,28 @@ describe("navigationConfig — filtrado por rol", () => {
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {
-			expect(pathsFor(navigationConfig, role)).toEqual(
+			expect(mainPathsFor(role)).toEqual(
 				expect.arrayContaining(PARTICIPANT_PATHS),
 			);
 		}
 		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
 			for (const path of PARTICIPANT_PATHS) {
-				expect(pathsFor(navigationConfig, role)).not.toContain(path);
+				expect(mainPathsFor(role)).not.toContain(path);
 			}
 		}
 	});
 
 	// Cada quien ve lo suyo en el calendario, incluido el capacitador externo.
 	test("el calendario lo ve cualquier rol", () => {
-		for (const role of [
-			"USER",
-			"DEPENDENCY_HEAD",
-			"DEPENDENCY_DEPUTY",
-			"SUPERADMIN",
-			"ADMIN",
-		] as const) {
-			expect(pathsFor(navigationConfig, role)).toContain(
-				"/dashboard/calendario",
-			);
+		for (const role of ALL_ROLES) {
+			expect(mainPathsFor(role)).toContain("/dashboard/calendario");
 		}
 	});
 
 	// El alta de dependencias es global: la ejerce quien puede crear una unidad
 	// organizativa y designarle titular, no quien administra una.
 	test("solo el superadministrador ve las dependencias", () => {
-		expect(pathsFor(navigationConfig, "SUPERADMIN")).toContain(
-			"/dashboard/dependencias",
-		);
+		expect(mainPathsFor("SUPERADMIN")).toContain("/dashboard/dependencias");
 
 		for (const role of [
 			"DEPENDENCY_HEAD",
@@ -117,9 +191,7 @@ describe("navigationConfig — filtrado por rol", () => {
 			"USER",
 			"ADMIN",
 		] as const) {
-			expect(pathsFor(navigationConfig, role)).not.toContain(
-				"/dashboard/dependencias",
-			);
+			expect(mainPathsFor(role)).not.toContain("/dashboard/dependencias");
 		}
 	});
 
@@ -128,12 +200,10 @@ describe("navigationConfig — filtrado por rol", () => {
 	// roles, tendrían la función y no la puerta.
 	test("el titular y el auxiliar ven la gestión de usuarios", () => {
 		for (const role of ["DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"] as const) {
-			expect(pathsFor(navigationConfig, role)).toContain("/dashboard/usuarios");
+			expect(mainPathsFor(role)).toContain("/dashboard/usuarios");
 		}
 
-		expect(pathsFor(navigationConfig, "USER")).not.toContain(
-			"/dashboard/usuarios",
-		);
+		expect(mainPathsFor("USER")).not.toContain("/dashboard/usuarios");
 	});
 
 	// El capacitador interno crea cursos con rol USER: si el enlace dependiera
@@ -144,15 +214,11 @@ describe("navigationConfig — filtrado por rol", () => {
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {
-			expect(pathsFor(navigationConfig, role)).toContain("/dashboard/cursos");
+			expect(mainPathsFor(role)).toContain("/dashboard/cursos");
 		}
 
-		expect(pathsFor(navigationConfig, "USER", true)).toContain(
-			"/dashboard/cursos",
-		);
-		expect(pathsFor(navigationConfig, "USER")).not.toContain(
-			"/dashboard/cursos",
-		);
+		expect(mainPathsFor("USER", true)).toContain("/dashboard/cursos");
+		expect(mainPathsFor("USER")).not.toContain("/dashboard/cursos");
 	});
 });
 
@@ -191,7 +257,7 @@ describe("footerNavigationConfig", () => {
 	// Accesos operativos que se consultan cuando algo va mal: van aparte para no
 	// competir por atención con lo que sí se usa a diario.
 	test("no duplica ninguna entrada de la navegación principal", () => {
-		const mainLabels = flatten(navigationConfig).map((item) => item.label);
+		const mainLabels = flatten(allMainItems).map((item) => item.label);
 
 		for (const item of flatten(footerNavigationConfig)) {
 			expect(mainLabels).not.toContain(item.label);

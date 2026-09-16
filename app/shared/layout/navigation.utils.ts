@@ -1,5 +1,5 @@
 import { hasRole, type Role } from "@/shared/rules/atoms.rules";
-import type { NavItem } from "./navigation.types";
+import type { NavItem, NavSection } from "./navigation.types";
 
 /** Lo que el filtro necesita saber de quien navega. */
 export interface NavigationViewer {
@@ -50,4 +50,20 @@ export function filterNavigationByRole(
 	}
 
 	return result;
+}
+
+/**
+ * Filtra las secciones por rol y descarta las que se quedan sin items, por la
+ * misma razón que los grupos: una etiqueta sin destinos debajo no dice nada.
+ */
+export function filterNavigationSections(
+	sections: readonly NavSection[],
+	viewer: NavigationViewer,
+): NavSection[] {
+	return sections.flatMap((section) => {
+		if (section.roles && !hasRole(viewer.role, section.roles)) return [];
+
+		const items = filterNavigationByRole(section.items, viewer);
+		return items.length > 0 ? [{ ...section, items }] : [];
+	});
 }

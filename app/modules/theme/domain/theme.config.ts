@@ -4,7 +4,6 @@ import type {
 	ThemeSharedTokens,
 	ThemeTokens,
 } from "./theme.rules";
-import { deriveDarkVariant } from "./theme.rules";
 
 /**
  * Versión del esquema de tokens.
@@ -44,25 +43,23 @@ export interface FontFamilyDefinition {
 	label: string;
 	/** Pila real que acaba en `font-family`. */
 	stack: string;
-	/** Paquete que la auto-hospeda. `null` = no descarga nada. */
-	packageName: string | null;
+	/** De dónde sale el archivo. `null` = no descarga nada. */
+	source: string | null;
 	category: "sans" | "serif" | "mono";
 }
 
 /**
  * Catálogo CURADO y auto-hospedado (decisión #5).
  *
- * Curado y no libre por dos razones: solo se puede ofrecer lo que el bundle
- * realmente sirve, y una caja de texto libre acabaría con `font-family` apuntando
- * a una fuente que existe en la máquina del admin y en ninguna otra.
+ * Curado y no libre porque solo se puede ofrecer lo que el bundle realmente
+ * sirve: una caja de texto libre acabaría con `font-family` apuntando a una
+ * fuente que existe en la máquina del admin y en ninguna otra.
  *
- * Auto-hospedado con `@fontsource`, importado en `app.css`: ninguna petición a
- * Google en runtime, y por tanto ninguna fuga de IPs de usuarios ni un tercero en
- * la ruta crítica del render. El coste del `@import` es solo el de las
- * declaraciones `@font-face` — el navegador descarga únicamente las familias que
- * el tema activo llega a usar.
+ * El manual de identidad del Ayuntamiento fija ITC Avant Garde, así que es la
+ * única fuente web del catálogo. Sus `@font-face` están en `app.css` y los
+ * archivos en `public/font`: ninguna petición a un tercero en runtime.
  *
- * `packageName: null` marca las que no descargan NADA: las pilas genéricas del
+ * `source: null` marca las que no descargan NADA: las pilas genéricas del
  * sistema y las dos familias (Times New Roman, Courier New) que el sistema
  * operativo ya trae. Son las que permiten reproducir un tema de tweakcn que no
  * pedía una fuente web.
@@ -71,112 +68,37 @@ export interface FontFamilyDefinition {
  * sin darle entrada aquí no compila.
  */
 export const FONT_CATALOG: Record<FontFamilyKey, FontFamilyDefinition> = {
+	"avant-garde": {
+		label: "ITC Avant Garde",
+		// Arial detrás y no la sans del sistema: es la reserva que usa el propio
+		// manual, y su ancho se acerca más al de Avant Garde que el de Segoe o SF.
+		stack: '"ITC Avant Garde Std", Arial, ui-sans-serif, sans-serif',
+		source: "public/font",
+		category: "sans",
+	},
 	system: {
 		label: "Del sistema",
 		stack:
 			'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
-		packageName: null,
+		source: null,
 		category: "sans",
-	},
-	inter: {
-		label: "Inter",
-		stack: '"Inter Variable", ui-sans-serif, system-ui, sans-serif',
-		packageName: "@fontsource-variable/inter",
-		category: "sans",
-	},
-	geist: {
-		label: "Geist",
-		stack: '"Geist Variable", ui-sans-serif, system-ui, sans-serif',
-		packageName: "@fontsource-variable/geist",
-		category: "sans",
-	},
-	roboto: {
-		label: "Roboto",
-		stack: '"Roboto Variable", ui-sans-serif, system-ui, sans-serif',
-		packageName: "@fontsource-variable/roboto",
-		category: "sans",
-	},
-	"open-sans": {
-		label: "Open Sans",
-		stack: '"Open Sans Variable", ui-sans-serif, system-ui, sans-serif',
-		packageName: "@fontsource-variable/open-sans",
-		category: "sans",
-	},
-	montserrat: {
-		label: "Montserrat",
-		stack: '"Montserrat Variable", ui-sans-serif, system-ui, sans-serif',
-		packageName: "@fontsource-variable/montserrat",
-		category: "sans",
-	},
-	// Sin versión variable: el paquete trae un fichero por peso y app.css pide
-	// 400/500/600/700 uno a uno. El nombre de familia NO lleva "Variable".
-	poppins: {
-		label: "Poppins",
-		stack: "Poppins, ui-sans-serif, system-ui, sans-serif",
-		packageName: "@fontsource/poppins",
-		category: "sans",
-	},
-	// Manuscrita, de un solo peso (400). Se cataloga como `sans` porque es donde
-	// la usan los temas que la traen —titulares y texto—, no porque lo sea.
-	"architects-daughter": {
-		label: "Architects Daughter",
-		stack: '"Architects Daughter", ui-sans-serif, system-ui, sans-serif',
-		packageName: "@fontsource/architects-daughter",
-		category: "sans",
-	},
-	"playfair-display": {
-		label: "Playfair Display",
-		stack: '"Playfair Display Variable", ui-serif, Georgia, serif',
-		packageName: "@fontsource-variable/playfair-display",
-		category: "serif",
-	},
-	merriweather: {
-		label: "Merriweather",
-		stack: '"Merriweather Variable", ui-serif, Georgia, serif',
-		packageName: "@fontsource-variable/merriweather",
-		category: "serif",
-	},
-	"libre-baskerville": {
-		label: "Libre Baskerville",
-		stack: '"Libre Baskerville Variable", ui-serif, Georgia, serif',
-		packageName: "@fontsource-variable/libre-baskerville",
-		category: "serif",
-	},
-	"jetbrains-mono": {
-		label: "JetBrains Mono",
-		stack: '"JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace',
-		packageName: "@fontsource-variable/jetbrains-mono",
-		category: "mono",
-	},
-	"fira-code": {
-		label: "Fira Code",
-		stack: '"Fira Code Variable", ui-monospace, SFMono-Regular, monospace',
-		packageName: "@fontsource-variable/fira-code",
-		category: "mono",
-	},
-	// Sin versión variable: app.css pide 400 y 700, los dos únicos que existen.
-	"space-mono": {
-		label: "Space Mono",
-		stack: '"Space Mono", ui-monospace, SFMono-Regular, monospace',
-		packageName: "@fontsource/space-mono",
-		category: "mono",
 	},
 	"system-serif": {
 		label: "Del sistema (serif)",
 		stack: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
-		packageName: null,
+		source: null,
 		category: "serif",
 	},
 	"system-mono": {
 		label: "Del sistema (mono)",
 		stack:
 			'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-		packageName: null,
+		source: null,
 		category: "mono",
 	},
 	/*
 	 * Las dos de abajo NO son pilas genéricas: nombran una familia concreta que
-	 * Windows y macOS traen instalada. Se catalogan igual que las auto-hospedadas
+	 * Windows y macOS traen instalada. Se catalogan igual que la institucional
 	 * porque para el admin son lo mismo —una fuente con nombre que se elige del
 	 * desplegable—, y no descargan nada porque ya están en la máquina.
 	 *
@@ -186,30 +108,48 @@ export const FONT_CATALOG: Record<FontFamilyKey, FontFamilyDefinition> = {
 	"times-new-roman": {
 		label: "Times New Roman",
 		stack: '"Times New Roman", Times, serif',
-		packageName: null,
+		source: null,
 		category: "serif",
 	},
 	"courier-new": {
 		label: "Courier New",
 		stack: '"Courier New", Courier, monospace',
-		packageName: null,
+		source: null,
 		category: "mono",
 	},
 };
 
 // ===============================================================
-// Tema base
+// Tema base: identidad institucional del Ayuntamiento de Tijuana
 // ===============================================================
+
+/*
+ * Colores del manual, convertidos a OKLCH desde su hexadecimal:
+ *
+ *   Guinda primario   #750D2F   oklch(0.367 0.136 9.47)
+ *   Guinda secundario #912240   oklch(0.441 0.147 10)
+ *   Rojo              #9F2240   oklch(0.467 0.16 12.76)
+ *   Oro corporativo   #BA945C   oklch(0.689 0.087 76.2)
+ *   Oro claro         #E3CFA7   oklch(0.861 0.057 84.49)
+ *   Verde             #225B4F   oklch(0.43 0.063 177)
+ *   Gris texto        #383838   oklch(0.341 0 0)
+ *   Blanco roto       #F2F2F2   oklch(0.961 0 0)
+ *
+ * Todo lo que no es uno de estos (el guinda profundo de la barra lateral, las
+ * variantes oscuras, los tonos de texto sobre fondos suaves) conserva su tono y
+ * solo mueve luminosidad y croma hasta cumplir el par que le toca en
+ * `CONTRAST_PAIRS`.
+ */
 
 const BASE_SHARED: ThemeSharedTokens = {
 	// `--radius-sm … --radius-4xl` se derivan de `--radius` en app.css.
-	radius: "0.625rem",
+	radius: "0.25rem",
 	borderWidth: "1px",
 	spacing: "0.25rem",
-	fontSans: "inter",
-	fontSerif: "merriweather",
-	fontMono: "jetbrains-mono",
-	fontHeading: "inter",
+	fontSans: "avant-garde",
+	fontSerif: "system-serif",
+	fontMono: "system-mono",
+	fontHeading: "avant-garde",
 	fontSize: "1rem",
 	letterSpacing: "0em",
 	// Reproduce la sombra por defecto de Tailwind: los valores existentes no
@@ -225,100 +165,96 @@ const BASE_SHARED: ThemeSharedTokens = {
 };
 
 const BASE_LIGHT: ThemeColorTokens = {
-	background: "oklch(1 0 0)",
-	foreground: "oklch(0.145 0 0)",
+	background: "oklch(0.961 0 0)",
+	foreground: "oklch(0.341 0 0)",
 	card: "oklch(1 0 0)",
-	"card-foreground": "oklch(0.145 0 0)",
+	"card-foreground": "oklch(0.341 0 0)",
 	popover: "oklch(1 0 0)",
-	"popover-foreground": "oklch(0.145 0 0)",
-	primary: "oklch(0.205 0 0)",
-	"primary-foreground": "oklch(0.985 0 0)",
-	secondary: "oklch(0.97 0 0)",
-	"secondary-foreground": "oklch(0.205 0 0)",
-	muted: "oklch(0.97 0 0)",
-	// 0.556 dejaba `muted / muted-foreground` en 4,34: el grado decía "solo texto
-	// grande" y el panel lo contaba como AA. El texto secundario de la aplicación
-	// es de 14 px, así que el mínimo que le toca es 4,5.
-	"muted-foreground": "oklch(0.54 0 0)",
-	accent: "oklch(0.97 0 0)",
-	"accent-foreground": "oklch(0.205 0 0)",
-	// El botón destructivo real es `bg-destructive/10 text-destructive`. Con 0.577
-	// ese par daba 4,05 en claro (3,91 sobre el fondo crema de Editorial).
-	destructive: "oklch(0.533 0.245 27.325)",
-	// Añadido en la fase A: no existía en ninguna variante. tweakcn y el generador
-	// de shadcn lo dan por hecho, así que sin él un tema pegado desde fuera llega
-	// incompleto.
-	"destructive-foreground": "oklch(0.985 0 0)",
-	// Añadidos en la fase A: destino de los `bg-green-*` / `bg-yellow-*` que
-	// estaban hardcodeados en data-table-columns.tsx.
-	success: "oklch(0.962 0.044 156.743)",
-	"success-foreground": "oklch(0.448 0.119 151.328)",
-	warning: "oklch(0.973 0.071 103.193)",
-	"warning-foreground": "oklch(0.476 0.114 61.907)",
-	border: "oklch(0.922 0 0)",
+	"popover-foreground": "oklch(0.341 0 0)",
+	primary: "oklch(0.367 0.136 9.47)",
+	"primary-foreground": "oklch(0.961 0 0)",
+	secondary: "oklch(0.861 0.057 84.49)",
+	"secondary-foreground": "oklch(0.341 0 0)",
+	muted: "oklch(0.922 0 0)",
+	"muted-foreground": "oklch(0.5 0 0)",
+	accent: "oklch(0.689 0.087 76.2)",
+	// El gris del manual se queda en 4,2 sobre el oro corporativo.
+	"accent-foreground": "oklch(0.26 0 0)",
+	destructive: "oklch(0.467 0.16 12.76)",
+	"destructive-foreground": "oklch(0.961 0 0)",
+	// `success` y `warning` son FONDOS suaves y el color con carácter va en
+	// `*-foreground`, al revés que en la hoja de origen del manual.
+	success: "oklch(0.923 0.015 175.7)",
+	"success-foreground": "oklch(0.43 0.063 177)",
+	warning: "oklch(0.943 0.022 80.69)",
+	// El oro corporativo como texto daba 2,4 sobre su fondo suave.
+	"warning-foreground": "oklch(0.5 0.08 76.2)",
+	border: "oklch(0.88 0 0)",
 	// `input` es el BORDE de campos, selects y checkboxes: lo que identifica al
-	// control, y WCAG 1.4.11 le pide 3:1. Con 0.922 daba 1,26 — un campo sin
-	// contorno visible. `border` se queda claro: separa, no identifica.
-	input: "oklch(0.645 0 0)",
-	// Indicador de foco: mismo mínimo de 3:1. Daba 2,59.
-	ring: "oklch(0.6 0 0)",
-	"chart-1": "oklch(0.87 0 0)",
-	"chart-2": "oklch(0.556 0 0)",
-	"chart-3": "oklch(0.439 0 0)",
-	"chart-4": "oklch(0.371 0 0)",
-	"chart-5": "oklch(0.269 0 0)",
-	sidebar: "oklch(0.985 0 0)",
-	"sidebar-foreground": "oklch(0.145 0 0)",
-	"sidebar-primary": "oklch(0.205 0 0)",
-	"sidebar-primary-foreground": "oklch(0.985 0 0)",
-	"sidebar-accent": "oklch(0.97 0 0)",
-	"sidebar-accent-foreground": "oklch(0.205 0 0)",
-	"sidebar-border": "oklch(0.922 0 0)",
-	"sidebar-ring": "oklch(0.6 0 0)",
+	// control, y WCAG 1.4.11 le pide 3:1. `border` se queda claro: separa, no
+	// identifica.
+	input: "oklch(0.6 0 0)",
+	ring: "oklch(0.441 0.147 10)",
+	"chart-1": "oklch(0.367 0.136 9.47)",
+	"chart-2": "oklch(0.689 0.087 76.2)",
+	"chart-3": "oklch(0.467 0.16 12.76)",
+	"chart-4": "oklch(0.43 0.063 177)",
+	"chart-5": "oklch(0.25 0.045 177)",
+	sidebar: "oklch(0.3 0.11 9.47)",
+	"sidebar-foreground": "oklch(0.95 0 0)",
+	"sidebar-primary": "oklch(0.689 0.087 76.2)",
+	"sidebar-primary-foreground": "oklch(0.25 0.09 9.47)",
+	"sidebar-accent": "oklch(0.367 0.136 9.47)",
+	"sidebar-accent-foreground": "oklch(0.95 0 0)",
+	"sidebar-border": "oklch(0.25 0.09 9.47)",
+	"sidebar-ring": "oklch(0.689 0.087 76.2)",
 };
 
 const BASE_DARK: ThemeColorTokens = {
-	background: "oklch(0.145 0 0)",
-	foreground: "oklch(0.985 0 0)",
-	card: "oklch(0.205 0 0)",
-	"card-foreground": "oklch(0.985 0 0)",
-	popover: "oklch(0.205 0 0)",
-	"popover-foreground": "oklch(0.985 0 0)",
-	primary: "oklch(0.922 0 0)",
-	"primary-foreground": "oklch(0.205 0 0)",
-	secondary: "oklch(0.269 0 0)",
-	"secondary-foreground": "oklch(0.985 0 0)",
-	muted: "oklch(0.269 0 0)",
-	"muted-foreground": "oklch(0.708 0 0)",
-	accent: "oklch(0.269 0 0)",
-	"accent-foreground": "oklch(0.985 0 0)",
-	destructive: "oklch(0.704 0.191 22.216)",
-	"destructive-foreground": "oklch(0.985 0 0)",
-	// El alfa va DENTRO del token: reproduce el `bg-green-900/20` original y deja
-	// que el builder redefina estos colores igual que redefine `primary`.
-	success: "oklch(0.393 0.095 152.535 / 20%)",
-	"success-foreground": "oklch(0.792 0.209 151.711)",
-	warning: "oklch(0.421 0.095 57.708 / 20%)",
-	"warning-foreground": "oklch(0.852 0.199 91.936)",
-	border: "oklch(1 0 0 / 10%)",
-	// Mismo motivo que en claro: al 15% el borde de los campos se componía sobre
-	// el fondo en 1,47:1, por debajo del 3:1 de WCAG 1.4.11. El `dark:bg-input/30`
-	// que llevan los campos sube con él, y eso es lo que les da cuerpo en oscuro.
-	input: "oklch(1 0 0 / 35%)",
-	ring: "oklch(0.556 0 0)",
-	"chart-1": "oklch(0.87 0 0)",
-	"chart-2": "oklch(0.556 0 0)",
-	"chart-3": "oklch(0.439 0 0)",
-	"chart-4": "oklch(0.371 0 0)",
-	"chart-5": "oklch(0.269 0 0)",
-	sidebar: "oklch(0.205 0 0)",
-	"sidebar-foreground": "oklch(0.985 0 0)",
-	"sidebar-primary": "oklch(0.488 0.243 264.376)",
-	"sidebar-primary-foreground": "oklch(0.985 0 0)",
-	"sidebar-accent": "oklch(0.269 0 0)",
-	"sidebar-accent-foreground": "oklch(0.985 0 0)",
-	"sidebar-border": "oklch(1 0 0 / 10%)",
-	"sidebar-ring": "oklch(0.556 0 0)",
+	background: "oklch(0.16 0 0)",
+	foreground: "oklch(0.95 0 0)",
+	card: "oklch(0.2 0 0)",
+	"card-foreground": "oklch(0.95 0 0)",
+	popover: "oklch(0.23 0 0)",
+	"popover-foreground": "oklch(0.95 0 0)",
+	/*
+	 * En oscuro el primario no puede seguir siendo guinda con texto claro: el
+	 * mismo token es fondo del botón y color de los enlaces sobre el fondo de la
+	 * página, y ningún guinda cumple las dos cosas a la vez. Se aclara hasta que
+	 * el enlace llega a AA y el texto del botón pasa a ser oscuro.
+	 */
+	primary: "oklch(0.66 0.13 9.47)",
+	"primary-foreground": "oklch(0.16 0.02 9.47)",
+	secondary: "oklch(0.26 0 0)",
+	"secondary-foreground": "oklch(0.92 0 0)",
+	muted: "oklch(0.22 0 0)",
+	"muted-foreground": "oklch(0.72 0 0)",
+	accent: "oklch(0.72 0.087 76.2)",
+	"accent-foreground": "oklch(0.16 0 0)",
+	destructive: "oklch(0.64 0.16 12.76)",
+	"destructive-foreground": "oklch(0.16 0 0)",
+	success: "oklch(0.25 0.04 177)",
+	"success-foreground": "oklch(0.8 0.08 177)",
+	warning: "oklch(0.26 0.035 76.2)",
+	"warning-foreground": "oklch(0.82 0.09 76.2)",
+	border: "oklch(0.3 0 0)",
+	input: "oklch(0.5 0 0)",
+	ring: "oklch(0.66 0.13 9.47)",
+	"chart-1": "oklch(0.66 0.13 9.47)",
+	"chart-2": "oklch(0.72 0.087 76.2)",
+	"chart-3": "oklch(0.55 0.14 12.76)",
+	"chart-4": "oklch(0.6 0.07 177)",
+	"chart-5": "oklch(0.45 0.05 177)",
+	// La barra lateral se queda guinda en los dos modos: es la pieza de marca
+	// que identifica la plataforma, no una superficie que deba apagarse.
+	sidebar: "oklch(0.25 0.09 9.47)",
+	"sidebar-foreground": "oklch(0.95 0 0)",
+	"sidebar-primary": "oklch(0.689 0.087 76.2)",
+	"sidebar-primary-foreground": "oklch(0.2 0.07 9.47)",
+	"sidebar-accent": "oklch(0.33 0.12 9.47)",
+	"sidebar-accent-foreground": "oklch(0.95 0 0)",
+	"sidebar-border": "oklch(0.2 0.07 9.47)",
+	"sidebar-ring": "oklch(0.689 0.087 76.2)",
 };
 
 /**
@@ -349,132 +285,12 @@ export interface ThemePresetDefinition {
 }
 
 /**
- * Construye un preset sobre el tema base.
- *
- * La variante oscura parte de la del tema base —que ya está afinada— y solo
- * cambia los tokens que el preset toca en claro, con su valor DERIVADO. Se usa
- * la misma función que ofrece el botón "derivar oscuro" del builder: lo que el
- * admin ve al pulsarlo es exactamente lo que produjo estos presets, y no una
- * segunda implementación que se le parece.
- *
- * Derivar la variante oscura ENTERA sería peor: los tokens con alfa dentro del
- * valor (`success`, `border`) están calibrados a mano y una inversión de
- * luminancia los estropea sin ganar nada.
- *
- * `dark` es el retoque a mano de esa derivación, y existe por la misma razón que
- * la UI llama a "derivar oscuro" un punto de partida: invertir la luminancia
- * acierta con los neutros, pero un acento saturado acaba con un contraste que no
- * llega a AA. Lo que se corrige aquí son exactamente esos pares, y el comentario
- * de cada preset dice cuál y con qué ratio salía.
- */
-const preset = (
-	name: string,
-	light: Partial<ThemeColorTokens>,
-	shared: Partial<ThemeSharedTokens> = {},
-	dark: Partial<ThemeColorTokens> = {},
-): ThemePresetDefinition => {
-	const lightTokens: ThemeColorTokens = { ...BASE_LIGHT, ...light };
-	const derived = deriveDarkVariant(lightTokens);
-	const darkTokens: ThemeColorTokens = { ...BASE_DARK };
-
-	for (const token of Object.keys(light) as (keyof ThemeColorTokens)[]) {
-		darkTokens[token] = derived[token];
-	}
-
-	return {
-		name,
-		tokens: {
-			shared: { ...BASE_SHARED, ...shared },
-			light: lightTokens,
-			dark: { ...darkTokens, ...dark },
-		},
-	};
-};
-
-/**
  * Los temas que se siembran con `isPreset: true` (prisma/seed.ts).
  *
  * No se editan ni se borran: se clonan. Son la red de seguridad de toda la
- * feature — lo que queda para volver cuando un tema publicado sale mal.
+ * feature — lo que queda para volver cuando un tema publicado sale mal. La
+ * plataforma tiene una sola identidad, así que hay un solo preset.
  */
 export const THEME_PRESETS: readonly ThemePresetDefinition[] = [
-	{ name: "Neutro", tokens: DEFAULT_THEME_TOKENS },
-
-	preset(
-		"Índigo",
-		{
-			primary: "oklch(0.511 0.262 276.966)",
-			"primary-foreground": "oklch(0.985 0 0)",
-			accent: "oklch(0.962 0.018 272.314)",
-			"accent-foreground": "oklch(0.457 0.24 277.023)",
-			ring: "oklch(0.511 0.262 276.966)",
-			"chart-1": "oklch(0.511 0.262 276.966)",
-			"chart-2": "oklch(0.585 0.233 277.117)",
-			"chart-3": "oklch(0.673 0.182 276.935)",
-			"chart-4": "oklch(0.785 0.115 274.713)",
-			"chart-5": "oklch(0.87 0.065 274.039)",
-			"sidebar-primary": "oklch(0.511 0.262 276.966)",
-			"sidebar-ring": "oklch(0.511 0.262 276.966)",
-		},
-		{},
-		{
-			// El índigo invertido salía en 0.5405: botón primario en 3,56 y el mismo
-			// índigo como texto de enlace en 3,51. Aclararlo arregla los dos.
-			primary: "oklch(0.605 0.262 276.966)",
-			// Texto sobre la fila resaltada: 4,33 al derivar.
-			"accent-foreground": "oklch(0.603 0.24 277.023)",
-		},
-	),
-
-	preset(
-		"Esmeralda",
-		{
-			primary: "oklch(0.508 0.118 165.612)",
-			"primary-foreground": "oklch(0.985 0 0)",
-			accent: "oklch(0.95 0.052 163.051)",
-			"accent-foreground": "oklch(0.428 0.095 166.913)",
-			ring: "oklch(0.508 0.118 165.612)",
-			"chart-1": "oklch(0.508 0.118 165.612)",
-			"chart-2": "oklch(0.596 0.145 163.225)",
-			"chart-3": "oklch(0.696 0.17 162.48)",
-			"chart-4": "oklch(0.797 0.174 160.65)",
-			"chart-5": "oklch(0.871 0.15 154.449)",
-			"sidebar-primary": "oklch(0.508 0.118 165.612)",
-			"sidebar-ring": "oklch(0.508 0.118 165.612)",
-		},
-		{ radius: "0.5rem" },
-		{
-			// El verde invertido salía en 0.5431: botón primario en 4,27 y el verde
-			// como texto de enlace en 4,21.
-			primary: "oklch(0.567 0.118 165.612)",
-		},
-	),
-
-	preset(
-		"Editorial",
-		{
-			primary: "oklch(0.396 0.141 25.723)",
-			"primary-foreground": "oklch(0.985 0 0)",
-			background: "oklch(0.987 0.007 84.573)",
-			card: "oklch(0.995 0.004 84.573)",
-			accent: "oklch(0.954 0.038 75.164)",
-			"accent-foreground": "oklch(0.396 0.141 25.723)",
-			ring: "oklch(0.396 0.141 25.723)",
-			"sidebar-primary": "oklch(0.396 0.141 25.723)",
-			"sidebar-ring": "oklch(0.396 0.141 25.723)",
-		},
-		{
-			fontSans: "merriweather",
-			fontHeading: "playfair-display",
-			fontSerif: "playfair-display",
-			radius: "0.25rem",
-			letterSpacing: "0.01em",
-		},
-		{
-			// El rojo invertido queda claro (0.639) y el blanco heredado de la base
-			// se quedaba en 3,45 encima. El elemento activo de la barra lateral pide
-			// texto oscuro, igual que el botón primario de los otros dos presets.
-			"sidebar-primary-foreground": "oklch(0.205 0 0)",
-		},
-	),
+	{ name: "Institucional", tokens: DEFAULT_THEME_TOKENS },
 ];

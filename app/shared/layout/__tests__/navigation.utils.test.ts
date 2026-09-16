@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { Role } from "@/shared/rules/atoms.rules";
-import type { NavItem } from "../navigation.types";
-import { filterNavigationByRole } from "../navigation.utils";
+import type { NavItem, NavSection } from "../navigation.types";
+import {
+	filterNavigationByRole,
+	filterNavigationSections,
+} from "../navigation.utils";
 
 /** Quien navega. Por defecto, sin perfil de capacitador. */
 const viewerOf = (role: Role, isTrainer = false) => ({ role, isTrainer });
@@ -134,5 +137,64 @@ describe("filterNavigationByRole", () => {
 
 	test("an empty list stays empty", () => {
 		expect(filterNavigationByRole([], viewerOf("ADMIN"))).toEqual([]);
+	});
+});
+
+describe("filterNavigationSections", () => {
+	test("drops a section whose roles exclude the viewer", () => {
+		const sections: NavSection[] = [
+			{
+				label: "Administración",
+				roles: ["ADMIN"],
+				items: [{ label: "Nube", path: "/nube" }],
+			},
+		];
+
+		expect(filterNavigationSections(sections, viewerOf("USER"))).toEqual([]);
+	});
+
+	// Una etiqueta sin destinos debajo sugiere funcionalidad inaccesible.
+	test("drops a section left without visible items", () => {
+		const sections: NavSection[] = [
+			{
+				label: "Gestión",
+				items: [{ label: "Grupos", path: "/grupos", roles: ["ADMIN"] }],
+			},
+		];
+
+		expect(filterNavigationSections(sections, viewerOf("USER"))).toEqual([]);
+	});
+
+	test("keeps only the visible items of a section", () => {
+		const sections: NavSection[] = [
+			{
+				label: "Gestión",
+				items: [
+					{ label: "Cursos", path: "/cursos", trainer: true, roles: ["ADMIN"] },
+					{ label: "Grupos", path: "/grupos", roles: ["ADMIN"] },
+				],
+			},
+		];
+
+		const result = filterNavigationSections(sections, viewerOf("USER", true));
+
+		expect(result).toHaveLength(1);
+		expect(result[0].items.map((item) => item.label)).toEqual(["Cursos"]);
+	});
+
+	// `trainer` abre items, nunca secciones: un capacitador con rol de plataforma
+	// no hereda el bloque de gestión de dependencia.
+	test("being a trainer does not open a section excluded by role", () => {
+		const sections: NavSection[] = [
+			{
+				label: "Gestión",
+				roles: ["USER"],
+				items: [{ label: "Cursos", path: "/cursos", trainer: true }],
+			},
+		];
+
+		expect(filterNavigationSections(sections, viewerOf("ADMIN", true))).toEqual(
+			[],
+		);
 	});
 });

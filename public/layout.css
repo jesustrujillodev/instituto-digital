@@ -1,0 +1,292 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+@plugin "tailwindcss-animate";
+
+/* ── ITC Avant Garde Std — fuente institucional Municipio de Tijuana ── */
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		local("ITC Avant Garde Gothic Std Extra Light"),
+		local("ITCAvantGardeStd-XLt"),
+		url("/font/ITCAvantGardeStd-XLt.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-XLt.woff") format("woff"),
+		url("/font/ITCAvantGardeStd-XLt.ttf") format("truetype");
+	font-weight: 200;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		local("ITC Avant Garde Gothic Std Book"),
+		local("ITCAvantGardeStd-Bk"),
+		url("/font/ITCAvantGardeStd-Bk.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Bk.woff") format("woff"),
+		url("/font/ITCAvantGardeStd-Bk.ttf") format("truetype");
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		local("ITC Avant Garde Gothic Std Medium"),
+		local("ITCAvantGardeStd-Md"),
+		url("/font/ITCAvantGardeStd-Md.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Md.woff") format("woff"),
+		url("/font/ITCAvantGardeStd-Md.ttf") format("truetype");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		local("ITC Avant Garde Gothic Std Demi"),
+		local("ITCAvantGardeStd-Demi"),
+		url("/font/ITCAvantGardeStd-Demi.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Demi.woff") format("woff"),
+		url("/font/ITCAvantGardeStd-Demi.ttf") format("truetype");
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		local("ITC Avant Garde Gothic Std Bold"),
+		local("ITCAvantGardeStd-Bold"),
+		url("/font/ITCAvantGardeStd-Bold.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Bold.woff") format("woff"),
+		url("/font/ITCAvantGardeStd-Bold.ttf") format("truetype");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/* Prevenir scroll en body — el layout lo gestiona */
+html,
+body {
+	height: 100%;
+	overflow: hidden;
+}
+
+/* ── Tokens de color — identidad oficial Municipio de Tijuana ───────── */
+:root {
+	--background: oklch(0.96 0 0);
+	--foreground: oklch(0.26 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.26 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.26 0 0);
+	/* Guinda Primario #750D2F */
+	--primary: oklch(0.27 0.17 10);
+	--primary-foreground: oklch(0.97 0 0);
+	/* Oro Claro #E3CFA7 */
+	--secondary: oklch(0.85 0.04 74);
+	--secondary-foreground: oklch(0.26 0 0);
+	--muted: oklch(0.92 0 0);
+	--muted-foreground: oklch(0.5 0 0);
+	/* Oro Corporativo #BA945C */
+	--accent: oklch(0.65 0.08 66);
+	--accent-foreground: oklch(0.26 0 0);
+	/* Rojo institucional secundario #9F2240 */
+	--destructive: #9f2240;
+	--destructive-foreground: oklch(0.98 0 0);
+	/* Semánticos institucionales */
+	--success: #225b4f;
+	--success-foreground: #f2f2f2;
+	--success-soft: #dce9e5;
+	--warning: #ba945c;
+	--warning-foreground: #383838;
+	--warning-soft: #f4ebdc;
+	--info: #750d2f;
+	--info-foreground: #f2f2f2;
+	--info-soft: #f6e8ee;
+	--expired: #7c3aed;
+	--border: oklch(0.88 0 0);
+	--input: oklch(0.88 0 0);
+	/* Guinda Secundario #912240 para focus rings */
+	--ring: oklch(0.35 0.15 10);
+	--chart-1: oklch(0.27 0.17 10);
+	--chart-2: oklch(0.65 0.08 66);
+	--chart-3: oklch(0.35 0.15 12);
+	--chart-4: oklch(0.37 0.07 168);
+	--chart-5: oklch(0.19 0.05 170);
+	--radius: 0.25rem;
+	/* Sidebar — guinda oscuro institucional */
+	--sidebar: oklch(0.22 0.14 9);
+	--sidebar-foreground: oklch(0.95 0 0);
+	--sidebar-primary: oklch(0.65 0.08 66);
+	--sidebar-primary-foreground: oklch(0.22 0.14 9);
+	--sidebar-accent: oklch(0.31 0.14 10);
+	--sidebar-accent-foreground: oklch(0.95 0 0);
+	--sidebar-border: oklch(0.17 0.1 9);
+	--sidebar-ring: oklch(0.65 0.08 66);
+	--font-avant: "ITC Avant Garde Std", sans-serif;
+}
+
+.dark {
+	--background: oklch(0.12 0 0);
+	--foreground: oklch(0.95 0 0);
+	--card: oklch(0.19 0 0);
+	--card-foreground: oklch(0.95 0 0);
+	--popover: oklch(0.23 0 0);
+	--popover-foreground: oklch(0.95 0 0);
+
+	--primary: oklch(0.55 0.15 12);
+	--primary-foreground: oklch(0.98 0 0);
+
+	--accent: oklch(0.72 0.08 66);
+	--accent-foreground: oklch(0.15 0 0);
+
+	--secondary: oklch(0.22 0 0);
+	--secondary-foreground: oklch(0.9 0 0);
+
+	--muted: oklch(0.16 0 0);
+	--muted-foreground: oklch(0.72 0 0);
+
+	--destructive: oklch(0.58 0.16 14);
+	--destructive-foreground: oklch(0.98 0 0);
+
+	--success: oklch(0.55 0.11 165);
+	--success-foreground: oklch(0.98 0 0);
+	--success-soft: oklch(0.18 0.04 165);
+
+	--warning: oklch(0.75 0.09 70);
+	--warning-foreground: oklch(0.15 0 0);
+	--warning-soft: oklch(0.2 0.04 70);
+
+	--info: oklch(0.55 0.15 12);
+	--info-foreground: oklch(0.98 0 0);
+	--info-soft: oklch(0.18 0.04 12);
+
+	--border: oklch(0.26 0 0);
+	--input: oklch(0.26 0 0);
+	--ring: oklch(0.55 0.15 12);
+	--chart-1: oklch(0.55 0.15 12);
+	--chart-2: oklch(0.72 0.08 66);
+	--chart-3: oklch(0.44 0.11 12);
+	--chart-4: oklch(0.45 0.05 168);
+	--chart-5: oklch(0.33 0.04 170);
+
+	--sidebar: oklch(0.22 0.14 9);
+	--sidebar-foreground: oklch(0.95 0 0);
+	--sidebar-primary: oklch(0.65 0.08 66);
+	--sidebar-primary-foreground: oklch(0.22 0.14 9);
+	--sidebar-accent: oklch(0.31 0.14 10);
+	--sidebar-accent-foreground: oklch(0.95 0 0);
+	--sidebar-border: oklch(0.17 0.1 9);
+	--sidebar-ring: oklch(0.65 0.08 66);
+}
+@theme inline {
+	--font-sans: var(--font-avant), Arial, sans-serif;
+	--font-mono: ui-monospace, monospace;
+	--font-avant: var(--font-avant);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-success-soft: var(--success-soft);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-warning-soft: var(--warning-soft);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
+	--color-info-soft: var(--info-soft);
+	--color-expired: var(--expired);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ── Fuente personalizada — ITC Avant Garde Std cargada desde /font/stylesheet.css ── */
+
+@layer base {
+	* {
+		@apply border-border;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-family: var(--font-avant), Arial, sans-serif;
+	}
+	button,
+	input[type="button"],
+	input[type="submit"],
+	input[type="reset"],
+	[role="button"] {
+		cursor: pointer;
+	}
+
+	button:disabled,
+	input[type="button"]:disabled,
+	input[type="submit"]:disabled,
+	input[type="reset"]:disabled,
+	[role="button"][aria-disabled="true"] {
+		cursor: not-allowed;
+	}
+}
+
+@layer components {
+	.section-title {
+		@apply flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground;
+	}
+
+	.info-label {
+		@apply text-xs font-medium tracking-wider text-muted-foreground uppercase;
+	}
+
+	.info-value {
+		@apply text-sm font-medium text-foreground;
+	}
+
+	.tag-badge {
+		@apply inline-flex items-center rounded-md border border-border/50 bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground;
+	}
+
+	.list-item-card {
+		@apply flex items-start gap-4 rounded-lg border border-border/50 bg-muted/50 p-4;
+	}
+
+	.icon-container {
+		@apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background;
+	}
+}

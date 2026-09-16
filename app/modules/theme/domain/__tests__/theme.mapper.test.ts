@@ -27,10 +27,14 @@ const withShared = (shared: Partial<ThemeTokens["shared"]>): ThemeTokens => ({
 
 describe("toCssTokenSet", () => {
 	test("resolves the font key into a real stack", () => {
-		const set = toCssTokenSet(withShared({ fontSans: "geist" }));
+		const set = toCssTokenSet(withShared({ fontSans: "times-new-roman" }));
 
-		expect(set.shared["theme-font-sans"]).toBe(FONT_CATALOG.geist.stack);
-		expect(fontStack("geist")).toBe(FONT_CATALOG.geist.stack);
+		expect(set.shared["theme-font-sans"]).toBe(
+			FONT_CATALOG["times-new-roman"].stack,
+		);
+		expect(fontStack("times-new-roman")).toBe(
+			FONT_CATALOG["times-new-roman"].stack,
+		);
 	});
 
 	// La pila del sistema es la salida cuando la clave no existe: un tema guardado
@@ -92,7 +96,9 @@ describe("themeCss", () => {
 		const css = themeCss(DEFAULT_THEME_TOKENS, "dark");
 
 		expect(css).toContain("color-scheme:dark");
-		expect(css).toContain("--background:oklch(0.145 0 0)");
+		expect(css).toContain(
+			`--background:${DEFAULT_THEME_TOKENS.dark.background}`,
+		);
 		expect(css).toContain("--theme-font-sans:");
 	});
 
@@ -151,7 +157,7 @@ describe("parseThemeCss", () => {
 			--foreground: #09090b;
 			--primary: hsl(240 5.9% 10%);
 			--radius: 0.3rem;
-			--font-sans: Montserrat, sans-serif;
+			--font-sans: Courier New, monospace;
 			--no-lo-conozco: nada;
 		}
 		.dark {
@@ -167,7 +173,7 @@ describe("parseThemeCss", () => {
 		expect(tokens.light.background).toMatch(/^oklch\(/);
 		expect(tokens.dark.foreground).toMatch(/^oklch\(/);
 		expect(tokens.shared.radius).toBe("0.3rem");
-		expect(tokens.shared.fontSans).toBe("montserrat");
+		expect(tokens.shared.fontSans).toBe("courier-new");
 	});
 
 	// Tolerante con lo que falta: un token ausente hereda del tema base en vez de
@@ -255,24 +261,23 @@ describe("parseThemeCss", () => {
 
 	/*
 	 * Bloques de tipografía tal y como los escribe tweakcn, con la pila declarada
-	 * a su manera y no a la nuestra. Es el caso real por el que se ampliaron el
-	 * catálogo y el bundle: si una de estas líneas no se reconoce, el tema pegado
-	 * se queda con la fuente que hubiera antes y nadie recibe un aviso.
+	 * a su manera y no a la nuestra: si una de estas líneas no se reconoce, el
+	 * tema pegado se queda con la fuente que hubiera antes y nadie recibe un aviso.
 	 */
 	test.each([
 		[
-			"Poppins / Playfair Display / Space Mono",
-			"Poppins, sans-serif",
-			"Playfair Display, serif",
-			"Space Mono, monospace",
-			["poppins", "playfair-display", "space-mono"],
+			"ITC Avant Garde as the manual declares it",
+			"'ITC Avant Garde Std', sans-serif",
+			"Times New Roman, serif",
+			"Courier New, monospace",
+			["avant-garde", "times-new-roman", "courier-new"],
 		],
 		[
-			"Architects Daughter with system serif and mono",
-			"Architects Daughter, sans-serif",
+			"system sans with named serif and mono",
+			'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
 			'"Times New Roman", Times, serif',
 			'"Courier New", Courier, monospace',
-			["architects-daughter", "times-new-roman", "courier-new"],
+			["system", "times-new-roman", "courier-new"],
 		],
 		[
 			"Courier New everywhere, unquoted",
@@ -282,11 +287,11 @@ describe("parseThemeCss", () => {
 			["courier-new", "courier-new", "courier-new"],
 		],
 		[
-			"Libre Baskerville with the generic system stacks",
-			"Libre Baskerville, serif",
+			"ITC Avant Garde with the generic system stacks",
+			"ITC Avant Garde Std, Arial, sans-serif",
 			'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
 			'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-			["libre-baskerville", "system-serif", "system-mono"],
+			["avant-garde", "system-serif", "system-mono"],
 		],
 	])("reads the typography of %s", (_name, sans, serif, mono, expected) => {
 		const tokens = parseThemeCss(`

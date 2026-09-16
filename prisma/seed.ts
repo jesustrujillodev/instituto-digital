@@ -98,6 +98,17 @@ async function main() {
 	// presets pero no toca los temas que haya creado el admin ni cuál está
 	// activo. Un seed que borrara `themes` se llevaría por delante el tema en
 	// producción de cualquier entorno donde alguien lo ejecutara por error.
+	// Un preset retirado del config no se puede borrar desde el builder (la
+	// invariante lo impide) y sus tokens pueden dejar de validar. Es de fábrica,
+	// no del admin, así que el seed lo retira. Si estaba activo, la FK con
+	// `SetNull` deja la plataforma en el tema base.
+	await prisma.theme.deleteMany({
+		where: {
+			isPreset: true,
+			name: { notIn: THEME_PRESETS.map((preset) => preset.name) },
+		},
+	});
+
 	for (const preset of THEME_PRESETS) {
 		const existing = await prisma.theme.findFirst({
 			where: { name: preset.name, isPreset: true },

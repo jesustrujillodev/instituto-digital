@@ -174,7 +174,7 @@ describe("validateThemeTokens", () => {
 
 	test("only fonts from the curated catalogue are accepted", () => {
 		expect(() =>
-			validateThemeTokens(withShared({ fontSans: "geist" })),
+			validateThemeTokens(withShared({ fontSans: "times-new-roman" })),
 		).not.toThrow();
 		expect(() =>
 			validateThemeTokens(withShared({ fontSans: "comic-sans" as never })),

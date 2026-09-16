@@ -3,45 +3,65 @@
 @import "shadcn/tailwind.css";
 
 /*
- * Catálogo de fuentes auto-hospedadas (decisión #5).
+ * ITC Avant Garde, tipografía del manual de identidad del Ayuntamiento.
  *
- * La lista y su `font-family` real viven en theme.config.ts (FONT_CATALOG); aquí
- * solo se declaran los `@font-face`. Importarlas todas NO descarga todas: el
- * navegador baja únicamente las familias que el tema activo llega a usar.
+ * La familia y su pila viven en theme.config.ts (FONT_CATALOG); aquí solo se
+ * declaran los `@font-face`, con los archivos servidos desde public/font: ninguna
+ * petición a un tercero en runtime.
  *
- * Auto-hospedadas y no desde fonts.googleapis.com: ninguna petición a un tercero
- * en runtime, y por tanto ninguna fuga de IPs de usuarios ni nadie más en la ruta
- * crítica del primer render.
+ * Book va en 400 y no en 300 como en la hoja de origen: es el peso regular de la
+ * familia. En 300, el texto sin clase (400) no encontraba su peso y el navegador
+ * subía a Medium, así que todo el cuerpo de texto salía más grueso.
  */
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/geist";
-@import "@fontsource-variable/roboto";
-@import "@fontsource-variable/open-sans";
-@import "@fontsource-variable/montserrat";
-@import "@fontsource-variable/playfair-display";
-@import "@fontsource-variable/merriweather";
-@import "@fontsource-variable/libre-baskerville";
-@import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/fira-code";
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		url("/font/ITCAvantGardeStd-XLt.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-XLt.woff") format("woff");
+	font-weight: 200;
+	font-style: normal;
+	font-display: swap;
+}
 
-/*
- * Familias SIN versión variable: Google no publica un archivo variable de estas
- * tres, así que el paquete trae un fichero por peso y hay que pedir los pesos
- * uno a uno. Importar el paquete a secas (`@fontsource/poppins`) declararía
- * SOLO el 400, y las utilidades `font-medium` / `font-semibold` / `font-bold`
- * de toda la interfaz acabarían con negrita sintética del navegador.
- *
- * Se piden los pesos que la interfaz usa de verdad y no el rango entero: cada
- * peso es una descarga aparte, al contrario que en una fuente variable.
- * Architects Daughter y Space Mono solo existen en los pesos de abajo.
- */
-@import "@fontsource/poppins/400.css";
-@import "@fontsource/poppins/500.css";
-@import "@fontsource/poppins/600.css";
-@import "@fontsource/poppins/700.css";
-@import "@fontsource/architects-daughter/400.css";
-@import "@fontsource/space-mono/400.css";
-@import "@fontsource/space-mono/700.css";
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		url("/font/ITCAvantGardeStd-Bk.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Bk.woff") format("woff");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		url("/font/ITCAvantGardeStd-Md.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Md.woff") format("woff");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		url("/font/ITCAvantGardeStd-Demi.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Demi.woff") format("woff");
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "ITC Avant Garde Std";
+	src:
+		url("/font/ITCAvantGardeStd-Bold.woff2") format("woff2"),
+		url("/font/ITCAvantGardeStd-Bold.woff") format("woff");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
 
 /*
  * Variante `dark:` con DOS ramas, y la segunda es load-bearing.
@@ -324,6 +344,14 @@ body [data-sileo-viewport][data-theme="dark"] [data-sileo-description] {
 	h2,
 	h3 {
 		@apply font-heading;
+	}
+	/* Tailwind 4 dejó los botones con el cursor por defecto del navegador. */
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]) {
+		cursor: pointer;
+	}
+	::selection {
+		@apply bg-primary text-primary-foreground;
 	}
 }
 

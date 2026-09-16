@@ -31,6 +31,10 @@ import { hasRole, type Role } from "@/shared/rules/atoms.rules";
 import { containerContext } from "./shared/di/container.types";
 import type { ApiContext } from "./shared/types";
 
+export const links: Route.LinksFunction = () => [
+	{ rel: "icon", type: "image/png", href: "/assets/favicon.png" },
+];
+
 /**
  * Quién puede previsualizar un tema sin publicar. Es una función de plataforma,
  * no de contenido: la ejerce quien administra la apariencia del instituto.

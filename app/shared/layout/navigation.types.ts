@@ -19,3 +19,15 @@ export interface NavItem {
 	readonly trainer?: boolean;
 	readonly children?: readonly NavItem[];
 }
+
+/** Bloque de la barra con su propia etiqueta; sin etiqueta va como cabecera. */
+export interface NavSection {
+	readonly label?: string;
+	/**
+	 * Ausente ⇒ visible para cualquier rol. A diferencia de `NavItem`, no admite
+	 * `trainer`: un capacitador con rol de plataforma no debe recibir también el
+	 * bloque de gestión de dependencia.
+	 */
+	readonly roles?: readonly Role[];
+	readonly items: readonly NavItem[];
+}

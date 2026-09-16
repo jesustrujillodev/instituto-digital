@@ -1,4 +1,4 @@
-import { ChevronRight, GalleryVerticalEnd } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { SessionUser } from "@/shared/auth/session-user";
@@ -20,6 +20,7 @@ import {
 	SidebarContent,
 	SidebarFooter,
 	SidebarGroup,
+	SidebarGroupLabel,
 	SidebarHeader,
 	SidebarMenu,
 	SidebarMenuButton,
@@ -30,9 +31,15 @@ import {
 	SidebarRail,
 	useSidebar,
 } from "@/shared/components/ui/sidebar";
-import { footerNavigationConfig, navigationConfig } from "../navigation.config";
+import {
+	footerNavigationConfig,
+	navigationSections,
+} from "../navigation.config";
 import type { NavItem } from "../navigation.types";
-import { filterNavigationByRole } from "../navigation.utils";
+import {
+	filterNavigationByRole,
+	filterNavigationSections,
+} from "../navigation.utils";
 
 /**
  * `/dashboard` es prefijo de todas sus hijas, así que solo debe marcarse activo
@@ -223,8 +230,8 @@ export function DashboardSidebar({ user }: { user: SessionUser }) {
 		[user.role, user.isTrainer],
 	);
 
-	const items = useMemo(
-		() => filterNavigationByRole(navigationConfig, viewer),
+	const sections = useMemo(
+		() => filterNavigationSections(navigationSections, viewer),
 		[viewer],
 	);
 
@@ -244,13 +251,17 @@ export function DashboardSidebar({ user }: { user: SessionUser }) {
 					<SidebarMenuItem>
 						<SidebarMenuButton size="lg" asChild>
 							<Link to="/dashboard">
-								<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-									<GalleryVerticalEnd className="size-4" />
-								</div>
-								<div className="flex flex-col gap-0.5 leading-none">
-									<span className="font-medium">Car Dealership</span>
-									<span className="text-xs text-muted-foreground">
-										Panel de control
+								<img
+									src="/assets/favicon.png"
+									alt=""
+									className="size-8 shrink-0 object-contain"
+								/>
+								<div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+									<span className="truncate font-semibold">
+										Instituto Digital
+									</span>
+									<span className="truncate text-xs text-sidebar-foreground/70">
+										de Capacitación
 									</span>
 								</div>
 							</Link>
@@ -260,17 +271,22 @@ export function DashboardSidebar({ user }: { user: SessionUser }) {
 			</SidebarHeader>
 
 			<SidebarContent>
-				<SidebarGroup>
-					<SidebarMenu className="gap-2">
-						{items.map((item) => (
-							<NavEntry
-								key={item.path ?? item.label}
-								item={item}
-								pathname={pathname}
-							/>
-						))}
-					</SidebarMenu>
-				</SidebarGroup>
+				{sections.map((section, index) => (
+					<SidebarGroup key={section.label ?? index}>
+						{section.label && (
+							<SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+						)}
+						<SidebarMenu className="gap-1">
+							{section.items.map((item) => (
+								<NavEntry
+									key={item.path ?? item.label}
+									item={item}
+									pathname={pathname}
+								/>
+							))}
+						</SidebarMenu>
+					</SidebarGroup>
+				))}
 			</SidebarContent>
 
 			{/* El menú de cuenta y el tema viven en el header del layout. Sin items

@@ -43,9 +43,9 @@ app/
 │   ├── layout/
 │   │   ├── layout.constants.ts        DASHBOARD_LAYOUT_ID (cero imports)
 │   │   ├── layout.types.ts            DashboardLayoutData (contrato loader↔hook)
-│   │   ├── navigation.types.ts        NavItem
-│   │   ├── navigation.config.ts       navigationConfig — declarativa, tipada por Role
-│   │   ├── navigation.utils.ts        filterNavigationByRole — pura, testeable
+│   │   ├── navigation.types.ts        NavItem, NavSection
+│   │   ├── navigation.config.ts       navigationSections — declarativa, tipada por Role
+│   │   ├── navigation.utils.ts        filterNavigationSections / filterNavigationByRole — puras
 │   │   ├── components/
 │   │   │   ├── dashboard-sidebar.tsx  Sidebar shadcn + nav filtrada
 │   │   │   └── dashboard-user-menu.tsx Avatar + menú + logout
@@ -155,7 +155,7 @@ flowchart TD
     D --> E["dashboard.boundary.tsx<br/>(pasarela: aloja el ErrorBoundary)"]
     E --> F["loader del módulo<br/>requireRole(...) si aplica"]
     F --> G["Componente de página<br/>useAuth() / RoleGuard para UI"]
-    D --> H["DashboardSidebar<br/>filterNavigationByRole"]
+    D --> H["DashboardSidebar<br/>filterNavigationSections"]
 ```
 
 1. **`root.tsx` — middleware.** Sin cambios respecto a
@@ -250,7 +250,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 | 1. Middleware de `root.tsx` | Servidor, antes de todo loader | ¿Hay sesión válida? ¿Hay que refrescar? | **Sí** (autenticación) |
 | 2. Loader del layout (`requireAuth`) | Servidor, al entrar a la zona | ¿Puede entrar a la zona protegida? | **Sí** (gate estructural) |
 | 3. `requireRole` en el loader | Servidor, dentro de la ruta | ¿El rol alcanza a *este* recurso? | **Sí** (autorización) |
-| 4. `filterNavigationByRole` / `useRole` / `<RoleGuard>` | Cliente | ¿Se muestra el enlace / el botón? | **No — solo UX** |
+| 4. `filterNavigationSections` / `useRole` / `<RoleGuard>` | Cliente | ¿Se muestra el enlace / el botón? | **No — solo UX** |
 
 Un usuario que teclee directamente una URL que no ve en el menú **sigue
 recibiendo un 403**: la capa 4 solo evita ofrecer accesos que fallarían.
@@ -378,17 +378,27 @@ del provider y haría falta un mecanismo distinto según dónde viva el componen
 ## 9. Navegación declarativa
 
 ```ts
-export const navigationConfig: readonly NavItem[] = [
-  { label: "Resumen", path: "/dashboard", icon: LayoutDashboard },
+export const navigationSections: readonly NavSection[] = [
+  { items: [{ label: "Resumen", path: "/dashboard", icon: LayoutDashboard }] },
   {
-    label: "Administración",
-    icon: ShieldCheck,
-    roles: ["ADMIN"],
-    children: [{ label: "Usuarios", path: "/dashboard/usuarios", icon: Users }],
+    label: "Mi capacitación",
+    roles: LEARNER_ROLES,
+    items: [{ label: "Mis cursos", path: "/dashboard/mis-cursos", icon: BookOpenCheck }],
   },
+  { label: "Gestión", roles: LEARNER_ROLES, items: [/* Cursos, Grupos, … */] },
+  { label: "Administración", roles: PLATFORM_ROLES, items: [/* Dependencias, … */] },
+  { label: "Capacitación", roles: PLATFORM_ROLES, items: [/* Cursos, Calendario, … */] },
 ];
 ```
 
+- **Orden por intención**: quien cursa ve primero su capacitación (Mis cursos
+  encabeza) y después lo que imparte u organiza; los roles de plataforma, que no
+  cursan, empiezan por la administración. Un mismo destino puede vivir en dos
+  secciones con roles disjuntos; el test garantiza que nadie lo ve dos veces.
+- Una sección sin etiqueta se pinta como cabecera (Resumen). La sección no admite
+  `trainer`: ese flag abre items, nunca bloques enteros.
+- `filterNavigationSections` descarta la sección excluida por rol o que se queda
+  sin items visibles.
 - Sin `path` ⇒ **grupo contenedor** (no navegable).
 - Sin `roles` ⇒ visible para cualquier sesión (el layout ya exige autenticación).
 - `filterNavigationByRole` filtra recursivamente y **oculta el grupo padre que se
@@ -481,7 +491,7 @@ Lo que **no** se adoptó, y por qué:
 4. Si el recurso se restringe por rol, `await requireRole(request, context, [...])`
    como primera línea del loader (y del action, si lo hay).
 5. Si debe aparecer en el menú, añadir la entrada a `navigation.config.ts` con sus
-   `roles` — a `navigationConfig` si es trabajo habitual, o a
+   `roles` — a la sección de `navigationSections` que corresponda a la intención si es trabajo habitual, o a
    `footerNavigationConfig` si es un acceso operativo (§9.1).
 6. Si necesita un servicio propio, registrarlo en `shared/di/container.server.ts`.
 7. `bun run typecheck` — corre `react-router typegen` antes de `tsc`, así que

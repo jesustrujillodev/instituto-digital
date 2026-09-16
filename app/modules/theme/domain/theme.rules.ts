@@ -80,24 +80,13 @@ export type ColorTokenName = (typeof COLOR_TOKENS)[number];
  *
  * Vive aquí y no en `theme.config.ts` porque es VOCABULARIO —lo que el esquema
  * de valibot admite—, igual que `THEME_MODES`. El catálogo con el paquete de
- * `@fontsource` y la pila real de cada una sí es configuración, y está tipado
- * como `Record<FontFamilyKey, …>`: añadir una clave aquí sin darle entrada allí
- * no compila.
+ * la pila real de cada una sí es configuración, y está tipado como
+ * `Record<FontFamilyKey, …>`: añadir una clave aquí sin darle entrada allí no
+ * compila.
  */
 export const FONT_FAMILY_KEYS = [
-	"inter",
-	"geist",
-	"roboto",
-	"open-sans",
-	"montserrat",
-	"poppins",
-	"architects-daughter",
-	"playfair-display",
-	"merriweather",
-	"libre-baskerville",
-	"jetbrains-mono",
-	"fira-code",
-	"space-mono",
+	// Tipografía institucional del manual de identidad, servida desde public/font.
+	"avant-garde",
 	// Pilas del sistema: no descargan nada. Las tres `system-*` son genéricas —
 	// cada máquina resuelve una fuente distinta— y las dos siguientes nombran una
 	// familia concreta que Windows y macOS traen instalada de fábrica.
