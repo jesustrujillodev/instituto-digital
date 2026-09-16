@@ -53,12 +53,40 @@ describe("navigationConfig — filtrado por rol", () => {
 		expect(pathsFor(navigationConfig, "USER")).toContain("/dashboard");
 	});
 
-	test("un ADMIN ve todo lo que ve un USER, y además lo suyo", () => {
+	// Los roles globales administran pero no cursan (§3): lo único de un USER que
+	// no ven son las pantallas de participante.
+	const PARTICIPANT_PATHS = [
+		"/dashboard/cursos-disponibles",
+		"/dashboard/mis-cursos",
+	];
+
+	test("un ADMIN ve todo lo que ve un USER salvo lo de participante, y además lo suyo", () => {
 		const userPaths = pathsFor(navigationConfig, "USER");
 		const adminPaths = pathsFor(navigationConfig, "ADMIN");
 
-		for (const path of userPaths) expect(adminPaths).toContain(path);
+		for (const path of userPaths) {
+			if (path && !PARTICIPANT_PATHS.includes(path)) {
+				expect(adminPaths).toContain(path);
+			}
+		}
 		expect(adminPaths).toContain("/dashboard/usuarios");
+	});
+
+	test("cursos disponibles y mis cursos son de quien cursa", () => {
+		for (const role of [
+			"USER",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+		] as const) {
+			expect(pathsFor(navigationConfig, role)).toEqual(
+				expect.arrayContaining(PARTICIPANT_PATHS),
+			);
+		}
+		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
+			for (const path of PARTICIPANT_PATHS) {
+				expect(pathsFor(navigationConfig, role)).not.toContain(path);
+			}
+		}
 	});
 
 	// El alta de dependencias es global: la ejerce quien puede crear una unidad
@@ -90,6 +118,25 @@ describe("navigationConfig — filtrado por rol", () => {
 
 		expect(pathsFor(navigationConfig, "USER")).not.toContain(
 			"/dashboard/usuarios",
+		);
+	});
+
+	// El capacitador interno crea cursos con rol USER: si el enlace dependiera
+	// solo de roles, tendría la función y no la puerta.
+	test("los cursos los ven la gestión y cualquier capacitador", () => {
+		for (const role of [
+			"SUPERADMIN",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+		] as const) {
+			expect(pathsFor(navigationConfig, role)).toContain("/dashboard/cursos");
+		}
+
+		expect(pathsFor(navigationConfig, "USER", true)).toContain(
+			"/dashboard/cursos",
+		);
+		expect(pathsFor(navigationConfig, "USER")).not.toContain(
+			"/dashboard/cursos",
 		);
 	});
 });

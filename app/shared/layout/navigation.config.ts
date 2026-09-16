@@ -1,5 +1,8 @@
 import {
+	BookOpen,
+	BookOpenCheck,
 	Building2,
+	CalendarCheck,
 	Cloud,
 	GraduationCap,
 	LayoutDashboard,
@@ -62,12 +65,35 @@ export const navigationConfig: readonly NavItem[] = [
 		trainer: true,
 	},
 	{
-		// El superadministrador entra a consultar: en PRD-03 elegirá audiencias de
+		// El superadministrador entra a consultar: elige audiencias de cursos de
 		// cualquier dependencia. Administrar sigue siendo del titular y el auxiliar.
 		label: "Grupos",
 		path: "/dashboard/grupos",
 		icon: UsersRound,
 		roles: ["SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
+	},
+	{
+		// `trainer` porque el capacitador interno crea cursos en su dependencia. El
+		// externo también ve el enlace —`SessionUser` no distingue el tipo de
+		// cuenta— y el loader le responde 403.
+		label: "Cursos",
+		path: "/dashboard/cursos",
+		icon: BookOpen,
+		roles: ["ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
+		trainer: true,
+	},
+	{
+		// Lo ve también el capacitador externo, que tiene rol USER; el loader le responde 403.
+		label: "Cursos disponibles",
+		path: "/dashboard/cursos-disponibles",
+		icon: BookOpenCheck,
+		roles: ["USER", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
+	},
+	{
+		label: "Mis cursos",
+		path: "/dashboard/mis-cursos",
+		icon: CalendarCheck,
+		roles: ["USER", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
 	},
 ];
 

@@ -5,8 +5,8 @@ import type { Role } from "@/shared/rules/atoms.rules";
  * Quién ENTRA a la pantalla de grupos.
  *
  * Incluye al superadministrador aunque la matriz de §3 no le dé su
- * administración: en PRD-03 podrá crear cursos en cualquier dependencia y
- * tendrá que consultar sus audiencias. Lo que no puede es escribir, y eso lo
+ * administración: crea cursos en cualquier dependencia y consulta los grupos
+ * para elegir su audiencia. Lo que no puede es escribir, y eso lo
  * corta `requireDependencyScope`.
  */
 export const GROUP_ACCESS_ROLES: readonly Role[] = [

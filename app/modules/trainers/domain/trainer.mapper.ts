@@ -38,7 +38,7 @@ export const toSummary = (raw: {
  * Lo mismo, con los campos de la ficha.
  *
  * `coursesTaught` y `averageRating` salen de `TRAINER_STATS_PENDING` hasta que
- * PRD-03 y PRD-06 creen sus tablas.
+ * PRD-06 finalice cursos y cree las valoraciones.
  */
 export const toDetail = (raw: {
 	specialty: string;

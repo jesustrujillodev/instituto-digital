@@ -73,6 +73,10 @@ model User {
   sessions         Session[]
   trainerProfile   TrainerProfile?
   groupMemberships GroupMember[]
+  coursesCreated   Course[]        @relation("CourseCreator")
+  coursesTaught    CourseTrainer[]
+  enrollments      Enrollment[]    @relation("EnrollmentParticipant")
+  enrollmentsActed Enrollment[]    @relation("EnrollmentActor")
 
   // documentId y email son @unique — el índice lo crea la constraint;
   // no declarar @@index duplicados.
@@ -219,8 +223,11 @@ model Dependency {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  users  User[]
-  groups Group[]
+  users          User[]
+  groups         Group[]
+  courses        Course[]
+  courseAudience CourseDependencyAudience[]
+  enrollments    Enrollment[]
 
   @@map("dependencies")
   @@schema("org")
@@ -278,7 +285,8 @@ model Group {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  members GroupMember[]
+  members        GroupMember[]
+  courseAudience CourseGroupAudience[]
 
   @@index([dependencyId, archivedAt])
   @@map("groups")
@@ -297,5 +305,243 @@ model GroupMember {
   @@id([groupId, userId])
   @@index([userId])
   @@map("group_members")
+  @@schema("org")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CURSOS — la unidad que se imparte y se acredita
+//
+// Todo curso pertenece a una dependencia organizadora. Quién puede verlo depende
+// de `access` y de las dos tablas de audiencia; quién puede administrarlo, del
+// alcance de course.access.ts. Las horas se guardan en UTC y se capturan y se
+// muestran SIEMPRE en la zona del instituto (app/lib/date-utils.ts).
+// ──────────────────────────────────────────────────────────────────────────────
+
+enum CourseModality {
+  IN_PERSON
+  ONLINE
+  HYBRID
+
+  @@schema("org")
+}
+
+enum CourseAccess {
+  PUBLIC
+  RESTRICTED
+  INVITATION
+
+  @@schema("org")
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  FINISHED
+  CANCELLED
+
+  @@schema("org")
+}
+
+/// Un curso. No lleva `archivedAt`: su baja es `status = CANCELLED`, porque §6.5
+/// del alcance exige que cancelar conserve los registros. Dos mecanismos de baja
+/// sobre la misma fila se contradirían en la primera consulta.
+model Course {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  /// La organizadora. El superadministrador la elige; los demás la heredan de su
+  /// alcance. Restrict por lo mismo que en User: desactivar una dependencia con
+  /// cursos es la vía prevista; borrarla y dejarlos huérfanos, no.
+  dependencyId Int        @map("dependency_id")
+  dependency   Dependency @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  title       String
+  description String?
+
+  modality CourseModality
+  access   CourseAccess
+
+  /// Opcionales por definición del alcance: un curso puede no tener tope de
+  /// plazas ni fecha límite. Sin límite, la inscripción cierra al empezar la
+  /// primera sesión (§6.6, `enrollmentClosesAt`).
+  capacity           Int?      @map("capacity")
+  enrollmentDeadline DateTime? @map("enrollment_deadline")
+
+  /// Porcentaje. El 80 por defecto sale de §6.8 y se ajusta por curso.
+  minAttendance      Int     @default(80) @map("min_attendance")
+  requiresEvaluation Boolean @default(false) @map("requires_evaluation")
+
+  status CourseStatus @default(DRAFT)
+
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("CourseCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  /// Línea del plan anual que originó el curso. La tabla llega en PRD-07; la
+  /// columna existe ya para no volver a migrar `courses` entonces, y por eso no
+  /// declara relación todavía.
+  planLineId Int? @map("plan_line_id")
+
+  publishedAt DateTime? @map("published_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions           CourseSession[]
+  trainers           CourseTrainer[]
+  dependencyAudience CourseDependencyAudience[]
+  groupAudience      CourseGroupAudience[]
+  enrollments        Enrollment[]
+
+  @@index([dependencyId, status])
+  @@index([createdById])
+  @@map("courses")
+  @@schema("org")
+}
+
+/// Fecha y horario concretos de un curso.
+///
+/// `documentId` no es decorativo: el formulario lo devuelve por cada fila para
+/// que editar un curso CONSERVE la identidad de las sesiones que no cambiaron.
+/// En PRD-06 cada una cuelga su asistencia, y recrearlas la dejaría huérfana.
+model CourseSession {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+
+  /// Según la modalidad. Se exigen al PUBLICAR, no al guardar: un borrador puede
+  /// estar incompleto, que es para lo que sirve.
+  venue String?
+  link  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId, startsAt])
+  @@index([startsAt])
+  @@map("course_sessions")
+  @@schema("org")
+}
+
+/// Quién imparte. Al menos uno por curso publicado (§6.5).
+model CourseTrainer {
+  courseId   Int      @map("course_id")
+  userId     Int      @map("user_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, userId])
+  @@index([userId])
+  @@map("course_trainers")
+  @@schema("org")
+}
+
+/// Audiencia por dependencia completa. Solo cuando el acceso es RESTRICTED.
+///
+/// Son dos tablas y no una con dos columnas nullables porque así la base impone
+/// sola lo que un CHECK tendría que vigilar: la tabla ES el tipo de audiencia, y
+/// la PK compuesta impide repetir. Con una sola tabla, Postgres nunca considera
+/// iguales dos NULL, así que un índice único dejaría pasar el mismo grupo dos
+/// veces en el mismo curso.
+model CourseDependencyAudience {
+  courseId     Int @map("course_id")
+  dependencyId Int @map("dependency_id")
+
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  dependency Dependency @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  @@id([courseId, dependencyId])
+  @@index([dependencyId])
+  @@map("course_dependency_audience")
+  @@schema("org")
+}
+
+/// Audiencia por lista nominal. Un grupo acota a unas pocas personas de UNA
+/// dependencia, así que no es redundante con la fila de esa dependencia: es más
+/// estrecha.
+model CourseGroupAudience {
+  courseId Int @map("course_id")
+  groupId  Int @map("group_id")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@id([courseId, groupId])
+  @@index([groupId])
+  @@map("course_group_audience")
+  @@schema("org")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inscripción e invitaciones (PRD-04)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EnrollmentOrigin {
+  SELF
+  ASSIGNED
+  INVITATION
+
+  @@schema("org")
+}
+
+enum EnrollmentStatus {
+  INVITED
+  ENROLLED
+  DECLINED
+  WITHDRAWN
+
+  @@schema("org")
+}
+
+enum EnrollmentResult {
+  PENDING
+  PASSED
+  FAILED
+
+  @@schema("org")
+}
+
+/// Una fila por persona y curso: bajas y rechazos cambian el estado, y volver a
+/// inscribirse reutiliza la fila (docs/adr/0004).
+model Enrollment {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation("EnrollmentParticipant", fields: [userId], references: [id], onDelete: Restrict)
+
+  /// La de la persona al inscribirse o aceptar, no la actual.
+  dependencyId Int        @map("dependency_id")
+  dependency   Dependency @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  origin EnrollmentOrigin
+  status EnrollmentStatus
+  result EnrollmentResult @default(PENDING)
+
+  actedById Int  @map("acted_by_id")
+  actedBy   User @relation("EnrollmentActor", fields: [actedById], references: [id], onDelete: Restrict)
+
+  invitedAt   DateTime? @map("invited_at")
+  enrolledAt  DateTime? @map("enrolled_at")
+  respondedAt DateTime? @map("responded_at")
+  withdrawnAt DateTime? @map("withdrawn_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([courseId, userId])
+  @@index([userId, status])
+  @@index([courseId, status])
+  @@map("enrollments")
   @@schema("org")
 }

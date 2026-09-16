@@ -1,11 +1,11 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: postgres_master_template
+    container_name: postgres_instituto_digital
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: postgres_master_template
+      POSTGRES_DB: postgres_instituto_digital
     ports:
       - "5432:5432"
     volumes:
@@ -13,7 +13,7 @@ services:
 
   minio:
     image: minio/minio
-    container_name: minio_master_template
+    container_name: minio_instituto_digital
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -34,8 +34,8 @@ services:
     entrypoint: >
       /bin/sh -c "
       until (mc alias set local http://minio:9000 minioadmin minioadmin) do sleep 1; done;
-      mc mb -p local/car-dealership-storage;
-      mc mb -p local/car-dealership-public;
+      mc mb -p local/instituto-digital-storage;
+      mc mb -p local/instituto-digital-public;
       exit 0;
       "
 

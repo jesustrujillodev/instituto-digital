@@ -218,7 +218,7 @@ describe("createTrainerService — catálogo", () => {
 		);
 	});
 
-	// PRD-03 y PRD-06 sustituyen el cálculo, no el contrato: la ficha ya expone
+	// PRD-06 sustituye el cálculo, no el contrato: la ficha ya expone
 	// los dos campos y la UI puede fijar su estado vacío desde ahora.
 	test("la ficha devuelve los contadores pendientes en su forma final", async () => {
 		const { service } = createHarness({ trainers: [detailOf()] });

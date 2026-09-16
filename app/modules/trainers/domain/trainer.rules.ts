@@ -66,7 +66,7 @@ export const trainerDetailSchema = v.object({
 	bio: v.nullable(v.string()),
 	createdAt: v.date(),
 	updatedAt: v.date(),
-	/** Lo calculará PRD-03 desde `curso_capacitador`. */
+	/** Lo calculará PRD-06 desde `course_trainers`, al existir cursos finalizados. */
 	coursesTaught: v.number(),
 	/** Lo calculará PRD-06 desde `valoracion`. */
 	averageRating: v.nullable(v.number()),

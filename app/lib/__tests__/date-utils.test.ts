@@ -1,0 +1,77 @@
+import { describe, expect, test } from "vitest";
+import {
+	endOfZonedDay,
+	formatSessionRange,
+	INSTITUTE_TIME_ZONE,
+	utcToZonedInput,
+	zonedInputToUtc,
+} from "../date-utils";
+
+describe("INSTITUTE_TIME_ZONE", () => {
+	test("es la única zona de la plataforma", () => {
+		expect(INSTITUTE_TIME_ZONE).toBe("America/Tijuana");
+	});
+});
+
+describe("zonedInputToUtc", () => {
+	// Tijuana sigue el horario de verano de la frontera: UTC-7 en verano y
+	// UTC-8 en invierno. Si estas dos pruebas dieran el mismo desfase, el helper
+	// estaría ignorando el cambio y las sesiones de noviembre saldrían corridas.
+	test("en verano guarda con desfase de 7 horas", () => {
+		expect(zonedInputToUtc("2026-07-15", "09:00").toISOString()).toBe(
+			"2026-07-15T16:00:00.000Z",
+		);
+	});
+
+	test("en invierno guarda con desfase de 8 horas", () => {
+		expect(zonedInputToUtc("2026-11-20", "09:00").toISOString()).toBe(
+			"2026-11-20T17:00:00.000Z",
+		);
+	});
+
+	test("resuelve una hora del día del cambio de horario", () => {
+		// El primer domingo de noviembre de 2026 los relojes se atrasan a las 02:00.
+		// Las 09:00 de ese día ya están en horario de invierno.
+		expect(zonedInputToUtc("2026-11-01", "09:00").toISOString()).toBe(
+			"2026-11-01T17:00:00.000Z",
+		);
+	});
+
+	test("rechaza una fecha u hora con formato ajeno al input", () => {
+		expect(() => zonedInputToUtc("15/07/2026", "09:00")).toThrow(RangeError);
+		expect(() => zonedInputToUtc("2026-07-15", "9:00")).toThrow(RangeError);
+		expect(() => zonedInputToUtc("2026-07-15", "24:00")).toThrow(RangeError);
+	});
+});
+
+describe("utcToZonedInput", () => {
+	test.each([
+		["2026-07-15", "09:00"],
+		["2026-11-20", "09:00"],
+		["2026-01-01", "00:00"],
+		["2026-12-31", "23:59"],
+	])("ida y vuelta conserva %s %s", (date, time) => {
+		expect(utcToZonedInput(zonedInputToUtc(date, time))).toEqual({
+			date,
+			time,
+		});
+	});
+});
+
+describe("endOfZonedDay", () => {
+	test("la fecha límite cubre el día completo", () => {
+		expect(utcToZonedInput(endOfZonedDay("2026-10-12"))).toEqual({
+			date: "2026-10-12",
+			time: "23:59",
+		});
+	});
+});
+
+describe("formatSessionRange", () => {
+	test("muestra la hora capturada, no la del servidor", () => {
+		const startsAt = zonedInputToUtc("2026-10-05", "09:00");
+		const endsAt = zonedInputToUtc("2026-10-05", "13:00");
+
+		expect(formatSessionRange(startsAt, endsAt)).toContain("09:00–13:00");
+	});
+});

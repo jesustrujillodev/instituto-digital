@@ -24,8 +24,12 @@ import { createCachedSecurityStateRepository } from "@/modules/auth/infrastructu
 import { createSecurityStateRepository } from "@/modules/auth/infrastructure/security-state.repository.server";
 import { createSessionRepository } from "@/modules/auth/infrastructure/session.repository.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
+import { createCourseService } from "@/modules/courses/application/courses.service.server";
+import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
 import { createDependencyService } from "@/modules/dependencies/application/dependencies.service.server";
 import { createDependencyRepository } from "@/modules/dependencies/infrastructure/dependencies.repository.server";
+import { createEnrollmentService } from "@/modules/enrollments/application/enrollments.service.server";
+import { createEnrollmentRepository } from "@/modules/enrollments/infrastructure/enrollments.repository.server";
 import { createGroupService } from "@/modules/groups/application/groups.service.server";
 import { createGroupRepository } from "@/modules/groups/infrastructure/groups.repository.server";
 import { createThemeService } from "@/modules/theme/application/theme.service.server";
@@ -46,6 +50,7 @@ import { createConsoleLogger } from "@/shared/logging/logger.console";
 import { createMemoryRateLimiter } from "@/shared/rate-limit/rate-limiter.memory";
 import { createAssetUrlResolver } from "@/shared/storage/public-url";
 import { createStorageProviderFromEnv } from "@/shared/storage/storage.factory";
+import { systemClock } from "@/shared/time/clock";
 import prisma, { runInTransaction } from "../../core/db.server";
 import type { ApiContext } from "../types";
 import type { ICradle } from "./container.types";
@@ -155,6 +160,7 @@ export const configureContainer = async (
 	freshContainer.register({
 		prisma: asValue(prisma),
 		runInTransaction: asValue(runInTransaction),
+		clock: asValue(systemClock),
 		authConfig: asValue(authConfig),
 		env: asValue(env),
 		storageBucket: asValue(env.STORAGE_BUCKET_NAME ?? null),
@@ -179,6 +185,10 @@ export const configureContainer = async (
 		trainerService: asSingleton(createTrainerService),
 		groupRepository: asSingleton(createGroupRepository),
 		groupService: asSingleton(createGroupService),
+		courseRepository: asSingleton(createCourseRepository),
+		courseService: asSingleton(createCourseService),
+		enrollmentRepository: asSingleton(createEnrollmentRepository),
+		enrollmentService: asSingleton(createEnrollmentService),
 		// Una fuente por módulo que guarda keys de storage. Añadir un módulo con
 		// archivos = añadir su fuente aquí; el gestor de nube no cambia.
 		objectReferenceSources: asSingleton((cradle: ICradle) => [

@@ -1,0 +1,243 @@
+# Cursos, sesiones y acceso — Referencia
+
+## 1. Qué es
+
+`app/modules/courses/` administra la unidad que se imparte y se acredita: el
+curso, sus sesiones, quién lo imparte y a quién va dirigido. Entrega §6.5 del
+alcance desde el lado del **organizador**: crear en borrador, publicar con
+validaciones, editar y cancelar.
+
+Lo que **no** hace todavía, y quién lo hace:
+
+| Pendiente | PRD |
+| --- | --- |
+| Avisos por correo al editar o cancelar | PRD-08 (los inscritos ya existen desde PRD-04) |
+| Calendario | PRD-05 |
+| Estado `FINISHED`, asistencia, créditos y los contadores de la ficha del capacitador | PRD-06 |
+| Plan anual y "crear curso desde esta línea" | PRD-07 |
+
+La inscripción, las invitaciones y "Mis cursos" viven en su propio módulo
+(`docs/enrollments/00-inscripcion-e-invitaciones.md`), que consume la regla de
+visibilidad de §5.
+
+## 2. El modelo
+
+| Tabla | Qué guarda |
+| --- | --- |
+| `org.courses` | El curso. Organizadora, modalidad, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor y `plan_line_id` |
+| `org.course_sessions` | Fecha y horario concretos: `starts_at`, `ends_at`, sede y enlace |
+| `org.course_trainers` | Quién imparte. PK `(course_id, user_id)` |
+| `org.course_dependency_audience` | Audiencia por dependencia completa. PK `(course_id, dependency_id)` |
+| `org.course_group_audience` | Audiencia por lista nominal. PK `(course_id, group_id)` |
+
+Decisiones que el schema no dice por sí solo:
+
+- **No hay `archived_at`.** La baja de un curso es `status = CANCELLED`, que
+  conserva sus sesiones, capacitadores y audiencia (§6.5). Dos mecanismos de baja
+  sobre la misma fila se contradirían.
+- **`plan_line_id` existe sin relación.** La tabla del plan llega en PRD-07; la
+  columna se adelanta para no volver a tocar `courses` entonces.
+- **La audiencia son dos tablas y no una con dos columnas nulas.** Ver
+  [ADR 0003](../adr/0003-alcance-de-cursos-y-audiencia.md) §2.2.
+- **La organizadora no cambia.** La regla de edición no la declara: moverla
+  arrastraría audiencia, capacitadores y, desde PRD-06, créditos otorgados a
+  nombre de la anterior.
+
+## 3. Las horas
+
+La plataforma opera **siempre** en `America/Tijuana`. Todo instante se guarda en
+UTC; se captura y se muestra en la hora del instituto, y la conversión pasa por
+un solo archivo: `app/lib/date-utils.ts`.
+
+```
+formulario  "2026-11-20" + "09:00"   (hora de Tijuana, sin offset)
+    │  zonedInputToUtc — en el SERVICIO
+    ▼
+base        2026-11-20T17:00:00Z
+    │  utcToZonedInput / formatSessionRange — en la frontera de presentación
+    ▼
+pantalla    "20 nov 2026, 09:00–13:00"
+```
+
+No hay librería de fechas: `Intl` ya conoce el horario de verano. El helper
+resuelve el desfase en dos pasos para acertar también el día del cambio, y la
+prueba fija un desfase de 7 horas en julio y de 8 en noviembre.
+
+La fecha límite de inscripción se captura como **día**: se guarda el último
+minuto de ese día en Tijuana.
+
+## 4. Quién administra qué
+
+### 4.1 · El alcance propio del módulo
+
+La matriz de §3 da al capacitador interno "crear cursos en su dependencia" y
+"editar, publicar y cancelar **los que creó**". Un capacitador con rol `USER`
+resuelve a `self` en el `AccessScope` compartido, que para cursos significaría
+"ninguno". Por eso el módulo traduce el alcance a uno suyo:
+
+```
+global      → SUPERADMIN, ADMIN
+dependency  → DEPENDENCY_HEAD, DEPENDENCY_DEPUTY con dependencia
+creator     → cualquier otro rol + perfil de capacitador + dependencia
+none        → el resto, incluido el capacitador EXTERNO
+```
+
+El externo cae en `none` porque no tiene dependencia, que es lo que §4 del
+alcance pide: solo imparte, no crea. Quien es titular y además capacitador
+conserva el alcance más amplio.
+
+`courseScopeWhere` y `courseScopeWriteWhere` siguen el mismo patrón que `users` y
+`groups`: `none` es un predicado imposible al leer y `null` al escribir, nunca
+`{}`. El filtro va dentro del `where`, así que **fuera de alcance responde igual
+que inexistente** (404).
+
+### 4.2 · El guard
+
+`requireRole` solo compara contra la tupla de roles y no expresa "o es
+capacitador interno". Las rutas usan `requireCourseScope`
+(`routes/require-course-scope.server.ts`): `requireAuth` + `canManageCourses` +
+`forbiddenRole`, el mismo 403 que da `requireRole`. Es el precedente del
+catálogo de capacitadores de PRD-02.
+
+### 4.3 · La dependencia organizadora
+
+La elige solo el alcance global. Los demás la heredan **ignorando lo que venga
+del formulario** (`resolveOrganizerDependency`): aceptarla permitiría crear un
+curso en otra unidad enviando el formulario a mano. Una dependencia desactivada
+no organiza cursos nuevos.
+
+### 4.4 · Audiencia y capacitadores elegibles
+
+- **Capacitadores:** catálogo global (§4). Cualquier organizador asigna a
+  cualquier capacitador con perfil y cuenta activos.
+- **Dependencias de audiencia:** cualquiera activa. Abrir un curso a otras
+  dependencias es de lo que trata §1.
+- **Grupos de audiencia:** los del alcance de quien elige. Un grupo es una lista
+  nominal de una unidad, y verlo es leer a su gente.
+
+El servicio **rechaza el lote entero** si algún capacitador, dependencia o grupo
+pedido no está disponible, igual que el alta de miembros de un grupo. Un curso
+que no es `RESTRICTED` descarta la audiencia enviada en vez de guardarla latente.
+
+## 5. Quién puede ver un curso
+
+Criterio 3 de §7: *un curso restringido o por invitación no aparece, ni por
+listado ni por URL directa, a quien no tiene acceso.*
+`courseVisibilityWhere(viewer)` en `domain/course.access.ts` es la unión de:
+
+1. Lo que administra (`courseScopeWhere`).
+2. Lo que imparte.
+3. Si el curso está publicado o finalizado y el visor es interno: lo público, y
+   lo restringido a su dependencia o a un grupo al que pertenece **ahora**.
+
+4. Si el visor es interno y tiene una invitación pendiente o una inscripción
+   activa en el curso, sea cual sea su acceso.
+
+`INVITATION` no tiene rama por tipo de acceso: un curso por invitación solo se
+abre por la rama 4. Esa misma rama mantiene visible un curso restringido para
+quien salió del grupo después de inscribirse (§6.4 del alcance).
+
+`dependencyVisibilityWhere(dependencyId)` es la variante para una dependencia
+completa —lo que organiza, lo público y lo restringido a ella o a sus grupos— y
+acota a qué cursos puede asignar personal un titular o auxiliar.
+
+El cupo tampoco puede editarse por debajo de los inscritos: `update` bloquea la
+fila del curso con el mismo `lockCourseSeats` de la inscripción y falla con
+`COURSE_CAPACITY_BELOW_ENROLLED`.
+
+## 6. Ciclo de vida
+
+```
+DRAFT ──publicar──▶ PUBLISHED ──(PRD-06)──▶ FINISHED
+  │                     │
+  └──────cancelar───────┴──▶ CANCELLED
+```
+
+**Un borrador puede estar incompleto.** Se guarda con cero sesiones, sin
+capacitador o sin sede. Lo que §6.5 exige se comprueba al **publicar**
+(`assertPublishable`), y cada condición tiene su código:
+
+| Falta | Código |
+| --- | --- |
+| Al menos una sesión | `COURSE_WITHOUT_SESSIONS` |
+| Al menos un capacitador con perfil activo | `COURSE_WITHOUT_ACTIVE_TRAINER` |
+| Sede en cada sesión (presencial, híbrida) | `COURSE_SESSION_MISSING_VENUE` + `sessionNumber` |
+| Enlace en cada sesión (en línea, híbrida) | `COURSE_SESSION_MISSING_LINK` + `sessionNumber` |
+| Audiencia si es restringido | `COURSE_AUDIENCE_REQUIRED` |
+
+El número de sesión viaja en `details` porque es lo único accionable del
+mensaje. Al guardar sí se comprueban el rango de cada sesión, el tope de sesiones
+y que la fecha límite no sea posterior a la primera sesión.
+
+La validación de **traslapes** de horario queda fuera (§8 del alcance).
+
+## 7. Escrituras
+
+`create` y `update` escriben curso, sesiones, capacitadores y audiencia en una
+sola `runInTransaction`. Dentro, las colecciones se tratan distinto:
+
+| Colección | Estrategia | Por qué |
+| --- | --- | --- |
+| Capacitadores y audiencia | Se reemplazan enteras | Tablas de unión: ninguna fila tiene hijos |
+| Sesiones | Se **diferencian** por `documentId` | Desde PRD-06 cada sesión cuelga su asistencia; recrearlas cambiaría su identidad |
+
+Una sesión solo se actualiza si su `documentId` pertenece a **ese** curso: uno
+ajeno enviado a mano se trata como sesión nueva.
+
+## 8. El formulario
+
+Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
+`FormProvider`, una sección por bloque, `useFieldArray` para las sesiones y
+`useWatch` acotado a la sección que depende del acceso o la modalidad.
+
+- **Un solo contrato.** `utils/build-course-payload.ts` traduce los valores del
+  formulario (todo texto) a la entrada de la regla de dominio, y
+  `createCourseFormRule` es esa traducción seguida de **la misma regla que usa el
+  servidor**. Los nombres de campo se conservan, así que un error de
+  `sessions.1.startTime` cae en su input.
+- **El envío es un JSON.** El curso viaja en un único campo `payload`. Con un
+  campo por clave, el parser del servidor tendría que saber a mano qué es número,
+  booleano o colección, y esa lista se desincroniza del esquema.
+- Publicar y cancelar van por su propio `fetcher` en la ficha, y publicar usa lo
+  último **guardado**.
+
+## 9. Amenazas → defensas
+
+| Amenaza | Defensa |
+| --- | --- |
+| Un participante entra a administrar cursos | `requireCourseScope`: sin alcance, 403 igual al de `requireRole` |
+| Un capacitador externo crea cursos | Sin dependencia resuelve a `none` |
+| Un capacitador interno edita el curso de su titular | Alcance `creator` filtra por autor dentro del `where`: 404 |
+| Alguien abre por URL un curso de otra dependencia | Filtro en el `where`: fuera de alcance es 404, no el registro |
+| Se crea un curso en otra dependencia enviando el formulario a mano | `resolveOrganizerDependency` ignora el campo fuera del alcance global |
+| Un filtro de la URL amplía el listado | Fuera del alcance global el filtro de dependencia ni se lee |
+| Se asigna a alguien que no es capacitador activo | `findEligibleTrainers` + rechazo del lote entero |
+| Se usa de audiencia un grupo ajeno | `findEligibleGroups` recibe el alcance de quien elige |
+| Se publica un curso que nadie puede impartir | `assertPublishable` exige un capacitador con perfil **y** cuenta activos |
+| Editar un curso deja huérfana su asistencia (PRD-06) | Sesiones diferenciadas por `documentId`, nunca recreadas |
+| Un `documentId` de otra sesión se cuela en el envío | Solo se actualizan las sesiones que pertenecen al curso |
+| Una sesión de noviembre se guarda una hora corrida | Conversión única con `Intl` y prueba de verano e invierno |
+| Un curso por invitación aparece a cualquiera | `courseVisibilityWhere` solo lo abre por invitación o inscripción propia |
+| Bajar el cupo deja fuera a inscritos | `assertCapacityCovers` dentro de la transacción, con la fila bloqueada |
+
+## 10. Lo que queda enganchado
+
+- **PRD-08** engancha los avisos por correo de §6.5 a `update` y `cancel`.
+- **PRD-05** tiene su índice: `course_sessions(starts_at)`.
+- **PRD-06** escribe `FINISHED`, cuelga la asistencia de las sesiones y sustituye
+  `TRAINER_STATS_PENDING` contando `course_trainers` (índice `user_id` ya creado).
+- **PRD-07** añade la relación de `plan_line_id`.
+
+**Limitación conocida:** el enlace "Cursos" del menú se muestra a todo
+capacitador, también al externo, porque `SessionUser` no lleva el tipo de cuenta.
+Es UX: su loader le responde 403.
+
+## 11. Añadir una operación
+
+1. Lectura → parámetro `scope: CourseScope`. Mutación → `actor: AuthContext`.
+2. Declárala en el puerto. TypeScript señala cada punto que la olvide.
+3. En el repositorio, funde el filtro **dentro del `where`**; para escribir usa
+   `writeWhere`, que corta `none` antes de la base.
+4. Si depende del estado, añade el predicado a `course.rules.ts` con su código.
+5. La prueba que importa no es el camino feliz: es que `creator` no escriba lo
+   ajeno y que `none` no se convierta en `{}`.

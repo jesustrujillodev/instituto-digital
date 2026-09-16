@@ -38,7 +38,7 @@ export function meta() {
  * Cursos impartidos y valoración promedio.
  *
  * Se pintan desde ahora con su estado vacío para fijar la forma de la ficha:
- * PRD-03 y PRD-06 sustituyen el cálculo, no el sitio donde se muestra.
+ * PRD-06 sustituye el cálculo, no el sitio donde se muestra.
  */
 function TrainerStats({
 	coursesTaught,

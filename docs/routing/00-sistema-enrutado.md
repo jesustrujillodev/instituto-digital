@@ -434,9 +434,24 @@ Componentes instalados para esta capa: `sidebar`, `collapsible`, `dropdown-menu`
 | `/iniciar-sesion` | Pública | Redirige a `/` si ya hay sesión |
 | `/cerrar-sesion`, `/cerrar-sesiones` | Pública (actions) | `cerrar-sesiones` exige auth |
 | `/dashboard` | Protegida | `requireAuth` (layout) |
-| `/dashboard/usuarios` | Protegida | `requireAuth` + `requireRole(["ADMIN"])` |
-| `/dashboard/sesiones` | Protegida | `requireAuth` + `requireRole(["ADMIN"])` |
+| `/dashboard/perfil` | Protegida | `requireAuth` |
+| `/dashboard/dependencias/*` | Protegida | `requireRole(DEPENDENCY_ADMIN_ROLES)` |
+| `/dashboard/usuarios/*` | Protegida | `requireScope(USER_MANAGER_ROLES)` |
+| `/dashboard/capacitadores` | Protegida | `requireAuth` + `canViewCatalog` (admite capacitadores sin rol de gestión) |
+| `/dashboard/capacitadores/nuevo`, `/:documentId/editar` | Protegida | `requireRole(TRAINER_ADMIN_ROLES)` |
+| `/dashboard/grupos/*` | Protegida | `requireScope(GROUP_ACCESS_ROLES)` |
+| `/dashboard/cursos/*` | Protegida | `requireCourseScope` (admite al capacitador interno; ver [courses/00](../courses/00-cursos-sesiones-y-acceso.md) §4). Incluye `/:documentId/inscripciones` |
+| `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
+| `/dashboard/nube` | Protegida | `requireRole(["ADMIN"])` |
+| `/dashboard/sesiones` | Protegida | `requireRole(SESSION_MONITOR_ROLES)` |
+| `/dashboard/personalizacion` | Protegida | `requireRole(["ADMIN"])` |
 | `/api/storage` | Infraestructura | Mixta por prefijo de key |
+
+Cuatro guards no son `requireRole` porque su condición de entrada no es un rol:
+`requireScope` añade el alcance, el catálogo de capacitadores y los cursos
+admiten a quien tiene perfil de capacitador, y las pantallas de participante
+exigen pertenecer a una dependencia. Los cuatro responden el mismo 403 de
+`forbiddenRole`.
 
 Tras el login el usuario aterriza en `/dashboard`.
 
@@ -508,5 +523,3 @@ mensaje.
   un 401. Es una *resource route*: debería responder 401.
 - **Sin scripts `lint`/`format`.** Hay `biome.json` y la dependencia, pero
   `package.json` no expone los scripts, y el repo nunca se formateó por completo.
-- **`/dashboard/usuarios` es un placeholder.** La ruta y su `requireRole` están;
-  falta el CRUD (los componentes `table` y `badge` ya están instalados).

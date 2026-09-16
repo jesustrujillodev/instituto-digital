@@ -1,6 +1,6 @@
 # Inventario de tests
 
-Estado de la suite al 15 de septiembre de 2026. **159 archivos, 1884 tests, todos
+Estado de la suite al 16 de septiembre de 2026. **188 archivos, 2207 tests, todos
 en verde.** El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
 `vitest.config.ts` con entorno `node`, resolución de alias vía
 `vite-tsconfig-paths` y descubrimiento sobre `app/**/__tests__/**/*.test.{ts,tsx}`.
@@ -65,11 +65,17 @@ que queda fuera está listado como hueco al final de este documento.
 | [Dependencies](#dependencies) | 17 | 159 | dominio, aplicación, infraestructura, rutas, utilidades |
 | [Trainers](#trainers) | 16 | 100 | dominio, aplicación, rutas, utilidades |
 | [Groups](#groups) | 14 | 74 | dominio, aplicación, rutas, utilidades |
+| [Courses](#courses) | 16 | 186 | dominio, aplicación, rutas, utilidades |
+| [Enrollments](#enrollments) | 11 | 124 | dominio, aplicación, rutas, utilidades |
 | [Cloud](#cloud) | 7 | 88 | dominio, aplicación, rutas, utilidades |
 | [Shared](#shared) | 42 | 486 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
 | [Core](#core) | 2 | 35 | entorno y cookies |
-| [Lib](#lib) | 5 | 50 | utilidades puras |
-| **Total** | **159** | **1884** | |
+| [Lib](#lib) | 6 | 61 | utilidades puras y zona horaria |
+| **Total** | **188** | **2207** | |
+
+> Las filas por área suman menos que el total: el inventario anterior ya iba un
+> archivo y unos tests por detrás de la suite, y solo se han recontado las áreas
+> que tocaron PRD-03 y PRD-04. El total sí es el que reporta el runner.
 
 La distribución sigue reflejando la prioridad del proyecto: la superficie de
 seguridad (epoch de validez, lockdown, rotación del refresh, autorización por
@@ -390,6 +396,90 @@ GRUPO, nunca por la de quien administra**.
 
 ---
 
+## Courses
+
+Cursos, sesiones y acceso (PRD-03). Lo que estas pruebas protegen es que **el
+alcance de autor del capacitador interno no se convierta en nada ni en todo**, y
+que un curso no se publique sin lo que §6.5 exige.
+
+### `domain/__tests__/` — 116 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `course.access.test.ts` | 36 | Que un capacitador interno con rol `USER` resuelva a `creator` y el externo a `none`; que `none` dé un predicado imposible al leer y `null` al escribir, jamás `{}`; que fuera del alcance global la organizadora **ignore la del formulario**; que un curso por invitación solo se abra por invitación o inscripción propia; y qué ve una dependencia completa al asignar. |
+| `course.rules.test.ts` | 27 | Las cuatro condiciones de publicación, que el error diga **qué sesión** falló, las transiciones de estado, que un borrador sin sesiones sea válido y que el cupo no baje de los inscritos. |
+| `course.errors.test.ts` | 22 | El `code` estable de cada error, su herencia de `DomainError` y los `details` que el adaptador interpola. |
+| `course.validators.test.ts` | 21 | Contratos de frontera: horas `HH:mm`, uuid en la URL, allowlist de ordenación, y que la edición descarte la organizadora. |
+| `course.mapper.test.ts` | 7 | Que el rango de fechas y los conteos se aplanen sin inventar fechas, y que `isActive` del capacitador se derive de cuenta y perfil. |
+| `course.config.test.ts` | 3 | Defaults de paginación, asistencia mínima y tope de sesiones. |
+
+### `application/__tests__/` — 28 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `courses.service.server.test.ts` | 28 | Envelope en éxito y fallo de `create`, `update`, `publish` y `cancel`; que `create` y `update` corran en `runInTransaction`; que la hora de Tijuana llegue a UTC; que un lote con un capacitador o audiencia no disponible **se rechace entero**; que un curso no restringido descarte su audiencia; que un finalizado o cancelado no se edite; y que editar el cupo bloquee el curso y no baje de los inscritos. |
+
+### `routes/**/__tests__/` — 24 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `cursos/index.loader.test.ts` | 6 | 403 al participante y al externo; alcance de autor al capacitador interno; que un titular no pueda pedir otra dependencia por la URL. |
+| `cursos/index.action.test.ts` | 5 | Publicar y cancelar por `documentId`, uuid validado antes del servicio, y copia del módulo en vez de un status. |
+| `cursos/nuevo/index.action.test.ts` | 5 | Que el JSON del curso conserve sus tipos, que un JSON roto se rechace como validación y que los errores vuelvan por campo. |
+| `$documentId.editar/index.loader.test.ts` | 4 | Permisos derivados del estado y **404 fuera de alcance**: ni por URL directa. |
+| `$documentId.editar/index.action.test.ts` | 4 | Guardar con el `documentId` de la URL y publicar desde la ficha. |
+
+### `utils/__tests__/` — 18 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `build-course-payload.test.ts` | 5 | Que la regla del formulario sea la del servidor y que sus errores conserven el nombre del campo (`sessions.0.startTime`). |
+| `build-course-form-defaults.test.ts` | 4 | Ningún campo `undefined` y que las horas precargadas vuelvan a la zona del instituto. |
+| `parse-course-form-data.test.ts` | 4 | Que el payload JSON se decodifique con sus tipos y que uno roto llegue como `null`. |
+| `course-error-messages.test.ts` | 4 | Cobertura de códigos, reserva, y que la copia nombre la sesión. |
+| `to-course-rows.test.ts` | 1 | Que la PK interna no llegue a la tabla. |
+
+---
+
+## Enrollments
+
+Inscripción e invitaciones (PRD-04). Lo que estas pruebas protegen es que **nadie
+entre sin cupo ni vea un curso por invitación sin estar invitado**, y que cada
+escritura respete la máquina de estados de la fila única por persona y curso.
+
+### `domain/__tests__/` — 62 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `enrollment.rules.test.ts` | 36 | Cierre por fecha límite o primera sesión, baja hasta que empieza, quién cursa (externos y roles globales no), cupo que falla con los lugares restantes, la tabla de transiciones y la clasificación de "Mis cursos". |
+| `enrollment.errors.test.ts` | 14 | El `code` estable de cada error, su herencia y los `details` serializables. |
+| `enrollment.validators.test.ts` | 7 | uuid, modalidad permitida, lote de asignación no vacío e invitación con al menos una persona o grupo. |
+| `enrollment.mapper.test.ts` | 5 | Rango de sesiones, lugares restantes y que la lista use la dependencia con la que se inscribió. |
+
+### `application/__tests__/` — 30 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `enrollments.service.server.test.ts` | 30 | Envelope en éxito y fallo de `enroll`, `withdraw`, `accept`, `decline`, `assign` e `invite`; que el cupo se cuente **con el curso bloqueado dentro de la transacción**; que reinscribirse reutilice la fila; asignación todo o nada y solo con personal de la dependencia; que invitar expanda grupos, deduplique, omita activos y reinvite a quien rechazó; que un curso no visible responda como inexistente; y los permisos del detalle. |
+
+### `routes/**/__tests__/` — 23 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `cursos-disponibles/index.loader.test.ts` | 3 | Filtros del query string y 403 al externo y al superadministrador. |
+| `cursos-disponibles/$documentId/index.loader.test.ts` | 3 | **404 por URL directa** y que solo quien puede asignar reciba candidatos. |
+| `cursos-disponibles/$documentId/index.action.test.ts` | 7 | Intents por `documentId` validado, copia del módulo sin status, resumen del lote y 403 al externo. |
+| `mis-cursos/index.action.test.ts` | 4 | Aceptar y rechazar con el curso del formulario y las cuatro listas del loader. |
+| `inscripciones/index.test.ts` | 6 | 403 al participante sin perfil, acceso del capacitador interno, sin opciones con la inscripción cerrada y resumen de invitados y omitidos. |
+
+### `utils/__tests__/` — 9 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `enrollment-utils.test.ts` | 9 | Copia para cada código con su status de loader, redacción de lotes, nombre de respaldo y lectura de listas repetidas del formulario. |
+
+---
+
 ## Cloud
 
 Gestor de nube (`/dashboard/nube`). Lo que estas pruebas protegen es que el
@@ -480,9 +570,9 @@ se redirige a login (un 403 le diría a un anónimo que el recurso existe); con
 sesión pero sin rol se corta con un 403 que conserva la URL; el `AuthContext` no
 arrastra los claims crudos.
 
-### `layout/__tests__/` — 24 tests
+### `layout/__tests__/` — 29 tests
 
-`navigation.utils.test.ts` (8), `navigation.config.test.ts` (10) y
+`navigation.utils.test.ts` (10), `navigation.config.test.ts` (13) y
 `routes/__tests__/dashboard.layout.loader.test.ts` (6): un grupo sin destino propio
 que se queda sin hijos desaparece entero; el gate del layout es **estructural**; la
 proyección al cliente no incluye la PK interna.
@@ -518,6 +608,7 @@ mensaje de un error de infraestructura viajaría al cliente.
 | `form-data.test.ts` | 9 | `File[]` bajo la misma clave; `null`/`undefined` **omitidos** —el servidor no distingue "no enviado" de "borrar"—; `0` y `""` sí viajan. |
 | `password-generator.test.ts` | 6 | Garantía de mayúscula y dígito sobre 100 generaciones; el caso límite de `length < 2`. |
 | `utils.test.ts` | 5 | `cn` resolviendo conflictos de Tailwind. |
+| `date-utils.test.ts` | 11 | Desfase de 7 horas en verano y de 8 en invierno, el día del cambio de horario, y la ida y vuelta formulario ↔ UTC. |
 
 ---
 

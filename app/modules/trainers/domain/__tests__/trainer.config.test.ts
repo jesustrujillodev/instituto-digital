@@ -11,8 +11,8 @@ describe("TRAINER_LIST_DEFAULTS", () => {
 });
 
 describe("TRAINER_STATS_PENDING", () => {
-	// Cero y null son los valores que la ficha pinta como estado vacío. PRD-03 y
-	// PRD-06 sustituyen el cálculo, no la forma.
+	// Cero y null son los valores que la ficha pinta como estado vacío. PRD-06
+	// sustituye el cálculo, no la forma.
 	test("los contadores nacen vacíos, no inventados", () => {
 		expect(TRAINER_STATS_PENDING).toEqual({
 			coursesTaught: 0,

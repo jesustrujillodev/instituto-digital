@@ -4,8 +4,10 @@ import {
 	authRoutes,
 } from "./modules/auth/routes/routes.config";
 import { cloudAdminRoutes } from "./modules/cloud/routes/routes.config";
+import { coursesRoutes } from "./modules/courses/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
 import { dependenciesRoutes } from "./modules/dependencies/routes/routes.config";
+import { enrollmentsRoutes } from "./modules/enrollments/routes/routes.config";
 import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
 import {
@@ -46,6 +48,8 @@ export default [
 					...usersRoutes, // /dashboard/usuarios  (gestión con alcance)
 					...trainersRoutes, // /dashboard/capacitadores  (catálogo global)
 					...groupsRoutes, // /dashboard/grupos  (alcance por dependencia)
+					...coursesRoutes, // /dashboard/cursos  (alcance propio: incluye al capacitador interno)
+					...enrollmentsRoutes, // /dashboard/cursos-disponibles, /dashboard/mis-cursos, /dashboard/cursos/:id/inscripciones
 					...cloudAdminRoutes, // /dashboard/nube  (ADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (ADMIN)
 					...themeAdminRoutes, // /dashboard/personalizacion  (ADMIN)

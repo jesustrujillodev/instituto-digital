@@ -161,8 +161,7 @@ describe("createGroupService — lectura", () => {
 	});
 
 	// El superadministrador consulta los grupos de todas las dependencias: la
-	// matriz de §3 no le da su administración, pero en PRD-03 tendrá que elegir
-	// audiencias.
+	// matriz de §3 no le da su administración, pero elige audiencias de cursos.
 	test("un alcance global puede leer", async () => {
 		const { service } = createHarness();
 

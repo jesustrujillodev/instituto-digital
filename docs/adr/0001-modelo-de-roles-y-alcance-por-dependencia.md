@@ -1,7 +1,7 @@
 # ADR 0001 · Modelo de roles y alcance por dependencia
 
 **Estado:** aceptado · 2026-09-15
-**Contexto del cambio:** PRD-01 (`docs/plans/2026-09-15-prd-01-cuentas-dependencias-roles.md`)
+**Contexto del cambio:** PRD-01 (cuentas, dependencias y roles)
 
 Primer ADR del repositorio. `docs/reglas.md` §3 y §15.4 exigen la carpeta desde
 siempre; este es el primer cambio que de verdad la necesita, porque fija tres

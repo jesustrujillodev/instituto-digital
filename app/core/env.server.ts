@@ -39,8 +39,8 @@ const baseEnvSchema = v.object({
 	AUTH_REFRESH_GRACE_S: positiveInt(60), // ventana de gracia del refresh
 
 	// ── JWT claims ──────────────────────────────────────────────────────────────
-	AUTH_JWT_ISSUER: v.optional(v.string(), "car-dealership"),
-	AUTH_JWT_AUDIENCE: v.optional(v.string(), "car-dealership"),
+	AUTH_JWT_ISSUER: v.optional(v.string(), "instituto-digital"),
+	AUTH_JWT_AUDIENCE: v.optional(v.string(), "instituto-digital"),
 
 	// ── Login rate limiting ─────────────────────────────────────────────────────
 	AUTH_LOGIN_MAX_PER_EMAIL: positiveInt(5),

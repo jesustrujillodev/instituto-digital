@@ -74,7 +74,7 @@ export class MemberAlreadyInGroupError extends GroupError {
  * El actor puede LEER el grupo pero no escribirlo.
  *
  * Es el caso del superadministrador: la matriz de §3 no le da la administración
- * de grupos, y en PRD-03 sí tendrá que consultarlos para elegir audiencias.
+ * de grupos, pero sí los consulta para elegir la audiencia de un curso.
  */
 export class GroupForbiddenScopeError extends GroupError {
 	readonly code = GROUP_ERROR_CODES.FORBIDDEN_SCOPE;

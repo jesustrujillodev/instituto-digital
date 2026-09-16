@@ -168,7 +168,7 @@ STORAGE_FORCE_PATH_STYLE=true
 STORAGE_REGION=us-east-1
 STORAGE_ACCESS_KEY_ID=minioadmin
 STORAGE_SECRET_ACCESS_KEY=minioadmin
-STORAGE_BUCKET_NAME=car-dealership-storage
+STORAGE_BUCKET_NAME=instituto-digital-storage
 ```
 
 El `compose.yml` levanta MinIO (API `:9000`, consola `:9001`) y un contenedor

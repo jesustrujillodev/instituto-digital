@@ -124,6 +124,23 @@ export const createGroupRepository = ({
 		async count(filters: ListGroupsDto, scope: AccessScope) {
 			return prisma.group.count({ where: toFilters(filters, scope) });
 		},
+		async findGroupIdsOfUser(userId: number) {
+			const memberships = await prisma.groupMember.findMany({
+				where: { userId, group: { archivedAt: null } },
+				select: { groupId: true },
+			});
+
+			return memberships.map((membership) => membership.groupId);
+		},
+		async findActive(scope: AccessScope) {
+			const groups = await prisma.group.findMany({
+				where: { archivedAt: null, ...groupScopeWhere(scope) },
+				orderBy: { name: "asc" },
+				select: GROUP_SELECT,
+			});
+
+			return groups.map(toDomain);
+		},
 		async findById(documentId: string, scope: AccessScope) {
 			// `findFirst` y no `findUnique`: hace falta combinar la clave única con
 			// el filtro del alcance, y fuera de alcance debe devolver null igual que

@@ -1,8 +1,7 @@
 # Gestor de archivos en la nube — Referencia
 
 **Última actualización:** 2026-09-14 · Describe el módulo `app/modules/cloud` **como
-está implementado**. Plan de origen:
-[plans/2026-09-14-gestor-nube.md](../plans/2026-09-14-gestor-nube.md).
+está implementado**.
 
 ---
 

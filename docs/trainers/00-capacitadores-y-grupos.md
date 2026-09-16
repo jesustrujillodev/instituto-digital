@@ -204,12 +204,22 @@ caminos de escritura, que están contados y tienen prueba.
 | Un grupo archivado bloquea su nombre para siempre | El índice único es parcial sobre `archived_at IS NULL` |
 | Un titular sin dependencia ve o escribe algo | `groupScopeWhere` devuelve un predicado imposible y `groupScopeWriteWhere` devuelve `null` |
 
-## 10. Lo que queda enganchado para PRD-03 y PRD-06
+## 10. Lo que queda enganchado para PRD-06
 
 La ficha del capacitador ya pinta **cursos impartidos** y **valoración promedio**
 con su estado vacío, y el servicio los devuelve desde `TRAINER_STATS_PENDING`
-(`0` y `null`) con una prueba que los fija. PRD-03 y PRD-06 sustituyen el
-cálculo, no el contrato ni el sitio donde se muestra.
+(`0` y `null`) con una prueba que los fija. PRD-06 sustituye el cálculo, no el
+contrato ni el sitio donde se muestra.
+
+PRD-03 creó `course_trainers`, pero **los dos contadores llegan juntos en
+PRD-06**: "impartido" es un curso finalizado, y nada finaliza cursos hasta
+entonces. Calcularlo antes habría mostrado un número real solo en apariencia. El
+índice `course_trainers(user_id)` ya existe para ese cálculo.
+
+Desde PRD-03, `ITrainerRepository.findActive()` sirve el selector de
+capacitadores del formulario de cursos, y `IGroupRepository.findActive(scope)`
+el de audiencia. Los dos son catálogos sin paginar, como
+`dependencyRepository.findActive()`.
 
 ## 11. Añadir una operación al catálogo o a los grupos
 

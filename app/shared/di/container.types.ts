@@ -12,8 +12,12 @@ import type { SessionRepository } from "@/modules/auth/domain/session.repository
 import type { SessionMonitorService } from "@/modules/auth/domain/session-monitor.service";
 import type { TokenService } from "@/modules/auth/domain/token.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
+import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
+import type { ICourseService } from "@/modules/courses/domain/course.service";
 import type { IDependencyRepository } from "@/modules/dependencies/domain/dependency.repository";
 import type { IDependencyService } from "@/modules/dependencies/domain/dependency.service";
+import type { IEnrollmentRepository } from "@/modules/enrollments/domain/enrollment.repository";
+import type { IEnrollmentService } from "@/modules/enrollments/domain/enrollment.service";
 import type { IGroupRepository } from "@/modules/groups/domain/group.repository";
 import type { IGroupService } from "@/modules/groups/domain/group.service";
 import type { IThemeRepository } from "@/modules/theme/domain/theme.repository";
@@ -28,11 +32,13 @@ import type { RateLimiter } from "@/shared/rate-limit/rate-limiter";
 import type { IObjectReferenceSource } from "@/shared/storage/object-reference.port";
 import type { AssetUrlResolver } from "@/shared/storage/public-url";
 import type { IStorageProvider } from "@/shared/storage/storage.port";
+import type { Clock } from "@/shared/time/clock";
 
 export interface ICradle {
 	prisma: PrismaClient;
 	/** Frontera transaccional ambiental: los repositorios que reciben `prisma` entran sin saberlo. */
 	runInTransaction: RunInTransaction;
+	clock: Clock;
 	authConfig: AuthConfig;
 	// Entorno YA validado. Se resuelve por el cradle y nunca por import directo:
 	// un adaptador que importa `env` no se puede ejercitar sin el .env real.
@@ -75,6 +81,10 @@ export interface ICradle {
 	trainerService: ITrainerService;
 	groupRepository: IGroupRepository;
 	groupService: IGroupService;
+	courseRepository: ICourseRepository;
+	courseService: ICourseService;
+	enrollmentRepository: IEnrollmentRepository;
+	enrollmentService: IEnrollmentService;
 	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo
 	// resuelve en TODA petición, así que `resolve` evita bajar a la base salvo en
 	// el caso de dispositivo nuevo (docs/theme/00-modo-oscuro.md).

@@ -20,6 +20,16 @@ export interface IGroupRepository {
 	findAll(filters: ListGroupsDto, scope: AccessScope): Promise<Group[]>;
 	/** Total con los mismos filtros Y el mismo alcance: comparten el `where`. */
 	count(filters: ListGroupsDto, scope: AccessScope): Promise<number>;
+	/**
+	 * Grupos activos del alcance, sin paginar, para un selector.
+	 *
+	 * Lo consume el formulario de cursos al elegir audiencia. Sigue llevando
+	 * alcance —a diferencia del catálogo de capacitadores, que es global—: un
+	 * grupo es una lista nominal de una unidad, y verlo es leer a su gente.
+	 */
+	findActive(scope: AccessScope): Promise<Group[]>;
+	/** Ids de los grupos activos a los que pertenece hoy la persona (§6.4). */
+	findGroupIdsOfUser(userId: number): Promise<number[]>;
 	findById(documentId: string, scope: AccessScope): Promise<Group | null>;
 	create(data: CreateGroupData): Promise<Group>;
 	update(

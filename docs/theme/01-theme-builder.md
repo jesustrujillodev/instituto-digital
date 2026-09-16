@@ -144,7 +144,7 @@ abrir la plataforma por una caída de la base sería inaceptable.
 Aquí la regla es la contraria: **con la base caída se sirve el último tema activo
 conocido**, nunca se deniega y el tema base es solo el último recurso. Perder la
 marca por una caída es un fallo visible para todos los visitantes. El respaldo
-tiene tres niveles (plan: `docs/plans/2026-09-12-tema-activo-sin-base.md`):
+tiene tres niveles:
 
 | Nivel | Dónde | Cubre |
 |---|---|---|

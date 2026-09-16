@@ -138,6 +138,17 @@ export const createTrainerRepository = ({
 		async count(filters: ListTrainersDto) {
 			return prisma.trainerProfile.count({ where: toFilters(filters) });
 		},
+		async findActive() {
+			// Activo es el perfil sin archivar Y la cuenta sin archivar: un
+			// capacitador dado de baja no puede aparecer en el selector de un curso.
+			const profiles = await prisma.trainerProfile.findMany({
+				where: { archivedAt: null, user: { archivedAt: null } },
+				orderBy: { user: { firstName: "asc" } },
+				select: SUMMARY_SELECT,
+			});
+
+			return profiles.map(toSummary);
+		},
 		async findByUserDocumentId(userDocumentId: string) {
 			const profile = await prisma.trainerProfile.findFirst({
 				where: { user: { documentId: userDocumentId } },

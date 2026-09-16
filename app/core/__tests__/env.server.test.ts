@@ -140,7 +140,7 @@ describe("env.server — defaults", () => {
 		expect(env.AUTH_ACCESS_TOKEN_TTL_S).toBe(300);
 		expect(env.AUTH_REFRESH_TOKEN_TTL_S).toBe(7 * 24 * 60 * 60);
 		expect(env.AUTH_REFRESH_GRACE_S).toBe(60);
-		expect(env.AUTH_JWT_ISSUER).toBe("car-dealership");
+		expect(env.AUTH_JWT_ISSUER).toBe("instituto-digital");
 		expect(env.AUTH_MAX_SESSIONS_PER_USER).toBe(5);
 		expect(env.AUTH_SECURITY_STATE_CACHE_TTL_S).toBe(5);
 	});

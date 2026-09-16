@@ -3,6 +3,8 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { env } from "@/core/env.server";
 import { THEME_PRESETS } from "@/modules/theme/domain/theme.config";
+import { seedCourses } from "./seed-courses";
+import { seedEnrollments } from "./seed-enrollments";
 import { seedOrganization } from "./seed-organization";
 import { seedTrainers } from "./seed-trainers";
 
@@ -19,6 +21,11 @@ async function main() {
 	// ON DELETE RESTRICT: users.dependency_id y groups.dependency_id. Las
 	// dependencias no se pueden borrar mientras quede alguien adscrito ni ningún
 	// grupo colgando.
+	// Los cursos primero: su dependencia organizadora, su autor y sus grupos de
+	// audiencia son FK RESTRICT. Sesiones, capacitadores y audiencia caen en
+	// cascada con el curso.
+	await prisma.enrollment.deleteMany({});
+	await prisma.course.deleteMany({});
 	await prisma.groupMember.deleteMany({});
 	await prisma.group.deleteMany({});
 	await prisma.trainerProfile.deleteMany({});
@@ -64,6 +71,11 @@ async function main() {
 	// Va DESPUÉS de la organización: los perfiles y los grupos cuelgan de cuentas
 	// y dependencias que tienen que existir antes.
 	const trainers = await seedTrainers(prisma, password);
+
+	// Después de capacitadores y grupos: un curso los asigna y los usa de audiencia.
+	const courses = await seedCourses(prisma);
+
+	const enrollments = await seedEnrollments(prisma);
 
 	// Fila única del estado de seguridad. El adaptador LANZA si no existe —
 	// preferimos que un entorno mal sembrado falle a que se comporte como si
@@ -141,6 +153,20 @@ async function main() {
 	);
 	console.log(
 		`   • ${trainers.groups} grupos en Obras Públicas (uno con miembros, uno vacío)`,
+	);
+	console.log("✅ Cursos:");
+	console.log(
+		`   • ${courses.courses} cursos (2 borradores en Obras Públicas, 1 publicado, 1 por invitación, 1 cancelado)`,
+	);
+	console.log(
+		"     diana.sds@instituto.gob.mx (USER + capacitadora) solo administra el que creó",
+	);
+	console.log("✅ Inscripciones:");
+	console.log(
+		`   • ${enrollments.courses} cursos publicados más, ${enrollments.enrollments} inscripciones y ${enrollments.groups} grupo en Desarrollo Social`,
+	);
+	console.log(
+		"     Protección civil básica (por invitación, 1/2), Redacción de oficios (llena), Ética pública (cerrada), Inducción institucional (empezada)",
 	);
 	console.log("✅ Cuentas de la plantilla:");
 	console.log(`   • ${admin.email} (ADMIN)  — password: Password123!`);
