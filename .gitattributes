@@ -1,0 +1,20 @@
+# Normaliza los saltos de línea a LF en el working tree (Windows y Mac por igual).
+# Evita falsos positivos de Biome causados por CRLF en Windows (core.autocrlf=true).
+
+# Por defecto: detecta archivos de texto y fuerza LF al hacer checkout.
+* text=auto eol=lf
+
+# Binarios: nunca tocar los saltos de línea.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# Assets del mapa offline (MapLibre): nunca normalizar EOL.
+*.pmtiles binary
+*.glyphs binary
+*.pbf binary

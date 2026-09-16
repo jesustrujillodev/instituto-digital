@@ -1,0 +1,30 @@
+# ── Build artifacts y dependencias locales ────────────────────────────────────
+node_modules
+build
+.react-router
+.cache
+coverage
+generated
+graphify-out
+impeccable
+
+# ── Entorno y secretos — NUNCA deben entrar a la imagen ──────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Git y herramientas de desarrollo ─────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.husky
+.vscode
+.claude
+.agents
+
+# ── Documentación y archivos de análisis ─────────────────────────────────────
+*.md
+!README.md
+
+# ── Scripts de desarrollo (no se necesitan en runtime) ───────────────────────
+scripts/

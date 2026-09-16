@@ -1,0 +1,390 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * Catálogo de fuentes auto-hospedadas (decisión #5).
+ *
+ * La lista y su `font-family` real viven en theme.config.ts (FONT_CATALOG); aquí
+ * solo se declaran los `@font-face`. Importarlas todas NO descarga todas: el
+ * navegador baja únicamente las familias que el tema activo llega a usar.
+ *
+ * Auto-hospedadas y no desde fonts.googleapis.com: ninguna petición a un tercero
+ * en runtime, y por tanto ninguna fuga de IPs de usuarios ni nadie más en la ruta
+ * crítica del primer render.
+ */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/roboto";
+@import "@fontsource-variable/open-sans";
+@import "@fontsource-variable/montserrat";
+@import "@fontsource-variable/playfair-display";
+@import "@fontsource-variable/merriweather";
+@import "@fontsource-variable/libre-baskerville";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/fira-code";
+
+/*
+ * Familias SIN versión variable: Google no publica un archivo variable de estas
+ * tres, así que el paquete trae un fichero por peso y hay que pedir los pesos
+ * uno a uno. Importar el paquete a secas (`@fontsource/poppins`) declararía
+ * SOLO el 400, y las utilidades `font-medium` / `font-semibold` / `font-bold`
+ * de toda la interfaz acabarían con negrita sintética del navegador.
+ *
+ * Se piden los pesos que la interfaz usa de verdad y no el rango entero: cada
+ * peso es una descarga aparte, al contrario que en una fuente variable.
+ * Architects Daughter y Space Mono solo existen en los pesos de abajo.
+ */
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+@import "@fontsource/architects-daughter/400.css";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
+
+/*
+ * Variante `dark:` con DOS ramas, y la segunda es load-bearing.
+ *
+ * Con modo "system" el servidor no puede saber el ajuste del sistema operativo
+ * del cliente, así que NO pone la clase `dark` en <html>: pone `theme-system` y
+ * deja que un @media dentro del CSS del tema elija los tokens (ver
+ * theme.rules.ts → serializeThemeCss). Eso resuelve los tokens, pero las
+ * utilidades `dark:` de los componentes shadcn seguirían mirando solo la clase
+ * `.dark` y se quedarían inertes justo en el modo por defecto.
+ *
+ * La rama del @media es la que las mantiene vivas. Si se borra, el modo system
+ * pinta los colores correctos pero pierde todos los ajustes `dark:` (bordes de
+ * inputs, mix-blend del avatar, rings de destructive) sin fallar en ninguna
+ * prueba: se ve mal y nada avisa.
+ */
+@custom-variant dark {
+	&:where(.dark, .dark *) {
+		@slot;
+	}
+	@media (prefers-color-scheme: dark) {
+		&:where(.theme-system, .theme-system *) {
+			@slot;
+		}
+	}
+}
+
+/*
+ * Puente entre los tokens del tema y las utilidades de Tailwind.
+ *
+ * `@theme inline` NO emite estas variables en `:root`: sustituye su valor en el
+ * punto de uso. Es el mecanismo con el que shadcn conecta `--color-primary` a
+ * `--primary`, y aquí hace falta por la misma razón para todo lo demás — el
+ * servidor escribe los tokens en un `<style>` del `<head>` y Tailwind los tiene
+ * que consumir sin declararlos él.
+ *
+ * Los que no son colores llevan el prefijo `--theme-*` a propósito: `--spacing`,
+ * `--font-sans` y la escala `--shadow-*` son claves del tema de Tailwind, y
+ * declararlas también en `:root` sería una carrera de cascada que se gana o se
+ * pierde según el orden de las hojas. Con el prefijo, la conexión es explícita.
+ * Ver theme.mapper.ts → SHARED_PREFIX.
+ */
+@theme inline {
+	--font-sans: var(--theme-font-sans);
+	--font-serif: var(--theme-font-serif);
+	--font-mono: var(--theme-font-mono);
+	--font-heading: var(--theme-font-heading);
+	--tracking-normal: var(--theme-tracking);
+	--spacing: var(--theme-spacing);
+	/*
+	 * La escala de texto se deriva del tamaño base del tema.
+	 *
+	 * Sin esto, "Tamaño base" no movía prácticamente nada: solo llegaba al
+	 * `font-size` de `body`, y las 166 apariciones de `text-sm`, las 74 de
+	 * `text-xs` y todas las demás traen su propio valor en `rem` y lo ignoraban.
+	 * El control existía y no hacía nada visible.
+	 *
+	 * Van multiplicadas por la proporción de la escala por defecto de Tailwind,
+	 * así que con el tamaño base en 1rem los valores son exactamente los de
+	 * siempre. El interlineado NO se toca: Tailwind lo declara como proporción
+	 * (`--text-sm--line-height: calc(1.25 / 0.875)`), así que acompaña solo.
+	 *
+	 * La escala se corta en 5xl a propósito: de ahí para arriba son tamaños de
+	 * composición, no múltiplos del texto de una interfaz.
+	 */
+	--text-xs: calc(var(--theme-font-size) * 0.75);
+	--text-sm: calc(var(--theme-font-size) * 0.875);
+	--text-base: var(--theme-font-size);
+	--text-lg: calc(var(--theme-font-size) * 1.125);
+	--text-xl: calc(var(--theme-font-size) * 1.25);
+	--text-2xl: calc(var(--theme-font-size) * 1.5);
+	--text-3xl: calc(var(--theme-font-size) * 1.875);
+	--text-4xl: calc(var(--theme-font-size) * 2.25);
+	--text-5xl: calc(var(--theme-font-size) * 3);
+	--shadow-2xs: var(--theme-shadow-2xs);
+	--shadow-xs: var(--theme-shadow-xs);
+	--shadow-sm: var(--theme-shadow-sm);
+	--shadow: var(--theme-shadow);
+	--shadow-md: var(--theme-shadow-md);
+	--shadow-lg: var(--theme-shadow-lg);
+	--shadow-xl: var(--theme-shadow-xl);
+	--shadow-2xl: var(--theme-shadow-2xl);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	/* Semánticos de estado: sustituyen a los `bg-green-*` / `bg-yellow-*` que
+	   estaban hardcodeados en los badges de la tabla. */
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Los VALORES de los tokens ya no viven aquí.
+ *
+ * Los emite el servidor en un <style> del <head>, generado en cada petición a
+ * partir de app/modules/theme/domain/theme.config.ts. Es lo que permite servir
+ * la variante correcta desde el primer byte —y, en la fase B, un tema guardado
+ * en base de datos— sin flash y sin JavaScript.
+ *
+ * Dejar aquí una copia "por si acaso" es justo lo que hay que evitar: al cambiar
+ * el tema desde el builder, esta copia quedaría muerta y nadie se enteraría. El
+ * respaldo cuando el loader no puede resolver existe, pero sale de la MISMA
+ * constante (ver root.tsx), no de un segundo juego de valores.
+ *
+ * El bloque `@theme inline` de arriba sí se queda: mapea los nombres a las
+ * utilidades de Tailwind en tiempo de compilación y no necesita ningún valor.
+ */
+
+/*
+ * El grosor de borde por defecto también es un token (decisión #3).
+ *
+ * Se redefine la utilidad `border` en vez de tocar el preflight: poner un
+ * `border-width` sobre `*` le pondría borde a todo. Así solo cambia el grosor de
+ * los elementos que YA pidieron uno, que es lo que "grosor por defecto" quiere
+ * decir. Las variantes explícitas (`border-2`, `border-t`) siguen mandando.
+ */
+@utility border {
+	border-width: var(--theme-border-width);
+}
+
+/*
+ * Un solo velo para diálogo, alerta y panel lateral.
+ *
+ * Los tres lo traían escrito a mano y habían derivado: `bg-black/10` en dialog
+ * y alert-dialog, `bg-foreground/10` en sheet. La segunda forma parece la más
+ * correcta —usa un token en vez de un color fijo— pero se rompe justo en
+ * oscuro: ahí `foreground` es casi blanco, así que el velo ACLARA el fondo por
+ * encima del `card` del propio panel y la elevación se invierte, el panel se
+ * hunde en vez de despegarse.
+ *
+ * Un velo no es una superficie de marca: es una capa que atenúa lo que hay
+ * detrás. Por eso el negro es correcto aquí y no contradice "todo sale del
+ * tema", igual que el negro del lightbox. Lo que sí faltaba es que atenúe
+ * también en oscuro: un 10% de negro sobre un fondo ya oscuro no se ve, y el
+ * desenfoque quedaba como única separación.
+ */
+@utility overlay {
+	background-color: rgb(0 0 0 / 10%);
+	@variant dark {
+		background-color: rgb(0 0 0 / 30%);
+	}
+}
+
+/*
+ * Toasts de Sileo con los colores del tema.
+ *
+ * Sileo pinta sus propios verdes, rojos y ámbares. Aquí se cambian por los
+ * tokens del tema publicado, pero NO directamente con `var(--success)`, por dos
+ * razones:
+ *
+ *  - `--success` y `--warning` son FONDOS suaves (casi blancos en claro, un 20%
+ *    de opacidad en oscuro). El color con carácter está en `*-foreground`.
+ *  - La píldora va invertida respecto a la página: oscura en modo claro y clara
+ *    en oscuro. Un `--success-foreground` pensado para un fondo claro es verde
+ *    oscuro, y sobre una píldora casi negra no se lee.
+ *
+ * Así que del token se toman el tono y la saturación, y la luminosidad se fija
+ * según la píldora: alrededor de 0.75 sobre la oscura y 0.5 sobre la clara. El
+ * verde y el rojo muy saturados pierden luminosidad al recortarse al gamut sRGB,
+ * por eso su valor se aparta un poco. Medido con los presets de fábrica, el
+ * título queda entre 4.9:1 y 9:1. Como la luminosidad es fija, un tema nuevo
+ * solo mueve tono y croma, y el margen apenas cambia. `info` va sin croma a
+ * propósito: el primario de un tema puede ser rojo y un aviso neutro no debe
+ * parecer un error.
+ *
+ * El `data-theme` del viewport lo pone Sileo con el modo ya resuelto (incluido
+ * "system"). Las variables se declaran en el viewport y no en `:root` porque
+ * Sileo inyecta su hoja al final de <head> y ganaría el empate. El prefijo
+ * `body` sube la especificidad por encima de las reglas de Sileo en todo el
+ * bloque, sin `!important`.
+ *
+ * Sin soporte de color relativo (navegadores anteriores a 2024) se quedan los
+ * colores propios de Sileo, que también cumplen contraste.
+ */
+@supports (color: oklch(from red l c h)) {
+	body [data-sileo-viewport][data-theme="light"] {
+		--sileo-state-success: oklch(from var(--success-foreground) 0.75 c h);
+		--sileo-state-warning: oklch(from var(--warning-foreground) 0.8 c h);
+		--sileo-state-error: oklch(from var(--destructive) 0.72 c h);
+		--sileo-state-info: oklch(0.78 0 0);
+		--sileo-state-action: oklch(from var(--primary) 0.75 c h);
+	}
+	body [data-sileo-viewport][data-theme="dark"] {
+		--sileo-state-success: oklch(from var(--success-foreground) 0.47 c h);
+		--sileo-state-warning: oklch(from var(--warning-foreground) 0.5 c h);
+		--sileo-state-error: oklch(from var(--destructive) 0.5 c h);
+		--sileo-state-info: oklch(0.45 0 0);
+		--sileo-state-action: oklch(from var(--primary) 0.5 c h);
+	}
+}
+
+/* Por encima del velo de Sheet y Dialog (z-50): un toast lanzado desde un panel
+   abierto ("Ruta copiada") quedaba debajo del overlay. */
+body [data-sileo-viewport] {
+	z-index: 100;
+}
+
+/* Sileo capitaliza cada palabra del título ("Revisa El Formulario"). En español
+   solo va mayúscula la inicial, y los mensajes ya llegan escritos así. */
+body [data-sileo-viewport] [data-sileo-title] {
+	text-transform: none;
+}
+
+/* La descripción de Sileo va al 50% de opacidad. Sobre la píldora clara eso da
+   3.9:1, por debajo de AA para texto de 14px. Al 65% queda en 6.7:1 y 7.9:1. */
+body [data-sileo-viewport][data-theme="light"] [data-sileo-description] {
+	color: rgb(255 255 255 / 65%);
+}
+body [data-sileo-viewport][data-theme="dark"] [data-sileo-description] {
+	color: rgb(0 0 0 / 65%);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+		/* Tamaño base y tracking salen del tema. Van en `body` y no en `html`
+		   para no reescalar cada `rem` de la interfaz —radios, espaciados— por
+		   cambiar el tamaño del texto. Lo que SÍ escala con él es la escala
+		   `--text-*`, derivada arriba: esto solo alcanza al texto sin clase. */
+		font-size: var(--theme-font-size);
+		letter-spacing: var(--theme-tracking);
+	}
+	html {
+		@apply font-sans;
+	}
+	/*
+	 * La fuente de "Titulares" alcanza a los titulares.
+	 *
+	 * `font-heading` solo estaba en los títulos de card, dialog, sheet,
+	 * alert-dialog y empty: el `<h1>` de cada página —lo primero que se lee y lo
+	 * que de verdad enseña la fuente elegida— se quedaba en la sans. Aquí y no
+	 * clase a clase porque son 19 titulares repartidos por siete módulos, y el
+	 * siguiente que alguien escriba también debe heredarla.
+	 *
+	 * Va en la capa base y solo declara la familia: cualquier `font-sans` o
+	 * `font-mono` puesto en el elemento sigue ganando.
+	 */
+	h1,
+	h2,
+	h3 {
+		@apply font-heading;
+	}
+}
+
+/*
+ * Movimiento reducido: se va el recorrido, se queda el estado.
+ *
+ * La aplicación no atendía `prefers-reduced-motion` en ningún sitio. Quien lo
+ * tiene activado —vértigo, migraña, mareo por movimiento— veía igualmente las
+ * filas de la tabla entrar deslizándose, los diálogos ampliarse y los paneles
+ * salir desde un lado.
+ *
+ * No se apaga todo, que es el atajo habitual y también un error: un diálogo que
+ * aparece sin ninguna transición se lee como un salto y cuesta más situarlo.
+ * Lo que sobra es el DESPLAZAMIENTO. Así que:
+ *
+ *  - las entradas y salidas de tw-animate-css se quedan sin traslación, sin
+ *    escala, sin giro y sin desenfoque: lo que era "aparece deslizándose" pasa a
+ *    ser "aparece", con la misma duración y la misma curva;
+ *  - el escalonado desaparece: una lista entera aparece a la vez en vez de fila
+ *    a fila (el `!important` es lo que gana al `animation-delay` en línea que
+ *    pone la tabla);
+ *  - las transiciones se limitan a las propiedades que no mueven nada. El
+ *    estado final llega igual —el color de hover, la sombra, la opacidad—, pero
+ *    un `transform` o un alto animado cambian de golpe.
+ *
+ * Lo que NO se toca: los bucles de opacidad como el `animate-pulse` de los
+ * esqueletos de carga, que no desplazan nada y son la señal de que algo está
+ * ocurriendo.
+ *
+ * Va SIN capa a propósito: en la cascada, lo que no está en ninguna capa gana a
+ * todo lo que sí lo está, así que esto pisa las utilidades de Tailwind sin
+ * necesitar `!important` ni pelear por especificidad.
+ *
+ * La única excepción es `animation-delay`, y no es evitable: el escalonado de la
+ * tabla se escribe en el atributo `style`, y a un estilo en línea solo lo gana
+ * una declaración `!important`.
+ */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	::before,
+	::after {
+		--tw-enter-translate-x: 0;
+		--tw-enter-translate-y: 0;
+		--tw-enter-scale: 1;
+		--tw-enter-rotate: 0;
+		--tw-enter-blur: 0;
+		--tw-exit-translate-x: 0;
+		--tw-exit-translate-y: 0;
+		--tw-exit-scale: 1;
+		--tw-exit-rotate: 0;
+		--tw-exit-blur: 0;
+		/* biome-ignore lint/complexity/noImportantStyles: el retraso de entrada de
+		   las filas se escribe en el atributo `style`; nada que no sea `!important`
+		   lo alcanza. */
+		animation-delay: 0ms !important;
+		transition-property:
+			color, background-color, border-color, outline-color,
+			text-decoration-color, fill, stroke, opacity, box-shadow, filter;
+	}
+
+	html {
+		scroll-behavior: auto;
+	}
+}

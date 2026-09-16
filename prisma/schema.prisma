@@ -1,0 +1,246 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["auth", "org", "public"]
+}
+
+model User {
+  id         Int     @id @default(autoincrement())
+  documentId String  @unique @default(uuid()) @db.Uuid
+  email      String  @unique
+  firstName  String?
+  lastName   String?
+  password   String?
+  role       String  @default("USER")
+  phone      String?
+
+  /// Interno (personal del Ayuntamiento) o externo. El externo llega en PRD-02
+  /// con el capacitador externo; el enum se crea ya para no migrar dos veces.
+  type UserType @default(INTERNAL)
+
+  /// Obligatorio y único para internos. En Postgres un @unique admite varios
+  /// NULL, que es exactamente "si se captura, no se repite". La obligatoriedad
+  /// para internos la impone el CHECK users_type_coherence, no Prisma.
+  employeeNumber String? @unique @map("employee_number")
+
+  jobTitle String? @map("job_title")
+
+  /// Restrict, no SetNull: desactivar una dependencia con personal es la vía
+  /// prevista; borrarla y dejar huérfanos, no.
+  dependencyId Int?        @map("dependency_id")
+  dependency   Dependency? @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  // Referencia estable del proxy de storage (/api/storage?key=...), NO la URL
+  // del proveedor — así cambiar S3↔GCS no invalida lo persistido.
+  photoUrl   String?
+  // Soft-delete: null = activo. Se guarda el instante (y no un booleano) para
+  // poder responder "cuándo se archivó" sin una tabla de auditoría.
+  archivedAt DateTime? @map("archived_at")
+
+  /// Epoch de validez POR USUARIO: se rechaza todo access token suyo con `iat`
+  /// anterior a este instante. null = nunca se revocó nada de esta cuenta.
+  ///
+  /// Columna propiedad del módulo `auth` — el módulo `users` la ignora y no la
+  /// proyecta en SafeUser. El índice sirve a la única consulta que la lee: los
+  /// epochs más recientes que el TTL del access token (ver
+  /// docs/auth/02-revocacion-inmediata-epoch.md).
+  tokensValidAfter DateTime? @map("tokens_valid_after")
+
+  /// Preferencia de esquema de color: "light" | "dark" | "system".
+  /// null = nunca eligió; la resolución cae a la cookie o a "system".
+  ///
+  /// La COOKIE tiene precedencia sobre esta columna: es lo único disponible para
+  /// peticiones anónimas, así que serviría dos temas distintos a la misma persona
+  /// antes y después de entrar. Esta columna existe para que la preferencia siga
+  /// al usuario a un dispositivo nuevo (docs/theme/00-modo-oscuro.md).
+  ///
+  /// Columna propiedad del módulo `theme` — el módulo `users` la ignora y no la
+  /// proyecta en SafeUser, igual que hace con `tokensValidAfter`.
+  themeMode String? @map("theme_mode")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+
+  // documentId y email son @unique — el índice lo crea la constraint;
+  // no declarar @@index duplicados.
+  @@index([tokensValidAfter])
+  @@index([dependencyId, archivedAt])
+  @@map("users")
+  @@schema("auth")
+}
+
+/// Un tema de la biblioteca: la marca de la plataforma, no la preferencia de
+/// nadie. El modo claro/oscuro es del usuario y vive en `User.themeMode`.
+///
+/// Dos juegos de tokens con papeles distintos: `draftTokens` es lo que el
+/// builder edita y `publishedTokens` lo que la app sirve. Separarlos es lo que
+/// permite iterar un tema sin tocar lo que ven los usuarios.
+model Theme {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+  name       String
+
+  /// Preset de fábrica: se clona, nunca se edita ni se borra. La invariante la
+  /// impone theme.rules.ts, no solo la UI.
+  isPreset Boolean @default(false) @map("is_preset")
+
+  /// Tokens en edición. SIEMPRE presente: un tema recién creado ya tiene
+  /// borrador. El contenido NO se confía: theme.mapper.ts lo valida al leer y
+  /// cae al tema base si la fila está corrupta o quedó de un esquema anterior.
+  draftTokens Json @map("draft_tokens")
+
+  /// Tokens que sirve la app. null = nunca se publicó este tema, y por tanto no
+  /// se puede activar.
+  publishedTokens Json?     @map("published_tokens")
+  publishedAt     DateTime? @map("published_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appearanceState AppearanceState[]
+
+  @@map("themes")
+  @@schema("public")
+}
+
+/// Fila única (id = 1), mismo patrón que SecurityState. Aquí colgarán después
+/// logo, favicon y nombre de plataforma.
+///
+/// "Un solo tema activo" queda garantizado POR CONSTRUCCIÓN —una fila, una FK—
+/// en vez de por un índice único parcial sobre `themes`, que Prisma no expresa
+/// de forma nativa y obligaría a SQL crudo dentro de la migración.
+model AppearanceState {
+  id            Int      @id @default(1)
+  activeThemeId Int?     @map("active_theme_id")
+  /// `SetNull` para que borrar el tema activo no rompa la app. Aun así
+  /// `theme.rules.ts` lo prohíbe antes de llegar aquí: la FK es la red, no la
+  /// regla.
+  activeTheme   Theme?   @relation(fields: [activeThemeId], references: [id], onDelete: SetNull)
+  updatedAt     DateTime @updatedAt
+
+  @@map("appearance_state")
+  @@schema("public")
+}
+
+/// Fila única (id = 1). Se lee constantemente y se escribe casi nunca.
+/// Todas las escrituras son upsert con where: { id: 1 }.
+///
+/// Las columnas de lockdown existen ya aunque hoy queden inertes (nullable):
+/// la Fase B las activa sin un segundo cambio de esquema.
+model SecurityState {
+  id Int @id @default(1)
+
+  /// Epoch GLOBAL: se rechaza todo access token con `iat` anterior a este
+  /// instante. Lo escribe siempre `now()` de Postgres, nunca el reloj del
+  /// proceso — ver docs/auth/01-lockdown-revocacion-inmediata.md §7.3.
+  tokensValidAfter DateTime @default(now()) @map("tokens_valid_after")
+
+  lockdownAt     DateTime? @map("lockdown_at")
+  lockdownScope  String?   @map("lockdown_scope") // "all" | "except-admin"
+  lockdownReason String?   @map("lockdown_reason") // interno — NUNCA al cliente
+  lockdownBy     Int?      @map("lockdown_by") // auditoría
+
+  updatedAt DateTime @updatedAt
+
+  @@map("security_state")
+  @@schema("auth")
+}
+
+model Session {
+  id     String @id @default(uuid()) @db.Uuid
+  userId Int // el usuario se resuelve por la relación — sin denormalizar documentId
+
+  // Solo se persiste el HASH (SHA-256 hex) del refresh token — el token crudo
+  // vive únicamente en la cookie del cliente. Un volcado de esta tabla no
+  // permite fabricar sesiones.
+  refreshTokenHash String @unique
+
+  // Rotación con ventana de gracia: hash del token anterior + momento de la
+  // rotación. Permite tolerar respuestas perdidas en red y detectar reuso
+  // malicioso (docs/auth/00-sistema-autenticacion.md §6.2).
+  prevTokenHash String?
+  rotatedAt     DateTime?
+
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([prevTokenHash])
+  @@map("sessions")
+  @@schema("auth")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ORG — estructura organizativa del instituto
+//
+// La dependencia es lo que separa la operación: un titular solo ve y administra
+// a su gente. El alcance se resuelve en la aplicación a partir de
+// `User.dependencyId`, y las dos invariantes que la aplicación NO puede
+// garantizar por sí sola — un solo titular por dependencia y la coherencia
+// interno/externo — las impone la base con un índice único parcial y un CHECK,
+// ambos escritos a mano en la migración porque Prisma no los expresa.
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Interno = personal del Ayuntamiento, con número de empleado y dependencia.
+/// Externo = llega en PRD-02 con el capacitador externo.
+enum UserType {
+  INTERNAL
+  EXTERNAL
+
+  @@schema("auth")
+}
+
+/// Unidad organizativa que separa la operación de la plataforma.
+model Dependency {
+  id         Int       @id @default(autoincrement())
+  documentId String    @unique @default(uuid()) @db.Uuid
+  name       String    @unique
+  acronym    String?
+  /// Soft delete, misma semántica que User.archivedAt: null = activa.
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  users User[]
+
+  @@map("dependencies")
+  @@schema("org")
+}
+
+/// Historial de cambios de adscripción. Sin aprobaciones ni estados: es
+/// bitácora.
+///
+/// Las columnas son escalares sin `@relation` a propósito: declararlas obligaría
+/// a cuatro relaciones inversas en `User` y `Dependency` para una tabla que solo
+/// se lee en bloque, y además permite que una fila sobreviva al borrado
+/// permanente de la cuenta que describe — que es justo lo que se espera de una
+/// bitácora.
+model DependencyChange {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @map("user_id")
+  fromDependencyId Int?     @map("from_dependency_id")
+  toDependencyId   Int      @map("to_dependency_id")
+  /// Quién lo hizo: el propio usuario o un administrador.
+  changedById      Int      @map("changed_by_id")
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("dependency_changes")
+  @@schema("org")
+}

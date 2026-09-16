@@ -1,0 +1,52 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/.react-router",
+			"!**/build",
+			"!**/generated"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineEnding": "lf"
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"correctness": {
+				"noUnusedVariables": "warn",
+				"noUnusedFunctionParameters": "off",
+				"noUnusedPrivateClassMembers": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noThenProperty": "off"
+			},
+			"style": {
+				"useImportType": "off"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["app/shared/components/ui/**"],
+			"linter": { "enabled": false }
+		}
+	]
+}

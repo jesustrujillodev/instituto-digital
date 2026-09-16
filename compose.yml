@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres_master_template
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres_master_template
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio
+    container_name: minio_master_template
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # API S3 → STORAGE_ENDPOINT
+      - "9001:9001" # consola web (http://localhost:9001)
+    volumes:
+      - minio_data:/data
+
+  # Crea el bucket al levantar (createBucket ya es idempotente en la app, pero
+  # esto deja el entorno listo sin depender del primer request). Contenedor
+  # efímero que sale en cuanto termina.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (mc alias set local http://minio:9000 minioadmin minioadmin) do sleep 1; done;
+      mc mb -p local/car-dealership-storage;
+      mc mb -p local/car-dealership-public;
+      exit 0;
+      "
+
+volumes:
+  postgres_data:
+  minio_data:
