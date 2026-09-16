@@ -14,9 +14,9 @@ import type { Route } from "./+types/index";
  * lo esperado. Mismo criterio que los filtros del monitor de sesiones.
  */
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
-	// 🔒 Solo ADMIN — un rol insuficiente produce un 403 real (no un redirect),
+	// 🔒 Solo SUPERADMIN — un rol insuficiente produce un 403 real (no un redirect),
 	// que pinta dashboard.boundary.tsx conservando el shell.
-	await requireRole(request, context, ["ADMIN"]);
+	await requireRole(request, context, ["SUPERADMIN"]);
 
 	const listed = await context.themeService.listThemes();
 	if (!listed.success) {

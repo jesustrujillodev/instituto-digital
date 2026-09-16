@@ -64,7 +64,7 @@ const createHarness = (
 						sub: "99999999-9999-4999-8999-999999999999",
 						userId: 7,
 						email: "ana@empresa.com",
-						role: options.role ?? "ADMIN",
+						role: options.role ?? "SUPERADMIN",
 						iat: 1_800_000_000,
 					},
 		themeService: {
@@ -95,8 +95,8 @@ const previewCookie = (response: Response) =>
 describe("guard", () => {
 	// 🔒 El guard se repite en el action: un loader protegido no protege las
 	// mutaciones de su propia ruta.
-	test("a non-admin gets a 403 before anything is called", async () => {
-		const { context, calls } = createHarness({ role: "USER" });
+	test("a non-superadmin gets a 403 before anything is called", async () => {
+		const { context, calls } = createHarness({ role: "ADMIN" });
 
 		await expect(
 			run(

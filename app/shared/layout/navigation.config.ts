@@ -3,6 +3,7 @@ import {
 	BookOpenCheck,
 	Building2,
 	CalendarCheck,
+	CalendarDays,
 	Cloud,
 	GraduationCap,
 	LayoutDashboard,
@@ -95,6 +96,12 @@ export const navigationConfig: readonly NavItem[] = [
 		icon: CalendarCheck,
 		roles: ["USER", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"],
 	},
+	{
+		// Sin `roles`: cada quien ve lo suyo, incluido el capacitador externo.
+		label: "Calendario",
+		path: "/dashboard/calendario",
+		icon: CalendarDays,
+	},
 ];
 
 /**
@@ -119,6 +126,6 @@ export const footerNavigationConfig: readonly NavItem[] = [
 		label: "Personalización",
 		path: "/dashboard/personalizacion",
 		icon: Palette,
-		roles: ["ADMIN", "SUPERADMIN"],
+		roles: ["SUPERADMIN"],
 	},
 ];

@@ -23,6 +23,8 @@ import { evaluateToken } from "@/modules/auth/domain/security-state.rules";
 import { createCachedSecurityStateRepository } from "@/modules/auth/infrastructure/security-state.cache.server";
 import { createSecurityStateRepository } from "@/modules/auth/infrastructure/security-state.repository.server";
 import { createSessionRepository } from "@/modules/auth/infrastructure/session.repository.server";
+import { createCalendarService } from "@/modules/calendar/application/calendar.service.server";
+import { createCalendarRepository } from "@/modules/calendar/infrastructure/calendar.repository.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
@@ -189,6 +191,8 @@ export const configureContainer = async (
 		courseService: asSingleton(createCourseService),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
+		calendarRepository: asSingleton(createCalendarRepository),
+		calendarService: asSingleton(createCalendarService),
 		// Una fuente por módulo que guarda keys de storage. Añadir un módulo con
 		// archivos = añadir su fuente aquí; el gestor de nube no cambia.
 		objectReferenceSources: asSingleton((cradle: ICradle) => [

@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { env } from "@/core/env.server";
 import { THEME_PRESETS } from "@/modules/theme/domain/theme.config";
+import { seedCalendar } from "./seed-calendar";
 import { seedCourses } from "./seed-courses";
 import { seedEnrollments } from "./seed-enrollments";
 import { seedOrganization } from "./seed-organization";
@@ -76,6 +77,8 @@ async function main() {
 	const courses = await seedCourses(prisma);
 
 	const enrollments = await seedEnrollments(prisma);
+
+	const calendar = await seedCalendar(prisma);
 
 	// Fila única del estado de seguridad. El adaptador LANZA si no existe —
 	// preferimos que un entorno mal sembrado falle a que se comporte como si
@@ -167,6 +170,13 @@ async function main() {
 	);
 	console.log(
 		"     Protección civil básica (por invitación, 1/2), Redacción de oficios (llena), Ética pública (cerrada), Inducción institucional (empezada)",
+	);
+	console.log("✅ Calendario:");
+	console.log(
+		`   • ${calendar.courses} curso por invitación en Desarrollo Social: Archivo y transparencia`,
+	);
+	console.log(
+		"     diana.sop inscrita (personal de SOP en otra dependencia), miguel.sop con invitación pendiente",
 	);
 	console.log("✅ Cuentas de la plantilla:");
 	console.log(`   • ${admin.email} (ADMIN)  — password: Password123!`);

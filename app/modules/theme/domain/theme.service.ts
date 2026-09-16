@@ -45,7 +45,7 @@ export interface IThemeService {
 		mode: ThemeMode;
 	}): Promise<ThemeModeResponse>;
 
-	// ── Biblioteca (solo ADMIN; el rol lo impone la ruta) ─────────────────────
+	// ── Biblioteca (solo SUPERADMIN; el rol lo impone la ruta) ─────────────────────
 
 	listThemes(): Promise<AppResponse<ThemeSummary[]>>;
 

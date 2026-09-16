@@ -35,7 +35,7 @@ import type { ApiContext } from "./shared/types";
  * Quién puede previsualizar un tema sin publicar. Es una función de plataforma,
  * no de contenido: la ejerce quien administra la apariencia del instituto.
  */
-const THEME_PREVIEW_ROLES: readonly Role[] = ["ADMIN", "SUPERADMIN"];
+const THEME_PREVIEW_ROLES: readonly Role[] = ["SUPERADMIN"];
 
 export const middleware: Route.MiddlewareFunction[] = [
 	async ({ context, request }, next) => {

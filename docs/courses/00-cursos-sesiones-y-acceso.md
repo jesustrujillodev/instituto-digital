@@ -12,7 +12,7 @@ Lo que **no** hace todavía, y quién lo hace:
 | Pendiente | PRD |
 | --- | --- |
 | Avisos por correo al editar o cancelar | PRD-08 (los inscritos ya existen desde PRD-04) |
-| Calendario | PRD-05 |
+| Calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
 | Estado `FINISHED`, asistencia, créditos y los contadores de la ficha del capacitador | PRD-06 |
 | Plan anual y "crear curso desde esta línea" | PRD-07 |
 

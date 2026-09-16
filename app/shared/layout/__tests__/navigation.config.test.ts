@@ -89,6 +89,21 @@ describe("navigationConfig — filtrado por rol", () => {
 		}
 	});
 
+	// Cada quien ve lo suyo en el calendario, incluido el capacitador externo.
+	test("el calendario lo ve cualquier rol", () => {
+		for (const role of [
+			"USER",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+			"SUPERADMIN",
+			"ADMIN",
+		] as const) {
+			expect(pathsFor(navigationConfig, role)).toContain(
+				"/dashboard/calendario",
+			);
+		}
+	});
+
 	// El alta de dependencias es global: la ejerce quien puede crear una unidad
 	// organizativa y designarle titular, no quien administra una.
 	test("solo el superadministrador ve las dependencias", () => {
@@ -151,6 +166,24 @@ describe("footerNavigationConfig", () => {
 		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
 			expect(pathsFor(footerNavigationConfig, role)).toContain(
 				"/dashboard/sesiones",
+			);
+		}
+	});
+
+	// El tema es de toda la plataforma: su loader y su action exigen SUPERADMIN.
+	test("personalización solo la ve el superadministrador", () => {
+		expect(pathsFor(footerNavigationConfig, "SUPERADMIN")).toContain(
+			"/dashboard/personalizacion",
+		);
+
+		for (const role of [
+			"ADMIN",
+			"USER",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+		] as const) {
+			expect(pathsFor(footerNavigationConfig, role)).not.toContain(
+				"/dashboard/personalizacion",
 			);
 		}
 	});

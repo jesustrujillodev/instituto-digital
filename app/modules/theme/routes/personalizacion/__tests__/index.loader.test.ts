@@ -60,7 +60,7 @@ const createHarness = (
 						sub: "99999999-9999-4999-8999-999999999999",
 						userId: 7,
 						email: "ana@empresa.com",
-						role: options.role ?? "ADMIN",
+						role: options.role ?? "SUPERADMIN",
 						iat: 1_800_000_000,
 					},
 		themeService: {
@@ -110,8 +110,8 @@ const run = async (request: Request, context: LoaderArgs["context"]) =>
 describe("personalizacion loader", () => {
 	// 🔒 El tema es de la plataforma: quien lo cambia lo cambia para todo el
 	// mundo. Un USER recibe 403 real, no un redirect que borraría la URL.
-	test("a non-admin gets a 403", async () => {
-		const { context } = createHarness({ role: "USER" });
+	test("a non-superadmin gets a 403", async () => {
+		const { context } = createHarness({ role: "ADMIN" });
 
 		await expect(run(await requestOf(), context)).rejects.toMatchObject({
 			init: { status: 403 },

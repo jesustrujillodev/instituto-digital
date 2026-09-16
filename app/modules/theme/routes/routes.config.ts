@@ -18,7 +18,7 @@ export const themeRoutes = [
  *
  * Array aparte porque se monta en otro sitio del árbol —dentro del layout del
  * dashboard, que impone la autenticación de forma estructural—. El rol lo impone
- * además el loader Y el action con `requireRole(["ADMIN"])`: el tema es de la
+ * además el loader Y el action con `requireRole(["SUPERADMIN"])`: el tema es de la
  * plataforma, así que quien lo cambia lo cambia para todo el mundo.
  */
 export const themeAdminRoutes = [

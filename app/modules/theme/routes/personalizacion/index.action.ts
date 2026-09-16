@@ -42,7 +42,7 @@ export const action = async ({
 }: Route.ActionArgs): Promise<Response> => {
 	// 🔒 El guard se repite en el action: un loader protegido no protege las
 	// mutaciones de su propia ruta.
-	await requireRole(request, context, ["ADMIN"]);
+	await requireRole(request, context, ["SUPERADMIN"]);
 
 	const formData = await request.formData();
 	const intent = formData.get(INTENT_FIELD);

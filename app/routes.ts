@@ -3,6 +3,7 @@ import {
 	authAdminRoutes,
 	authRoutes,
 } from "./modules/auth/routes/routes.config";
+import { calendarRoutes } from "./modules/calendar/routes/routes.config";
 import { cloudAdminRoutes } from "./modules/cloud/routes/routes.config";
 import { coursesRoutes } from "./modules/courses/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
@@ -50,9 +51,10 @@ export default [
 					...groupsRoutes, // /dashboard/grupos  (alcance por dependencia)
 					...coursesRoutes, // /dashboard/cursos  (alcance propio: incluye al capacitador interno)
 					...enrollmentsRoutes, // /dashboard/cursos-disponibles, /dashboard/mis-cursos, /dashboard/cursos/:id/inscripciones
+					...calendarRoutes, // /dashboard/calendario  (cualquier sesión: cada quien ve lo suyo)
 					...cloudAdminRoutes, // /dashboard/nube  (ADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (ADMIN)
-					...themeAdminRoutes, // /dashboard/personalizacion  (ADMIN)
+					...themeAdminRoutes, // /dashboard/personalizacion  (SUPERADMIN)
 				]),
 			]),
 		],

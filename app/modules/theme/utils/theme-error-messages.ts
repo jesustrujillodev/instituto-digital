@@ -21,7 +21,7 @@ export const THEME_ERROR_MESSAGES: ErrorMessageMap = {
 
 /**
  * Copia del builder. Va aparte de la anterior porque el público es otro: aquí
- * quien lee es un ADMIN editando la marca de la plataforma, y el mensaje puede
+ * quien lee es un SUPERADMIN editando la marca de la plataforma, y el mensaje puede
  * explicar la regla en vez de tranquilizar.
  */
 export const THEME_BUILDER_ERROR_MESSAGES: ErrorMessageMap = {

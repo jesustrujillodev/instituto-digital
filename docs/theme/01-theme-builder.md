@@ -9,7 +9,7 @@ tokens y cómo se editan.
 
 La regla que gobierna las dos fases sigue siendo la misma: **el tema es de la
 plataforma; el modo es de la persona.** La fase A dio a cada usuario el
-claro/oscuro/sistema. La fase B da al ADMIN el tema.
+claro/oscuro/sistema. La fase B da al SUPERADMIN el tema.
 
 ---
 
@@ -197,9 +197,9 @@ Un preset **sí** se puede activar. Es inmutable, no inservible.
 ## 6. UI
 
 `/dashboard/personalizacion`, dentro del layout del dashboard.
-`requireRole(request, context, ["ADMIN"])` en el **loader y en el action** — un
+`requireRole(request, context, ["SUPERADMIN"])` en el **loader y en el action** — un
 loader protegido no protege las mutaciones de su propia ruta. Enlace en
-`footerNavigationConfig` junto a *Sesiones*, con `roles: ["ADMIN"]`.
+`footerNavigationConfig` junto a *Sesiones*, con `roles: ["SUPERADMIN"]`.
 
 El tema abierto viaja en la URL (`?tema=<documentId>`): la pantalla es enlazable,
 sobrevive a un refresh y el botón atrás hace lo esperado.
@@ -228,7 +228,7 @@ sería un toast de error por cada slider movido.
 Guarda el borrador y setea la cookie `__theme_preview=<documentId>`.
 
 **El gate es el rol verificado en servidor, no la cookie.** El loader raíz solo
-la atiende si `context.authPayload?.role === "ADMIN"`; la cookie únicamente dice
+la atiende si `context.authPayload?.role === "SUPERADMIN"`; la cookie únicamente dice
 *qué* tema, y eso puede fabricarlo cualquiera. Por sí sola no abre nada.
 
 Se guarda **antes** de encender la cookie: el preview sirve el borrador

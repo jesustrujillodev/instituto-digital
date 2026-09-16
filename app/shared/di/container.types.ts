@@ -11,6 +11,8 @@ import type { SecurityStateService } from "@/modules/auth/domain/security-state.
 import type { SessionRepository } from "@/modules/auth/domain/session.repository";
 import type { SessionMonitorService } from "@/modules/auth/domain/session-monitor.service";
 import type { TokenService } from "@/modules/auth/domain/token.service";
+import type { ICalendarRepository } from "@/modules/calendar/domain/calendar.repository";
+import type { ICalendarService } from "@/modules/calendar/domain/calendar.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
@@ -85,6 +87,8 @@ export interface ICradle {
 	courseService: ICourseService;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
+	calendarRepository: ICalendarRepository;
+	calendarService: ICalendarService;
 	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo
 	// resuelve en TODA petición, así que `resolve` evita bajar a la base salvo en
 	// el caso de dispositivo nuevo (docs/theme/00-modo-oscuro.md).
