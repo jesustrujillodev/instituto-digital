@@ -55,12 +55,24 @@ describe("toSummary", () => {
 });
 
 describe("toDetail", () => {
-	test("añade teléfono, semblanza y los contadores pendientes", () => {
-		const detail = toDetail(rawDetail);
+	test("añade teléfono, semblanza y las estadísticas calculadas", () => {
+		const detail = toDetail(rawDetail, {
+			coursesTaught: 3,
+			averageRating: 4.5,
+		});
 
 		expect(detail.phone).toBe("5512345678");
 		expect(detail.bio).toBe("Veinte años en campo.");
-		expect(detail.coursesTaught).toBe(0);
+		expect(detail.coursesTaught).toBe(3);
+		expect(detail.averageRating).toBe(4.5);
+	});
+
+	test("sin valoraciones, el promedio es null y no cero", () => {
+		const detail = toDetail(rawDetail, {
+			coursesTaught: 0,
+			averageRating: null,
+		});
+
 		expect(detail.averageRating).toBeNull();
 	});
 });

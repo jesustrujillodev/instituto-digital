@@ -142,6 +142,7 @@ describe("navigationSections — filtrado por rol", () => {
 	const PARTICIPANT_PATHS = [
 		"/dashboard/cursos-disponibles",
 		"/dashboard/mis-cursos",
+		"/dashboard/mis-creditos",
 	];
 
 	test("un ADMIN ve todo lo que ve un USER salvo lo de participante, y además lo suyo", () => {
@@ -219,6 +220,28 @@ describe("navigationSections — filtrado por rol", () => {
 
 		expect(mainPathsFor("USER", true)).toContain("/dashboard/cursos");
 		expect(mainPathsFor("USER")).not.toContain("/dashboard/cursos");
+	});
+
+	test("la impartición la ven la gestión y cualquier capacitador", () => {
+		for (const role of [
+			"SUPERADMIN",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+		] as const) {
+			expect(mainPathsFor(role)).toContain("/dashboard/imparticion");
+		}
+
+		expect(mainPathsFor("USER", true)).toContain("/dashboard/imparticion");
+		expect(mainPathsFor("USER")).not.toContain("/dashboard/imparticion");
+	});
+
+	test("los créditos ajenos los ven la gestión y el superadministrador; los propios, quien cursa", () => {
+		expect(mainPathsFor("DEPENDENCY_HEAD")).toContain("/dashboard/creditos");
+		expect(mainPathsFor("SUPERADMIN")).toContain("/dashboard/creditos");
+		expect(mainPathsFor("USER", true)).not.toContain("/dashboard/creditos");
+
+		expect(mainPathsFor("USER")).toContain("/dashboard/mis-creditos");
+		expect(mainPathsFor("SUPERADMIN")).not.toContain("/dashboard/mis-creditos");
 	});
 });
 

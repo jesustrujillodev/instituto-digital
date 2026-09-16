@@ -13,7 +13,7 @@ Lo que **no** hace todavía, y quién lo hace:
 | --- | --- |
 | Avisos por correo al editar o cancelar | PRD-08 (los inscritos ya existen desde PRD-04) |
 | Calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
-| Estado `FINISHED`, asistencia, créditos y los contadores de la ficha del capacitador | PRD-06 |
+| Estado `FINISHED`, asistencia, créditos y valoración | PRD-06 (`docs/teaching/00-imparticion-creditos-y-valoracion.md`) |
 | Plan anual y "crear curso desde esta línea" | PRD-07 |
 
 La inscripción, las invitaciones y "Mis cursos" viven en su propio módulo
@@ -148,7 +148,7 @@ fila del curso con el mismo `lockCourseSeats` de la inscripción y falla con
 ## 6. Ciclo de vida
 
 ```
-DRAFT ──publicar──▶ PUBLISHED ──(PRD-06)──▶ FINISHED
+DRAFT ──publicar──▶ PUBLISHED ──finalizar (teaching)──▶ FINISHED
   │                     │
   └──────cancelar───────┴──▶ CANCELLED
 ```
@@ -224,8 +224,9 @@ Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
 
 - **PRD-08** engancha los avisos por correo de §6.5 a `update` y `cancel`.
 - **PRD-05** tiene su índice: `course_sessions(starts_at)`.
-- **PRD-06** escribe `FINISHED`, cuelga la asistencia de las sesiones y sustituye
-  `TRAINER_STATS_PENDING` contando `course_trainers` (índice `user_id` ya creado).
+- **PRD-06** ya escribe `FINISHED` desde `teaching` por `ICourseRepository.finish`,
+  condicionado a `PUBLISHED`. La asistencia cuelga de las sesiones y se borra en
+  cascada con ellas.
 - **PRD-07** añade la relación de `plan_line_id`.
 
 **Limitación conocida:** el enlace "Cursos" del menú se muestra a todo

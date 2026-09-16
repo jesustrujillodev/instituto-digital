@@ -11,9 +11,10 @@ import type {
 	EnrollmentState,
 	EnrollmentWrite,
 	ListAvailableCoursesDto,
-	MyCourseEntry,
+	MyCourseRecord,
 	ParticipantAccount,
 	ParticipantCandidate,
+	ResultWrite,
 	RosterEntry,
 	StoredEnrollment,
 } from "./enrollment.types";
@@ -69,8 +70,24 @@ export interface IEnrollmentRepository {
 	 */
 	save(data: EnrollmentWrite, expected: EnrollmentStatus | null): Promise<void>;
 
+	/**
+	 * Resultado y nota de inscritos, con quién y cuándo (§6.8). La escribe
+	 * `teaching`, dentro de su transacción: la fila es de este módulo.
+	 */
+	saveResults(
+		courseId: number,
+		entries: readonly ResultWrite[],
+		actorId: number,
+		at: Date,
+	): Promise<void>;
+	/** `completed` según el último cálculo; solo toca a los `ENROLLED`. */
+	setCompletion(
+		courseId: number,
+		completedUserIds: readonly number[],
+	): Promise<void>;
+
 	/** Invitaciones pendientes e inscripciones activas de la persona. */
-	findMine(userId: number): Promise<MyCourseEntry[]>;
+	findMine(userId: number): Promise<MyCourseRecord[]>;
 	findRoster(courseId: number): Promise<RosterEntry[]>;
 
 	/** Cuentas internas y activas de entre las pedidas; con `dependencyId`, solo de esa dependencia. */

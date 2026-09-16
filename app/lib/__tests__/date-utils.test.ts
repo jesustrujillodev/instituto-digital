@@ -3,8 +3,10 @@ import {
 	endOfZonedDay,
 	formatSessionRange,
 	INSTITUTE_TIME_ZONE,
+	startOfZonedDay,
 	utcToZonedInput,
 	zonedInputToUtc,
+	zonedYearOf,
 } from "../date-utils";
 
 describe("INSTITUTE_TIME_ZONE", () => {
@@ -64,6 +66,31 @@ describe("endOfZonedDay", () => {
 			date: "2026-10-12",
 			time: "23:59",
 		});
+	});
+});
+
+describe("startOfZonedDay", () => {
+	test("una sesión nocturna pertenece a su día local, no al día UTC", () => {
+		// 20:00 en Tijuana es ya el día siguiente en UTC.
+		const session = zonedInputToUtc("2026-07-15", "20:00");
+
+		expect(startOfZonedDay(session)).toEqual(
+			zonedInputToUtc("2026-07-15", "00:00"),
+		);
+	});
+
+	test("acierta el desfase de invierno", () => {
+		const session = zonedInputToUtc("2026-11-20", "09:00");
+
+		expect(startOfZonedDay(session).toISOString()).toBe(
+			"2026-11-20T08:00:00.000Z",
+		);
+	});
+});
+
+describe("zonedYearOf", () => {
+	test("la noche del 31 de diciembre cuenta para ese año aunque en UTC ya sea enero", () => {
+		expect(zonedYearOf(zonedInputToUtc("2026-12-31", "20:00"))).toBe(2026);
 	});
 });
 

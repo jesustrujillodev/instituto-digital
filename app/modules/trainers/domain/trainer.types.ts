@@ -12,6 +12,10 @@ import { trainerDetailSchema, trainerSummarySchema } from "./trainer.rules";
 
 export type TrainerSummary = v.InferOutput<typeof trainerSummarySchema>;
 export type TrainerDetail = v.InferOutput<typeof trainerDetailSchema>;
+export type TrainerStats = Pick<
+	TrainerDetail,
+	"coursesTaught" | "averageRating"
+>;
 
 export type ActivateProfileDto = v.InferInput<typeof activateProfileRule>;
 export type UpdateProfileDto = v.InferInput<typeof updateProfileRule>;

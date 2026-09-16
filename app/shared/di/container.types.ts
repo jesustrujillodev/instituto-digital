@@ -16,12 +16,18 @@ import type { ICalendarService } from "@/modules/calendar/domain/calendar.servic
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
+import type { ICreditRepository } from "@/modules/credits/domain/credit.repository";
+import type { ICreditService } from "@/modules/credits/domain/credit.service";
 import type { IDependencyRepository } from "@/modules/dependencies/domain/dependency.repository";
 import type { IDependencyService } from "@/modules/dependencies/domain/dependency.service";
 import type { IEnrollmentRepository } from "@/modules/enrollments/domain/enrollment.repository";
 import type { IEnrollmentService } from "@/modules/enrollments/domain/enrollment.service";
 import type { IGroupRepository } from "@/modules/groups/domain/group.repository";
 import type { IGroupService } from "@/modules/groups/domain/group.service";
+import type { IRatingRepository } from "@/modules/ratings/domain/rating.repository";
+import type { IRatingService } from "@/modules/ratings/domain/rating.service";
+import type { ITeachingRepository } from "@/modules/teaching/domain/teaching.repository";
+import type { ITeachingService } from "@/modules/teaching/domain/teaching.service";
 import type { IThemeRepository } from "@/modules/theme/domain/theme.repository";
 import type { IThemeService } from "@/modules/theme/domain/theme.service";
 import type { ITrainerRepository } from "@/modules/trainers/domain/trainer.repository";
@@ -89,6 +95,12 @@ export interface ICradle {
 	enrollmentService: IEnrollmentService;
 	calendarRepository: ICalendarRepository;
 	calendarService: ICalendarService;
+	teachingRepository: ITeachingRepository;
+	teachingService: ITeachingService;
+	creditRepository: ICreditRepository;
+	creditService: ICreditService;
+	ratingRepository: IRatingRepository;
+	ratingService: IRatingService;
 	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo
 	// resuelve en TODA petición, así que `resolve` evita bajar a la base salvo en
 	// el caso de dispositivo nuevo (docs/theme/00-modo-oscuro.md).

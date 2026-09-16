@@ -1,7 +1,9 @@
 import {
+	Award,
 	BookOpenCheck,
 	Building2,
 	CalendarDays,
+	ClipboardCheck,
 	Cloud,
 	LayoutDashboard,
 	LibraryBig,
@@ -53,7 +55,6 @@ export const navigationSections: readonly NavSection[] = [
 		items: [{ label: "Resumen", path: "/dashboard", icon: LayoutDashboard }],
 	},
 	{
-		// Aquí entran créditos, calificaciones y constancias cuando existan.
 		label: "Mi capacitación",
 		roles: LEARNER_ROLES,
 		items: [
@@ -67,6 +68,11 @@ export const navigationSections: readonly NavSection[] = [
 				label: "Cursos disponibles",
 				path: "/dashboard/cursos-disponibles",
 				icon: LibraryBig,
+			},
+			{
+				label: "Mis créditos",
+				path: "/dashboard/mis-creditos",
+				icon: Award,
 			},
 			{
 				label: "Calendario",
@@ -88,6 +94,20 @@ export const navigationSections: readonly NavSection[] = [
 				icon: NotebookPen,
 				roles: DEPENDENCY_ROLES,
 				trainer: true,
+			},
+			{
+				// Lo ve también el capacitador externo: imparte, aunque no cree cursos (§4).
+				label: "Impartición",
+				path: "/dashboard/imparticion",
+				icon: ClipboardCheck,
+				roles: DEPENDENCY_ROLES,
+				trainer: true,
+			},
+			{
+				label: "Créditos",
+				path: "/dashboard/creditos",
+				icon: Award,
+				roles: DEPENDENCY_ROLES,
 			},
 			{
 				label: "Grupos",
@@ -133,6 +153,12 @@ export const navigationSections: readonly NavSection[] = [
 		roles: PLATFORM_ROLES,
 		items: [
 			{ label: "Cursos", path: "/dashboard/cursos", icon: NotebookPen },
+			{
+				label: "Impartición",
+				path: "/dashboard/imparticion",
+				icon: ClipboardCheck,
+			},
+			{ label: "Créditos", path: "/dashboard/creditos", icon: Award },
 			{
 				// El superadministrador entra a consultar: elige audiencias de cursos de
 				// cualquier dependencia. Administrar sigue siendo del titular y el auxiliar.

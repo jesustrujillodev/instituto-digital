@@ -218,15 +218,15 @@ describe("createTrainerService — catálogo", () => {
 		);
 	});
 
-	// PRD-06 sustituye el cálculo, no el contrato: la ficha ya expone
-	// los dos campos y la UI puede fijar su estado vacío desde ahora.
-	test("la ficha devuelve los contadores pendientes en su forma final", async () => {
-		const { service } = createHarness({ trainers: [detailOf()] });
+	test("la ficha expone las estadísticas que calcula el repositorio", async () => {
+		const { service } = createHarness({
+			trainers: [{ ...detailOf(), coursesTaught: 2, averageRating: 4 }],
+		});
 
 		const result = await service.findByUser(USER_ID);
 
-		expect(result.success && result.data.coursesTaught).toBe(0);
-		expect(result.success && result.data.averageRating).toBeNull();
+		expect(result.success && result.data.coursesTaught).toBe(2);
+		expect(result.success && result.data.averageRating).toBe(4);
 	});
 });
 

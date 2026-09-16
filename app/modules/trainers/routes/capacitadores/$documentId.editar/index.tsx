@@ -34,12 +34,7 @@ export function meta() {
 	return [{ title: "Ficha del capacitador" }];
 }
 
-/**
- * Cursos impartidos y valoración promedio.
- *
- * Se pintan desde ahora con su estado vacío para fijar la forma de la ficha:
- * PRD-06 sustituye el cálculo, no el sitio donde se muestra.
- */
+/** Cursos finalizados que imparte y su valoración promedio (§6.3). */
 function TrainerStats({
 	coursesTaught,
 	averageRating,

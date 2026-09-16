@@ -1,7 +1,7 @@
 # Inventario de tests
 
-Estado de la suite al 16 de septiembre de 2026. **188 archivos, 2207 tests, todos
-en verde.** El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
+Estado de la suite al 16 de septiembre de 2026, tras PRD-06. **216 archivos, 2405
+tests, todos en verde.** El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
 `vitest.config.ts` con entorno `node`, resolución de alias vía
 `vite-tsconfig-paths` y descubrimiento sobre `app/**/__tests__/**/*.test.{ts,tsx}`.
 
@@ -67,15 +67,19 @@ que queda fuera está listado como hueco al final de este documento.
 | [Groups](#groups) | 14 | 74 | dominio, aplicación, rutas, utilidades |
 | [Courses](#courses) | 16 | 186 | dominio, aplicación, rutas, utilidades |
 | [Enrollments](#enrollments) | 11 | 124 | dominio, aplicación, rutas, utilidades |
+| [Teaching](#teaching) | 9 | 67 | dominio, aplicación, infraestructura, rutas |
+| [Credits](#credits) | 5 | 24 | dominio, aplicación, infraestructura, rutas |
+| [Ratings](#ratings) | 4 | 20 | dominio, aplicación, infraestructura, rutas |
 | [Cloud](#cloud) | 7 | 88 | dominio, aplicación, rutas, utilidades |
 | [Shared](#shared) | 42 | 486 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
 | [Core](#core) | 2 | 35 | entorno y cookies |
 | [Lib](#lib) | 6 | 61 | utilidades puras y zona horaria |
-| **Total** | **188** | **2207** | |
+| **Total** | **216** | **2405** | |
 
-> Las filas por área suman menos que el total: el inventario anterior ya iba un
-> archivo y unos tests por detrás de la suite, y solo se han recontado las áreas
-> que tocaron PRD-03 y PRD-04. El total sí es el que reporta el runner.
+> Las filas por área suman menos que el total: el inventario ya iba por detrás de
+> la suite y solo se han recontado las áreas que tocaron PRD-03, PRD-04 y PRD-06.
+> PRD-06 añadió además pruebas a `trainers`, `courses`, `enrollments`,
+> `shared/layout` y `lib`. El total sí es el que reporta el runner.
 
 La distribución sigue reflejando la prioridad del proyecto: la superficie de
 seguridad (epoch de validez, lockdown, rotación del refresh, autorización por
@@ -479,6 +483,61 @@ escritura respete la máquina de estados de la fila única por persona y curso.
 | `enrollment-utils.test.ts` | 9 | Copia para cada código con su status de loader, redacción de lotes, nombre de respaldo y lectura de listas repetidas del formulario. |
 
 ---
+
+## Teaching
+
+Impartición (PRD-06). Lo que estas pruebas protegen es que **el crédito siempre
+coincida con la fórmula de §6.8**, también después de corregir, y que quien
+imparte no corrija lo que ya se finalizó.
+
+### `domain/__tests__/` — 39 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `teaching.rules.test.ts` | 22 | Asistencia comparada en enteros (2 de 3 contra 66 % y 67 %), el 100 % de hecho de un curso de una sesión, aprobado exigido solo con evaluación, que un externo complete sin sumar crédito, las ventanas de lista y cierre en la zona del instituto, el ejercicio de una clase nocturna del 31 de diciembre, el código de cada impedimento para finalizar, que un capacitador no corrija y que un envío solo escriba lo que cambia. |
+| `teaching.access.test.ts` | 6 | Que las ramas se sumen para el auxiliar capacitador, que el capacitador interno no pase lista en lo que solo creó, que el externo sí imparta y que sin ramas el filtro sea imposible y nunca `{}`. |
+| `teaching.validators.test.ts` | 5 | Lista no vacía y booleana; nota entera de 0 a 100; nota prohibida en un pendiente. |
+| `teaching.mapper.test.ts` | 4 | Que la ficha no exponga ids internos, que una sesión sin lista se vea como `null` y los permisos de solo lectura de un finalizado. |
+| `teaching.errors.test.ts` | 2 | `code` estable y `details` serializables. |
+
+### `application/__tests__/` — 16 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `teaching.service.server.test.ts` | 16 | Con dobles en memoria que reflejan cada escritura: el bloqueo **dentro** de la transacción, que finalizar otorgue el crédito con la dependencia y el ejercicio correctos, que con pendientes o antes de tiempo no escriba nada, `STATE_CHANGED` si otra petición finalizó antes, y que corregir retire, restaure (sin crear otra fila) o retire por un no aprobado. |
+
+### `infrastructure/__tests__/` y `routes/**/__tests__/` — 12 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `teaching.repository.server.test.ts` | 4 | Filtro de alcance fundido con los estados que se imparten, asistencia acotada a las sesiones del curso, y quién y cuándo en cada marca. |
+| `imparticion/$documentId/…/index.action.test.ts` | 5 | JSON validado antes del servicio, error localizado con su código, 403 para quien no imparte, intent desconocido. |
+| `imparticion/$documentId/…/index.loader.test.ts` | 3 | Valoraciones solo en un finalizado y 400 con un `documentId` mal formado. |
+
+## Credits
+
+Créditos (PRD-06). Lo que estas pruebas protegen es que **un crédito siga
+contando para la dependencia donde se obtuvo** y que nadie lea los de otra.
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `domain/…/credit.rules.test.ts` | 6 | `diffCredits`: otorgar, retirar sin repetir, restaurar en lugar de crear y no tocar lo vigente; validación del ejercicio y de la dependencia. |
+| `domain/…/credit.mapper.test.ts` | 3 | Total del ejercicio frente al histórico y el ejercicio pedido aunque esté vacío. |
+| `application/…/credits.service.server.test.ts` | 6 | El titular ve su personal aunque pida otra dependencia, el superadministrador ve el resumen o la dependencia que elija y el participante recibe `FORBIDDEN_SCOPE`. |
+| `infrastructure/…/credits.repository.server.test.ts` | 6 | Retirar marca y nunca borra, restaurar no toca `dependency_id`, el personal incluye a quien se fue y el resumen lleva ceros. |
+| `routes/creditos/…/index.loader.test.ts` | 3 | El filtro de dependencia solo se lee con alcance global; 403 al participante. |
+
+## Ratings
+
+Valoraciones (PRD-06). Lo que estas pruebas protegen es que **se valore una sola
+vez, solo tras asistir, y sin que el autor salga de la base**.
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `domain/…/rating.rules.test.ts` | 7 | Elegibilidad, puntuación entera 1–5, comentario en blanco como `null`, promedio `null` sin valoraciones y códigos estables. |
+| `application/…/ratings.service.server.test.ts` | 7 | Sin asistencia no valora, el duplicado se rechaza leído o por carrera, el externo no valora y el participante no lee el resumen. |
+| `infrastructure/…/ratings.repository.server.test.ts` | 3 | El resumen no selecciona al autor, la asistencia contada es la de quien valora y P2002 se traduce a `ALREADY_RATED`. |
+| `routes/valorar/…/index.action.test.ts` | 3 | Conversión de la puntuación, validación sin llamar al servicio y 403 al externo. |
 
 ## Cloud
 

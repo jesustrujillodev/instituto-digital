@@ -15,6 +15,7 @@ import {
 import type {
 	CreateProfileData,
 	ListTrainersDto,
+	TrainerStats,
 	UpdateProfileDto,
 } from "../domain/trainer.types";
 
@@ -44,6 +45,7 @@ const SUMMARY_SELECT = {
 
 const DETAIL_SELECT = {
 	...SUMMARY_SELECT,
+	userId: true,
 	bio: true,
 	createdAt: true,
 	updatedAt: true,
@@ -120,6 +122,31 @@ const toOrderBy = (dto: ListTrainersDto) => {
 export const createTrainerRepository = ({
 	prisma,
 }: Dependencies): ITrainerRepository => {
+	/**
+	 * Cursos impartidos y valoración promedio (§6.3), calculados y nunca
+	 * capturados. Solo cuentan los cursos finalizados: uno publicado todavía no se
+	 * ha impartido y no se puede valorar.
+	 */
+	const statsOf = async (userId: number): Promise<TrainerStats> => {
+		const [coursesTaught, rating] = await Promise.all([
+			prisma.courseTrainer.count({
+				where: { userId, course: { status: "FINISHED" } },
+			}),
+			prisma.courseRating.aggregate({
+				where: {
+					course: { status: "FINISHED", trainers: { some: { userId } } },
+				},
+				_avg: { score: true },
+			}),
+		]);
+
+		return { coursesTaught, averageRating: rating._avg.score };
+	};
+
+	const detailOf = async (
+		profile: Parameters<typeof toDetail>[0] & { userId: number },
+	) => toDetail(profile, await statsOf(profile.userId));
+
 	return {
 		async findAll(filters: ListTrainersDto) {
 			const page = filters.page ?? TRAINER_LIST_DEFAULTS.page;
@@ -154,7 +181,7 @@ export const createTrainerRepository = ({
 				where: { user: { documentId: userDocumentId } },
 				select: DETAIL_SELECT,
 			});
-			return profile ? toDetail(profile) : null;
+			return profile ? detailOf(profile) : null;
 		},
 		async existsForUser(userId: number) {
 			// Cuenta también los archivados: un perfil desactivado se reactiva, no se
@@ -171,7 +198,7 @@ export const createTrainerRepository = ({
 					data,
 					select: DETAIL_SELECT,
 				});
-				return toDetail(profile);
+				return await detailOf(profile);
 			} catch (error) {
 				return translatePrismaError(error);
 			}
@@ -183,7 +210,7 @@ export const createTrainerRepository = ({
 					data: dto,
 					select: DETAIL_SELECT,
 				});
-				return toDetail(profile);
+				return await detailOf(profile);
 			} catch (error) {
 				return translatePrismaError(error);
 			}
@@ -195,7 +222,7 @@ export const createTrainerRepository = ({
 					data: { archivedAt: new Date() },
 					select: DETAIL_SELECT,
 				});
-				return toDetail(profile);
+				return await detailOf(profile);
 			} catch (error) {
 				return translatePrismaError(error);
 			}
@@ -207,7 +234,7 @@ export const createTrainerRepository = ({
 					data: { archivedAt: null },
 					select: DETAIL_SELECT,
 				});
-				return toDetail(profile);
+				return await detailOf(profile);
 			} catch (error) {
 				return translatePrismaError(error);
 			}

@@ -16,8 +16,14 @@ Las decisiones de modelo están en `docs/adr/0004-inscripcion-una-fila-y-cupo-co
 | Pendiente | PRD |
 | --- | --- |
 | Correos de invitación, inscripción y asignación | PRD-08 |
-| Sesiones inscritas en el calendario | PRD-05 |
-| Asistencia, `result` definitivo, nota y crédito | PRD-06 |
+
+Lo que ya añadieron los PRD siguientes:
+
+| Hecho | Dónde |
+| --- | --- |
+| Sesiones inscritas en el calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
+| `result`, `grade`, `completed` y quién capturó el resultado | PRD-06: los escribe `teaching` por `saveResults` y `setCompletion` |
+| "Mis cursos" enseña asistencia, nota, si completó y el diálogo para valorar | PRD-06 (`MyCourseEntry.outcome` y `canRate`) |
 
 ## 2. El modelo
 
@@ -28,7 +34,7 @@ Las decisiones de modelo están en `docs/adr/0004-inscripcion-una-fila-y-cupo-co
 | `dependency_id` | La dependencia de la persona al inscribirse o al aceptar. Si se cambia después, la fila no cambia |
 | `origin` | `SELF`, `ASSIGNED` o `INVITATION` |
 | `status` | `INVITED`, `ENROLLED`, `DECLINED` o `WITHDRAWN` |
-| `result` | `PENDING` hasta PRD-06 |
+| `result`, `grade`, `completed` | Resultado, nota y si completó. Los escribe la impartición (PRD-06) |
 | `acted_by_id` | Quién hizo el último cambio: la persona, quien asignó o quien invitó |
 | `invited_at`, `enrolled_at`, `responded_at`, `withdrawn_at` | Marca del último evento de cada tipo |
 
@@ -99,5 +105,5 @@ pero su loader le responde 403, la misma limitación que ya tiene "Cursos".
   operación (§6.12).
 - **PRD-05:** el calendario del participante sale de `findMine`, con las
   invitaciones marcadas aparte.
-- **PRD-06:** escribe `result` y el crédito sobre la misma fila
-  `(course_id, user_id)`.
+- **PRD-06:** escribe `result`, `grade` y `completed` en esta fila, y el crédito
+  en `org.credits` con la misma llave `(course_id, user_id)`.

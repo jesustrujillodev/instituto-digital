@@ -120,6 +120,18 @@ export const utcToZonedInput = (
 export const endOfZonedDay = (dateInput: string): Date =>
 	zonedInputToUtc(dateInput, "23:59");
 
+/**
+ * Medianoche, en la zona del instituto, del día al que pertenece ese instante.
+ *
+ * Finalizar un curso se habilita "a partir de la fecha de la última sesión"
+ * (§6.8): desde el inicio de ese día local, no desde la hora de la sesión.
+ */
+export const startOfZonedDay = (value: Date): Date =>
+	zonedInputToUtc(utcToZonedInput(value).date, "00:00");
+
+/** El año calendario local: el ejercicio de un crédito (§6.9). */
+export const zonedYearOf = (value: Date): number => zonedPartsOf(value).year;
+
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {
 	timeZone: INSTITUTE_TIME_ZONE,
 	day: "numeric",

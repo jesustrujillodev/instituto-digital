@@ -8,7 +8,9 @@ import {
 	CourseModalityBadge,
 	CourseStatusBadge,
 } from "@/modules/courses/components/course-badges";
+import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
+import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import {
@@ -97,9 +99,44 @@ function MyCourseCard({
 					</div>
 				</div>
 				<CourseSessionsList sessions={course.sessions} />
+				{course.status === "FINISHED" && <CourseOutcome entry={entry} />}
 				{children}
 			</CardContent>
 		</Card>
+	);
+}
+
+/** Resultado, crédito y valoración de un curso finalizado (§6.8–6.10). */
+function CourseOutcome({ entry }: { entry: MyCourseEntry }) {
+	const { course, enrollment, outcome } = entry;
+
+	return (
+		<div className="flex flex-wrap items-center justify-between gap-2 border-border border-t pt-3">
+			<div className="flex flex-wrap items-center gap-2">
+				<Badge variant={outcome.completed ? "default" : "outline"}>
+					{outcome.completed ? "Completado · 1 crédito" : "No completado"}
+				</Badge>
+				<span className="text-muted-foreground text-xs">
+					Asististe a {outcome.attendedSessions} de {course.sessions.length}{" "}
+					sesiones
+					{enrollment.result !== "PENDING" && outcome.grade !== null
+						? ` · nota ${outcome.grade}`
+						: ""}
+				</span>
+			</div>
+			{entry.canRate ? (
+				<RateCourseDialog
+					courseDocumentId={course.documentId}
+					courseTitle={course.title}
+				/>
+			) : (
+				outcome.myRating !== null && (
+					<span className="text-muted-foreground text-xs">
+						Lo valoraste con {outcome.myRating} de 5
+					</span>
+				)
+			)}
+		</div>
 	);
 }
 

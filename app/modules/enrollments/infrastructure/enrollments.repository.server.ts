@@ -255,6 +255,34 @@ export const createEnrollmentRepository = ({
 		}
 	},
 
+	async saveResults(courseId, entries, actorId, at) {
+		// Secuencial: la transacción interactiva de Prisma no admite consultas en paralelo.
+		for (const entry of entries) {
+			await prisma.enrollment.updateMany({
+				where: { courseId, userId: entry.userId, status: "ENROLLED" },
+				data: {
+					result: entry.result,
+					grade: entry.grade,
+					resultRecordedById: actorId,
+					resultRecordedAt: at,
+				},
+			});
+		}
+	},
+
+	async setCompletion(courseId, completedUserIds) {
+		const ids = [...completedUserIds];
+
+		await prisma.enrollment.updateMany({
+			where: { courseId, status: "ENROLLED", userId: { in: ids } },
+			data: { completed: true },
+		});
+		await prisma.enrollment.updateMany({
+			where: { courseId, status: "ENROLLED", userId: { notIn: ids } },
+			data: { completed: false },
+		});
+	},
+
 	async findMine(userId) {
 		const rows = await prisma.enrollment.findMany({
 			where: { userId, status: { in: activeStatuses } },
@@ -264,14 +292,50 @@ export const createEnrollmentRepository = ({
 				origin: true,
 				status: true,
 				result: true,
-				course: { select: COURSE_SELECT },
+				grade: true,
+				completed: true,
+				course: {
+					select: {
+						...COURSE_SELECT,
+						ratings: { where: { userId }, select: { score: true } },
+					},
+				},
 			},
 		});
 
-		return rows.map(({ course, ...enrollment }) => ({
-			enrollment: toOwnEnrollment(enrollment),
-			course: toEnrollmentCourse(course),
-		}));
+		const attended = await prisma.courseAttendance.findMany({
+			where: {
+				userId,
+				attended: true,
+				session: { courseId: { in: rows.map((row) => row.course.id) } },
+			},
+			select: { session: { select: { courseId: true } } },
+		});
+		const attendedByCourse = new Map<number, number>();
+		for (const { session } of attended) {
+			attendedByCourse.set(
+				session.courseId,
+				(attendedByCourse.get(session.courseId) ?? 0) + 1,
+			);
+		}
+
+		return rows.map(
+			({
+				course: { ratings, ...course },
+				grade,
+				completed,
+				...enrollment
+			}) => ({
+				enrollment: toOwnEnrollment(enrollment),
+				course: toEnrollmentCourse(course),
+				outcome: {
+					grade,
+					completed,
+					attendedSessions: attendedByCourse.get(course.id) ?? 0,
+					myRating: ratings.at(0)?.score ?? null,
+				},
+			}),
+		);
 	},
 
 	async findRoster(courseId) {

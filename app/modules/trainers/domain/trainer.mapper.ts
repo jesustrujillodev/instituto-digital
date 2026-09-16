@@ -1,7 +1,10 @@
 import * as v from "valibot";
-import { TRAINER_STATS_PENDING } from "./trainer.config";
 import { trainerDetailSchema, trainerSummarySchema } from "./trainer.rules";
-import type { TrainerDetail, TrainerSummary } from "./trainer.types";
+import type {
+	TrainerDetail,
+	TrainerStats,
+	TrainerSummary,
+} from "./trainer.types";
 
 /**
  * Fila del perfil con su cuenta unida → fila del catálogo.
@@ -35,33 +38,34 @@ export const toSummary = (raw: {
 	});
 
 /**
- * Lo mismo, con los campos de la ficha.
- *
- * `coursesTaught` y `averageRating` salen de `TRAINER_STATS_PENDING` hasta que
- * PRD-06 finalice cursos y cree las valoraciones.
+ * Lo mismo, con los campos de la ficha. Las estadísticas se calculan en el
+ * repositorio y llegan aparte porque no son columnas del perfil.
  */
-export const toDetail = (raw: {
-	specialty: string;
-	institution: string | null;
-	bio: string | null;
-	archivedAt: Date | null;
-	createdAt: Date;
-	updatedAt: Date;
-	user: {
-		documentId: string;
-		firstName: string | null;
-		lastName: string | null;
-		email: string;
-		phone: string | null;
-		type: string;
-		dependency: { name: string } | null;
-	};
-}): TrainerDetail =>
+export const toDetail = (
+	raw: {
+		specialty: string;
+		institution: string | null;
+		bio: string | null;
+		archivedAt: Date | null;
+		createdAt: Date;
+		updatedAt: Date;
+		user: {
+			documentId: string;
+			firstName: string | null;
+			lastName: string | null;
+			email: string;
+			phone: string | null;
+			type: string;
+			dependency: { name: string } | null;
+		};
+	},
+	stats: TrainerStats,
+): TrainerDetail =>
 	v.parse(trainerDetailSchema, {
 		...toSummary(raw),
 		phone: raw.user.phone,
 		bio: raw.bio,
 		createdAt: raw.createdAt,
 		updatedAt: raw.updatedAt,
-		...TRAINER_STATS_PENDING,
+		...stats,
 	});

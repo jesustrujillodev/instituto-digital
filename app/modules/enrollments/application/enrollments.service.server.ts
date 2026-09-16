@@ -8,6 +8,7 @@ import {
 	resolveCourseScope,
 	toAudienceScope,
 } from "@/modules/courses/domain/course.access";
+import { canRateCourse } from "@/modules/ratings/domain/rating.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -239,7 +240,17 @@ export const createEnrollmentService = ({
 					finished: [],
 				};
 
-				for (const entry of entries) {
+				for (const record of entries) {
+					const entry = {
+						...record,
+						canRate:
+							record.outcome.myRating === null &&
+							canRateCourse({
+								courseStatus: record.course.status,
+								enrollmentStatus: record.enrollment.status,
+								attendedSessions: record.outcome.attendedSessions,
+							}),
+					};
 					if (entry.enrollment.status === "INVITED") {
 						if (entry.course.status === "PUBLISHED") {
 							mine.invitations.push(entry);

@@ -204,17 +204,17 @@ caminos de escritura, que están contados y tienen prueba.
 | Un grupo archivado bloquea su nombre para siempre | El índice único es parcial sobre `archived_at IS NULL` |
 | Un titular sin dependencia ve o escribe algo | `groupScopeWhere` devuelve un predicado imposible y `groupScopeWriteWhere` devuelve `null` |
 
-## 10. Lo que queda enganchado para PRD-06
+## 10. Estadísticas de la ficha
 
-La ficha del capacitador ya pinta **cursos impartidos** y **valoración promedio**
-con su estado vacío, y el servicio los devuelve desde `TRAINER_STATS_PENDING`
-(`0` y `null`) con una prueba que los fija. PRD-06 sustituye el cálculo, no el
-contrato ni el sitio donde se muestra.
+Desde PRD-06 la ficha calcula **cursos impartidos** y **valoración promedio** en
+`trainers.repository.server.ts` (`statsOf`), sin captura:
 
-PRD-03 creó `course_trainers`, pero **los dos contadores llegan juntos en
-PRD-06**: "impartido" es un curso finalizado, y nada finaliza cursos hasta
-entonces. Calcularlo antes habría mostrado un número real solo en apariencia. El
-índice `course_trainers(user_id)` ya existe para ese cálculo.
+- impartidos: filas de `course_trainers` cuyo curso está `FINISHED`;
+- promedio: `AVG(score)` de `course_ratings` de esos mismos cursos, `null` sin
+  valoraciones.
+
+Un curso publicado no cuenta: todavía no se ha impartido y no se puede valorar.
+`toDetail` recibe las estadísticas aparte porque no son columnas del perfil.
 
 Desde PRD-03, `ITrainerRepository.findActive()` sirve el selector de
 capacitadores del formulario de cursos, y `IGroupRepository.findActive(scope)`

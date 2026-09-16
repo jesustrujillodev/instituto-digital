@@ -6,11 +6,14 @@ import {
 import { calendarRoutes } from "./modules/calendar/routes/routes.config";
 import { cloudAdminRoutes } from "./modules/cloud/routes/routes.config";
 import { coursesRoutes } from "./modules/courses/routes/routes.config";
+import { creditsRoutes } from "./modules/credits/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
 import { dependenciesRoutes } from "./modules/dependencies/routes/routes.config";
 import { enrollmentsRoutes } from "./modules/enrollments/routes/routes.config";
 import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
+import { ratingsRoutes } from "./modules/ratings/routes/routes.config";
+import { teachingRoutes } from "./modules/teaching/routes/routes.config";
 import {
 	themeAdminRoutes,
 	themeRoutes,
@@ -52,6 +55,9 @@ export default [
 					...coursesRoutes, // /dashboard/cursos  (alcance propio: incluye al capacitador interno)
 					...enrollmentsRoutes, // /dashboard/cursos-disponibles, /dashboard/mis-cursos, /dashboard/cursos/:id/inscripciones
 					...calendarRoutes, // /dashboard/calendario  (cualquier sesión: cada quien ve lo suyo)
+					...teachingRoutes, // /dashboard/imparticion  (quien imparte u organiza)
+					...creditsRoutes, // /dashboard/mis-creditos, /dashboard/creditos  (alcance por dependencia)
+					...ratingsRoutes, // /dashboard/mis-cursos/:id/valorar  (solo action)
 					...cloudAdminRoutes, // /dashboard/nube  (ADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (ADMIN)
 					...themeAdminRoutes, // /dashboard/personalizacion  (SUPERADMIN)

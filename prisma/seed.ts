@@ -7,6 +7,7 @@ import { seedCalendar } from "./seed-calendar";
 import { seedCourses } from "./seed-courses";
 import { seedEnrollments } from "./seed-enrollments";
 import { seedOrganization } from "./seed-organization";
+import { seedTeaching } from "./seed-teaching";
 import { seedTrainers } from "./seed-trainers";
 
 // Must use the PG adapter — plain new PrismaClient() is not valid in this project
@@ -25,6 +26,8 @@ async function main() {
 	// Los cursos primero: su dependencia organizadora, su autor y sus grupos de
 	// audiencia son FK RESTRICT. Sesiones, capacitadores y audiencia caen en
 	// cascada con el curso.
+	// Los créditos antes que el curso: su FK hacia él es RESTRICT.
+	await prisma.credit.deleteMany({});
 	await prisma.enrollment.deleteMany({});
 	await prisma.course.deleteMany({});
 	await prisma.groupMember.deleteMany({});
@@ -79,6 +82,8 @@ async function main() {
 	const enrollments = await seedEnrollments(prisma);
 
 	const calendar = await seedCalendar(prisma);
+
+	const teaching = await seedTeaching(prisma);
 
 	// Fila única del estado de seguridad. El adaptador LANZA si no existe —
 	// preferimos que un entorno mal sembrado falle a que se comporte como si
@@ -188,6 +193,13 @@ async function main() {
 	);
 	console.log(
 		"     diana.sop inscrita (personal de SOP en otra dependencia), miguel.sop con invitación pendiente",
+	);
+	console.log("✅ Impartición:");
+	console.log(
+		`   • ${teaching.courses} cursos de Obras Públicas, ${teaching.credits} crédito y ${teaching.ratings} valoraciones`,
+	);
+	console.log(
+		"     Seguridad en obra (lista pasada, falta el resultado de miguel.sop), Primeros auxilios (finalizado)",
 	);
 	console.log("✅ Cuentas de la plantilla:");
 	console.log(`   • ${admin.email} (ADMIN)  — password: Password123!`);

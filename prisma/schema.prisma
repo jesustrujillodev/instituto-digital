@@ -73,10 +73,17 @@ model User {
   sessions         Session[]
   trainerProfile   TrainerProfile?
   groupMemberships GroupMember[]
-  coursesCreated   Course[]        @relation("CourseCreator")
+  coursesCreated   Course[]           @relation("CourseCreator")
   coursesTaught    CourseTrainer[]
-  enrollments      Enrollment[]    @relation("EnrollmentParticipant")
-  enrollmentsActed Enrollment[]    @relation("EnrollmentActor")
+  enrollments      Enrollment[]       @relation("EnrollmentParticipant")
+  enrollmentsActed Enrollment[]       @relation("EnrollmentActor")
+  resultsRecorded  Enrollment[]       @relation("EnrollmentResultRecorder")
+  attendance       CourseAttendance[] @relation("AttendanceParticipant")
+  attendanceTaken  CourseAttendance[] @relation("AttendanceRecorder")
+  credits          Credit[]           @relation("CreditHolder")
+  creditsGranted   Credit[]           @relation("CreditGranter")
+  creditsRevoked   Credit[]           @relation("CreditRevoker")
+  courseRatings    CourseRating[]
 
   // documentId y email son @unique — el índice lo crea la constraint;
   // no declarar @@index duplicados.
@@ -228,6 +235,7 @@ model Dependency {
   courses        Course[]
   courseAudience CourseDependencyAudience[]
   enrollments    Enrollment[]
+  credits        Credit[]
 
   @@map("dependencies")
   @@schema("org")
@@ -383,6 +391,7 @@ model Course {
 
   publishedAt DateTime? @map("published_at")
   cancelledAt DateTime? @map("cancelled_at")
+  finishedAt  DateTime? @map("finished_at")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -392,6 +401,8 @@ model Course {
   dependencyAudience CourseDependencyAudience[]
   groupAudience      CourseGroupAudience[]
   enrollments        Enrollment[]
+  credits            Credit[]
+  ratings            CourseRating[]
 
   @@index([dependencyId, status])
   @@index([createdById])
@@ -421,6 +432,8 @@ model CourseSession {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  attendance CourseAttendance[]
 
   @@index([courseId, startsAt])
   @@index([startsAt])
@@ -528,6 +541,15 @@ model Enrollment {
   status EnrollmentStatus
   result EnrollmentResult @default(PENDING)
 
+  /// Nota opcional de 0 a 100; solo acompaña a un resultado capturado (§6.8).
+  grade     Int?
+  /// Lo escribe el cierre del curso y cada corrección posterior (docs/adr/0006).
+  completed Boolean @default(false)
+
+  resultRecordedById Int?      @map("result_recorded_by_id")
+  resultRecordedBy   User?     @relation("EnrollmentResultRecorder", fields: [resultRecordedById], references: [id], onDelete: Restrict)
+  resultRecordedAt   DateTime? @map("result_recorded_at")
+
   actedById Int  @map("acted_by_id")
   actedBy   User @relation("EnrollmentActor", fields: [actedById], references: [id], onDelete: Restrict)
 
@@ -543,5 +565,90 @@ model Enrollment {
   @@index([userId, status])
   @@index([courseId, status])
   @@map("enrollments")
+  @@schema("org")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Impartición, créditos y valoración (PRD-06)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Pase de lista: una fila por sesión y persona. Se reescribe al corregir, y
+/// `recordedBy`/`recordedAt` guardan el último cambio (§6.8).
+model CourseAttendance {
+  sessionId Int           @map("session_id")
+  session   CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation("AttendanceParticipant", fields: [userId], references: [id], onDelete: Restrict)
+
+  attended Boolean
+
+  recordedById Int      @map("recorded_by_id")
+  recordedBy   User     @relation("AttendanceRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  recordedAt   DateTime @map("recorded_at")
+
+  @@id([sessionId, userId])
+  @@index([userId])
+  @@map("course_attendance")
+  @@schema("org")
+}
+
+/// Un crédito por persona y curso. Retirarlo marca `revokedAt` en vez de borrar
+/// la fila, y volver a otorgarlo la limpia (docs/adr/0006).
+model Credit {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  userId Int  @map("user_id")
+  user   User @relation("CreditHolder", fields: [userId], references: [id], onDelete: Restrict)
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  /// La de la persona al obtenerlo. Si se cambia después, el crédito sigue
+  /// contando para esta (§6.9).
+  dependencyId Int        @map("dependency_id")
+  dependency   Dependency @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  /// Ejercicio: año, en la zona del instituto, de la última sesión del curso.
+  fiscalYear Int @map("fiscal_year")
+
+  grantedAt   DateTime @map("granted_at")
+  grantedById Int      @map("granted_by_id")
+  grantedBy   User     @relation("CreditGranter", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  revokedAt   DateTime? @map("revoked_at")
+  revokedById Int?      @map("revoked_by_id")
+  revokedBy   User?     @relation("CreditRevoker", fields: [revokedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([dependencyId, fiscalYear])
+  @@index([userId, fiscalYear])
+  @@index([courseId])
+  @@map("credits")
+  @@schema("org")
+}
+
+/// Valoración de 1 a 5. Única por persona y curso y no se edita (§6.10). El autor
+/// se guarda para impedir duplicados; ninguna lectura lo proyecta.
+model CourseRating {
+  id Int @id @default(autoincrement())
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  score   Int
+  comment String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([courseId, userId])
+  @@map("course_ratings")
   @@schema("org")
 }

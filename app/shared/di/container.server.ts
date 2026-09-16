@@ -28,12 +28,18 @@ import { createCalendarRepository } from "@/modules/calendar/infrastructure/cale
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
+import { createCreditService } from "@/modules/credits/application/credits.service.server";
+import { createCreditRepository } from "@/modules/credits/infrastructure/credits.repository.server";
 import { createDependencyService } from "@/modules/dependencies/application/dependencies.service.server";
 import { createDependencyRepository } from "@/modules/dependencies/infrastructure/dependencies.repository.server";
 import { createEnrollmentService } from "@/modules/enrollments/application/enrollments.service.server";
 import { createEnrollmentRepository } from "@/modules/enrollments/infrastructure/enrollments.repository.server";
 import { createGroupService } from "@/modules/groups/application/groups.service.server";
 import { createGroupRepository } from "@/modules/groups/infrastructure/groups.repository.server";
+import { createRatingService } from "@/modules/ratings/application/ratings.service.server";
+import { createRatingRepository } from "@/modules/ratings/infrastructure/ratings.repository.server";
+import { createTeachingService } from "@/modules/teaching/application/teaching.service.server";
+import { createTeachingRepository } from "@/modules/teaching/infrastructure/teaching.repository.server";
 import { createThemeService } from "@/modules/theme/application/theme.service.server";
 import {
 	THEME_CACHE_RETRY_S,
@@ -193,6 +199,12 @@ export const configureContainer = async (
 		enrollmentService: asSingleton(createEnrollmentService),
 		calendarRepository: asSingleton(createCalendarRepository),
 		calendarService: asSingleton(createCalendarService),
+		teachingRepository: asSingleton(createTeachingRepository),
+		teachingService: asSingleton(createTeachingService),
+		creditRepository: asSingleton(createCreditRepository),
+		creditService: asSingleton(createCreditService),
+		ratingRepository: asSingleton(createRatingRepository),
+		ratingService: asSingleton(createRatingService),
 		// Una fuente por módulo que guarda keys de storage. Añadir un módulo con
 		// archivos = añadir su fuente aquí; el gestor de nube no cambia.
 		objectReferenceSources: asSingleton((cradle: ICradle) => [

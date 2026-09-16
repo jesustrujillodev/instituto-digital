@@ -9,6 +9,7 @@ import type {
 	EnrollmentCourse,
 	EnrollmentWrite,
 	MyCourseEntry,
+	MyCourseRecord,
 	ParticipantAccount,
 } from "../../domain/enrollment.types";
 import { createEnrollmentService } from "../enrollments.service.server";
@@ -83,7 +84,7 @@ interface HarnessOptions {
 	groupMembers?: ParticipantAccount[];
 	eligibleGroups?: number;
 	existing?: { userId: number; status: EnrollmentStatus }[];
-	mine?: MyCourseEntry[];
+	mine?: MyCourseRecord[];
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -612,20 +613,28 @@ describe("enrollmentService.findAvailable", () => {
 });
 
 describe("enrollmentService.listMine", () => {
-	test("reparte invitaciones y cursos por momento", async () => {
-		const entry = (
-			status: EnrollmentStatus,
-			course: Partial<EnrollmentCourse>,
-		): MyCourseEntry => ({
-			enrollment: {
-				documentId: `e-${status}-${course.title}`,
-				origin: "SELF",
-				status,
-				result: "PENDING",
-			},
-			course: courseOf(course),
-		});
+	const entry = (
+		status: EnrollmentStatus,
+		course: Partial<EnrollmentCourse>,
+		outcome: Partial<MyCourseRecord["outcome"]> = {},
+	): MyCourseRecord => ({
+		enrollment: {
+			documentId: `e-${status}-${course.title}`,
+			origin: "SELF",
+			status,
+			result: "PENDING",
+		},
+		course: courseOf(course),
+		outcome: {
+			grade: null,
+			completed: false,
+			attendedSessions: 0,
+			myRating: null,
+			...outcome,
+		},
+	});
 
+	test("reparte invitaciones y cursos por momento", async () => {
 		const { service } = createHarness({
 			mine: [
 				entry("INVITED", { title: "invitación" }),
@@ -650,5 +659,38 @@ describe("enrollmentService.listMine", () => {
 		expect(titles(result.data.upcoming)).toEqual(["próximo"]);
 		expect(titles(result.data.inProgress)).toEqual(["en curso"]);
 		expect(titles(result.data.finished)).toEqual(["cancelado"]);
+	});
+
+	test("solo puede valorar quien asistió a un curso finalizado y no lo ha valorado", async () => {
+		const finished = { status: "FINISHED" as const };
+		const { service } = createHarness({
+			mine: [
+				entry(
+					"ENROLLED",
+					{ ...finished, title: "asistió" },
+					{ attendedSessions: 1 },
+				),
+				entry("ENROLLED", { ...finished, title: "no asistió" }),
+				entry(
+					"ENROLLED",
+					{ ...finished, title: "ya valoró" },
+					{ attendedSessions: 2, myRating: 4 },
+				),
+				entry("ENROLLED", { title: "publicado" }, { attendedSessions: 1 }),
+			],
+		});
+
+		const result = await service.listMine(actorOf());
+
+		if (!result.success) throw new Error("se esperaba éxito");
+		const rateable = [
+			...result.data.upcoming,
+			...result.data.inProgress,
+			...result.data.finished,
+		]
+			.filter((item: MyCourseEntry) => item.canRate)
+			.map((item) => item.course.title);
+
+		expect(rateable).toEqual(["asistió"]);
 	});
 });

@@ -97,9 +97,23 @@ export interface AvailableCourseDetail {
 	can: EnrollmentPermissions;
 }
 
-export interface MyCourseEntry {
+/** Cómo le fue a la persona en el curso (§6.8–6.10). */
+export interface MyCourseOutcome {
+	grade: number | null;
+	completed: boolean;
+	attendedSessions: number;
+	/** Su puntuación si ya valoró; los comentarios no vuelven a la persona. */
+	myRating: number | null;
+}
+
+export interface MyCourseRecord {
 	enrollment: OwnEnrollment;
 	course: EnrollmentCourse;
+	outcome: MyCourseOutcome;
+}
+
+export interface MyCourseEntry extends MyCourseRecord {
+	canRate: boolean;
 }
 
 export interface MyCourses {
@@ -182,6 +196,13 @@ export interface EnrollmentWrite {
 	status: EnrollmentStatus;
 	actedById: number;
 	at: Date;
+}
+
+/** Resultado capturado en la impartición (§6.8). */
+export interface ResultWrite {
+	userId: number;
+	result: EnrollmentResult;
+	grade: number | null;
 }
 
 export interface AvailableCourseRow {

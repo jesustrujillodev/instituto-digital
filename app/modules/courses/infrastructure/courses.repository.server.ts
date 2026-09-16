@@ -310,6 +310,14 @@ export const createCourseRepository = ({
 				return translatePrismaError(error);
 			}
 		},
+		async finish(courseId, at) {
+			const { count } = await prisma.course.updateMany({
+				where: { id: courseId, status: "PUBLISHED" },
+				data: { status: "FINISHED", finishedAt: at },
+			});
+
+			return count === 1;
+		},
 		async cancel(documentId, scope) {
 			try {
 				const course = await prisma.course.update({

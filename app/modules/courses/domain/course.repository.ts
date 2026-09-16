@@ -56,6 +56,11 @@ export interface ICourseRepository {
 	): Promise<CourseDetail>;
 
 	publish(documentId: string, scope: CourseScope): Promise<CourseDetail>;
+	/**
+	 * `PUBLISHED` → `FINISHED`, condicionado al estado. Devuelve `false` si otra
+	 * petición lo cambió antes. Sin alcance: lo llama `teaching` ya autorizado.
+	 */
+	finish(courseId: number, at: Date): Promise<boolean>;
 	/** No borra nada: marca el estado y el instante (§6.5). */
 	cancel(documentId: string, scope: CourseScope): Promise<CourseDetail>;
 
