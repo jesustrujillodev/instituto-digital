@@ -2,6 +2,8 @@ import type { PrismaClient } from "@prisma/client";
 import { createContext } from "react-router";
 import type { RunInTransaction } from "@/core/db.server";
 import type { Env } from "@/core/env.server";
+import type { IAnnualPlanRepository } from "@/modules/annual-plan/domain/annual-plan.repository";
+import type { IAnnualPlanService } from "@/modules/annual-plan/domain/annual-plan.service";
 import type { AuthConfig } from "@/modules/auth/domain/auth.config";
 import type { AuthService } from "@/modules/auth/domain/auth.service";
 import type { VerifiedAccessTokenPayload } from "@/modules/auth/domain/auth.types";
@@ -24,6 +26,8 @@ import type { IEnrollmentRepository } from "@/modules/enrollments/domain/enrollm
 import type { IEnrollmentService } from "@/modules/enrollments/domain/enrollment.service";
 import type { IGroupRepository } from "@/modules/groups/domain/group.repository";
 import type { IGroupService } from "@/modules/groups/domain/group.service";
+import type { INotificationRepository } from "@/modules/notifications/domain/notification.repository";
+import type { INotificationService } from "@/modules/notifications/domain/notification.service";
 import type { IRatingRepository } from "@/modules/ratings/domain/rating.repository";
 import type { IRatingService } from "@/modules/ratings/domain/rating.service";
 import type { ITeachingRepository } from "@/modules/teaching/domain/teaching.repository";
@@ -36,6 +40,7 @@ import type { IUserRepository } from "@/modules/users/domain/user.repository";
 import type { IUserService } from "@/modules/users/domain/user.service";
 import type { SingleFlight } from "@/shared/concurrency/single-flight";
 import type { Logger } from "@/shared/logging/logger";
+import type { IMailer } from "@/shared/mail/mailer.port";
 import type { RateLimiter } from "@/shared/rate-limit/rate-limiter";
 import type { IObjectReferenceSource } from "@/shared/storage/object-reference.port";
 import type { AssetUrlResolver } from "@/shared/storage/public-url";
@@ -101,6 +106,15 @@ export interface ICradle {
 	creditService: ICreditService;
 	ratingRepository: IRatingRepository;
 	ratingService: IRatingService;
+	annualPlanRepository: IAnnualPlanRepository;
+	annualPlanService: IAnnualPlanService;
+	// Correo (PRD-08). El mailer es singleton de proceso: cierra sobre el
+	// transporte SMTP. `appBaseUrl` llega resuelto para que las plantillas no
+	// lean variables de entorno, igual que `storageBucket`.
+	mailer: IMailer;
+	appBaseUrl: string;
+	notificationRepository: INotificationRepository;
+	notificationService: INotificationService;
 	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo
 	// resuelve en TODA petición, así que `resolve` evita bajar a la base salvo en
 	// el caso de dispositivo nuevo (docs/theme/00-modo-oscuro.md).

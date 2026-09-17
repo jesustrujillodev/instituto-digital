@@ -138,6 +138,10 @@ Inmediato y sin aprobación (`changeDependency`). Escribe en la misma transacci�
 el `UPDATE` de la cuenta y el `INSERT` en `org.dependency_changes`, para que no
 quede alguien movido sin rastro de quién lo movió.
 
+Cuando lo hace un titular, un auxiliar o el superadministrador —no la propia
+persona—, se encola en la misma transacción el aviso `DEPENDENCY_CHANGED` con la
+dependencia de origen y la de destino (PRD-08).
+
 Reglas que gobiernan el cambio:
 
 - Un **titular no puede cambiarse mientras lo sea**, ni por su cuenta ni movido

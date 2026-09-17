@@ -243,7 +243,6 @@ export const createTeachingService = ({
 						throw new TeachingStateChangedError();
 					}
 
-					// PRD-07 marca aquí como `realizada` la línea del plan vinculada (§6.11).
 					return syncCompletion(course.id, actor.userId, now);
 				});
 

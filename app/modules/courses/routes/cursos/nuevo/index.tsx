@@ -7,6 +7,7 @@ import {
 	FormFooter,
 } from "@/shared/components/common/form-actions";
 import { PageHeader } from "@/shared/components/common/page-header";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseForm } from "../../../components/course-form";
@@ -29,7 +30,7 @@ export function meta() {
 
 export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 	const {
-		data: { options },
+		data: { options, prefill },
 	} = loaderData;
 	const navigate = useNavigate();
 	const ids = useCourseFormIds();
@@ -62,7 +63,22 @@ export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 				collapseActionsOnMobile
 			/>
 
-			<CourseForm mode="create" ids={ids} fetcher={fetcher} options={options} />
+			{prefill && (
+				<Alert className="mb-4">
+					<AlertDescription>
+						El curso se vinculará a la línea «{prefill.title}» del plan anual{" "}
+						{prefill.fiscalYear}.
+					</AlertDescription>
+				</Alert>
+			)}
+
+			<CourseForm
+				mode="create"
+				ids={ids}
+				fetcher={fetcher}
+				options={options}
+				prefill={prefill}
+			/>
 
 			<FormFooter>{actions}</FormFooter>
 		</div>

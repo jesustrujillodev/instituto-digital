@@ -15,6 +15,7 @@ import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import {
 	buildCourseFormDefaults,
 	type CourseFormValues,
+	type CoursePlanPrefill,
 } from "../utils/build-course-form-defaults";
 import {
 	createCourseFormRule,
@@ -37,6 +38,7 @@ interface CourseFormProps {
 	fetcher: FetcherWithComponents<CourseActionData>;
 	options: CourseFormOptions;
 	course?: CourseDetail | null;
+	prefill?: CoursePlanPrefill | null;
 }
 
 export function CourseForm({
@@ -45,12 +47,13 @@ export function CourseForm({
 	fetcher,
 	options,
 	course,
+	prefill,
 }: CourseFormProps) {
 	const isEdit = mode === "edit";
 
 	const defaultValues = useMemo(
-		() => buildCourseFormDefaults(course),
-		[course],
+		() => buildCourseFormDefaults(course, prefill),
+		[course, prefill],
 	);
 
 	// El cast expresa "resolver de una regla que transforma los valores antes de

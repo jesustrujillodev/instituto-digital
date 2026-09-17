@@ -1,4 +1,5 @@
 import { layout, prefix, type RouteConfig } from "@react-router/dev/routes";
+import { annualPlanRoutes } from "./modules/annual-plan/routes/routes.config";
 import {
 	authAdminRoutes,
 	authRoutes,
@@ -58,6 +59,7 @@ export default [
 					...teachingRoutes, // /dashboard/imparticion  (quien imparte u organiza)
 					...creditsRoutes, // /dashboard/mis-creditos, /dashboard/creditos  (alcance por dependencia)
 					...ratingsRoutes, // /dashboard/mis-cursos/:id/valorar  (solo action)
+					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)
 					...cloudAdminRoutes, // /dashboard/nube  (ADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (ADMIN)
 					...themeAdminRoutes, // /dashboard/personalizacion  (SUPERADMIN)

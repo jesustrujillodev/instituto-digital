@@ -12,12 +12,13 @@ PRD-06 cierra el ciclo del curso en tres módulos:
 
 Las decisiones están en [ADR 0006](../adr/0006-imparticion-creditos-y-valoracion.md).
 
+Finalizar no toca el plan anual: la línea vinculada pasa a `realizada` sola
+porque su estado se deriva del curso ([ADR 0007](../adr/0007-plan-anual-estado-derivado.md)).
+
 Lo que **no** hace todavía:
 
 | Pendiente | PRD |
 | --- | --- |
-| Marcar como `realizada` la línea del plan al finalizar | PRD-07 (el punto está señalado en `teaching.service.server.ts`) |
-| Avisos por correo | PRD-08 |
 | Constancias en PDF | Fase 2 (§8) |
 
 ## 2. El modelo

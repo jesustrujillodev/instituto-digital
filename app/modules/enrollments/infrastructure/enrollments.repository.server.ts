@@ -61,6 +61,9 @@ const PARTICIPANT_SELECT = {
 	id: true,
 	documentId: true,
 	dependencyId: true,
+	email: true,
+	firstName: true,
+	lastName: true,
 } satisfies Prisma.UserSelect;
 
 const CANDIDATE_SEARCHABLE_FIELDS = ["firstName", "lastName", "email"] as const;
@@ -104,22 +107,12 @@ const availableWhere = (
 });
 
 const toParticipants = (
-	rows: readonly {
-		id: number;
-		documentId: string;
+	rows: readonly (Omit<ParticipantAccount, "dependencyId"> & {
 		dependencyId: number | null;
-	}[],
+	})[],
 ): ParticipantAccount[] =>
-	rows.flatMap((row) =>
-		row.dependencyId === null
-			? []
-			: [
-					{
-						id: row.id,
-						documentId: row.documentId,
-						dependencyId: row.dependencyId,
-					},
-				],
+	rows.flatMap(({ dependencyId, ...row }) =>
+		dependencyId === null ? [] : [{ ...row, dependencyId }],
 	);
 
 const timestampsFor = (data: EnrollmentWrite) => {
@@ -281,6 +274,21 @@ export const createEnrollmentRepository = ({
 			where: { courseId, status: "ENROLLED", userId: { notIn: ids } },
 			data: { completed: false },
 		});
+	},
+
+	async findNotifiableRecipients(courseId) {
+		const rows = await prisma.enrollment.findMany({
+			where: {
+				courseId,
+				status: { in: activeStatuses },
+				user: { archivedAt: null },
+			},
+			select: {
+				user: { select: { email: true, firstName: true, lastName: true } },
+			},
+		});
+
+		return rows.map(({ user }) => user);
 	},
 
 	async findMine(userId) {

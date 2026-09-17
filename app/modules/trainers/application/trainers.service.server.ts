@@ -27,6 +27,7 @@ type Dependencies = {
 	userRepository: ICradle["userRepository"];
 	passwordService: ICradle["passwordService"];
 	sessionMonitorService: ICradle["sessionMonitorService"];
+	notificationService: ICradle["notificationService"];
 	runInTransaction: ICradle["runInTransaction"];
 	logger: ICradle["logger"];
 };
@@ -36,6 +37,7 @@ export const createTrainerService = ({
 	userRepository,
 	passwordService,
 	sessionMonitorService,
+	notificationService,
 	runInTransaction,
 	logger,
 }: Dependencies): ITrainerService => {
@@ -212,12 +214,16 @@ export const createTrainerService = ({
 								dependencyId: null,
 							});
 
-							return trainerRepository.create({
+							const profile = await trainerRepository.create({
 								userId: user.id,
 								specialty: dto.specialty,
 								institution: dto.institution,
 								bio: dto.bio ?? null,
 							});
+							await notificationService.notify([
+								{ template: "ACCOUNT_CREATED", to: user },
+							]);
+							return profile;
 						}),
 					);
 				} catch (error) {

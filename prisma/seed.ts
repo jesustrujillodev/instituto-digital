@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { env } from "@/core/env.server";
 import { THEME_PRESETS } from "@/modules/theme/domain/theme.config";
+import { seedAnnualPlan } from "./seed-annual-plan";
 import { seedCalendar } from "./seed-calendar";
 import { seedCourses } from "./seed-courses";
 import { seedEnrollments } from "./seed-enrollments";
@@ -30,6 +31,9 @@ async function main() {
 	await prisma.credit.deleteMany({});
 	await prisma.enrollment.deleteMany({});
 	await prisma.course.deleteMany({});
+	// Las líneas del plan después de los cursos, que las referencian con RESTRICT.
+	await prisma.planLine.deleteMany({});
+	await prisma.annualPlan.deleteMany({});
 	await prisma.groupMember.deleteMany({});
 	await prisma.group.deleteMany({});
 	await prisma.trainerProfile.deleteMany({});
@@ -84,6 +88,8 @@ async function main() {
 	const calendar = await seedCalendar(prisma);
 
 	const teaching = await seedTeaching(prisma);
+
+	const annualPlan = await seedAnnualPlan(prisma);
 
 	// Fila única del estado de seguridad. El adaptador LANZA si no existe —
 	// preferimos que un entorno mal sembrado falle a que se comporte como si
@@ -200,6 +206,13 @@ async function main() {
 	);
 	console.log(
 		"     Seguridad en obra (lista pasada, falta el resultado de miguel.sop), Primeros auxilios (finalizado)",
+	);
+	console.log("✅ Plan anual:");
+	console.log(
+		`   • ${annualPlan.plans} planes de Obras Públicas (2026 y 2025, de solo lectura) con ${annualPlan.lines} líneas`,
+	);
+	console.log(
+		"     2026: Primeros auxilios (realizada), Seguridad en obra (programada), Presupuestos (pendiente), Topografía (cancelada)",
 	);
 	console.log("✅ Cuentas de la plantilla:");
 	console.log(`   • ${admin.email} (ADMIN)  — password: Password123!`);

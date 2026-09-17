@@ -39,6 +39,15 @@ services:
       exit 0;
       "
 
+  # Servidor SMTP de desarrollo: recibe todos los correos sin entregarlos.
+  # SMTP en 1025 (SMTP_HOST=localhost, SMTP_PORT=1025), bandeja en http://localhost:8025
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit_instituto_digital
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   postgres_data:
   minio_data:

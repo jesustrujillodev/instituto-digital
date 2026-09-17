@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
@@ -78,7 +79,9 @@ const createHarness = (
 		userWithPassword?: { password: string | null } | null;
 	} = {},
 ) => {
+	let txDepth = 0;
 	const calls = {
+		notified: [] as { events: NotificationEvent[]; inTransaction: boolean }[],
 		findAll: [] as unknown[],
 		countScopes: [] as unknown[],
 		findByIdScopes: [] as unknown[],
@@ -156,9 +159,23 @@ const createHarness = (
 	const dependencyRepository = {
 		findById: async () =>
 			options.dependency === undefined
-				? { id: 5, archivedAt: null }
+				? { id: 5, name: "Desarrollo Social", archivedAt: null }
 				: options.dependency,
+		findByInternalId: async (id: number) => ({
+			id,
+			name: "Obras Públicas",
+			archivedAt: null,
+		}),
 	} as unknown as ICradle["dependencyRepository"];
+
+	const runInTransaction = (async <T>(callback: () => Promise<T>) => {
+		txDepth += 1;
+		try {
+			return await callback();
+		} finally {
+			txDepth -= 1;
+		}
+	}) as unknown as ICradle["runInTransaction"];
 
 	const sessionMonitorService = {
 		revokeAllForUser: async (userId: number) => {
@@ -193,7 +210,20 @@ const createHarness = (
 			`/api/storage?key=${encodeURIComponent(key)}`,
 	} as unknown as ICradle["storageProvider"];
 
+	const notificationService = {
+		notify: async (events: NotificationEvent[]) => {
+			calls.notified.push({ events, inTransaction: txDepth > 0 });
+			return {
+				success: true as const,
+				data: { queued: events.length },
+				timestamp: new Date().toISOString(),
+			};
+		},
+	} as unknown as ICradle["notificationService"];
+
 	const service = createUserService({
+		notificationService,
+		runInTransaction,
 		userRepository,
 		dependencyRepository,
 		sessionMonitorService,
@@ -818,5 +848,80 @@ describe("createUserService — listDependencyHistory", () => {
 
 		expect(result.success).toBe(true);
 		expect(calls.history).toEqual([{ documentId: DOCUMENT_ID, scope }]);
+	});
+});
+
+describe("createUserService — avisos (§6.12)", () => {
+	const validDto = {
+		email: "nueva@instituto.gob.mx",
+		password: "contrasena1",
+		employeeNumber: "EMP-0100",
+		type: "INTERNAL" as const,
+		dependency: DEPENDENCY_ID,
+	};
+
+	test("el alta encola la bienvenida en la transacción y sin la contraseña", async () => {
+		const { service, calls } = createHarness();
+
+		await service.create(validDto, actorOf());
+
+		expect(calls.notified).toHaveLength(1);
+		expect(calls.notified[0]).toMatchObject({
+			inTransaction: true,
+			events: [{ template: "ACCOUNT_CREATED" }],
+		});
+		expect(JSON.stringify(calls.notified)).not.toContain("contrasena1");
+		expect(JSON.stringify(calls.notified)).not.toContain("hash-de-");
+	});
+
+	test("restablecer la contraseña avisa sin incluirla", async () => {
+		const { service, calls } = createHarness();
+
+		await service.resetPassword(DOCUMENT_ID, "OtraClave123!", actorOf());
+
+		expect(calls.notified[0]).toMatchObject({
+			inTransaction: true,
+			events: [
+				{ template: "PASSWORD_RESET", to: { email: "ana@instituto.gob.mx" } },
+			],
+		});
+		expect(JSON.stringify(calls.notified)).not.toContain("OtraClave123!");
+	});
+
+	test("un traslado hecho por un administrador avisa con origen y destino", async () => {
+		const { service, calls } = createHarness();
+
+		await service.changeDependency(DOCUMENT_ID, DEPENDENCY_ID, actorOf());
+
+		expect(calls.notified[0]?.events).toMatchObject([
+			{
+				template: "DEPENDENCY_CHANGED",
+				fromDependency: "Obras Públicas",
+				toDependency: "Desarrollo Social",
+			},
+		]);
+	});
+
+	test("cambiarse uno mismo no avisa", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ id: 99, role: "USER", dependencyId: 3 }),
+		});
+
+		await service.changeDependency(
+			DOCUMENT_ID,
+			DEPENDENCY_ID,
+			actorOf("USER", 3),
+		);
+
+		expect(calls.changeDependency).toHaveLength(1);
+		expect(calls.notified).toEqual([]);
+	});
+
+	test("si el alta falla no se encola nada", async () => {
+		const { service, calls } = createHarness({ dependency: null });
+
+		await service.create(validDto, actorOf());
+
+		expect(calls.notified).toEqual([]);
 	});
 });

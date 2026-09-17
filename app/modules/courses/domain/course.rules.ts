@@ -135,7 +135,14 @@ export const courseDetailSchema = v.object({
 	enrollmentDeadline: v.nullable(v.date()),
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
-	planLineId: v.nullable(v.number()),
+	/** Línea del plan anual que lo originó, si la hay (§6.11). */
+	planLine: v.nullable(
+		v.object({
+			documentId: v.string(),
+			title: v.string(),
+			planDocumentId: v.string(),
+		}),
+	),
 	publishedAt: v.nullable(v.date()),
 	cancelledAt: v.nullable(v.date()),
 	/** Ordenadas por inicio: el número de sesión de los errores cuenta sobre esto. */
@@ -202,6 +209,11 @@ export const createCourseRule = v.object({
 	 * se les ignora y se usa la de su alcance.
 	 */
 	dependency: v.optional(documentId),
+	/**
+	 * Crear curso desde una línea del plan. Solo al crear: el vínculo no cambia
+	 * al editar, y un curso cancelado lo conserva como historial.
+	 */
+	planLine: v.optional(documentId),
 });
 
 /**
@@ -336,4 +348,43 @@ export const assertPublishable = (course: {
 	if (course.access === "RESTRICTED" && audienceSize === 0) {
 		throw new CourseAudienceRequiredError();
 	}
+};
+
+type ScheduledSession = {
+	documentId?: string;
+	startsAt: Date;
+	endsAt: Date;
+	venue: string | null;
+	link: string | null;
+};
+
+/**
+ * ¿Cambió algo que obliga a avisar a inscritos e invitados (§6.5)? Sesiones
+ * añadidas o quitadas, otro horario, otra sede u otro enlace. Editar el título o
+ * la descripción no cuenta.
+ *
+ * Una sesión nueva del envío no trae `documentId`, o trae uno que no es de este
+ * curso: en los dos casos es un alta.
+ */
+export const hasScheduleChanges = (
+	before: readonly ScheduledSession[],
+	after: readonly ScheduledSession[],
+): boolean => {
+	const previous = new Map(
+		before.map((session) => [session.documentId, session]),
+	);
+	if (after.length !== before.length) return true;
+
+	return after.some((session) => {
+		const old = session.documentId
+			? previous.get(session.documentId)
+			: undefined;
+		return (
+			!old ||
+			old.startsAt.getTime() !== session.startsAt.getTime() ||
+			old.endsAt.getTime() !== session.endsAt.getTime() ||
+			(old.venue ?? null) !== (session.venue ?? null) ||
+			(old.link ?? null) !== (session.link ?? null)
+		);
+	});
 };

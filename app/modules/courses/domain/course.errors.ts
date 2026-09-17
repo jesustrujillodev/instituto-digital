@@ -21,6 +21,7 @@ export const COURSE_ERROR_CODES = {
 	UNKNOWN_TRAINER: "COURSE_UNKNOWN_TRAINER",
 	UNKNOWN_AUDIENCE: "COURSE_UNKNOWN_AUDIENCE",
 	CAPACITY_BELOW_ENROLLED: "COURSE_CAPACITY_BELOW_ENROLLED",
+	PLAN_LINE_NOT_FOUND: "COURSE_PLAN_LINE_NOT_FOUND",
 } as const;
 
 export abstract class CourseError extends DomainError {}
@@ -192,5 +193,13 @@ export class CourseCapacityBelowEnrolledError extends CourseError {
 	constructor(enrolled: number) {
 		super(`Capacity cannot be lower than the ${enrolled} enrolled people`);
 		this.details = { enrolled };
+	}
+}
+
+/** La línea del plan no existe o no es de la dependencia que organiza el curso. */
+export class CoursePlanLineNotFoundError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.PLAN_LINE_NOT_FOUND;
+	constructor() {
+		super("Plan line not found for this organizer");
 	}
 }

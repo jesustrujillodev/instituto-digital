@@ -76,6 +76,29 @@ describe("buildCourseFormDefaults", () => {
 	});
 });
 
+describe("buildCourseFormDefaults desde una línea del plan", () => {
+	const prefill = {
+		lineDocumentId: "line-1",
+		title: "Seguridad en obra",
+		plannedModality: "HYBRID" as const,
+	};
+
+	test("precarga título, modalidad y el vínculo", () => {
+		expect(buildCourseFormDefaults(null, prefill)).toMatchObject({
+			title: "Seguridad en obra",
+			modality: "HYBRID",
+			planLine: "line-1",
+		});
+	});
+
+	test("sin modalidad prevista conserva la de por defecto", () => {
+		expect(
+			buildCourseFormDefaults(null, { ...prefill, plannedModality: null })
+				.modality,
+		).toBe("IN_PERSON");
+	});
+});
+
 describe("emptySessionValues", () => {
 	test("una fila nueva trae todas sus claves", () => {
 		expect(Object.keys(emptySessionValues()).sort()).toEqual(

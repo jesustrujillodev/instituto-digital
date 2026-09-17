@@ -9,9 +9,9 @@
 resultados, finalizar, otorgar créditos, corregir después y valorar. Aparecen
 tres cosas que PRD-01 a PRD-05 no tenían:
 
-- una escritura que toca **cuatro tablas de tres módulos** en un solo acto
-  (estado del curso, `completed` de cada inscripción, créditos y, en PRD-07, la
-  línea del plan);
+- una escritura que toca **tres tablas de tres módulos** en un solo acto
+  (estado del curso, `completed` de cada inscripción y créditos). La línea del
+  plan anual no se escribe: su estado se deriva ([0007](./0007-plan-anual-estado-derivado.md));
 - un dato **derivado que se guarda** —el crédito— y que una corrección posterior
   puede invalidar;
 - reglas de tiempo en la zona del instituto ("a partir de la fecha de la última

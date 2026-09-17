@@ -28,6 +28,7 @@ export const buildCoursePayload = (
 	modality: values.modality,
 	access: values.access,
 	dependency: optionalText(values.dependency),
+	planLine: optionalText(values.planLine),
 	capacity: optionalNumber(values.capacity),
 	enrollmentDeadline: optionalText(values.enrollmentDeadline),
 	minAttendance: optionalNumber(values.minAttendance),

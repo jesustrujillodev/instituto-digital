@@ -3,6 +3,7 @@ import {
 	BookOpenCheck,
 	Building2,
 	CalendarDays,
+	CalendarRange,
 	ClipboardCheck,
 	Cloud,
 	LayoutDashboard,
@@ -110,6 +111,12 @@ export const navigationSections: readonly NavSection[] = [
 				roles: DEPENDENCY_ROLES,
 			},
 			{
+				label: "Plan anual",
+				path: "/dashboard/plan-anual",
+				icon: CalendarRange,
+				roles: DEPENDENCY_ROLES,
+			},
+			{
 				label: "Grupos",
 				path: "/dashboard/grupos",
 				icon: UsersRound,
@@ -159,6 +166,11 @@ export const navigationSections: readonly NavSection[] = [
 				icon: ClipboardCheck,
 			},
 			{ label: "Créditos", path: "/dashboard/creditos", icon: Award },
+			{
+				label: "Plan anual",
+				path: "/dashboard/plan-anual",
+				icon: CalendarRange,
+			},
 			{
 				// El superadministrador entra a consultar: elige audiencias de cursos de
 				// cualquier dependencia. Administrar sigue siendo del titular y el auxiliar.

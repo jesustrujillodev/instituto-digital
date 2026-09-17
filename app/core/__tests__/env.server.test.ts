@@ -22,6 +22,10 @@ const STORAGE_VARS = [
 	"GCS_CREDENTIALS_BASE64",
 	"USE_GCS_EMULATOR",
 	"GCS_EMULATOR_HOST",
+	"SMTP_HOST",
+	"MAIL_FROM",
+	"APP_BASE_URL",
+	"EMAIL_WORKER_ENABLED",
 ];
 
 /**
@@ -243,5 +247,43 @@ describe("env.server — CDN del catálogo", () => {
 
 		expect(env.STORAGE_PUBLIC_BUCKET_NAME).toBeUndefined();
 		expect(env.STORAGE_PUBLIC_DOMAIN).toBeUndefined();
+	});
+});
+
+describe("env.server — correo", () => {
+	test("SMTP_HOST sin remitente ni origen no arranca", async () => {
+		await expect(importEnv({ SMTP_HOST: "smtp.example.com" })).rejects.toThrow(
+			"SMTP_HOST requiere MAIL_FROM y APP_BASE_URL",
+		);
+	});
+
+	test("APP_BASE_URL es un origen absoluto sin barra final", async () => {
+		await expect(
+			importEnv({ APP_BASE_URL: "http://localhost:5173/" }),
+		).rejects.toThrow("APP_BASE_URL debe ser un origen absoluto");
+	});
+
+	test("con SMTP completo arranca", async () => {
+		const { env } = await importEnv({
+			SMTP_HOST: "localhost",
+			SMTP_PORT: "1025",
+			MAIL_FROM: "Instituto <no-responder@instituto.gob.mx>",
+			APP_BASE_URL: "http://localhost:5173",
+		});
+
+		expect(env.SMTP_PORT).toBe(1025);
+	});
+
+	test("el worker no arranca en pruebas salvo que se pida", async () => {
+		const { isEmailWorkerEnabled } = await importEnv({});
+
+		expect(isEmailWorkerEnabled({ NODE_ENV: "test" })).toBe(false);
+		expect(isEmailWorkerEnabled({ NODE_ENV: "production" })).toBe(true);
+		expect(
+			isEmailWorkerEnabled({
+				NODE_ENV: "production",
+				EMAIL_WORKER_ENABLED: "false",
+			}),
+		).toBe(false);
 	});
 });

@@ -10,7 +10,9 @@ import {
 	parseTokenCookies,
 	serializeAuthCookies,
 } from "@/core/cookies.server";
-import { env } from "@/core/env.server";
+import { env, isEmailWorkerEnabled } from "@/core/env.server";
+import { createAnnualPlanService } from "@/modules/annual-plan/application/annual-plan.service.server";
+import { createAnnualPlanRepository } from "@/modules/annual-plan/infrastructure/annual-plan.repository.server";
 import { createAuthService } from "@/modules/auth/application/auth.service.server";
 import { createPasswordService } from "@/modules/auth/application/password.service.server";
 import { createSecurityStateService } from "@/modules/auth/application/security-state.service.server";
@@ -36,6 +38,12 @@ import { createEnrollmentService } from "@/modules/enrollments/application/enrol
 import { createEnrollmentRepository } from "@/modules/enrollments/infrastructure/enrollments.repository.server";
 import { createGroupService } from "@/modules/groups/application/groups.service.server";
 import { createGroupRepository } from "@/modules/groups/infrastructure/groups.repository.server";
+import {
+	drainOutbox,
+	startEmailOutboxWorker,
+} from "@/modules/notifications/application/email-outbox.worker.server";
+import { createNotificationService } from "@/modules/notifications/application/notifications.service.server";
+import { createNotificationRepository } from "@/modules/notifications/infrastructure/notifications.repository.server";
 import { createRatingService } from "@/modules/ratings/application/ratings.service.server";
 import { createRatingRepository } from "@/modules/ratings/infrastructure/ratings.repository.server";
 import { createTeachingService } from "@/modules/teaching/application/teaching.service.server";
@@ -55,6 +63,7 @@ import { createUserPhotoReferenceSource } from "@/modules/users/infrastructure/u
 import { createUserRepository } from "@/modules/users/infrastructure/users.repository.server";
 import { createMemorySingleFlight } from "@/shared/concurrency/single-flight.memory";
 import { createConsoleLogger } from "@/shared/logging/logger.console";
+import { createMailerFromEnv } from "@/shared/mail/mailer.factory.server";
 import { createMemoryRateLimiter } from "@/shared/rate-limit/rate-limiter.memory";
 import { createAssetUrlResolver } from "@/shared/storage/public-url";
 import { createStorageProviderFromEnv } from "@/shared/storage/storage.factory";
@@ -92,6 +101,27 @@ const storageProvider = createStorageProviderFromEnv(env, logger);
 // Puro y sin estado, pero se construye una vez por la misma razón: es una
 // clausura sobre el dominio público, no algo que dependa de la petición.
 const assetUrlResolver = createAssetUrlResolver(env.STORAGE_PUBLIC_DOMAIN);
+
+// El mailer cierra sobre el transporte SMTP (y su pool de conexiones): uno por
+// proceso. El worker del outbox también es de proceso y usa el `prisma` base,
+// fuera de cualquier transacción de petición.
+const mailer = createMailerFromEnv(env, logger);
+const appBaseUrl = env.APP_BASE_URL ?? "http://localhost:5173";
+
+if (isEmailWorkerEnabled(env)) {
+	const notificationRepository = createNotificationRepository({ prisma });
+	startEmailOutboxWorker({
+		drain: () =>
+			drainOutbox({
+				notificationRepository,
+				mailer,
+				clock: systemClock,
+				logger: logger.child({ module: "email-outbox" }),
+			}),
+		intervalMs: env.EMAIL_WORKER_INTERVAL_S * 1000,
+		logger: logger.child({ module: "email-outbox" }),
+	});
+}
 
 // El estado de seguridad se consulta en CADA petición autenticada, así que la
 // caché tiene que vivir entre peticiones: registrarlo con `asSingleton` daría
@@ -205,6 +235,12 @@ export const configureContainer = async (
 		creditService: asSingleton(createCreditService),
 		ratingRepository: asSingleton(createRatingRepository),
 		ratingService: asSingleton(createRatingService),
+		annualPlanRepository: asSingleton(createAnnualPlanRepository),
+		annualPlanService: asSingleton(createAnnualPlanService),
+		mailer: asValue(mailer),
+		appBaseUrl: asValue(appBaseUrl),
+		notificationRepository: asSingleton(createNotificationRepository),
+		notificationService: asSingleton(createNotificationService),
 		// Una fuente por módulo que guarda keys de storage. Añadir un módulo con
 		// archivos = añadir su fuente aquí; el gestor de nube no cambia.
 		objectReferenceSources: asSingleton((cradle: ICradle) => [

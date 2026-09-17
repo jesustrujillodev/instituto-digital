@@ -1,3 +1,5 @@
+import { ANNUAL_PLAN_ERROR_CODES } from "@/modules/annual-plan/domain/annual-plan.errors";
+import { ANNUAL_PLAN_ERROR_MESSAGES } from "@/modules/annual-plan/utils/annual-plan-error-messages";
 import { HTTP_STATUS } from "@/shared/http/route-error";
 import type { ErrorMessageMap } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
@@ -74,5 +76,19 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 			`El cupo no puede ser menor que las ${Number(error.details?.enrolled ?? 0)} personas ya inscritas.`,
 		fieldErrors: { capacity: "Menor que los inscritos" },
 	},
+	[COURSE_ERROR_CODES.PLAN_LINE_NOT_FOUND]: {
+		message: "La línea del plan no existe o no es de tu dependencia.",
+		status: HTTP_STATUS.NOT_FOUND,
+	},
+	// Crear un curso desde una línea falla con los códigos del plan.
+	...Object.fromEntries(
+		[
+			ANNUAL_PLAN_ERROR_CODES.LINE_NOT_FOUND,
+			ANNUAL_PLAN_ERROR_CODES.FORBIDDEN_SCOPE,
+			ANNUAL_PLAN_ERROR_CODES.READ_ONLY,
+			ANNUAL_PLAN_ERROR_CODES.LINE_CANCELLED,
+			ANNUAL_PLAN_ERROR_CODES.LINE_HAS_ACTIVE_COURSE,
+		].map((code) => [code, ANNUAL_PLAN_ERROR_MESSAGES[code]]),
+	),
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

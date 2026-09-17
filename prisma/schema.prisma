@@ -70,20 +70,23 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions         Session[]
-  trainerProfile   TrainerProfile?
-  groupMemberships GroupMember[]
-  coursesCreated   Course[]           @relation("CourseCreator")
-  coursesTaught    CourseTrainer[]
-  enrollments      Enrollment[]       @relation("EnrollmentParticipant")
-  enrollmentsActed Enrollment[]       @relation("EnrollmentActor")
-  resultsRecorded  Enrollment[]       @relation("EnrollmentResultRecorder")
-  attendance       CourseAttendance[] @relation("AttendanceParticipant")
-  attendanceTaken  CourseAttendance[] @relation("AttendanceRecorder")
-  credits          Credit[]           @relation("CreditHolder")
-  creditsGranted   Credit[]           @relation("CreditGranter")
-  creditsRevoked   Credit[]           @relation("CreditRevoker")
-  courseRatings    CourseRating[]
+  sessions           Session[]
+  trainerProfile     TrainerProfile?
+  groupMemberships   GroupMember[]
+  coursesCreated     Course[]           @relation("CourseCreator")
+  coursesTaught      CourseTrainer[]
+  enrollments        Enrollment[]       @relation("EnrollmentParticipant")
+  enrollmentsActed   Enrollment[]       @relation("EnrollmentActor")
+  resultsRecorded    Enrollment[]       @relation("EnrollmentResultRecorder")
+  attendance         CourseAttendance[] @relation("AttendanceParticipant")
+  attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
+  credits            Credit[]           @relation("CreditHolder")
+  creditsGranted     Credit[]           @relation("CreditGranter")
+  creditsRevoked     Credit[]           @relation("CreditRevoker")
+  courseRatings      CourseRating[]
+  annualPlans        AnnualPlan[]
+  planLines          PlanLine[]         @relation("PlanLineCreator")
+  planLinesCancelled PlanLine[]         @relation("PlanLineCanceller")
 
   // documentId y email son @unique — el índice lo crea la constraint;
   // no declarar @@index duplicados.
@@ -236,6 +239,7 @@ model Dependency {
   courseAudience CourseDependencyAudience[]
   enrollments    Enrollment[]
   credits        Credit[]
+  annualPlans    AnnualPlan[]
 
   @@map("dependencies")
   @@schema("org")
@@ -384,10 +388,11 @@ model Course {
   createdById Int  @map("created_by_id")
   createdBy   User @relation("CourseCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
-  /// Línea del plan anual que originó el curso. La tabla llega en PRD-07; la
-  /// columna existe ya para no volver a migrar `courses` entonces, y por eso no
-  /// declara relación todavía.
-  planLineId Int? @map("plan_line_id")
+  /// Línea del plan anual que originó el curso. Un curso cancelado conserva el
+  /// vínculo: el estado de la línea se deriva del curso que NO está cancelado
+  /// (docs/adr/0007).
+  planLineId Int?      @map("plan_line_id")
+  planLine   PlanLine? @relation(fields: [planLineId], references: [id], onDelete: Restrict)
 
   publishedAt DateTime? @map("published_at")
   cancelledAt DateTime? @map("cancelled_at")
@@ -406,6 +411,7 @@ model Course {
 
   @@index([dependencyId, status])
   @@index([createdById])
+  @@index([planLineId])
   @@map("courses")
   @@schema("org")
 }
@@ -650,5 +656,108 @@ model CourseRating {
 
   @@unique([courseId, userId])
   @@map("course_ratings")
+  @@schema("org")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plan anual (PRD-07)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Un plan por dependencia y ejercicio. No pasa por aprobaciones (§6.11).
+model AnnualPlan {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  dependencyId Int        @map("dependency_id")
+  dependency   Dependency @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+
+  fiscalYear Int @map("fiscal_year")
+
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines PlanLine[]
+
+  @@unique([dependencyId, fiscalYear])
+  @@map("annual_plans")
+  @@schema("org")
+}
+
+/// Un curso previsto. No guarda su estado: pendiente, programada y realizada se
+/// derivan del curso vinculado; solo la cancelación manual se persiste.
+model PlanLine {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  planId Int        @map("plan_id")
+  plan   AnnualPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  title             String
+  /// 1 a 12.
+  plannedMonth      Int             @map("planned_month")
+  plannedModality   CourseModality? @map("planned_modality")
+  estimatedDuration String?         @map("estimated_duration")
+  targetAudience    String?         @map("target_audience")
+  notes             String?
+
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelledById Int?      @map("cancelled_by_id")
+  cancelledBy   User?     @relation("PlanLineCanceller", fields: [cancelledById], references: [id], onDelete: Restrict)
+
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("PlanLineCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courses Course[]
+
+  @@index([planId, plannedMonth])
+  @@map("plan_lines")
+  @@schema("org")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notificaciones por correo (PRD-08)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@schema("org")
+}
+
+/// Cola de salida del correo. Se escribe en la misma transacción que el caso de
+/// uso que avisa y la vacía un worker (docs/adr/0008). No es una bitácora que
+/// alguien consulte: los enviados se purgan.
+model EmailOutbox {
+  id Int @id @default(autoincrement())
+
+  template  String
+  /// Copiado al encolar y sin FK: el aviso sale aunque la cuenta cambie después.
+  recipient String
+
+  /// Renderizados al encolar, con los datos del momento del evento.
+  subject String
+  text    String
+  html    String
+
+  status        EmailStatus @default(PENDING)
+  attempts      Int         @default(0)
+  nextAttemptAt DateTime    @default(now()) @map("next_attempt_at")
+  /// Reserva de un worker: otro proceso no toma el mensaje hasta que venza.
+  lockedUntil   DateTime?   @map("locked_until")
+  lastError     String?     @map("last_error")
+  sentAt        DateTime?   @map("sent_at")
+
+  createdAt DateTime @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@map("email_outbox")
   @@schema("org")
 }

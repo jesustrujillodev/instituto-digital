@@ -89,6 +89,20 @@ const baseEnvSchema = v.object({
 		v.pipe(v.string(), v.minLength(1)),
 		".cache/theme/active-theme.json",
 	),
+
+	// ── Correo (PRD-08) ─────────────────────────────────────────────────────────
+	// Sin SMTP_HOST los correos se encolan igual y el adaptador solo los escribe
+	// en el log: el desarrollo y las pruebas no necesitan un servidor de correo.
+	SMTP_HOST: v.optional(v.pipe(v.string(), v.minLength(1))),
+	SMTP_PORT: positiveInt(587),
+	SMTP_SECURE: v.optional(v.picklist(["true", "false"]), "false"),
+	SMTP_USER: v.optional(v.string()),
+	SMTP_PASSWORD: v.optional(v.string()),
+	MAIL_FROM: v.optional(v.pipe(v.string(), v.minLength(1))),
+	/** Origen absoluto de los enlaces de los correos, p. ej. https://capacitacion.gob.mx */
+	APP_BASE_URL: v.optional(v.pipe(v.string(), v.minLength(1))),
+	EMAIL_WORKER_ENABLED: v.optional(v.picklist(["true", "false"])),
+	EMAIL_WORKER_INTERVAL_S: positiveInt(15),
 });
 
 // Validación condicional al proveedor: fail-fast al boot si el proveedor está
@@ -159,9 +173,39 @@ const envSchema = v.pipe(
 		),
 		["STORAGE_PUBLIC_DOMAIN"],
 	),
+	// Un correo sin remitente lo rechaza el servidor, y uno sin origen lleva
+	// enlaces rotos: se descubre al arrancar, no con el primer aviso.
+	v.forward(
+		v.check(
+			(input) =>
+				!input.SMTP_HOST || Boolean(input.MAIL_FROM && input.APP_BASE_URL),
+			"SMTP_HOST requiere MAIL_FROM y APP_BASE_URL",
+		),
+		["SMTP_HOST"],
+	),
+	v.forward(
+		v.check(
+			(input) =>
+				!input.APP_BASE_URL ||
+				(input.NODE_ENV === "production"
+					? /^https:\/\/[^/]+$/
+					: /^https?:\/\/[^/]+$/
+				).test(input.APP_BASE_URL),
+			"APP_BASE_URL debe ser un origen absoluto sin barra final (https:// en producción)",
+		),
+		["APP_BASE_URL"],
+	),
 );
 
 export type Env = v.InferOutput<typeof envSchema>;
+
+/** ¿Arranca el worker del outbox? Nunca en pruebas salvo que se pida. */
+export const isEmailWorkerEnabled = (
+	config: Pick<Env, "EMAIL_WORKER_ENABLED" | "NODE_ENV">,
+): boolean =>
+	config.EMAIL_WORKER_ENABLED === undefined
+		? config.NODE_ENV !== "test"
+		: config.EMAIL_WORKER_ENABLED === "true";
 
 const result = v.safeParse(envSchema, {
 	DATABASE_URL: process.env.DATABASE_URL,
@@ -194,6 +238,16 @@ const result = v.safeParse(envSchema, {
 	GCS_EMULATOR_HOST: process.env.GCS_EMULATOR_HOST,
 
 	THEME_SNAPSHOT_PATH: process.env.THEME_SNAPSHOT_PATH,
+
+	SMTP_HOST: process.env.SMTP_HOST,
+	SMTP_PORT: process.env.SMTP_PORT,
+	SMTP_SECURE: process.env.SMTP_SECURE,
+	SMTP_USER: process.env.SMTP_USER,
+	SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+	MAIL_FROM: process.env.MAIL_FROM,
+	APP_BASE_URL: process.env.APP_BASE_URL,
+	EMAIL_WORKER_ENABLED: process.env.EMAIL_WORKER_ENABLED,
+	EMAIL_WORKER_INTERVAL_S: process.env.EMAIL_WORKER_INTERVAL_S,
 });
 
 if (!result.success) {

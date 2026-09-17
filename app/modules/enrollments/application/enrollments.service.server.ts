@@ -8,6 +8,11 @@ import {
 	resolveCourseScope,
 	toAudienceScope,
 } from "@/modules/courses/domain/course.access";
+import {
+	toNotifiedCourse,
+	toNotifiedSessions,
+} from "@/modules/notifications/domain/notification.mapper";
+import type { Recipient } from "@/modules/notifications/domain/notification.types";
 import { canRateCourse } from "@/modules/ratings/domain/rating.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
@@ -58,6 +63,7 @@ type Dependencies = {
 	enrollmentRepository: ICradle["enrollmentRepository"];
 	courseRepository: ICradle["courseRepository"];
 	groupRepository: ICradle["groupRepository"];
+	notificationService: ICradle["notificationService"];
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -93,6 +99,7 @@ export const createEnrollmentService = ({
 	enrollmentRepository,
 	courseRepository,
 	groupRepository,
+	notificationService,
 	runInTransaction,
 	clock,
 	logger,
@@ -136,6 +143,33 @@ export const createEnrollmentService = ({
 		}
 		return enrollmentRepository.save(data, expected);
 	};
+
+	/** Un aviso por persona sobre este curso, con sus sesiones de ahora. */
+	const notifyCourse = (
+		template:
+			| "COURSE_INVITATION"
+			| "ENROLLMENT_CONFIRMED"
+			| "ENROLLMENT_ASSIGNED",
+		course: EnrollmentCourse,
+		recipients: readonly Recipient[],
+	) =>
+		recipients.length === 0
+			? Promise.resolve()
+			: notificationService.notify(
+					recipients.map((to) => ({
+						template,
+						to,
+						course: toNotifiedCourse(course),
+						sessions: toNotifiedSessions(course.sessions),
+					})),
+				);
+
+	/** El `AuthContext` no trae el nombre: el saludo cae en "Hola:". */
+	const actorRecipient = (actor: AuthContext): Recipient => ({
+		email: actor.email,
+		firstName: null,
+		lastName: null,
+	});
 
 	const requireOpen = (course: EnrollmentCourse, now: Date) => {
 		if (!isEnrollmentOpen(course, now)) {
@@ -369,6 +403,9 @@ export const createEnrollmentService = ({
 						},
 						current?.status ?? null,
 					);
+					await notifyCourse("ENROLLMENT_CONFIRMED", course, [
+						actorRecipient(actor),
+					]);
 				});
 
 				return ok(null);
@@ -448,6 +485,9 @@ export const createEnrollmentService = ({
 						},
 						"INVITED",
 					);
+					await notifyCourse("ENROLLMENT_CONFIRMED", course, [
+						actorRecipient(actor),
+					]);
 				});
 
 				return ok(null);
@@ -541,6 +581,7 @@ export const createEnrollmentService = ({
 								existing.get(participant.id) ?? null,
 							);
 						}
+						await notifyCourse("ENROLLMENT_ASSIGNED", course, pending);
 
 						return {
 							affected: pending.length,
@@ -620,6 +661,7 @@ export const createEnrollmentService = ({
 								existing.get(participant.id) ?? null,
 							);
 						}
+						await notifyCourse("COURSE_INVITATION", course, pending);
 
 						return {
 							affected: pending.length,

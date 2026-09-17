@@ -23,6 +23,8 @@ export interface CourseFormValues {
 	access: CourseAccessType;
 	/** Solo lo usa el superadministrador; los demás heredan la suya. */
 	dependency: string;
+	/** Línea del plan de la que nace el curso; vacío si no nace de ninguna. */
+	planLine: string;
 	capacity: string;
 	enrollmentDeadline: string;
 	minAttendance: string;
@@ -47,6 +49,13 @@ export const emptySessionValues = (): CourseSessionFormValues => ({
 const asDate = (value: Date | string): Date =>
 	value instanceof Date ? value : new Date(value);
 
+/** Lo que precarga "Crear curso desde esta línea" (§6.11). */
+export interface CoursePlanPrefill {
+	lineDocumentId: string;
+	title: string;
+	plannedModality: CourseModality | null;
+}
+
 /**
  * Valores iniciales del formulario.
  *
@@ -59,13 +68,15 @@ const asDate = (value: Date | string): Date =>
  */
 export function buildCourseFormDefaults(
 	course?: CourseDetail | null,
+	prefill?: CoursePlanPrefill | null,
 ): CourseFormValues {
 	return {
-		title: course?.title ?? "",
+		title: course?.title ?? prefill?.title ?? "",
 		description: course?.description ?? "",
-		modality: course?.modality ?? "IN_PERSON",
+		modality: course?.modality ?? prefill?.plannedModality ?? "IN_PERSON",
 		access: course?.access ?? "PUBLIC",
 		dependency: "",
+		planLine: prefill?.lineDocumentId ?? "",
 		capacity: course?.capacity?.toString() ?? "",
 		enrollmentDeadline: course?.enrollmentDeadline
 			? utcToZonedInput(asDate(course.enrollmentDeadline)).date

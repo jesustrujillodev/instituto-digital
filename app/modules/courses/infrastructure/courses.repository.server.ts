@@ -48,7 +48,13 @@ const DETAIL_SELECT = {
 	enrollmentDeadline: true,
 	minAttendance: true,
 	requiresEvaluation: true,
-	planLineId: true,
+	planLine: {
+		select: {
+			documentId: true,
+			title: true,
+			plan: { select: { documentId: true } },
+		},
+	},
 	publishedAt: true,
 	cancelledAt: true,
 	sessions: {
@@ -255,6 +261,7 @@ export const createCourseRepository = ({
 					...scalarsOf(data),
 					dependencyId: data.dependencyId,
 					createdById: data.createdById,
+					planLineId: data.planLineId,
 					sessions: {
 						create: data.sessions.map(
 							({ documentId: _ignored, ...fields }) => fields,

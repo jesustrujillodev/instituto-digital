@@ -243,6 +243,18 @@ describe("navigationSections — filtrado por rol", () => {
 		expect(mainPathsFor("USER")).toContain("/dashboard/mis-creditos");
 		expect(mainPathsFor("SUPERADMIN")).not.toContain("/dashboard/mis-creditos");
 	});
+
+	test("el plan anual lo ven la gestión de dependencia y el superadministrador", () => {
+		for (const role of [
+			"SUPERADMIN",
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+		] as const) {
+			expect(mainPathsFor(role)).toContain("/dashboard/plan-anual");
+		}
+
+		expect(mainPathsFor("USER", true)).not.toContain("/dashboard/plan-anual");
+	});
 });
 
 describe("footerNavigationConfig", () => {

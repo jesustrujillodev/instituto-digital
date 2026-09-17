@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import { DuplicateEmailError } from "@/modules/users/domain/user.errors";
 import type { SafeUser } from "@/modules/users/domain/user.types";
 import type { ICradle } from "@/shared/di/container.types";
@@ -86,7 +87,9 @@ const createHarness = (
 		revokeFails?: boolean;
 	} = {},
 ) => {
+	let txDepth = 0;
 	const calls = {
+		notified: [] as { events: NotificationEvent[]; inTransaction: boolean }[],
 		listFilters: [] as unknown[],
 		created: [] as unknown[],
 		usersCreated: [] as unknown[],
@@ -162,11 +165,28 @@ const createHarness = (
 	// vigila es que la escritura compuesta pase POR él, no cómo abre la
 	// transacción — eso es de Postgres.
 	const runInTransaction = (async <T>(callback: () => Promise<T>) => {
-		calls.transactions += 1;
-		return callback();
+		txDepth += 1;
+		try {
+			calls.transactions += 1;
+			return await callback();
+		} finally {
+			txDepth -= 1;
+		}
 	}) as unknown as ICradle["runInTransaction"];
 
+	const notificationService = {
+		notify: async (events: NotificationEvent[]) => {
+			calls.notified.push({ events, inTransaction: txDepth > 0 });
+			return {
+				success: true as const,
+				data: { queued: events.length },
+				timestamp: new Date().toISOString(),
+			};
+		},
+	} as unknown as ICradle["notificationService"];
+
 	const service = createTrainerService({
+		notificationService,
 		trainerRepository,
 		userRepository,
 		passwordService,
@@ -525,5 +545,37 @@ describe("createTrainerService — alta de capacitador externo", () => {
 			TRAINER_ERROR_CODES.FORBIDDEN_SCOPE,
 		);
 		expect(calls.transactions).toBe(0);
+	});
+});
+
+describe("createTrainerService — aviso de cuenta (§6.12)", () => {
+	const dto = {
+		firstName: "Luis",
+		lastName: "Mora",
+		email: "luis@universidad.mx",
+		password: "Password123!",
+		specialty: "Transparencia",
+		institution: "Universidad Autónoma",
+	};
+
+	test("el alta del externo encola la bienvenida en la misma transacción", async () => {
+		const { service, calls } = createHarness();
+
+		await service.createExternal(dto, actorOf());
+
+		expect(calls.notified).toMatchObject([
+			{ inTransaction: true, events: [{ template: "ACCOUNT_CREATED" }] },
+		]);
+		expect(JSON.stringify(calls.notified)).not.toContain("Password123!");
+	});
+
+	test("si el perfil falla no se avisa", async () => {
+		const { service, calls } = createHarness({
+			createThrows: new Error("perfil roto"),
+		});
+
+		await service.createExternal(dto, actorOf());
+
+		expect(calls.notified).toEqual([]);
 	});
 });

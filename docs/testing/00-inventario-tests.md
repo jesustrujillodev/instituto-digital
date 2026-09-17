@@ -1,6 +1,6 @@
 # Inventario de tests
 
-Estado de la suite al 16 de septiembre de 2026, tras PRD-06. **216 archivos, 2405
+Estado de la suite al 16 de septiembre de 2026, tras PRD-08. **227 archivos, 2513
 tests, todos en verde.** El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
 `vitest.config.ts` con entorno `node`, resolución de alias vía
 `vite-tsconfig-paths` y descubrimiento sobre `app/**/__tests__/**/*.test.{ts,tsx}`.
@@ -70,14 +70,16 @@ que queda fuera está listado como hueco al final de este documento.
 | [Teaching](#teaching) | 9 | 67 | dominio, aplicación, infraestructura, rutas |
 | [Credits](#credits) | 5 | 24 | dominio, aplicación, infraestructura, rutas |
 | [Ratings](#ratings) | 4 | 20 | dominio, aplicación, infraestructura, rutas |
+| [Annual plan](#annual-plan) | 5 | 47 | dominio, aplicación, infraestructura, rutas |
+| [Notifications](#notifications) | 4 | 22 | dominio, aplicación, infraestructura |
 | [Cloud](#cloud) | 7 | 88 | dominio, aplicación, rutas, utilidades |
 | [Shared](#shared) | 42 | 486 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
 | [Core](#core) | 2 | 35 | entorno y cookies |
 | [Lib](#lib) | 6 | 61 | utilidades puras y zona horaria |
-| **Total** | **216** | **2405** | |
+| **Total** | **227** | **2513** | |
 
 > Las filas por área suman menos que el total: el inventario ya iba por detrás de
-> la suite y solo se han recontado las áreas que tocaron PRD-03, PRD-04 y PRD-06.
+> la suite y solo se han recontado las áreas que tocaron PRD-03, PRD-04, PRD-06, PRD-07 y PRD-08.
 > PRD-06 añadió además pruebas a `trainers`, `courses`, `enrollments`,
 > `shared/layout` y `lib`. El total sí es el que reporta el runner.
 
@@ -483,6 +485,46 @@ escritura respete la máquina de estados de la fila única por persona y curso.
 | `enrollment-utils.test.ts` | 9 | Copia para cada código con su status de loader, redacción de lotes, nombre de respaldo y lectura de listas repetidas del formulario. |
 
 ---
+
+## Notifications
+
+Avisos por correo (PRD-08). Lo que estas pruebas protegen es que **un aviso salga
+solo de una operación confirmada, sin credenciales y sin perderse si el SMTP
+falla**.
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `domain/…/notification.templates.test.ts` | 7 | Las ocho plantillas renderizan, ninguna de cuenta lleva una contraseña, horas en la zona del instituto en verano e invierno, escape de HTML, enlaces con el origen configurado y lista de sesiones vacía. |
+| `domain/…/notification.rules.test.ts` | 6 | Backoff y fallo definitivo, corte de purga, recorte del error, destinatario válido y mensaje de la cola. |
+| `application/…/notifications.service.server.test.ts` | 6 | `notify` encola ya redactado, omite inválidos y no lanza; `drainOutbox` envía, reintenta sin detener el lote y marca `FAILED`. |
+| `infrastructure/…/notifications.repository.server.test.ts` | 3 | `SKIP LOCKED` con reserva e intento contados en una transacción, y lotes vacíos que no tocan la base. |
+
+`app/shared/mail/__tests__/mailer.test.ts` (4 tests) comprueba el adaptador SMTP,
+que el de log no escribe el cuerpo y la elección del factory, y
+`core/__tests__/env.server.test.ts` añade 4 sobre la configuración de correo. En
+`courses`, `enrollments`, `users` y `trainers` se añadieron las pruebas de cada
+enganche: se encola dentro de la transacción, no se encola si la operación falla,
+no avisa lo que no debe (título editado, borrador, traslado propio, invitados
+omitidos) y no incluye contraseñas.
+
+## Annual plan
+
+Plan anual (PRD-07). Lo que estas pruebas protegen es que **la línea cambie de
+estado sin que nadie la escriba** y que "un curso por línea" aguante dos altas a
+la vez.
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `domain/…/annual-plan.rules.test.ts` | 17 | Las cuatro transiciones derivadas —un curso cancelado devuelve la línea a pendiente con historial—, avance con denominador cero, solo lectura en la zona del instituto, ejercicios que se pueden crear y cada `assert*` con su código. |
+| `domain/…/annual-plan.domain.test.ts` | 10 | Alcance (el superadministrador lee y no gestiona; `none` nunca es `{}`), validación del mes y de los textos, errores estables y los permisos por línea que calcula la ficha. |
+| `application/…/annual-plan.service.server.test.ts` | 12 | Crear plan (duplicado, ejercicio pasado, superadministrador), las cinco operaciones sobre líneas en éxito y fallo, plan de solo lectura, fuera de alcance y el prellenado de "Crear curso". |
+| `infrastructure/…/annual-plan.repository.server.test.ts` | 4 | El alcance fundido con los filtros, la línea buscada por el alcance de su plan, el `FOR UPDATE` antes de releer y la traducción de P2002 y P2003. |
+| `routes/plan-anual/$documentId/…/index.action.test.ts` | 4 | JSON validado antes del servicio, la línea del envío en cada intent y 403 al participante. |
+
+En `courses`, PRD-07 añadió a `courses.service.server.test.ts` el alta desde una
+línea (bloqueo dentro de la transacción, línea de otra dependencia, línea no
+disponible, curso cancelado que no la ocupa); a `build-course-form-defaults.test.ts`
+el prellenado; y `cursos/nuevo/__tests__/index.loader.test.ts` (4 tests).
 
 ## Teaching
 

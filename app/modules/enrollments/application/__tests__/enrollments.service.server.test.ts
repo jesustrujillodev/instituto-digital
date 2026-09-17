@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
@@ -74,6 +75,9 @@ const participantOf = (id: number, documentId: string): ParticipantAccount => ({
 	id,
 	documentId,
 	dependencyId: 4,
+	email: `persona-${id}@instituto.gob.mx`,
+	firstName: `Persona ${id}`,
+	lastName: null,
 });
 
 interface HarnessOptions {
@@ -88,7 +92,9 @@ interface HarnessOptions {
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
+	let txDepth = 0;
 	const calls = {
+		notified: [] as { events: NotificationEvent[]; inTransaction: boolean }[],
 		transactions: 0,
 		locks: [] as number[],
 		lockedInTransaction: [] as boolean[],
@@ -156,14 +162,28 @@ const createHarness = (options: HarnessOptions = {}) => {
 	const runInTransaction = (async <T>(callback: () => Promise<T>) => {
 		calls.transactions += 1;
 		inTransaction = true;
+		txDepth += 1;
 		try {
 			return await callback();
 		} finally {
 			inTransaction = false;
+			txDepth -= 1;
 		}
 	}) as unknown as ICradle["runInTransaction"];
 
+	const notificationService = {
+		notify: async (events: NotificationEvent[]) => {
+			calls.notified.push({ events, inTransaction: txDepth > 0 });
+			return {
+				success: true as const,
+				data: { queued: events.length },
+				timestamp: new Date().toISOString(),
+			};
+		},
+	} as unknown as ICradle["notificationService"];
+
 	const service = createEnrollmentService({
+		notificationService,
 		enrollmentRepository,
 		courseRepository,
 		groupRepository,
@@ -692,5 +712,83 @@ describe("enrollmentService.listMine", () => {
 			.map((item) => item.course.title);
 
 		expect(rateable).toEqual(["asistió"]);
+	});
+});
+
+describe("avisos de inscripción e invitación (§6.12)", () => {
+	test("inscribirse confirma a la persona dentro de la transacción", async () => {
+		const { service, calls } = createHarness();
+
+		await service.enroll(COURSE_ID, actorOf());
+
+		expect(calls.notified).toHaveLength(1);
+		expect(calls.notified[0]).toMatchObject({
+			inTransaction: true,
+			events: [
+				{
+					template: "ENROLLMENT_CONFIRMED",
+					to: { email: "miguel.sds@instituto.gob.mx" },
+				},
+			],
+		});
+	});
+
+	test("aceptar una invitación también confirma", async () => {
+		const { service, calls } = createHarness({ own: "INVITED" });
+
+		await service.accept(COURSE_ID, actorOf());
+
+		expect(calls.notified[0]?.events[0]?.template).toBe("ENROLLMENT_CONFIRMED");
+	});
+
+	test("sin cupo no se inscribe ni se avisa", async () => {
+		const { service, calls } = createHarness({
+			seats: { capacity: 1, enrolled: 1 },
+		});
+
+		await service.enroll(COURSE_ID, actorOf());
+
+		expect(calls.notified).toEqual([]);
+	});
+
+	test("asignar avisa a cada persona asignada", async () => {
+		const { service, calls } = createHarness({
+			participants: [participantOf(100, USER_A), participantOf(101, USER_B)],
+			existing: [{ userId: 101, status: "ENROLLED" }],
+		});
+
+		await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A, USER_B] },
+			actorOf("DEPENDENCY_HEAD", { userId: 60, dependencyId: 4 }),
+		);
+
+		expect(calls.notified[0]?.events).toMatchObject([
+			{
+				template: "ENROLLMENT_ASSIGNED",
+				to: { email: "persona-100@instituto.gob.mx" },
+			},
+		]);
+	});
+
+	test("invitar avisa solo a los invitados de verdad, no a los omitidos", async () => {
+		const { service, calls } = createHarness({
+			participants: [participantOf(100, USER_A)],
+			groupMembers: [participantOf(101, USER_B)],
+			existing: [{ userId: 101, status: "INVITED" }],
+		});
+
+		await service.invite(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A], groupDocumentIds: [GROUP_ID] },
+			actorOf("USER", { isTrainer: true }),
+		);
+
+		expect(
+			calls.notified.flatMap(({ events }) =>
+				events.map((event) => event.to.email),
+			),
+		).toEqual(["persona-100@instituto.gob.mx"]);
+		expect(calls.notified[0]?.events[0]?.template).toBe("COURSE_INVITATION");
 	});
 });

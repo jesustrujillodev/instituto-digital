@@ -186,6 +186,16 @@ export interface ParticipantAccount {
 	id: number;
 	documentId: string;
 	dependencyId: number;
+	email: string;
+	firstName: string | null;
+	lastName: string | null;
+}
+
+/** A quién se avisa de un cambio o una cancelación del curso (§6.12). */
+export interface NotifiableParticipant {
+	email: string;
+	firstName: string | null;
+	lastName: string | null;
 }
 
 export interface EnrollmentWrite {

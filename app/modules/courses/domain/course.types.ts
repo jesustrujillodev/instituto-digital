@@ -74,6 +74,7 @@ export interface CourseWriteData {
 export type CreateCourseData = CourseWriteData & {
 	dependencyId: number;
 	createdById: number;
+	planLineId: number | null;
 };
 
 export type UpdateCourseData = CourseWriteData;

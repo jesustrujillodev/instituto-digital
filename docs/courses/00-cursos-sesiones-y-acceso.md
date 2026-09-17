@@ -11,10 +11,9 @@ Lo que **no** hace todavía, y quién lo hace:
 
 | Pendiente | PRD |
 | --- | --- |
-| Avisos por correo al editar o cancelar | PRD-08 (los inscritos ya existen desde PRD-04) |
 | Calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
 | Estado `FINISHED`, asistencia, créditos y valoración | PRD-06 (`docs/teaching/00-imparticion-creditos-y-valoracion.md`) |
-| Plan anual y "crear curso desde esta línea" | PRD-07 |
+| Plan anual y "crear curso desde esta línea" | PRD-07 (`docs/annual-plan/00-plan-anual.md`) |
 
 La inscripción, las invitaciones y "Mis cursos" viven en su propio módulo
 (`docs/enrollments/00-inscripcion-e-invitaciones.md`), que consume la regla de
@@ -35,8 +34,9 @@ Decisiones que el schema no dice por sí solo:
 - **No hay `archived_at`.** La baja de un curso es `status = CANCELLED`, que
   conserva sus sesiones, capacitadores y audiencia (§6.5). Dos mecanismos de baja
   sobre la misma fila se contradirían.
-- **`plan_line_id` existe sin relación.** La tabla del plan llega en PRD-07; la
-  columna se adelanta para no volver a tocar `courses` entonces.
+- **`plan_line_id` apunta a la línea del plan anual** (PRD-07). Se escribe solo
+  al crear, bloqueando la línea, y un curso cancelado conserva el vínculo como
+  historial. Ver [ADR 0007](../adr/0007-plan-anual-estado-derivado.md).
 - **La audiencia son dos tablas y no una con dos columnas nulas.** Ver
   [ADR 0003](../adr/0003-alcance-de-cursos-y-audiencia.md) §2.2.
 - **La organizadora no cambia.** La regla de edición no la declara: moverla
@@ -222,12 +222,18 @@ Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
 
 ## 10. Lo que queda enganchado
 
-- **PRD-08** engancha los avisos por correo de §6.5 a `update` y `cancel`.
+- **PRD-08:** `update` de un curso publicado encola `COURSE_UPDATED` si
+  `hasScheduleChanges` detecta sesiones añadidas o quitadas, u otro horario, sede
+  o enlace. `cancel` de un publicado encola `COURSE_CANCELLED`. Los dos avisan a
+  inscritos e invitados pendientes, dentro de su transacción
+  (`docs/notifications/00-notificaciones.md`).
 - **PRD-05** tiene su índice: `course_sessions(starts_at)`.
 - **PRD-06** ya escribe `FINISHED` desde `teaching` por `ICourseRepository.finish`,
   condicionado a `PUBLISHED`. La asistencia cuelga de las sesiones y se borra en
   cascada con ellas.
-- **PRD-07** añade la relación de `plan_line_id`.
+- **PRD-07** ya declaró la relación de `plan_line_id`: `create` recibe
+  `planLine` y la reclama con `claimPlanLine`. Cancelar y finalizar no tocan el
+  plan porque el estado de la línea se deriva.
 
 **Limitación conocida:** el enlace "Cursos" del menú se muestra a todo
 capacitador, también al externo, porque `SessionUser` no lleva el tipo de cuenta.

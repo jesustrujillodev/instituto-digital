@@ -1,7 +1,7 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Ban, Send, Users } from "lucide-react";
+import { Ban, CalendarRange, Send, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
@@ -114,6 +114,15 @@ export default function CursoEditarPage({ loaderData }: Route.ComponentProps) {
 				<CourseStatusBadge status={course.status} />
 				<CourseModalityBadge modality={course.modality} />
 				<CourseAccessBadge access={course.access} />
+				{course.planLine && (
+					<Link
+						to={`/dashboard/plan-anual/${course.planLine.planDocumentId}`}
+						className="inline-flex items-center gap-1 text-muted-foreground text-xs hover:underline"
+					>
+						<CalendarRange className="h-3.5 w-3.5" />
+						Plan anual · {course.planLine.title}
+					</Link>
+				)}
 			</div>
 
 			{canPublish && (

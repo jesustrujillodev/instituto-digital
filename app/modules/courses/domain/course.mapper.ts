@@ -77,6 +77,11 @@ type DetailRaw = CourseRawBase & {
 	dependencyAudience?: readonly {
 		dependency: { documentId: string; name: string };
 	}[];
+	planLine?: {
+		documentId: string;
+		title: string;
+		plan: { documentId: string };
+	} | null;
 	groupAudience?: readonly {
 		group: {
 			documentId: string;
@@ -107,6 +112,13 @@ export const toDetail = (raw: DetailRaw): CourseDetail => {
 	return v.parse(courseDetailSchema, {
 		...summary,
 		...raw,
+		planLine: raw.planLine
+			? {
+					documentId: raw.planLine.documentId,
+					title: raw.planLine.title,
+					planDocumentId: raw.planLine.plan.documentId,
+				}
+			: null,
 		sessions,
 		trainers: (raw.trainers ?? []).map(({ user }) => ({
 			userDocumentId: user.documentId,

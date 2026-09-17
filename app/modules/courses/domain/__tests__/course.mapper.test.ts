@@ -72,7 +72,7 @@ const detailRow = {
 	enrollmentDeadline: null,
 	minAttendance: 80,
 	requiresEvaluation: true,
-	planLineId: null,
+	planLine: null,
 	publishedAt: null,
 	cancelledAt: null,
 	dependency: { name: "Recursos Humanos" },

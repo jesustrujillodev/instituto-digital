@@ -12,6 +12,7 @@ import type {
 	EnrollmentWrite,
 	ListAvailableCoursesDto,
 	MyCourseRecord,
+	NotifiableParticipant,
 	ParticipantAccount,
 	ParticipantCandidate,
 	ResultWrite,
@@ -85,6 +86,9 @@ export interface IEnrollmentRepository {
 		courseId: number,
 		completedUserIds: readonly number[],
 	): Promise<void>;
+
+	/** Inscritos e invitados pendientes con cuenta activa. */
+	findNotifiableRecipients(courseId: number): Promise<NotifiableParticipant[]>;
 
 	/** Invitaciones pendientes e inscripciones activas de la persona. */
 	findMine(userId: number): Promise<MyCourseRecord[]>;

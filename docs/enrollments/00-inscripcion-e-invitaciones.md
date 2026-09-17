@@ -13,9 +13,6 @@ El módulo `app/modules/enrollments` cubre §6.6 del alcance:
 
 Las decisiones de modelo están en `docs/adr/0004-inscripcion-una-fila-y-cupo-con-bloqueo.md`.
 
-| Pendiente | PRD |
-| --- | --- |
-| Correos de invitación, inscripción y asignación | PRD-08 |
 
 Lo que ya añadieron los PRD siguientes:
 
@@ -24,6 +21,7 @@ Lo que ya añadieron los PRD siguientes:
 | Sesiones inscritas en el calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
 | `result`, `grade`, `completed` y quién capturó el resultado | PRD-06: los escribe `teaching` por `saveResults` y `setCompletion` |
 | "Mis cursos" enseña asistencia, nota, si completó y el diálogo para valorar | PRD-06 (`MyCourseEntry.outcome` y `canRate`) |
+| Correos de invitación, inscripción y asignación | PRD-08 (`docs/notifications/00-notificaciones.md`) |
 
 ## 2. El modelo
 
@@ -100,9 +98,10 @@ pero su loader le responde 403, la misma limitación que ya tiene "Cursos".
 
 ## 7. Lo que queda enganchado
 
-- **PRD-08:** los avisos se disparan tras `enroll`, `assign` e `invite` en
-  `enrollments.service.server.ts`, fuera de la transacción y sin bloquear la
-  operación (§6.12).
+- **PRD-08:** `enroll` y `accept` encolan `ENROLLMENT_CONFIRMED`, `assign` encola
+  `ENROLLMENT_ASSIGNED` por persona y `invite` encola `COURSE_INVITATION` solo
+  para los invitados del lote. Todo **dentro** de la transacción: un aviso no
+  sale de una inscripción revertida ([ADR 0008](../adr/0008-notificaciones-outbox-transaccional.md)).
 - **PRD-05:** el calendario del participante sale de `findMine`, con las
   invitaciones marcadas aparte.
 - **PRD-06:** escribe `result`, `grade` y `completed` en esta fila, y el crédito

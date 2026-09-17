@@ -1,9 +1,13 @@
 import { describe, expect, test } from "vitest";
+import { ANNUAL_PLAN_ERROR_CODES } from "@/modules/annual-plan/domain/annual-plan.errors";
+import type { LockedPlanLine } from "@/modules/annual-plan/domain/annual-plan.types";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
 import { COURSE_ERROR_CODES } from "../../domain/course.errors";
+import { hasScheduleChanges } from "../../domain/course.rules";
 import type {
 	CourseDetail,
 	CreateCourseDto,
@@ -15,6 +19,16 @@ const COURSE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TRAINER_ID = "11111111-1111-4111-8111-111111111111";
 const DEPENDENCY_ID = "22222222-2222-4222-8222-222222222222";
 const GROUP_ID = "33333333-3333-4333-8333-333333333333";
+const LINE_ID = "44444444-4444-4444-8444-444444444444";
+const NOW = new Date("2026-09-16T18:00:00.000Z");
+
+const lineOf = (overrides: Partial<LockedPlanLine> = {}): LockedPlanLine => ({
+	id: 21,
+	cancelledAt: null,
+	plan: { dependencyId: 3, fiscalYear: 2026 },
+	courses: [],
+	...overrides,
+});
 
 const silentLogger: Logger = {
 	debug: () => {},
@@ -45,7 +59,7 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	enrollmentDeadline: null,
 	minAttendance: 80,
 	requiresEvaluation: false,
-	planLineId: null,
+	planLine: null,
 	publishedAt: null,
 	cancelledAt: null,
 	sessions: [
@@ -119,10 +133,20 @@ const createHarness = (
 		eligibleGroups?: number;
 		dependencyArchived?: boolean;
 		enrolled?: number;
+		planLine?: LockedPlanLine | null;
+		recipients?: {
+			email: string;
+			firstName: string | null;
+			lastName: string | null;
+		}[];
 	} = {},
 ) => {
+	let inTransaction = false;
+	let txDepth = 0;
 	const calls = {
+		notified: [] as { events: NotificationEvent[]; inTransaction: boolean }[],
 		transactions: 0,
+		lineLocks: [] as { documentId: string; inTransaction: boolean }[],
 		lockedCourses: [] as number[],
 		created: [] as unknown[],
 		updated: [] as unknown[],
@@ -206,24 +230,60 @@ const createHarness = (
 	} as unknown as ICradle["groupRepository"];
 
 	const enrollmentRepository = {
+		findNotifiableRecipients: async () =>
+			options.recipients ?? [
+				{
+					email: "diana.sop@instituto.gob.mx",
+					firstName: "Diana",
+					lastName: "Sánchez",
+				},
+			],
 		lockCourseSeats: async (courseId: number) => {
 			calls.lockedCourses.push(courseId);
 			return { capacity: null, enrolled: options.enrolled ?? 0 };
 		},
 	} as unknown as ICradle["enrollmentRepository"];
 
+	const annualPlanRepository = {
+		lockLineForCourse: async (documentId: string) => {
+			calls.lineLocks.push({ documentId, inTransaction });
+			return options.planLine === undefined ? lineOf() : options.planLine;
+		},
+	} as unknown as ICradle["annualPlanRepository"];
+
 	const runInTransaction = (async <T>(callback: () => Promise<T>) => {
 		calls.transactions += 1;
-		return callback();
+		inTransaction = true;
+		txDepth += 1;
+		try {
+			return await callback();
+		} finally {
+			inTransaction = false;
+			txDepth -= 1;
+		}
 	}) as unknown as ICradle["runInTransaction"];
 
+	const notificationService = {
+		notify: async (events: NotificationEvent[]) => {
+			calls.notified.push({ events, inTransaction: txDepth > 0 });
+			return {
+				success: true as const,
+				data: { queued: events.length },
+				timestamp: new Date().toISOString(),
+			};
+		},
+	} as unknown as ICradle["notificationService"];
+
 	const service = createCourseService({
+		notificationService,
 		courseRepository,
 		dependencyRepository,
 		trainerRepository,
 		groupRepository,
 		enrollmentRepository,
+		annualPlanRepository,
 		runInTransaction,
+		clock: { now: () => NOW },
 		logger: silentLogger,
 	});
 
@@ -242,6 +302,91 @@ describe("coursesService.list", () => {
 		if (result.success) {
 			expect(result.pagination).toMatchObject({ page: 1, pageSize: 10 });
 		}
+	});
+});
+
+describe("coursesService.create desde una línea del plan", () => {
+	test("bloquea la línea dentro de la transacción y guarda el vínculo", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			dtoOf({ planLine: LINE_ID }),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.lineLocks).toEqual([
+			{ documentId: LINE_ID, inTransaction: true },
+		]);
+		expect(calls.created[0]).toMatchObject({ planLineId: 21 });
+	});
+
+	test("sin línea no toca el plan y el vínculo queda en null", async () => {
+		const { service, calls } = createHarness();
+
+		await service.create(dtoOf(), actorOf());
+
+		expect(calls.lineLocks).toEqual([]);
+		expect(calls.created[0]).toMatchObject({ planLineId: null });
+	});
+
+	test("una línea de otra dependencia se ve como inexistente", async () => {
+		const { service, calls } = createHarness({
+			planLine: lineOf({ plan: { dependencyId: 4, fiscalYear: 2026 } }),
+		});
+
+		const result = await service.create(
+			dtoOf({ planLine: LINE_ID }),
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.PLAN_LINE_NOT_FOUND },
+		});
+		expect(calls.created).toEqual([]);
+	});
+
+	test("una línea con curso activo, cancelada o de un plan pasado no admite otro", async () => {
+		const cases = [
+			[
+				lineOf({ courses: [{ status: "DRAFT" }] }),
+				ANNUAL_PLAN_ERROR_CODES.LINE_HAS_ACTIVE_COURSE,
+			],
+			[
+				lineOf({ cancelledAt: new Date("2026-08-01") }),
+				ANNUAL_PLAN_ERROR_CODES.LINE_CANCELLED,
+			],
+			[
+				lineOf({ plan: { dependencyId: 3, fiscalYear: 2025 } }),
+				ANNUAL_PLAN_ERROR_CODES.READ_ONLY,
+			],
+		] as const;
+
+		for (const [planLine, code] of cases) {
+			const { service, calls } = createHarness({ planLine });
+
+			const result = await service.create(
+				dtoOf({ planLine: LINE_ID }),
+				actorOf(),
+			);
+
+			expect(result).toMatchObject({ success: false, error: { code } });
+			expect(calls.created).toEqual([]);
+		}
+	});
+
+	test("un curso cancelado en la línea no la ocupa", async () => {
+		const { service } = createHarness({
+			planLine: lineOf({ courses: [{ status: "CANCELLED" }] }),
+		});
+
+		const result = await service.create(
+			dtoOf({ planLine: LINE_ID }),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
 	});
 });
 
@@ -602,5 +747,143 @@ describe("coursesService.listFormOptions", () => {
 		expect(calls.groupScopes).toEqual([
 			{ kind: "dependency", dependencyId: 3 },
 		]);
+	});
+});
+
+describe("avisos de cambios y cancelación (§6.12)", () => {
+	const publishedWithSession = () =>
+		courseOf({
+			status: "PUBLISHED",
+			sessions: [
+				{
+					id: 1,
+					documentId: "ses-1",
+					startsAt: new Date("2026-10-05T16:00:00.000Z"),
+					endsAt: new Date("2026-10-05T20:00:00.000Z"),
+					venue: "Sala A",
+					link: null,
+				},
+			],
+		});
+
+	const sameSession = {
+		documentId: "ses-1",
+		date: "2026-10-05",
+		startTime: "09:00",
+		endTime: "13:00",
+		venue: "Sala A",
+	};
+
+	test("cambiar la sede de un publicado avisa dentro de la transacción", async () => {
+		const { service, calls } = createHarness({
+			course: publishedWithSession(),
+		});
+
+		await service.update(
+			COURSE_ID,
+			dtoOf({ sessions: [{ ...sameSession, venue: "Sala B" }] }),
+			actorOf(),
+		);
+
+		expect(calls.notified).toHaveLength(1);
+		expect(calls.notified[0].inTransaction).toBe(true);
+		expect(calls.notified[0].events[0]).toMatchObject({
+			template: "COURSE_UPDATED",
+			to: { email: "diana.sop@instituto.gob.mx" },
+		});
+	});
+
+	test("cambiar solo el título no avisa", async () => {
+		const { service, calls } = createHarness({
+			course: publishedWithSession(),
+		});
+
+		await service.update(
+			COURSE_ID,
+			dtoOf({ title: "Otro título", sessions: [sameSession] }),
+			actorOf(),
+		);
+
+		expect(calls.notified).toEqual([]);
+	});
+
+	test("un borrador no avisa aunque cambien sus sesiones", async () => {
+		const { service, calls } = createHarness({
+			course: { ...publishedWithSession(), status: "DRAFT" },
+		});
+
+		await service.update(
+			COURSE_ID,
+			dtoOf({ sessions: [{ ...sameSession, venue: "Sala B" }] }),
+			actorOf(),
+		);
+
+		expect(calls.notified).toEqual([]);
+	});
+
+	test("cancelar un publicado avisa a inscritos e invitados; un borrador no", async () => {
+		const published = createHarness({
+			course: courseOf({ status: "PUBLISHED" }),
+		});
+		const draft = createHarness({ course: courseOf({ status: "DRAFT" }) });
+
+		await published.service.cancel(COURSE_ID, actorOf());
+		await draft.service.cancel(COURSE_ID, actorOf());
+
+		expect(published.calls.notified[0]).toMatchObject({
+			inTransaction: true,
+			events: [{ template: "COURSE_CANCELLED" }],
+		});
+		expect(draft.calls.notified).toEqual([]);
+	});
+
+	test("sin inscritos ni invitados no se encola nada", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "PUBLISHED" }),
+			recipients: [],
+		});
+
+		await service.cancel(COURSE_ID, actorOf());
+
+		expect(calls.notified).toEqual([]);
+	});
+});
+
+describe("hasScheduleChanges", () => {
+	const session = {
+		documentId: "a",
+		startsAt: new Date("2026-10-05T16:00:00.000Z"),
+		endsAt: new Date("2026-10-05T20:00:00.000Z"),
+		venue: "Sala A",
+		link: null,
+	};
+
+	test("detecta alta, baja, horario, sede y enlace", () => {
+		expect(hasScheduleChanges([session], [session])).toBe(false);
+		expect(
+			hasScheduleChanges(
+				[session],
+				[session, { ...session, documentId: undefined }],
+			),
+		).toBe(true);
+		expect(hasScheduleChanges([session], [])).toBe(true);
+		expect(
+			hasScheduleChanges(
+				[session],
+				[{ ...session, endsAt: new Date("2026-10-05T21:00:00.000Z") }],
+			),
+		).toBe(true);
+		expect(
+			hasScheduleChanges([session], [{ ...session, venue: "Sala B" }]),
+		).toBe(true);
+		expect(
+			hasScheduleChanges([session], [{ ...session, link: "https://meet" }]),
+		).toBe(true);
+	});
+
+	test("una sesión con documentId ajeno cuenta como alta", () => {
+		expect(
+			hasScheduleChanges([session], [{ ...session, documentId: "otro" }]),
+		).toBe(true);
 	});
 });

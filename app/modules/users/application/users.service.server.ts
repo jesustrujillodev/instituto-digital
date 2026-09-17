@@ -49,6 +49,8 @@ type Dependencies = {
 	// `env` ni conoce el nombre de la variable (docs/reglas.md §11.4).
 	storageBucket: ICradle["storageBucket"];
 	storagePublicBucket: ICradle["storagePublicBucket"];
+	notificationService: ICradle["notificationService"];
+	runInTransaction: ICradle["runInTransaction"];
 	logger: ICradle["logger"];
 };
 
@@ -60,6 +62,8 @@ export const createUserService = ({
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
+	notificationService,
+	runInTransaction,
 	logger,
 }: Dependencies): IUserService => {
 	const log = logger.child({ module: "users" });
@@ -212,11 +216,20 @@ export const createUserService = ({
 				// contraseña en claro; lo que se persiste lleva el id interno y el hash.
 				const { dependency: _dependency, password, ...rest } = dto;
 
+				const hashedPassword = await passwordService.hash(password);
+
 				return ok(
-					await userRepository.create({
-						...rest,
-						password: await passwordService.hash(password),
-						dependencyId,
+					await runInTransaction(async () => {
+						const created = await userRepository.create({
+							...rest,
+							password: hashedPassword,
+							dependencyId,
+						});
+						// El aviso nunca lleva la contraseña: se entrega por canal privado (§6.1).
+						await notificationService.notify([
+							{ template: "ACCOUNT_CREATED", to: created },
+						]);
+						return created;
 					}),
 				);
 			});
@@ -298,7 +311,16 @@ export const createUserService = ({
 				const { user, scope } = await requireManageable(documentId, actor);
 
 				const hashedPassword = await passwordService.hash(newPassword);
-				await userRepository.updatePassword(documentId, hashedPassword, scope);
+				await runInTransaction(async () => {
+					await userRepository.updatePassword(
+						documentId,
+						hashedPassword,
+						scope,
+					);
+					await notificationService.notify([
+						{ template: "PASSWORD_RESET", to: user },
+					]);
+				});
 
 				return ok(user);
 			});
@@ -406,13 +428,33 @@ export const createUserService = ({
 				// cierra sesiones: una línea de historial sin cambio sería ruido.
 				if (user.dependencyId === dependency.id) return ok(user);
 
-				const updated = await userRepository.changeDependency({
-					documentId,
-					toDependencyId: dependency.id,
-					changedById: actor.userId,
-					// Auxiliar y titular son cargos DE una dependencia: se pierden al salir.
-					nextRole: roleAfterDependencyChange(user.role),
-					scope,
+				const fromDependency =
+					!isSelf && user.dependencyId !== null
+						? await dependencyRepository.findByInternalId(user.dependencyId)
+						: null;
+
+				const updated = await runInTransaction(async () => {
+					const moved = await userRepository.changeDependency({
+						documentId,
+						toDependencyId: dependency.id,
+						changedById: actor.userId,
+						// Auxiliar y titular son cargos DE una dependencia: se pierden al salir.
+						nextRole: roleAfterDependencyChange(user.role),
+						scope,
+					});
+					// Quien se cambia a sí mismo ya lo sabe: solo se avisa del traslado
+					// que hizo un administrador (§6.12).
+					if (!isSelf) {
+						await notificationService.notify([
+							{
+								template: "DEPENDENCY_CHANGED",
+								to: moved,
+								fromDependency: fromDependency?.name ?? null,
+								toDependency: dependency.name,
+							},
+						]);
+					}
+					return moved;
 				});
 
 				// El claim `dependencyId` viaja firmado: sin revocar, el alcance nuevo no

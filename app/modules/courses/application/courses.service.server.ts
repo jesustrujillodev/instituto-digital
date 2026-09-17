@@ -1,5 +1,12 @@
 import { endOfZonedDay, zonedInputToUtc } from "@/lib/date-utils";
+import { assertLineAvailableForCourse } from "@/modules/annual-plan/domain/annual-plan.rules";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { NotifiableParticipant } from "@/modules/enrollments/domain/enrollment.types";
+import {
+	toNotifiedCourse,
+	toNotifiedSessions,
+} from "@/modules/notifications/domain/notification.mapper";
+import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -18,6 +25,7 @@ import {
 	CourseNotEditableError,
 	CourseNotFoundError,
 	CourseOrganizerRequiredError,
+	CoursePlanLineNotFoundError,
 	CourseUnknownAudienceError,
 	CourseUnknownTrainerError,
 } from "../domain/course.errors";
@@ -29,6 +37,7 @@ import {
 	assertSessionRange,
 	canCancel,
 	canEdit,
+	hasScheduleChanges,
 } from "../domain/course.rules";
 import type { ICourseService } from "../domain/course.service";
 import type {
@@ -46,7 +55,10 @@ type Dependencies = {
 	trainerRepository: ICradle["trainerRepository"];
 	groupRepository: ICradle["groupRepository"];
 	enrollmentRepository: ICradle["enrollmentRepository"];
+	annualPlanRepository: ICradle["annualPlanRepository"];
+	notificationService: ICradle["notificationService"];
 	runInTransaction: ICradle["runInTransaction"];
+	clock: ICradle["clock"];
 	logger: ICradle["logger"];
 };
 
@@ -59,7 +71,10 @@ export const createCourseService = ({
 	trainerRepository,
 	groupRepository,
 	enrollmentRepository,
+	annualPlanRepository,
+	notificationService,
 	runInTransaction,
+	clock,
 	logger,
 }: Dependencies): ICourseService => {
 	const log = logger.child({ module: "courses" });
@@ -109,6 +124,36 @@ export const createCourseService = ({
 		if (dependency.archivedAt) throw new CourseDependencyInactiveError();
 
 		return dependencyId;
+	};
+
+	/** Avisa a inscritos e invitados pendientes, dentro de la transacción en curso. */
+	const notifyEnrolled = async (
+		courseId: number,
+		eventOf: (to: NotifiableParticipant) => NotificationEvent,
+	) => {
+		const recipients =
+			await enrollmentRepository.findNotifiableRecipients(courseId);
+		if (recipients.length > 0) {
+			await notificationService.notify(recipients.map(eventOf));
+		}
+	};
+
+	/**
+	 * La línea del plan que el curso va a ocupar, con su fila bloqueada: dos
+	 * altas simultáneas sobre la misma línea no pueden pasar las dos la
+	 * comprobación de que no tiene curso activo (docs/adr/0007).
+	 */
+	const claimPlanLine = async (
+		lineDocumentId: string,
+		dependencyId: number,
+	): Promise<number> => {
+		const line = await annualPlanRepository.lockLineForCourse(lineDocumentId);
+		if (!line || line.plan.dependencyId !== dependencyId) {
+			throw new CoursePlanLineNotFoundError();
+		}
+		assertLineAvailableForCourse(line, line.plan, clock.now());
+
+		return line.id;
 	};
 
 	/**
@@ -265,11 +310,14 @@ export const createCourseService = ({
 				// Curso, sesiones, capacitadores y audiencia son una sola escritura
 				// (reglas §8.1): un curso a medias no es un borrador, es basura.
 				return ok(
-					await runInTransaction(() =>
+					await runInTransaction(async () =>
 						courseRepository.create({
 							...data,
 							dependencyId,
 							createdById: actor.userId,
+							planLineId: dto.planLine
+								? await claimPlanLine(dto.planLine, dependencyId)
+								: null,
 						}),
 					),
 				);
@@ -293,7 +341,24 @@ export const createCourseService = ({
 						);
 						assertCapacityCovers(data.capacity, enrolled);
 
-						return courseRepository.update(documentId, data, scope);
+						const updated = await courseRepository.update(
+							documentId,
+							data,
+							scope,
+						);
+						if (
+							course.status === "PUBLISHED" &&
+							hasScheduleChanges(course.sessions, data.sessions)
+						) {
+							await notifyEnrolled(course.id, (to) => ({
+								template: "COURSE_UPDATED",
+								to,
+								course: toNotifiedCourse(updated),
+								sessions: toNotifiedSessions(updated.sessions),
+							}));
+						}
+
+						return updated;
 					}),
 				);
 			});
@@ -319,7 +384,20 @@ export const createCourseService = ({
 					throw new CourseInvalidTransitionError(course.status, "CANCELLED");
 				}
 
-				return ok(await courseRepository.cancel(documentId, scope));
+				return ok(
+					await runInTransaction(async () => {
+						const cancelled = await courseRepository.cancel(documentId, scope);
+						// Un borrador no tiene inscritos ni invitados a quienes avisar.
+						if (course.status === "PUBLISHED") {
+							await notifyEnrolled(course.id, (to) => ({
+								template: "COURSE_CANCELLED",
+								to,
+								course: toNotifiedCourse(course),
+							}));
+						}
+						return cancelled;
+					}),
+				);
 			});
 		},
 	};
