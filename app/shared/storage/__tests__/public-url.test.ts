@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { createAssetUrlResolver, toProxyRef } from "../public-url";
+import {
+	createAssetUrlResolver,
+	resolveAssetRef,
+	toProxyRef,
+} from "../public-url";
 
 describe("createAssetUrlResolver — sin dominio público", () => {
 	// REGRESIÓN: es el modo por defecto del proyecto (un bucket, todo por el
@@ -70,5 +74,20 @@ describe("createAssetUrlResolver — con dominio público", () => {
 		expect(
 			createAssetUrlResolver("http://localhost:9000/publico")("media/x.jpg"),
 		).toBe("http://localhost:9000/publico/media/x.jpg");
+	});
+});
+
+describe("resolveAssetRef", () => {
+	const resolve = createAssetUrlResolver("https://cdn.ejemplo.com");
+
+	test("traduce la referencia del proxy a la URL con la que se pinta", () => {
+		expect(
+			resolveAssetRef(resolve, toProxyRef("course-covers/curso.webp")),
+		).toBe(resolve("course-covers/curso.webp"));
+	});
+
+	test("sin referencia, o con una que no se reconoce, no hay URL", () => {
+		expect(resolveAssetRef(resolve, null)).toBeNull();
+		expect(resolveAssetRef(resolve, "https://otro.com/x.jpg")).toBeNull();
 	});
 });

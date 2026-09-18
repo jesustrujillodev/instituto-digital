@@ -12,7 +12,7 @@ describe("COURSE_LIST_DEFAULTS", () => {
 	// Fuente única: loader, servicio y repositorio. Dos defaults distintos
 	// producen una `pagination` que no describe la página consultada.
 	test("es la fuente única de la paginación del listado", () => {
-		expect(COURSE_LIST_DEFAULTS).toEqual({ page: 1, pageSize: 10 });
+		expect(COURSE_LIST_DEFAULTS).toEqual({ page: 1, pageSize: 12 });
 	});
 });
 

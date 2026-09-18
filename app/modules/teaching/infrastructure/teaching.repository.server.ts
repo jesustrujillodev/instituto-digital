@@ -1,9 +1,11 @@
 import { Prisma } from "@prisma/client";
 import type { ICradle } from "@/shared/di/container.types";
+import { resolveAssetRef } from "@/shared/storage/public-url";
 import type { TeachingCourseWhere } from "../domain/teaching.access";
 import {
 	TEACHABLE_STATUSES,
 	TEACHING_LIST_DEFAULTS,
+	TEACHING_SORT_DEFAULT,
 } from "../domain/teaching.config";
 import {
 	toTeachingCourse,
@@ -14,6 +16,7 @@ import type { ListTeachingCoursesDto } from "../domain/teaching.types";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
+	assetUrlResolver: ICradle["assetUrlResolver"];
 };
 
 const PERSON_SELECT = {
@@ -107,8 +110,21 @@ const listWhere = (
 	],
 });
 
+/** Desempate por la última modificación: el orden de una página no baila. */
+const toOrderBy = (
+	filters: ListTeachingCoursesDto,
+): Prisma.CourseOrderByWithRelationInput[] => {
+	const sortBy = filters.sortBy ?? TEACHING_SORT_DEFAULT.sortBy;
+	const sortDir = filters.sortDir ?? TEACHING_SORT_DEFAULT.sortDir;
+
+	return sortBy === "updatedAt"
+		? [{ updatedAt: sortDir }]
+		: [{ [sortBy]: sortDir }, { updatedAt: "desc" }];
+};
+
 export const createTeachingRepository = ({
 	prisma,
+	assetUrlResolver,
 }: Dependencies): ITeachingRepository => ({
 	async findCourses(filters, where) {
 		const page = filters.page ?? TEACHING_LIST_DEFAULTS.page;
@@ -116,13 +132,13 @@ export const createTeachingRepository = ({
 
 		const rows = await prisma.course.findMany({
 			where: listWhere(filters, where),
-			// Publicados primero: son los que todavía piden lista o cierre.
-			orderBy: [{ status: "desc" }, { updatedAt: "desc" }],
+			orderBy: toOrderBy(filters),
 			skip: (page - 1) * pageSize,
 			take: pageSize,
 			select: {
 				documentId: true,
 				title: true,
+				coverImageUrl: true,
 				dependency: { select: { name: true } },
 				modality: true,
 				status: true,
@@ -131,7 +147,11 @@ export const createTeachingRepository = ({
 			},
 		});
 
-		return rows.map(toTeachingCourseSummary);
+		return rows.map((row) =>
+			toTeachingCourseSummary(row, (reference) =>
+				resolveAssetRef(assetUrlResolver, reference),
+			),
+		);
 	},
 
 	async countCourses(filters, where) {

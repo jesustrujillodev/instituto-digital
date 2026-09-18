@@ -29,6 +29,8 @@ interface CatalogToolbarProps {
 	organizers: CourseOrganizerOption[];
 	onFilterChange: (patch: Record<string, string | null>) => void;
 	onClear: () => void;
+	/** Va al extremo derecho: el conmutador de disposición. */
+	aside?: React.ReactNode;
 }
 
 export function CatalogToolbar({
@@ -38,6 +40,7 @@ export function CatalogToolbar({
 	organizers,
 	onFilterChange,
 	onClear,
+	aside,
 }: CatalogToolbarProps) {
 	const hasFilters = Boolean(
 		searchTerm || filters.modality || filters.dependency,
@@ -111,6 +114,17 @@ export function CatalogToolbar({
 					<X className="size-4" />
 					Limpiar
 				</Button>
+			)}
+
+			{aside && (
+				<div
+					className={cn(
+						"flex justify-end",
+						organizers.length < 2 && "md:ml-auto",
+					)}
+				>
+					{aside}
+				</div>
 			)}
 		</div>
 	);

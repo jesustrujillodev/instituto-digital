@@ -1,9 +1,12 @@
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
+import { resolveAssetRef } from "@/shared/storage/public-url";
+import { readViewMode, VIEW_MODE_SCREENS } from "@/shared/view-mode/view-mode";
 import { canChooseOrganizer } from "../../domain/course.access";
 import { COURSE_LIST_DEFAULTS } from "../../domain/course.config";
 import { validateListCourses } from "../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../utils/course-error-messages";
+import { toCourseCards } from "../../utils/to-course-cards";
 import { requireCourseScope } from "../require-course-scope.server";
 import type { Route } from "./+types/index";
 
@@ -49,7 +52,9 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 
 	return ok(
 		{
-			courses: result.data,
+			courses: toCourseCards(result.data, (reference) =>
+				resolveAssetRef(context.assetUrlResolver, reference),
+			),
 			canFilterByDependency: isGlobal,
 			dependencies: dependencies?.success
 				? dependencies.data.map(({ documentId, name }) => ({
@@ -66,6 +71,10 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 				sortBy: filters.sortBy ?? "createdAt",
 				sortDir: filters.sortDir ?? "desc",
 			},
+			view: readViewMode(
+				request.headers.get("Cookie"),
+				VIEW_MODE_SCREENS.courses,
+			),
 		},
 		{ pagination: result.pagination },
 	);

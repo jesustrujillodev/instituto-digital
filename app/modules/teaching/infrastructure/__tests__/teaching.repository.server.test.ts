@@ -41,6 +41,7 @@ const createHarness = (
 				},
 			},
 		} as unknown as ICradle["prisma"],
+		assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
 	});
 
 	return { repository, calls };
@@ -101,6 +102,33 @@ describe("findCourses", () => {
 			skip: 5,
 			take: 5,
 		});
+	});
+
+	test("sin orden pedido, los publicados van primero", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findCourses({}, WHERE);
+
+		expect(calls.findMany[0].orderBy).toEqual([
+			{ status: "desc" },
+			{ updatedAt: "desc" },
+		]);
+	});
+
+	test("el orden pedido manda y la última modificación desempata", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findCourses({ sortBy: "title", sortDir: "asc" }, WHERE);
+		await repository.findCourses(
+			{ sortBy: "updatedAt", sortDir: "desc" },
+			WHERE,
+		);
+
+		expect(calls.findMany[0].orderBy).toEqual([
+			{ title: "asc" },
+			{ updatedAt: "desc" },
+		]);
+		expect(calls.findMany[1].orderBy).toEqual([{ updatedAt: "desc" }]);
 	});
 });
 

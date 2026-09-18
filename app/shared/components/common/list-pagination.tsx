@@ -14,7 +14,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
-import { AVAILABLE_PAGE_SIZES } from "../domain/enrollment.config";
 
 /** Páginas a mostrar alrededor de la actual, sin contar los extremos. */
 const WINDOW = 1;
@@ -48,23 +47,25 @@ const pagesFor = (page: number, pageCount: number): PageSlot[] => {
 	});
 };
 
-interface CatalogPaginationProps {
+interface ListPaginationProps {
 	page: number;
 	pageSize: number;
 	pageCount: number;
 	total: number;
+	pageSizes: readonly number[];
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
 }
 
-export function CatalogPagination({
+export function ListPagination({
 	page,
 	pageSize,
 	pageCount,
 	total,
+	pageSizes,
 	onPageChange,
 	onPageSizeChange,
-}: CatalogPaginationProps) {
+}: ListPaginationProps) {
 	const from = (page - 1) * pageSize + 1;
 	const to = Math.min(page * pageSize, total);
 
@@ -149,7 +150,7 @@ export function CatalogPagination({
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						{AVAILABLE_PAGE_SIZES.map((size) => (
+						{pageSizes.map((size) => (
 							<SelectItem key={size} value={String(size)}>
 								{size}
 							</SelectItem>

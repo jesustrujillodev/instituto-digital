@@ -98,11 +98,13 @@ de grupos no es gratis.
 
 | Pieza | Dónde |
 | --- | --- |
-| Tarjeta y su silueta de carga | `components/course-card.tsx` |
+| Tarjeta del catálogo | `components/course-card.tsx` |
+| Marco de tarjeta en cuadrícula o lista, y su silueta | `courses/components/course-card-frame.tsx` |
 | Portada o placa generada | `components/course-cover.tsx` |
 | Variante determinista de la placa | `utils/course-cover-pattern.ts` |
 | Buscador, chips y dependencia | `components/catalog-toolbar.tsx` |
-| Paginación con su ventana | `components/catalog-pagination.tsx` |
+| Paginación con su ventana | `shared/components/common/list-pagination.tsx` |
+| Cuadrícula o lista, recordada por cookie | `shared/view-mode/view-mode.ts` |
 
 - **La portada se resuelve al pintar, no al guardar.** El repositorio recibe
   `assetUrlResolver` por el cradle y traduce la referencia del proxy a la URL del

@@ -103,6 +103,7 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 export interface TeachingCourseSummaryRaw {
 	documentId: string;
 	title: string;
+	coverImageUrl: string | null;
 	dependency: { name: string };
 	modality: CourseModality;
 	status: CourseStatus;
@@ -110,11 +111,17 @@ export interface TeachingCourseSummaryRaw {
 	_count: { enrollments: number };
 }
 
+/**
+ * `resolveCover` llega como argumento: conoce el dominio público configurado,
+ * que es infraestructura, y el mapper tiene que seguir siendo puro.
+ */
 export const toTeachingCourseSummary = (
 	raw: TeachingCourseSummaryRaw,
+	resolveCover: (reference: string | null) => string | null,
 ): TeachingCourseSummary => ({
 	documentId: raw.documentId,
 	title: raw.title,
+	coverUrl: resolveCover(raw.coverImageUrl),
 	dependencyName: raw.dependency.name,
 	modality: raw.modality,
 	status: raw.status,

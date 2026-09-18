@@ -9,6 +9,19 @@ export const TEACHING_LIST_DEFAULTS = {
 /** Múltiplos de 2, 3 y 4: ninguna columna de la cuadrícula queda coja. */
 export const TEACHING_PAGE_SIZES = [12, 24, 48] as const;
 
+/**
+ * Campos ordenables. Es una allowlist: el valor llega del query string y acaba
+ * en un `orderBy`.
+ */
+export const TEACHING_SORT_FIELDS = ["status", "title", "updatedAt"] as const;
+export type TeachingSortField = (typeof TEACHING_SORT_FIELDS)[number];
+
+/** Publicados primero: son los que todavía piden lista o cierre. */
+export const TEACHING_SORT_DEFAULT = {
+	sortBy: "status",
+	sortDir: "desc",
+} as const satisfies { sortBy: TeachingSortField; sortDir: "asc" | "desc" };
+
 /** Un borrador no se imparte y un cancelado ya no: solo estos pasan lista. */
 export const TEACHABLE_STATUSES = [
 	"PUBLISHED",

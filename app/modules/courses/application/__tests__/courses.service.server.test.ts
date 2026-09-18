@@ -331,7 +331,7 @@ describe("coursesService.list", () => {
 		expect(result.success).toBe(true);
 		expect(calls.listScopes).toEqual([scope, scope]);
 		if (result.success) {
-			expect(result.pagination).toMatchObject({ page: 1, pageSize: 10 });
+			expect(result.pagination).toMatchObject({ page: 1, pageSize: 12 });
 		}
 	});
 });

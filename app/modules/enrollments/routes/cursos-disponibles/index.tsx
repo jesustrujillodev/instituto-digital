@@ -3,7 +3,13 @@ export { loader } from "./index.loader";
 import { BookOpen, SearchX } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigation, useSearchParams } from "react-router";
+import {
+	CourseCardList,
+	CourseCardSkeleton,
+} from "@/modules/courses/components/course-card-frame";
+import { ListPagination } from "@/shared/components/common/list-pagination";
 import { PageHeader } from "@/shared/components/common/page-header";
+import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Empty,
@@ -13,10 +19,11 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
+import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
-import { CatalogPagination } from "../../components/catalog-pagination";
+import { VIEW_MODE_SCREENS } from "@/shared/view-mode/view-mode";
 import { ALL, CatalogToolbar } from "../../components/catalog-toolbar";
-import { CourseCard, CourseCardSkeleton } from "../../components/course-card";
+import { CourseCard } from "../../components/course-card";
 import {
 	AVAILABLE_LIST_DEFAULTS,
 	AVAILABLE_PAGE_SIZES,
@@ -46,9 +53,10 @@ export default function CursosDisponiblesPage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { courses, organizers, filters },
+		data: { courses, organizers, filters, view },
 		pagination,
 	} = loaderData;
+	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.available, view);
 	const [, setSearchParams] = useSearchParams();
 	const navigation = useNavigation();
 	const location = useLocation();
@@ -119,6 +127,7 @@ export default function CursosDisponiblesPage({
 					organizers={organizers}
 					onFilterChange={updateParams}
 					onClear={clearFilters}
+					aside={<ViewModeToggle value={layout} onChange={setLayout} />}
 				/>
 
 				{/* La región viva se monta SIEMPRE y solo cambia su texto: insertar
@@ -133,34 +142,39 @@ export default function CursosDisponiblesPage({
 				</p>
 
 				{isLoading ? (
-					<CardGrid>
+					<CourseCardList layout={layout}>
 						{SKELETON_KEYS.slice(
 							0,
 							pagination?.pageSize ?? AVAILABLE_LIST_DEFAULTS.pageSize,
 						).map((key) => (
 							<li key={key}>
-								<CourseCardSkeleton />
+								<CourseCardSkeleton layout={layout} />
 							</li>
 						))}
-					</CardGrid>
+					</CourseCardList>
 				) : courses.length === 0 ? (
 					<CatalogEmpty hasFilters={hasFilters} onClear={clearFilters} />
 				) : (
-					<CardGrid>
+					<CourseCardList layout={layout}>
 						{courses.map((course, index) => (
 							<li key={course.documentId}>
-								<CourseCard course={course} eager={index < EAGER_COVERS} />
+								<CourseCard
+									course={course}
+									layout={layout}
+									eager={index < EAGER_COVERS}
+								/>
 							</li>
 						))}
-					</CardGrid>
+					</CourseCardList>
 				)}
 
 				{pagination && pagination.total > 0 && (
-					<CatalogPagination
+					<ListPagination
 						page={pagination.page}
 						pageSize={pagination.pageSize}
 						pageCount={pagination.totalPages}
 						total={pagination.total}
+						pageSizes={AVAILABLE_PAGE_SIZES}
 						onPageChange={(nextPage) => updateParams({ page: nextPage })}
 						onPageSizeChange={(nextSize) =>
 							updateParams({ pageSize: nextSize, page: null })
@@ -169,14 +183,6 @@ export default function CursosDisponiblesPage({
 				)}
 			</div>
 		</div>
-	);
-}
-
-function CardGrid({ children }: { children: React.ReactNode }) {
-	return (
-		<ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-			{children}
-		</ul>
 	);
 }
 

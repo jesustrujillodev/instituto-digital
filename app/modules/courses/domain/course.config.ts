@@ -7,8 +7,11 @@
  */
 export const COURSE_LIST_DEFAULTS = {
 	page: 1,
-	pageSize: 10,
+	pageSize: 12,
 } as const;
+
+/** Múltiplos de 2, 3 y 4: ninguna columna de la cuadrícula queda coja. */
+export const COURSE_PAGE_SIZES = [12, 24, 48] as const;
 
 /**
  * Asistencia mínima por defecto, en porcentaje.

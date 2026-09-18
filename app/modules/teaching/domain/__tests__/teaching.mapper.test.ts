@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { zonedInputToUtc } from "@/lib/date-utils";
 import { resolveTeachingScope } from "../teaching.access";
-import { toTeachingCourse, toTeachingDetail } from "../teaching.mapper";
+import {
+	toTeachingCourse,
+	toTeachingCourseSummary,
+	toTeachingDetail,
+} from "../teaching.mapper";
 import {
 	actorOf,
 	attendanceOf,
@@ -120,5 +124,46 @@ describe("toTeachingCourse", () => {
 			currentDependencyId: null,
 			attendance: [{ sessionId: 1, attended: true }],
 		});
+	});
+});
+
+describe("toTeachingCourseSummary", () => {
+	const raw = {
+		documentId: "curso-1",
+		title: "Atención ciudadana",
+		coverImageUrl: "/api/storage?key=course-covers%2Fa.webp",
+		dependency: { name: "Obras Públicas" },
+		modality: "IN_PERSON" as const,
+		status: "PUBLISHED" as const,
+		sessions: [
+			{ startsAt: new Date("2026-09-01T16:00:00.000Z") },
+			{ startsAt: new Date("2026-09-03T16:00:00.000Z") },
+		],
+		_count: { enrollments: 12 },
+	};
+
+	test("resuelve la portada con el resolutor que recibe", () => {
+		const summary = toTeachingCourseSummary(raw, (reference) =>
+			reference ? `https://cdn.ejemplo.com/${reference.length}` : null,
+		);
+
+		expect(summary.coverUrl).toBe(
+			`https://cdn.ejemplo.com/${raw.coverImageUrl.length}`,
+		);
+		expect(summary).toMatchObject({
+			sessionCount: 2,
+			firstSessionAt: raw.sessions[0].startsAt,
+			lastSessionAt: raw.sessions[1].startsAt,
+			enrolledCount: 12,
+		});
+	});
+
+	test("sin portada guardada la tarjeta recibe null", () => {
+		const summary = toTeachingCourseSummary(
+			{ ...raw, coverImageUrl: null },
+			() => null,
+		);
+
+		expect(summary.coverUrl).toBeNull();
 	});
 });

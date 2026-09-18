@@ -3,12 +3,13 @@ import { startOfZonedDay, zonedYearOf } from "@/lib/date-utils";
 import type { CreditCandidate } from "@/modules/credits/domain/credit.types";
 import { ENROLLMENT_RESULTS } from "@/modules/enrollments/domain/enrollment.config";
 import type { ResultWrite } from "@/modules/enrollments/domain/enrollment.types";
-import { createListRule } from "@/shared/rules/list.rules";
+import { createListRule, SORT_DIRECTIONS } from "@/shared/rules/list.rules";
 import { canCorrect, type TeachingScope } from "./teaching.access";
 import {
 	type FinishBlocker,
 	TEACHABLE_STATUSES,
 	TEACHING_BATCH_LIMIT,
+	TEACHING_SORT_FIELDS,
 } from "./teaching.config";
 import {
 	TeachingCorrectionForbiddenError,
@@ -36,6 +37,8 @@ export const findTeachingCourseRule = v.object({ documentId });
 
 export const listTeachingCoursesRule = createListRule({
 	status: v.optional(v.picklist(TEACHABLE_STATUSES)),
+	sortBy: v.optional(v.picklist(TEACHING_SORT_FIELDS)),
+	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
 });
 
 export const saveAttendanceRule = v.object({

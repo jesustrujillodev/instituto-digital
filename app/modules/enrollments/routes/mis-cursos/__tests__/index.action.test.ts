@@ -80,6 +80,19 @@ describe("mis-cursos loader", () => {
 			"upcoming",
 			"inProgress",
 			"finished",
+			"view",
 		]);
+	});
+
+	test("pinta la disposición guardada en su cookie", async () => {
+		const { data } = await loader({
+			request: new Request("https://app.example.com/dashboard/mis-cursos", {
+				headers: { Cookie: "vista_mis_cursos=list" },
+			}),
+			context: contextOf([]) as unknown as LoaderArgs["context"],
+			params: {},
+		} as unknown as LoaderArgs);
+
+		expect(data.view).toBe("list");
 	});
 });

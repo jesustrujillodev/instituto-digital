@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { ICradle } from "@/shared/di/container.types";
-import { getKeyFromUrl } from "@/shared/storage/storage.utils";
+import { resolveAssetRef } from "@/shared/storage/public-url";
 import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	AVAILABLE_LIST_DEFAULTS,
@@ -147,7 +147,7 @@ export const createEnrollmentRepository = ({
 	assetUrlResolver,
 }: Dependencies): IEnrollmentRepository => {
 	const resolveCover = (reference: string | null) =>
-		reference ? assetUrlResolver(getKeyFromUrl(reference) ?? "") : null;
+		resolveAssetRef(assetUrlResolver, reference);
 
 	return {
 		async findCourse(documentId, filter) {

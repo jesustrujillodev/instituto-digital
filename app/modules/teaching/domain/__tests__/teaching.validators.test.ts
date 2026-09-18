@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+	validateListTeachingCourses,
 	validateSaveAttendance,
 	validateSaveResults,
 } from "../teaching.validators";
@@ -56,6 +57,24 @@ describe("validateSaveResults", () => {
 			validateSaveResults({
 				entries: [{ userDocumentId: ANA_DOC, result: "PENDING", grade: 70 }],
 			}),
+		).toThrow();
+	});
+});
+
+describe("validateListTeachingCourses", () => {
+	test("acepta los órdenes de la allowlist", () => {
+		expect(
+			validateListTeachingCourses({ sortBy: "title", sortDir: "asc" }),
+		).toMatchObject({ sortBy: "title", sortDir: "asc" });
+	});
+
+	// El valor llega del query string y acaba en un `orderBy`.
+	test("rechaza un campo fuera de la allowlist", () => {
+		expect(() =>
+			validateListTeachingCourses({ sortBy: "enrolledCount" }),
+		).toThrow();
+		expect(() =>
+			validateListTeachingCourses({ sortDir: "sideways" }),
 		).toThrow();
 	});
 });

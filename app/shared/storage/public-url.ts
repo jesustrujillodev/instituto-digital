@@ -9,6 +9,7 @@
 // resolviéndola al pintar, basta con cambiar una variable de entorno.
 
 import { isCdnKey } from "./storage.policy";
+import { getKeyFromUrl } from "./storage.utils";
 
 /** Referencia estable del proxy. Mismo formato que `getPublicUrl`. */
 export const toProxyRef = (key: string): string =>
@@ -42,3 +43,12 @@ export const createAssetUrlResolver = (
 
 /** Tipo del resolutor, para inyectarlo sin repetir la firma. */
 export type AssetUrlResolver = ReturnType<typeof createAssetUrlResolver>;
+
+/** De la referencia persistida a la URL con la que se pinta; `null` si no hay o no se reconoce. */
+export const resolveAssetRef = (
+	resolve: AssetUrlResolver,
+	reference: string | null,
+): string | null => {
+	const key = reference ? getKeyFromUrl(reference) : null;
+	return key ? resolve(key) : null;
+};

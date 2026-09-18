@@ -74,6 +74,8 @@ export interface TeachingCourse {
 export interface TeachingCourseSummary {
 	documentId: string;
 	title: string;
+	/** URL ya resuelta; sin ella la tarjeta pinta la portada generada. */
+	coverUrl: string | null;
 	dependencyName: string;
 	modality: CourseModality;
 	status: CourseStatus;

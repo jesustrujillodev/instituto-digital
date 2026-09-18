@@ -1,5 +1,6 @@
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
+import { readViewMode, VIEW_MODE_SCREENS } from "@/shared/view-mode/view-mode";
 import { AVAILABLE_LIST_DEFAULTS } from "../../domain/enrollment.config";
 import { validateListAvailableCourses } from "../../domain/enrollment.validators";
 import { ENROLLMENT_ERROR_MESSAGES } from "../../utils/enrollment-error-messages";
@@ -40,6 +41,10 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 				modality: filters.modality ?? "",
 				dependency: filters.dependency ?? "",
 			},
+			view: readViewMode(
+				request.headers.get("Cookie"),
+				VIEW_MODE_SCREENS.available,
+			),
 		},
 		{ pagination: result.pagination },
 	);
