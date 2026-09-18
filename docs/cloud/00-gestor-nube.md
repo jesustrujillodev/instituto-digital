@@ -38,10 +38,11 @@ app/modules/cloud/
 └── utils/         cloud-intents · cloud-format · cloud-error-messages · to-cloud-rows
 
 app/modules/users/infrastructure/user-photo.references.server.ts
+app/modules/courses/infrastructure/course-cover.references.server.ts
 ```
 
-**Regla de dependencias:** `cloud` no importa nada de `users` ni de ningún otro
-módulo dueño de datos.
+**Regla de dependencias:** `cloud` no importa nada de `users`, de `courses` ni de
+ningún otro módulo dueño de datos.
 Cada módulo que guarda keys publica una `IObjectReferenceSource` y el composition
 root (`container.server.ts`) las junta en `objectReferenceSources`. El puerto vive
 en `shared/storage` para que los módulos que lo implementan no dependan de `cloud`.

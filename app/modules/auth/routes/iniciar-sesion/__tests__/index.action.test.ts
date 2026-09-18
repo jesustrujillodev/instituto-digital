@@ -43,6 +43,47 @@ const createHarness = (
 const run = (request: Request, context: ActionArgs["context"]) =>
 	action({ request, context } as ActionArgs);
 
+const TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+describe("iniciar-sesion action — redirectTo", () => {
+	// `loginRule` es un `v.object` no-strict: el campo extra pasa la validación
+	// pero se descarta, de ahí que el action lo lea del formData crudo.
+	test("vuelve al escaneo del QR cuando el destino casa con la allowlist", async () => {
+		const { context } = createHarness();
+
+		const thrown = await run(
+			formRequest({
+				email: "ana@empresa.com",
+				password: "contrasena1",
+				redirectTo: `/asistencia/${TOKEN}`,
+			}),
+			context,
+		).catch((e) => e);
+
+		expect(thrown.headers.get("Location")).toBe(`/asistencia/${TOKEN}`);
+	});
+
+	test.each([
+		"https://evil.com",
+		"//evil.com",
+		"/dashboard/usuarios",
+		`/asistencia/${TOKEN}?next=/admin`,
+	])("ignora el destino hostil %s", async (redirectTo) => {
+		const { context } = createHarness();
+
+		const thrown = await run(
+			formRequest({
+				email: "ana@empresa.com",
+				password: "contrasena1",
+				redirectTo,
+			}),
+			context,
+		).catch((e) => e);
+
+		expect(thrown.headers.get("Location")).toBe("/dashboard");
+	});
+});
+
 describe("iniciar-sesion action — success", () => {
 	// El éxito NO devuelve envelope: es un redirect con las cookies de sesión, y
 	// la pantalla de login deja de existir. Solo el fallo tiene forma de respuesta.

@@ -16,14 +16,14 @@ export const action = async ({
 }: Route.ActionArgs): Promise<CourseActionData> => {
 	const { auth } = await requireCourseScope(request, context);
 
-	const { payload } = parseCourseFormData(await request.formData());
+	const { payload, cover } = parseCourseFormData(await request.formData());
 
 	const input = parseInput(() => validateCreateCourse(payload));
 	if (!input.success) return localizeError(input, COURSE_ERROR_MESSAGES);
 
 	// La organizadora solo se toma del formulario para el alcance global; el
 	// servicio la ignora para los demás.
-	const created = await context.courseService.create(input.data, auth);
+	const created = await context.courseService.create(input.data, auth, cover);
 	if (!created.success) return localizeError(created, COURSE_ERROR_MESSAGES);
 
 	return ok(null, { message: "Curso creado en borrador" });

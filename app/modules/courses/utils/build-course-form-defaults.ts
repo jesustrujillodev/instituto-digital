@@ -28,6 +28,8 @@ export interface CourseFormValues {
 	capacity: string;
 	enrollmentDeadline: string;
 	minAttendance: string;
+	qrOpensBeforeMinutes: string;
+	qrClosesAfterMinutes: string;
 	requiresEvaluation: boolean;
 	trainers: string[];
 	audienceDependencies: string[];
@@ -85,6 +87,12 @@ export function buildCourseFormDefaults(
 			course?.minAttendance ?? COURSE_DEFAULTS.minAttendance,
 		),
 		requiresEvaluation: course?.requiresEvaluation ?? false,
+		qrOpensBeforeMinutes: String(
+			course?.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
+		),
+		qrClosesAfterMinutes: String(
+			course?.qrClosesAfterMinutes ?? COURSE_DEFAULTS.qrClosesAfterMinutes,
+		),
 		trainers: course?.trainers.map((trainer) => trainer.userDocumentId) ?? [],
 		audienceDependencies:
 			course?.audience.dependencies.map((entry) => entry.documentId) ?? [],

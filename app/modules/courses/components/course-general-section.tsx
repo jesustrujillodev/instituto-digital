@@ -11,6 +11,7 @@ import type { CourseAudienceOption } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { ACCESS_LABELS, MODALITY_LABELS } from "../utils/course-labels";
+import { CourseCoverField } from "./course-cover-field";
 import { CourseSelectField } from "./course-select-field";
 
 const MODALITY_OPTIONS = COURSE_MODALITIES.map((value) => ({
@@ -27,11 +28,20 @@ interface CourseGeneralSectionProps {
 	ids: CourseFormIds;
 	/** `null` cuando la organizadora no se elige: se hereda del alcance. */
 	organizers: readonly CourseAudienceOption[] | null;
+	/** La portada vive en el orquestador: no participa del esquema del formulario. */
+	cover: {
+		value: File | null;
+		existingUrl: string | null;
+		removed: boolean;
+		onChange: (file: File | null) => void;
+		onRemove: () => void;
+	};
 }
 
 export const CourseGeneralSection = memo(function CourseGeneralSection({
 	ids,
 	organizers,
+	cover,
 }: CourseGeneralSectionProps) {
 	const {
 		register,
@@ -74,6 +84,15 @@ export const CourseGeneralSection = memo(function CourseGeneralSection({
 						rows={3}
 						error={errors.description?.message}
 						{...register("description")}
+					/>
+
+					<CourseCoverField
+						id={ids.cover}
+						value={cover.value}
+						existingUrl={cover.existingUrl}
+						removed={cover.removed}
+						onChange={cover.onChange}
+						onRemove={cover.onRemove}
 					/>
 
 					<div className="grid gap-4 sm:grid-cols-2">
@@ -120,6 +139,26 @@ export const CourseGeneralSection = memo(function CourseGeneralSection({
 							required
 							error={errors.minAttendance?.message}
 							{...register("minAttendance")}
+						/>
+						<TextInput
+							id={ids.qrOpensBeforeMinutes}
+							label="QR: abre antes (min)"
+							type="number"
+							min={0}
+							max={240}
+							helperText="Antes del inicio de cada sesión"
+							error={errors.qrOpensBeforeMinutes?.message}
+							{...register("qrOpensBeforeMinutes")}
+						/>
+						<TextInput
+							id={ids.qrClosesAfterMinutes}
+							label="QR: cierra después (min)"
+							type="number"
+							min={0}
+							max={240}
+							helperText="Después del fin de cada sesión"
+							error={errors.qrClosesAfterMinutes?.message}
+							{...register("qrClosesAfterMinutes")}
 						/>
 					</div>
 

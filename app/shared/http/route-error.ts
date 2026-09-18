@@ -15,6 +15,7 @@ export const HTTP_STATUS = {
 	FORBIDDEN: 403,
 	NOT_FOUND: 404,
 	CONFLICT: 409,
+	TOO_MANY_REQUESTS: 429,
 	INTERNAL_SERVER_ERROR: 500,
 } as const;
 
@@ -86,6 +87,7 @@ const STATUS_TEXT: Record<number, string> = {
 	[HTTP_STATUS.FORBIDDEN]: "Forbidden",
 	[HTTP_STATUS.NOT_FOUND]: "Not Found",
 	[HTTP_STATUS.CONFLICT]: "Conflict",
+	[HTTP_STATUS.TOO_MANY_REQUESTS]: "Too Many Requests",
 	[HTTP_STATUS.INTERNAL_SERVER_ERROR]: "Internal Server Error",
 };
 

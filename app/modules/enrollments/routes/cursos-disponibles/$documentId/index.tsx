@@ -16,6 +16,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
+import { CourseCover } from "../../../components/course-cover";
 import { CourseSessionsList } from "../../../components/course-sessions-list";
 import {
 	EnrollmentOriginBadge,
@@ -121,6 +122,19 @@ export default function CursoDisponiblePage({
 				goBack={LIST_PATH}
 				actions={actions}
 			/>
+
+			{/* 16:9, la misma proporción a la que se recortó al subirla: a 21:9 el
+			    `object-cover` se comía casi una cuarta parte de la imagen y quien
+			    llegó desde la cuadrícula no reconocía del todo la que acaba de tocar. */}
+			<div className="aspect-video w-full overflow-hidden rounded-4xl bg-muted ring-1 ring-foreground/5">
+				<CourseCover
+					documentId={course.documentId}
+					title={course.title}
+					modality={course.modality}
+					src={course.coverUrl}
+					eager
+				/>
+			</div>
 
 			<div className="flex flex-wrap gap-2">
 				<CourseModalityBadge modality={course.modality} />

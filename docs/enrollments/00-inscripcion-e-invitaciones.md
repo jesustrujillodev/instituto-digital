@@ -79,7 +79,7 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 
 | Ruta | Guard | Pantalla |
 | --- | --- | --- |
-| `/dashboard/cursos-disponibles` | `requireParticipant` | Publicados, visibles y con la inscripción abierta |
+| `/dashboard/cursos-disponibles` | `requireParticipant` | Cuadrícula de tarjetas con portada. Publicados, visibles y con la inscripción abierta |
 | `/dashboard/cursos-disponibles/:documentId` | `requireParticipant` | Detalle con sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`, `assign` |
 | `/dashboard/mis-cursos` | `requireParticipant` | Invitaciones pendientes, más próximos, en curso y finalizados. Intents `accept`, `decline` |
 | `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Lista de inscritos e invitados. Intents `invite` y `assign` |
@@ -87,6 +87,51 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 El menú muestra "Cursos disponibles" y "Mis cursos" a `USER`, `DEPENDENCY_HEAD` y
 `DEPENDENCY_DEPUTY`. El capacitador externo tiene rol `USER` y ve los enlaces,
 pero su loader le responde 403, la misma limitación que ya tiene "Cursos".
+
+### 5.1 · El catálogo
+
+Es la única pantalla del panel donde el participante **elige** en vez de
+administrar, y por eso no usa `DataTable`: una fila no deja sitio al resumen ni a
+la portada. `listAvailable` devuelve `{ courses, organizers }` con su
+`pagination` — una sola resolución de visibilidad para las tres consultas, que la
+de grupos no es gratis.
+
+| Pieza | Dónde |
+| --- | --- |
+| Tarjeta y su silueta de carga | `components/course-card.tsx` |
+| Portada o placa generada | `components/course-cover.tsx` |
+| Variante determinista de la placa | `utils/course-cover-pattern.ts` |
+| Buscador, chips y dependencia | `components/catalog-toolbar.tsx` |
+| Paginación con su ventana | `components/catalog-pagination.tsx` |
+
+- **La portada se resuelve al pintar, no al guardar.** El repositorio recibe
+  `assetUrlResolver` por el cradle y traduce la referencia del proxy a la URL del
+  CDN cuando hay dominio. Sin esto cada portada llegaría con una firma nueva y el
+  navegador no podría cachear ninguna
+  ([storage §7.1](../storage/00-sistema-almacenamiento.md)).
+- **Un curso sin portada no deja un hueco:** se pinta una placa de marca cuya
+  trama, giro y escala salen de un hash del `documentId`. Determinista, o el
+  servidor y el cliente pintarían cosas distintas.
+- **`closesSoon` lo calcula el servidor.** Compararlo contra `Date.now()` en el
+  navegador usaría el reloj de cada equipo y daría una tarjeta distinta en el
+  render del servidor.
+- **La dependencia solo se ofrece si hay más de una.** `findAvailableOrganizers`
+  hace `distinct` sobre el mismo `availableWhere` **sin** el filtro de
+  dependencia: ofrecer todas las activas llenaría el selector de opciones que no
+  devuelven nada, y aplicar el filtro a sí mismo dejaría una sola opción sin
+  vuelta atrás.
+- **Una parada de tabulación por tarjeta.** El enlace al detalle se estira sobre
+  la tarjeta con `after:absolute`; no hay interactivos anidados que dupliquen el
+  destino.
+- **Sin selector de orden.** El orden natural de un catálogo es "empiezan
+  pronto", y ordenar por `min(sessions.starts_at)` no es expresable en Prisma sin
+  desnormalizar una columna en `Course`. La cuadrícula conserva el orden del
+  listado, `publishedAt desc`. Por lo mismo no hay filtro "con lugares": el cupo
+  restante es `capacity − count(ENROLLED)` y un `where` no compara una columna
+  contra el agregado de una relación.
+
+La ficha abre con la portada a 21:9 y Mis cursos la lleva como miniatura: la
+imagen se subió una vez y es lo que hace reconocible el curso en las tres.
 
 ## 6. Concurrencia
 

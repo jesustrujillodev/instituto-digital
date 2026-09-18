@@ -354,6 +354,15 @@ enum CourseStatus {
   @@schema("org")
 }
 
+/// Quién escribió la marca de asistencia: el capacitador a mano o el propio
+/// asistente escaneando el QR del curso (§6.8).
+enum AttendanceSource {
+  MANUAL
+  QR
+
+  @@schema("org")
+}
+
 /// Un curso. No lleva `archivedAt`: su baja es `status = CANCELLED`, porque §6.5
 /// del alcance exige que cancelar conserve los registros. Dos mecanismos de baja
 /// sobre la misma fila se contradirían en la primera consulta.
@@ -370,6 +379,11 @@ model Course {
   title       String
   description String?
 
+  /// Portada del curso. Guarda la REFERENCIA del proxy (`/api/storage?key=…`),
+  /// nunca la URL del proveedor: cambiar S3↔GCS o de dominio no invalida la fila.
+  /// Su key vive bajo `media/`, que es público y elegible para CDN.
+  coverImageUrl String? @map("cover_image_url")
+
   modality CourseModality
   access   CourseAccess
 
@@ -382,6 +396,16 @@ model Course {
   /// Porcentaje. El 80 por defecto sale de §6.8 y se ajusta por curso.
   minAttendance      Int     @default(80) @map("min_attendance")
   requiresEvaluation Boolean @default(false) @map("requires_evaluation")
+
+  /// Token opaco del QR de asistencia. Nulo mientras nadie lo genere: así la
+  /// ficha distingue "sin QR" de "con QR", y una columna única no obliga a un
+  /// backfill. Rotarlo invalida el código ya impreso.
+  qrToken          String?   @unique @map("qr_token")
+  qrTokenRotatedAt DateTime? @map("qr_token_rotated_at")
+
+  /// Minutos de tolerancia de la ventana de escaneo alrededor de cada sesión.
+  qrOpensBeforeMinutes Int @default(15) @map("qr_opens_before_minutes")
+  qrClosesAfterMinutes Int @default(15) @map("qr_closes_after_minutes")
 
   status CourseStatus @default(DRAFT)
 
@@ -588,6 +612,9 @@ model CourseAttendance {
   user   User @relation("AttendanceParticipant", fields: [userId], references: [id], onDelete: Restrict)
 
   attended Boolean
+
+  /// Lo ya registrado antes del QR fue manual, de ahí el default.
+  source AttendanceSource @default(MANUAL)
 
   recordedById Int      @map("recorded_by_id")
   recordedBy   User     @relation("AttendanceRecorder", fields: [recordedById], references: [id], onDelete: Restrict)

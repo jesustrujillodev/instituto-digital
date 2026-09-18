@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	COURSE_INTENTS,
+	COVER_FIELD,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 	parseCourseFormData,
@@ -53,5 +54,37 @@ describe("parseCourseFormData", () => {
 
 	test("descarta los campos vacíos", () => {
 		expect(parseCourseFormData(formDataOf({ search: "" })).fields).toEqual({});
+	});
+});
+
+describe("la portada", () => {
+	const fileOf = (bytes: number, name = "portada.webp") =>
+		new File([new Uint8Array(bytes)], name, { type: "image/webp" });
+
+	test("sale por su campo y no contamina los de texto", () => {
+		// `Object.fromEntries(formData)` metería el File como si fuera un campo y
+		// valibot lo rechazaría con un mensaje incomprensible.
+		const formData = new FormData();
+		formData.append(INTENT_FIELD, COURSE_INTENTS.update);
+		formData.append(PAYLOAD_FIELD, JSON.stringify({ title: "Ofimática" }));
+		formData.append(COVER_FIELD, fileOf(128));
+
+		const parsed = parseCourseFormData(formData);
+
+		expect(parsed.cover).toBeInstanceOf(File);
+		expect(parsed.cover?.name).toBe("portada.webp");
+		expect(parsed.fields).not.toHaveProperty(COVER_FIELD);
+		expect(parsed.payload).toEqual({ title: "Ofimática" });
+	});
+
+	test("un input de archivo enviado sin selección no es una portada", () => {
+		const formData = new FormData();
+		formData.append(COVER_FIELD, fileOf(0, ""));
+
+		expect(parseCourseFormData(formData).cover).toBeNull();
+	});
+
+	test("sin campo de portada, es null y el guardado la conserva", () => {
+		expect(parseCourseFormData(formDataOf({})).cover).toBeNull();
 	});
 });

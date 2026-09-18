@@ -1,4 +1,5 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { UploadInput } from "@/shared/storage/upload-validation";
 import type { CourseScope } from "./course.access";
 import type {
 	CourseFormOptionsResponse,
@@ -26,11 +27,25 @@ export interface ICourseService {
 	/** Capacitadores, dependencias y grupos que el formulario puede ofrecer. */
 	listFormOptions(scope: CourseScope): Promise<CourseFormOptionsResponse>;
 
-	create(dto: CreateCourseDto, actor: AuthContext): Promise<CourseResponse>;
+	/**
+	 * La portada viaja aparte del DTO y no dentro de él: un `File` no existe en
+	 * el servidor con el mismo tipo que en el navegador, así que meterlo en el
+	 * contrato de validación —que corre en los dos lados— lo partiría en dos.
+	 *
+	 * Subida y escritura son una sola unidad: si la fila falla, el objeto se
+	 * revierte. Quitar la portada de un curso que ya la tiene viaja en el DTO,
+	 * como `removeCover`.
+	 */
+	create(
+		dto: CreateCourseDto,
+		actor: AuthContext,
+		cover?: UploadInput | null,
+	): Promise<CourseResponse>;
 	update(
 		documentId: string,
 		dto: UpdateCourseDto,
 		actor: AuthContext,
+		cover?: UploadInput | null,
 	): Promise<CourseResponse>;
 
 	/**

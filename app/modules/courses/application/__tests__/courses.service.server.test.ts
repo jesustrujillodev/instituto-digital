@@ -44,6 +44,7 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	dependencyId: 3,
 	dependencyName: "Obras Públicas",
 	title: "Ofimática básica",
+	coverImageUrl: null,
 	modality: "IN_PERSON",
 	access: "PUBLIC",
 	status: "DRAFT",
@@ -59,6 +60,8 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	enrollmentDeadline: null,
 	minAttendance: 80,
 	requiresEvaluation: false,
+	qrOpensBeforeMinutes: 15,
+	qrClosesAfterMinutes: 15,
 	planLine: null,
 	publishedAt: null,
 	cancelledAt: null,
@@ -139,6 +142,10 @@ const createHarness = (
 			firstName: string | null;
 			lastName: string | null;
 		}[];
+		/** Hace fallar la subida para comprobar que nada se escribe después. */
+		uploadFails?: boolean;
+		/** Sin bucket, subir una portada es un error de configuración. */
+		noBucket?: boolean;
 	} = {},
 ) => {
 	let inTransaction = false;
@@ -154,6 +161,8 @@ const createHarness = (
 		cancelled: [] as unknown[],
 		listScopes: [] as unknown[],
 		groupScopes: [] as unknown[],
+		uploaded: [] as { bucket: string; key: string; contentType?: string }[],
+		deleted: [] as { bucket: string; key: string }[],
 	};
 
 	const refs = (count: number) =>
@@ -274,8 +283,30 @@ const createHarness = (
 		},
 	} as unknown as ICradle["notificationService"];
 
+	// Solo los métodos del puerto que toca la portada: un doble completo del
+	// cradle escondería de qué depende de verdad esta operación.
+	const storageProvider = {
+		uploadFile: async (
+			bucket: string,
+			key: string,
+			_body: unknown,
+			contentType?: string,
+		) => {
+			if (options.uploadFails) throw new Error("bucket caído");
+			calls.uploaded.push({ bucket, key, contentType });
+		},
+		deleteFile: async (bucket: string, key: string) => {
+			calls.deleted.push({ bucket, key });
+		},
+		getPublicUrl: (_bucket: string, key: string) =>
+			`/api/storage?key=${encodeURIComponent(key)}`,
+	} as unknown as ICradle["storageProvider"];
+
 	const service = createCourseService({
 		notificationService,
+		storageProvider,
+		storageBucket: options.noBucket ? null : "instituto-storage",
+		storagePublicBucket: null,
 		courseRepository,
 		dependencyRepository,
 		trainerRepository,
@@ -630,6 +661,162 @@ describe("coursesService.update", () => {
 		expect(calls.updated[0]).toMatchObject({
 			scope: { kind: "creator", dependencyId: 3, userId: 99 },
 		});
+	});
+});
+
+describe("la portada y la escritura son una sola unidad", () => {
+	const coverOf = (
+		overrides: Partial<{ name: string; type: string; size: number }> = {},
+	) => ({
+		name: "portada.webp",
+		type: "image/webp",
+		size: 120_000,
+		arrayBuffer: async () => new ArrayBuffer(8),
+		...overrides,
+	});
+
+	test("al crear, sube la portada y persiste la referencia del proxy", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(dtoOf(), actorOf(), coverOf());
+
+		expect(result.success).toBe(true);
+		expect(calls.uploaded).toHaveLength(1);
+		expect(calls.uploaded[0].key).toMatch(
+			/^media\/portadas\/portada-\d+\.webp$/,
+		);
+		expect(calls.created[0]).toMatchObject({
+			coverImageUrl: `/api/storage?key=${encodeURIComponent(calls.uploaded[0].key)}`,
+		});
+	});
+
+	test("sin portada no toca storage y la columna nace en null", async () => {
+		const { service, calls } = createHarness();
+
+		await service.create(dtoOf(), actorOf());
+
+		expect(calls.uploaded).toEqual([]);
+		expect(calls.created[0]).toMatchObject({ coverImageUrl: null });
+	});
+
+	// La razón de ser de la transacción: sin ella, cada guardado fallido dejaría
+	// una portada en el bucket que ninguna fila referencia.
+	test("si la escritura del curso falla, la subida se revierte", async () => {
+		const { service, calls } = createHarness({ enrolled: 2 });
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({ capacity: 1 }) as UpdateCourseDto,
+			actorOf(),
+			coverOf(),
+		);
+
+		expect(result).toMatchObject({
+			error: { code: COURSE_ERROR_CODES.CAPACITY_BELOW_ENROLLED },
+		});
+		expect(calls.uploaded).toHaveLength(1);
+		expect(calls.deleted).toEqual([
+			{ bucket: "instituto-storage", key: calls.uploaded[0].key },
+		]);
+		expect(calls.updated).toEqual([]);
+	});
+
+	test("si la subida falla, el curso no se escribe", async () => {
+		const { service, calls } = createHarness({ uploadFails: true });
+
+		const result = await service.create(dtoOf(), actorOf(), coverOf());
+
+		expect(result.success).toBe(false);
+		expect(calls.created).toEqual([]);
+	});
+
+	test("al sustituir, borra la anterior después de guardar", async () => {
+		const previous = "media/portadas/vieja-1700000000.webp";
+		const { service, calls } = createHarness({
+			course: courseOf({
+				coverImageUrl: `/api/storage?key=${encodeURIComponent(previous)}`,
+			}),
+		});
+
+		await service.update(
+			COURSE_ID,
+			dtoOf() as UpdateCourseDto,
+			actorOf(),
+			coverOf(),
+		);
+
+		expect(calls.deleted).toEqual([
+			{ bucket: "instituto-storage", key: previous },
+		]);
+		expect(calls.updated[0]).toMatchObject({
+			data: {
+				coverImageUrl: `/api/storage?key=${encodeURIComponent(calls.uploaded[0].key)}`,
+			},
+		});
+	});
+
+	test("`removeCover` deja la columna en null y borra el objeto", async () => {
+		const previous = "media/portadas/vieja-1700000000.webp";
+		const { service, calls } = createHarness({
+			course: courseOf({
+				coverImageUrl: `/api/storage?key=${encodeURIComponent(previous)}`,
+			}),
+		});
+
+		await service.update(
+			COURSE_ID,
+			dtoOf({ removeCover: true }) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(calls.uploaded).toEqual([]);
+		expect(calls.updated[0]).toMatchObject({ data: { coverImageUrl: null } });
+		expect(calls.deleted).toEqual([
+			{ bucket: "instituto-storage", key: previous },
+		]);
+	});
+
+	test("guardar sin tocar la portada la conserva", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({
+				coverImageUrl: "/api/storage?key=media/portadas/x.webp",
+			}),
+		});
+
+		await service.update(COURSE_ID, dtoOf() as UpdateCourseDto, actorOf());
+
+		// Omitida, no `null`: mandar `null` borraría la portada en cada guardado.
+		expect(calls.updated[0]).toMatchObject({ data: {} });
+		expect(
+			(calls.updated[0] as { data: Record<string, unknown> }).data,
+		).not.toHaveProperty("coverImageUrl");
+		expect(calls.deleted).toEqual([]);
+	});
+
+	test.each([
+		["un tipo fuera de la allowlist", { type: "image/gif" }],
+		["un archivo por encima del tope", { size: 6 * 1024 * 1024 }],
+		["un archivo vacío", { size: 0 }],
+	])("rechaza %s sin subir nada", async (_case, overrides) => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(dtoOf(), actorOf(), coverOf(overrides));
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.COVER_INVALID },
+		});
+		expect(calls.uploaded).toEqual([]);
+		expect(calls.created).toEqual([]);
+	});
+
+	test("sin bucket configurado falla y no escribe el curso", async () => {
+		const { service, calls } = createHarness({ noBucket: true });
+
+		const result = await service.create(dtoOf(), actorOf(), coverOf());
+
+		expect(result.success).toBe(false);
+		expect(calls.created).toEqual([]);
 	});
 });
 

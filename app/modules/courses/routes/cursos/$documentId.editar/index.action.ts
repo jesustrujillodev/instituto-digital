@@ -22,7 +22,9 @@ export const action = async ({
 }: Route.ActionArgs): Promise<CourseActionData> => {
 	const { auth } = await requireCourseScope(request, context);
 
-	const { intent, payload } = parseCourseFormData(await request.formData());
+	const { intent, payload, cover } = parseCourseFormData(
+		await request.formData(),
+	);
 
 	if (intent !== COURSE_INTENTS.update) {
 		return runStatusIntent(intent, params.documentId, auth, context);
@@ -39,6 +41,7 @@ export const action = async ({
 		input.data.documentId,
 		input.data.dto,
 		auth,
+		cover,
 	);
 	if (!result.success) return localizeError(result, COURSE_ERROR_MESSAGES);
 

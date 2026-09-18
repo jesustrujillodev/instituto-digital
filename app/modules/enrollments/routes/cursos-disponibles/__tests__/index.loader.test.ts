@@ -17,8 +17,8 @@ const createHarness = (options: ActorOptions = {}) => {
 			listAvailable: async (filters: unknown) => {
 				calls.filters.push(filters);
 				return {
-					...okReply([]),
-					pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 },
+					...okReply({ courses: [], organizers: [] }),
+					pagination: { page: 1, pageSize: 12, total: 0, totalPages: 1 },
 				};
 			},
 		},
@@ -35,17 +35,49 @@ const run = (context: LoaderArgs["context"], query = "") =>
 	} as unknown as LoaderArgs);
 
 describe("cursos-disponibles loader", () => {
-	test("lee búsqueda, modalidad y página del query string", async () => {
+	const DEPENDENCY = "44444444-4444-4444-8444-444444444444";
+
+	test("lee búsqueda, modalidad, dependencia y página del query string", async () => {
 		const { context, calls } = createHarness();
 
-		const { data } = await run(context, "?search=ética&modality=ONLINE&page=2");
+		const { data } = await run(
+			context,
+			`?search=ética&modality=ONLINE&dependency=${DEPENDENCY}&page=2`,
+		);
 
 		expect(calls.filters[0]).toMatchObject({
 			search: "ética",
 			modality: "ONLINE",
+			dependency: DEPENDENCY,
 			page: 2,
 		});
-		expect(data.filters).toEqual({ search: "ética", modality: "ONLINE" });
+		expect(data.filters).toEqual({
+			search: "ética",
+			modality: "ONLINE",
+			dependency: DEPENDENCY,
+		});
+	});
+
+	test("sin filtros en la URL los devuelve vacíos, no ausentes", async () => {
+		// La pantalla los usa como valor controlado de sus campos: `undefined`
+		// convertiría el buscador en un input no controlado a mitad de vida.
+		const { context } = createHarness();
+
+		const { data } = await run(context);
+
+		expect(data.filters).toEqual({
+			search: "",
+			modality: "",
+			dependency: "",
+		});
+	});
+
+	test("pasa el catálogo y las opciones del filtro tal como llegan", async () => {
+		const { context } = createHarness();
+
+		const { data } = await run(context);
+
+		expect(data).toMatchObject({ courses: [], organizers: [] });
 	});
 
 	test.each([

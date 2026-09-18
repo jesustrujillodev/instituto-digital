@@ -10,6 +10,7 @@ import type {
 } from "./enrollment.config";
 import {
 	enrollmentClosesAt,
+	isClosingSoon,
 	isEnrollmentOpen,
 	seatsLeftOf,
 } from "./enrollment.rules";
@@ -20,11 +21,20 @@ import type {
 	RosterEntry,
 } from "./enrollment.types";
 
+/**
+ * Traduce la referencia persistida a la URL con la que se pinta.
+ *
+ * Llega como argumento y no por import: el resolutor conoce el dominio público
+ * configurado, que es infraestructura, y el mapper tiene que seguir siendo puro.
+ */
+export type CoverResolver = (reference: string | null) => string | null;
+
 export interface EnrollmentCourseRaw {
 	id: number;
 	documentId: string;
 	title: string;
 	description: string | null;
+	coverImageUrl: string | null;
 	modality: CourseModality;
 	access: CourseAccessType;
 	status: CourseStatus;
@@ -47,6 +57,7 @@ export interface EnrollmentCourseRaw {
 /** `_count.enrollments` debe venir filtrado a los `ENROLLED`. */
 export const toEnrollmentCourse = (
 	raw: EnrollmentCourseRaw,
+	resolveCover: CoverResolver,
 ): EnrollmentCourse => {
 	const sessions = raw.sessions.map((session) => ({ ...session }));
 
@@ -56,6 +67,7 @@ export const toEnrollmentCourse = (
 		dependencyName: raw.dependency.name,
 		title: raw.title,
 		description: raw.description,
+		coverUrl: resolveCover(raw.coverImageUrl),
 		modality: raw.modality,
 		access: raw.access,
 		status: raw.status,
@@ -76,22 +88,46 @@ export const withAvailability = (course: EnrollmentCourse, now: Date) => ({
 	isOpen: isEnrollmentOpen(course, now),
 });
 
+/** "Luis Ramírez", o el correo si la cuenta no tiene nombre capturado. */
+const trainerNameOf = (
+	trainer: EnrollmentCourse["trainers"][number] | undefined,
+): string | null => {
+	if (!trainer) return null;
+
+	const name = [trainer.firstName, trainer.lastName]
+		.filter(Boolean)
+		.join(" ")
+		.trim();
+
+	return name.length > 0 ? name : trainer.email;
+};
+
 export const toAvailableCourse = (
 	course: EnrollmentCourse,
 	myStatus: EnrollmentStatus | null,
-): AvailableCourse => ({
-	documentId: course.documentId,
-	title: course.title,
-	dependencyName: course.dependencyName,
-	modality: course.modality,
-	access: course.access,
-	capacity: course.capacity,
-	seatsLeft: seatsLeftOf(course.capacity, course.enrolledCount),
-	closesAt: enrollmentClosesAt(course),
-	firstSessionAt: course.firstSessionAt,
-	sessionCount: course.sessions.length,
-	myStatus,
-});
+	now: Date,
+): AvailableCourse => {
+	const closesAt = enrollmentClosesAt(course);
+
+	return {
+		documentId: course.documentId,
+		title: course.title,
+		description: course.description,
+		coverUrl: course.coverUrl,
+		dependencyName: course.dependencyName,
+		modality: course.modality,
+		access: course.access,
+		capacity: course.capacity,
+		seatsLeft: seatsLeftOf(course.capacity, course.enrolledCount),
+		closesAt,
+		closesSoon: isClosingSoon(closesAt, now),
+		firstSessionAt: course.firstSessionAt,
+		sessionCount: course.sessions.length,
+		trainerName: trainerNameOf(course.trainers.at(0)),
+		trainerCount: course.trainers.length,
+		myStatus,
+	};
+};
 
 export interface OwnEnrollmentRaw {
 	documentId: string;

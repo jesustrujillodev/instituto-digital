@@ -94,7 +94,8 @@ de tipo string en sus propios modelos. El consumidor de ejemplo añade una colum
 al modelo `User`:
 
 ```prisma
-User { …, photoUrl String?, … }   // referencia proxy, NO la URL del proveedor
+User   { …, photoUrl String?, … }        // referencia proxy, NO la URL del proveedor
+Course { …, coverImageUrl String?, … }   // idem, bajo media/portadas/
 ```
 
 **Formato de la referencia persistida:** `/api/storage?key=<key-encoded>`.
@@ -178,13 +179,13 @@ efímero `minio/mc` que crea el bucket al arrancar (idempotente).
 
 ### 5.1 Subida (patrón de referencia)
 
-> **Nota (2026-07-25):** la action de foto de perfil (`POST /usuario`) que
-> implementaba este flujo se eliminó al reestructurar el enrutado (ver
-> [routing/00-sistema-enrutado.md](../routing/00-sistema-enrutado.md), §9). Era el
-> **único consumidor de `withStorageTransaction` en rutas**, así que hoy la
-> abstracción no tiene ningún ejemplo de uso vivo. El flujo de abajo describe el
-> patrón que debe seguir el próximo consumidor real: cualquier módulo que suba
-> varios archivos junto con la fila que los referencia.
+> **Actualización (2026-09-17):** `withStorageTransaction` ya tiene un consumidor
+> vivo: la **portada del curso**
+> ([courses §7.1](../courses/00-cursos-sesiones-y-acceso.md)). `create` y
+> `update` de `courseService` envuelven su `runInTransaction` con la transacción
+> de storage, así que un guardado fallido revierte la subida. El flujo de abajo
+> describe el patrón simple (subida suelta sin transacción), que sigue siendo el
+> de la foto de perfil.
 
 ```
 Usuario sube File (multipart)
@@ -301,6 +302,11 @@ es privado por defecto (**fail-closed**).
 
 - **Público** (sin sesión): `profile-photos/`, `media/`.
 - **Privado** (exige `requireAuth`): cualquier otro prefijo (p. ej. `documentos/`).
+
+Las portadas de curso viven en `media/portadas/`: heredan la visibilidad y el
+bucket de `media/` —la política mira el inicio de la key— y la subcarpeta propia
+permite que el gestor de nube la nombre sin apropiarse de `media/`, que es de
+todo el proyecto.
 
 Cambiar la política = editar `PUBLIC_PREFIXES` en un solo archivo; el proxy la
 consume automáticamente. Para autorización más fina (p. ej. "solo el dueño ve su
@@ -547,9 +553,10 @@ por consumidor, y la ruta del proxy si no se usa `/api/storage`.
   borran desde el gestor de nube, que cruza `listObjects` con las
   `IObjectReferenceSource` de cada módulo ([cloud/00-gestor-nube.md](../cloud/00-gestor-nube.md) §5).
   No es una rutina automática: la ejecuta un admin.
-- **CDN en el panel de administración:** el catálogo público ya resuelve sus
-  imágenes por el dominio público (§7.2), pero el listado del panel sigue usando
-  la referencia del proxy. Va autenticado y son pocas filas, así que se dejó
-  fuera a propósito; el resolutor ya está inyectado si algún día molesta.
+- **CDN en el panel de administración:** el catálogo de cursos disponibles ya
+  resuelve sus portadas con `assetUrlResolver` (`enrollments`), pero el listado
+  administrativo sigue usando la referencia del proxy. Va autenticado y son pocas
+  filas, así que se dejó fuera a propósito; el resolutor ya está inyectado si
+  algún día molesta.
 - **Migración formal de Prisma:** el consumidor de ejemplo (`photoUrl`) se aplicó
   con `db push` (el flujo actual del proyecto, sin historial de migraciones).

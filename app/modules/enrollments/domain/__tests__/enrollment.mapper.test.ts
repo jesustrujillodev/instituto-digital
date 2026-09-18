@@ -14,6 +14,7 @@ const rawOf = (
 	documentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 	title: "Protección civil básica",
 	description: null,
+	coverImageUrl: null,
 	modality: "IN_PERSON",
 	access: "INVITATION",
 	status: "PUBLISHED",
@@ -43,9 +44,15 @@ const rawOf = (
 	...overrides,
 });
 
+const NOW = new Date("2026-10-01T12:00:00Z");
+
+/** Resolutor de portada de prueba: la key ya viene resuelta a un dominio. */
+const cdn = (reference: string | null) =>
+	reference ? `https://cdn.test${reference}` : null;
+
 describe("toEnrollmentCourse", () => {
 	test("aplana dependencia, conteo y rango de sesiones", () => {
-		const course = toEnrollmentCourse(rawOf());
+		const course = toEnrollmentCourse(rawOf(), cdn);
 
 		expect(course).toMatchObject({
 			dependencyName: "SEDESOL",
@@ -57,7 +64,7 @@ describe("toEnrollmentCourse", () => {
 	});
 
 	test("sin sesiones deja el rango en null", () => {
-		expect(toEnrollmentCourse(rawOf({ sessions: [] }))).toMatchObject({
+		expect(toEnrollmentCourse(rawOf({ sessions: [] }), cdn)).toMatchObject({
 			firstSessionAt: null,
 			lastSessionEndsAt: null,
 		});
@@ -66,7 +73,7 @@ describe("toEnrollmentCourse", () => {
 
 describe("disponibilidad", () => {
 	test("withAvailability calcula lugares, cierre y apertura", () => {
-		const course = toEnrollmentCourse(rawOf());
+		const course = toEnrollmentCourse(rawOf(), cdn);
 
 		expect(withAvailability(course, new Date("2026-10-01"))).toMatchObject({
 			seatsLeft: 1,
@@ -76,12 +83,59 @@ describe("disponibilidad", () => {
 	});
 
 	test("toAvailableCourse conserva el estado propio", () => {
-		const available = toAvailableCourse(toEnrollmentCourse(rawOf()), "INVITED");
+		const available = toAvailableCourse(
+			toEnrollmentCourse(rawOf(), cdn),
+			"INVITED",
+			NOW,
+		);
 
 		expect(available).toMatchObject({
 			sessionCount: 2,
 			seatsLeft: 1,
 			myStatus: "INVITED",
+			trainerName: "Diana",
+			trainerCount: 1,
+		});
+	});
+});
+
+describe("portada", () => {
+	test("la referencia persistida se resuelve con el resolutor inyectado", () => {
+		const raw = rawOf({
+			coverImageUrl: "/api/storage?key=media/portadas/a.webp",
+		});
+
+		expect(toEnrollmentCourse(raw, cdn).coverUrl).toBe(
+			"https://cdn.test/api/storage?key=media/portadas/a.webp",
+		);
+	});
+
+	test("un curso sin portada queda en null", () => {
+		expect(toEnrollmentCourse(rawOf(), cdn).coverUrl).toBeNull();
+	});
+});
+
+describe("cierre próximo", () => {
+	// La urgencia la decide el reloj del servidor, no el del navegador: el mapper
+	// recibe `now` y devuelve un booleano ya resuelto.
+	test("marca el curso cuya inscripción cierra dentro de la ventana", () => {
+		const course = toEnrollmentCourse(rawOf(), cdn);
+
+		expect(
+			toAvailableCourse(course, null, new Date("2026-10-20T12:00:00Z")),
+		).toMatchObject({ closesSoon: true });
+
+		expect(
+			toAvailableCourse(course, null, new Date("2026-10-01T12:00:00Z")),
+		).toMatchObject({ closesSoon: false });
+	});
+
+	test("sin sesiones no hay cierre y por tanto no hay urgencia", () => {
+		const course = toEnrollmentCourse(rawOf({ sessions: [] }), cdn);
+
+		expect(toAvailableCourse(course, null, NOW)).toMatchObject({
+			closesAt: null,
+			closesSoon: false,
 		});
 	});
 });

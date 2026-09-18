@@ -15,6 +15,7 @@ import type { SessionMonitorService } from "@/modules/auth/domain/session-monito
 import type { TokenService } from "@/modules/auth/domain/token.service";
 import type { ICalendarRepository } from "@/modules/calendar/domain/calendar.repository";
 import type { ICalendarService } from "@/modules/calendar/domain/calendar.service";
+import type { ICheckInService } from "@/modules/check-in/domain/check-in.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
@@ -102,6 +103,7 @@ export interface ICradle {
 	calendarService: ICalendarService;
 	teachingRepository: ITeachingRepository;
 	teachingService: ITeachingService;
+	checkInService: ICheckInService;
 	creditRepository: ICreditRepository;
 	creditService: ICreditService;
 	ratingRepository: IRatingRepository;

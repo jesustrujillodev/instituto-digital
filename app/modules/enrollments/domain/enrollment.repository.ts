@@ -7,6 +7,7 @@ import type {
 import type { EnrollmentStatus } from "./enrollment.config";
 import type {
 	AvailableCourseRow,
+	CourseOrganizerOption,
 	EnrollmentCourse,
 	EnrollmentState,
 	EnrollmentWrite,
@@ -46,6 +47,18 @@ export interface IEnrollmentRepository {
 		filter: CourseFilter;
 		now: Date;
 	}): Promise<number>;
+	/**
+	 * Dependencias que organizan algún curso disponible para quien mira.
+	 *
+	 * Son las opciones del filtro del catálogo, y salen del mismo conjunto que
+	 * las tarjetas: ofrecer todas las dependencias activas llenaría el selector
+	 * de opciones que no devuelven nada.
+	 */
+	findAvailableOrganizers(params: {
+		filters: ListAvailableCoursesDto;
+		filter: CourseFilter;
+		now: Date;
+	}): Promise<CourseOrganizerOption[]>;
 
 	findEnrollment(
 		courseId: number,

@@ -23,7 +23,7 @@ visibilidad de §5.
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `org.courses` | El curso. Organizadora, modalidad, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor y `plan_line_id` |
+| `org.courses` | El curso. Organizadora, modalidad, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor, `plan_line_id` y `cover_image_url` |
 | `org.course_sessions` | Fecha y horario concretos: `starts_at`, `ends_at`, sede y enlace |
 | `org.course_trainers` | Quién imparte. PK `(course_id, user_id)` |
 | `org.course_dependency_audience` | Audiencia por dependencia completa. PK `(course_id, dependency_id)` |
@@ -42,6 +42,11 @@ Decisiones que el schema no dice por sí solo:
 - **La organizadora no cambia.** La regla de edición no la declara: moverla
   arrastraría audiencia, capacitadores y, desde PRD-06, créditos otorgados a
   nombre de la anterior.
+- **`cover_image_url` guarda la referencia del proxy**, nunca la URL del
+  proveedor: `/api/storage?key=media/portadas/…`. La key cuelga de `media/`, que
+  es público y elegible para CDN, así que el catálogo la pinta sin sesión y con
+  caché. El curso es el primer consumidor vivo de la abstracción de storage
+  ([storage §5.1](../storage/00-sistema-almacenamiento.md)).
 
 ## 3. Las horas
 
@@ -184,6 +189,42 @@ sola `runInTransaction`. Dentro, las colecciones se tratan distinto:
 Una sesión solo se actualiza si su `documentId` pertenece a **ese** curso: uno
 ajeno enviado a mano se trata como sesión nueva.
 
+### 7.1 · La portada entra en la misma unidad de trabajo
+
+La subida no es un paso aparte que ocurra "antes" o "después" de guardar:
+`withStorageTransaction` **envuelve** a `runInTransaction`.
+
+```
+withStorageTransaction            ← sube la portada y la registra para rollback
+  └── runInTransaction            ← curso, sesiones, capacitadores, audiencia
+```
+
+Si la fila falla —el cupo por debajo de los inscritos, la línea del plan ocupada,
+el alcance— el objeto recién subido se borra y se re-lanza el error original. Sin
+esa composición, cada guardado fallido dejaría una portada que ninguna fila
+referencia.
+
+El servicio recibe `storageProvider`, `storageBucket` y `storagePublicBucket`
+**por el cradle**; `withStorageTransaction` sí se importa, porque es un helper
+puro construido sobre el puerto. El bucket lo decide la key vía `bucketForKey`,
+no el módulo.
+
+Tres estados, no dos:
+
+| Lo que llega | Qué pasa |
+| --- | --- |
+| Archivo en el campo `cover` | Sustituye, y la anterior se borra **best-effort después** del commit |
+| `removeCover: true` en el payload | La columna queda en `null` y el objeto se borra |
+| Ninguno de los dos | Se conserva: `coverImageUrl` ni siquiera entra al `data` de Prisma |
+
+La validación de tipo y tamaño corre en el servicio **antes** de la transacción y
+lanza `CourseCoverInvalidError`: el `StorageValidationError` de la transacción no
+es un `DomainError` y llegaría al cliente como error inesperado.
+
+`infrastructure/course-cover.references.server.ts` publica la fuente
+`IObjectReferenceSource` del módulo, registrada en `objectReferenceSources`. Sin
+ella el gestor de nube marcaría toda portada como huérfana y la borraría.
+
 ## 8. El formulario
 
 Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
@@ -195,9 +236,22 @@ Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
   `createCourseFormRule` es esa traducción seguida de **la misma regla que usa el
   servidor**. Los nombres de campo se conservan, así que un error de
   `sessions.1.startTime` cae en su input.
-- **El envío es un JSON.** El curso viaja en un único campo `payload`. Con un
-  campo por clave, el parser del servidor tendría que saber a mano qué es número,
-  booleano o colección, y esa lista se desincroniza del esquema.
+- **El envío es un JSON dentro de un multipart.** El curso viaja en un único
+  campo `payload`; con un campo por clave, el parser del servidor tendría que
+  saber a mano qué es número, booleano o colección, y esa lista se desincroniza
+  del esquema. La portada no cabe en ese JSON —un `File` no sobrevive a
+  `JSON.stringify`— así que va en su propio campo `cover` y el envío usa
+  `toFormData` + `encType: "multipart/form-data"` ([guía §10.1](../guia-formularios-react-router-rhf.md)).
+- **La portada vive fuera de react-hook-form.** No participa en ninguna regla del
+  esquema, y declarar un `File` en un contrato que también corre en el servidor
+  lo partiría en dos ([guía §10.4](../guia-formularios-react-router-rhf.md)).
+  `parseCourseFormData` la extrae con `formData.get()` antes de recorrer los
+  campos de texto. Quitarla viaja como `removeCover` en el payload, porque
+  `FormData` no transporta `null`.
+- **Se reescala en el navegador.** `resize-cover-image.ts` recorta a 16:9, reduce
+  a 1600 px y recodifica a WebP antes de enviar; la vista previa muestra el
+  archivo que de verdad se va a guardar. Una cuadrícula de doce tarjetas baja
+  doce portadas: sin esto, doce fotos de teléfono.
 - Publicar y cancelar van por su propio `fetcher` en la ficha, y publicar usa lo
   último **guardado**.
 
@@ -218,6 +272,9 @@ Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
 | Un `documentId` de otra sesión se cuela en el envío | Solo se actualizan las sesiones que pertenecen al curso |
 | Una sesión de noviembre se guarda una hora corrida | Conversión única con `Intl` y prueba de verano e invierno |
 | Un curso por invitación aparece a cualquiera | `courseVisibilityWhere` solo lo abre por invitación o inscripción propia |
+| Se sube como portada un ejecutable o un archivo enorme | `validateUploadInput` con los límites de `COURSE_COVER`, en cliente y en servidor, más la validación de la transacción |
+| Un guardado fallido deja una portada huérfana | `withStorageTransaction` envuelve a la transacción de base y revierte la subida (§7.1) |
+| El gestor de nube borra una portada en uso | `createCourseCoverReferenceSource` registrada en `objectReferenceSources` |
 | Bajar el cupo deja fuera a inscritos | `assertCapacityCovers` dentro de la transacción, con la fila bloqueada |
 
 ## 10. Lo que queda enganchado

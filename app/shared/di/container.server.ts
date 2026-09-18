@@ -27,8 +27,10 @@ import { createSecurityStateRepository } from "@/modules/auth/infrastructure/sec
 import { createSessionRepository } from "@/modules/auth/infrastructure/session.repository.server";
 import { createCalendarService } from "@/modules/calendar/application/calendar.service.server";
 import { createCalendarRepository } from "@/modules/calendar/infrastructure/calendar.repository.server";
+import { createCheckInService } from "@/modules/check-in/application/check-in.service.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
+import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
 import { createCreditService } from "@/modules/credits/application/credits.service.server";
 import { createCreditRepository } from "@/modules/credits/infrastructure/credits.repository.server";
@@ -231,6 +233,7 @@ export const configureContainer = async (
 		calendarService: asSingleton(createCalendarService),
 		teachingRepository: asSingleton(createTeachingRepository),
 		teachingService: asSingleton(createTeachingService),
+		checkInService: asSingleton(createCheckInService),
 		creditRepository: asSingleton(createCreditRepository),
 		creditService: asSingleton(createCreditService),
 		ratingRepository: asSingleton(createRatingRepository),
@@ -245,6 +248,7 @@ export const configureContainer = async (
 		// archivos = añadir su fuente aquí; el gestor de nube no cambia.
 		objectReferenceSources: asSingleton((cradle: ICradle) => [
 			createUserPhotoReferenceSource(cradle),
+			createCourseCoverReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
 		themeRepository: asValue(themeRepository),

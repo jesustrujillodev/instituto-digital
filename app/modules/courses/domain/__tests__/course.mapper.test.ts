@@ -6,6 +6,7 @@ const baseRow = {
 	documentId: "0b6c6d8e-1c2a-4f3b-9d4e-5f6a7b8c9d0e",
 	dependencyId: 10,
 	title: "Ofimática básica",
+	coverImageUrl: null,
 	modality: "IN_PERSON" as const,
 	access: "PUBLIC" as const,
 	status: "DRAFT" as const,
@@ -71,6 +72,8 @@ const detailRow = {
 	description: "Introducción a hojas de cálculo",
 	enrollmentDeadline: null,
 	minAttendance: 80,
+	qrOpensBeforeMinutes: 15,
+	qrClosesAfterMinutes: 15,
 	requiresEvaluation: true,
 	planLine: null,
 	publishedAt: null,
@@ -153,5 +156,22 @@ describe("toDetail", () => {
 
 		expect(detail.audience).toEqual({ dependencies: [], groups: [] });
 		expect(detail.trainers).toEqual([]);
+	});
+});
+
+describe("portada", () => {
+	test("la referencia persistida viaja al resumen tal cual", () => {
+		// Sin resolver: quien la pinta decide si va por el CDN o por el proxy.
+		const summary = toSummary({
+			...baseRow,
+			coverImageUrl: "/api/storage?key=media/portadas/a.webp",
+			dependency: { name: "RH" },
+			_count: { sessions: 0, trainers: 0 },
+			sessions: [],
+		});
+
+		expect(summary.coverImageUrl).toBe(
+			"/api/storage?key=media/portadas/a.webp",
+		);
 	});
 });

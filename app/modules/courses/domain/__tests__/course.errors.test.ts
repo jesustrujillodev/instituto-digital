@@ -4,6 +4,7 @@ import {
 	COURSE_ERROR_CODES,
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
+	CourseCoverInvalidError,
 	CourseDeadlineAfterStartError,
 	CourseDependencyInactiveError,
 	CourseError,
@@ -27,6 +28,10 @@ import {
 describe("códigos estables", () => {
 	test.each([
 		[new CourseNotFoundError(), COURSE_ERROR_CODES.NOT_FOUND],
+		[
+			new CourseCoverInvalidError("tipo no permitido: image/gif"),
+			COURSE_ERROR_CODES.COVER_INVALID,
+		],
 		[new CourseForbiddenScopeError(), COURSE_ERROR_CODES.FORBIDDEN_SCOPE],
 		[new CourseOrganizerRequiredError(), COURSE_ERROR_CODES.ORGANIZER_REQUIRED],
 		[
@@ -112,5 +117,19 @@ describe("details", () => {
 		expect(new CourseTooManySessionsError(60).details).toEqual({
 			maxSessions: 60,
 		});
+	});
+});
+
+describe("CourseCoverInvalidError", () => {
+	test("lleva el motivo en `details` para que el adaptador lo interpole", () => {
+		const error = new CourseCoverInvalidError(
+			"supera el máximo de 5242880 bytes",
+		);
+
+		expect(error.details).toEqual({
+			reason: "supera el máximo de 5242880 bytes",
+		});
+		expect(isDomainError(error)).toBe(true);
+		expect(error).toBeInstanceOf(CourseError);
 	});
 });

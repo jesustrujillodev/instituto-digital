@@ -24,6 +24,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 			AVAILABLE_LIST_DEFAULTS.pageSize,
 		search: searchParams.get("search") || undefined,
 		modality: searchParams.get("modality") || undefined,
+		dependency: searchParams.get("dependency") || undefined,
 	});
 
 	const result = await context.enrollmentService.listAvailable(filters, auth);
@@ -33,10 +34,11 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 
 	return ok(
 		{
-			courses: result.data,
+			...result.data,
 			filters: {
 				search: filters.search ?? "",
 				modality: filters.modality ?? "",
+				dependency: filters.dependency ?? "",
 			},
 		},
 		{ pagination: result.pagination },

@@ -16,6 +16,7 @@ import type {
 import { createEnrollmentService } from "../enrollments.service.server";
 
 const COURSE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const DEPENDENCY_DOC_ID = "44444444-4444-4444-8444-444444444444";
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
 const GROUP_ID = "33333333-3333-4333-8333-333333333333";
@@ -37,6 +38,7 @@ const courseOf = (
 	dependencyName: "SEDESOL",
 	title: "Atención ciudadana",
 	description: null,
+	coverUrl: null,
 	modality: "IN_PERSON",
 	access: "PUBLIC",
 	status: "PUBLISHED",
@@ -89,6 +91,7 @@ interface HarnessOptions {
 	eligibleGroups?: number;
 	existing?: { userId: number; status: EnrollmentStatus }[];
 	mine?: MyCourseRecord[];
+	available?: EnrollmentCourse[];
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -101,6 +104,8 @@ const createHarness = (options: HarnessOptions = {}) => {
 		saved: [] as { data: EnrollmentWrite; expected: EnrollmentStatus | null }[],
 		courseFilters: [] as unknown[],
 		participantScopes: [] as (number | null)[],
+		availableFilters: [] as unknown[],
+		organizerFilters: [] as unknown[],
 	};
 	let inTransaction = false;
 
@@ -145,6 +150,19 @@ const createHarness = (options: HarnessOptions = {}) => {
 		findGroupParticipants: async () => options.groupMembers ?? [],
 		findMine: async () => options.mine ?? [],
 		searchCandidates: async () => [],
+		findAvailable: async (params: { filters: unknown; filter: unknown }) => {
+			calls.availableFilters.push(params.filters);
+			calls.courseFilters.push(params.filter);
+			return (options.available ?? [courseOf()]).map((course) => ({
+				course,
+				myStatus: null,
+			}));
+		},
+		countAvailable: async () => (options.available ?? [courseOf()]).length,
+		findAvailableOrganizers: async (params: { filters: unknown }) => {
+			calls.organizerFilters.push(params.filters);
+			return [{ documentId: DEPENDENCY_DOC_ID, name: "SEDESOL" }];
+		},
 	} as unknown as ICradle["enrollmentRepository"];
 
 	const courseRepository = {
@@ -194,6 +212,45 @@ const createHarness = (options: HarnessOptions = {}) => {
 
 	return { service, calls };
 };
+
+describe("enrollmentService.listAvailable", () => {
+	test("devuelve la página y las opciones del filtro con su paginación", async () => {
+		const { service } = createHarness();
+
+		const result = await service.listAvailable({}, actorOf());
+
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				courses: [{ documentId: COURSE_ID, coverUrl: null }],
+				organizers: [{ name: "SEDESOL" }],
+			},
+			pagination: { page: 1, pageSize: 12 },
+		});
+	});
+
+	test("las opciones del filtro salen del MISMO alcance de visibilidad", async () => {
+		const { service, calls } = createHarness();
+
+		await service.listAvailable({ modality: "ONLINE" }, actorOf());
+
+		// Ofrecer dependencias que el visor no puede ver filtraría a cero y, peor,
+		// revelaría que existen.
+		expect(calls.courseFilters).toHaveLength(1);
+		expect(calls.organizerFilters).toEqual([{ modality: "ONLINE" }]);
+	});
+
+	test("un actor que no puede cursar no ve catálogo", async () => {
+		const { service } = createHarness();
+
+		const result = await service.listAvailable({}, actorOf("ADMIN"));
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.NOT_ELIGIBLE },
+		});
+	});
+});
 
 describe("enrollmentService.enroll", () => {
 	test("inscribe dentro de una transacción con el curso bloqueado", async () => {

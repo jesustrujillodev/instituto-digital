@@ -34,6 +34,10 @@ export interface TeachingCourseRaw {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	finishedAt: Date | null;
+	qrToken: string | null;
+	qrTokenRotatedAt: Date | null;
+	qrOpensBeforeMinutes: number;
+	qrClosesAfterMinutes: number;
 	sessions: readonly {
 		id: number;
 		documentId: string;
@@ -76,6 +80,10 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	minAttendance: raw.minAttendance,
 	requiresEvaluation: raw.requiresEvaluation,
 	finishedAt: raw.finishedAt,
+	qrToken: raw.qrToken,
+	qrTokenRotatedAt: raw.qrTokenRotatedAt,
+	qrOpensBeforeMinutes: raw.qrOpensBeforeMinutes,
+	qrClosesAfterMinutes: raw.qrClosesAfterMinutes,
 	sessions: raw.sessions.map((session) => ({ ...session })),
 	trainers: raw.trainers.map(({ user }) => personOf(user)),
 	participants: raw.enrollments.map(({ user, ...enrollment }) => ({
@@ -142,6 +150,14 @@ export const toTeachingDetail = (
 			finishOpensAt: finishOpensAt(course),
 			trainers: course.trainers,
 		},
+		qr: writable
+			? {
+					token: course.qrToken,
+					rotatedAt: course.qrTokenRotatedAt,
+					opensBeforeMinutes: course.qrOpensBeforeMinutes,
+					closesAfterMinutes: course.qrClosesAfterMinutes,
+				}
+			: null,
 		sessions: course.sessions.map((session) => ({
 			documentId: session.documentId,
 			startsAt: session.startsAt,

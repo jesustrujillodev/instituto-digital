@@ -5,7 +5,7 @@ import {
 	SORT_DIRECTIONS,
 	type SortDirection,
 } from "@/shared/rules/list.rules";
-import { COURSE_MAX_SESSIONS } from "./course.config";
+import { COURSE_MAX_SESSIONS, COURSE_QR_WINDOW_LIMITS } from "./course.config";
 import {
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
@@ -69,6 +69,14 @@ const minAttendance = v.pipe(
 	v.maxValue(100),
 );
 
+/** Minutos de tolerancia de la ventana de escaneo del QR (§6.8). */
+const qrWindowMinutes = v.pipe(
+	v.number(),
+	v.integer(),
+	v.minValue(COURSE_QR_WINDOW_LIMITS.min),
+	v.maxValue(COURSE_QR_WINDOW_LIMITS.max),
+);
+
 const dateInput = v.pipe(v.string(), v.regex(DATE_INPUT_PATTERN));
 const timeInput = v.pipe(v.string(), v.regex(TIME_INPUT_PATTERN));
 
@@ -115,6 +123,8 @@ export const courseSummarySchema = v.object({
 	/** Aplanado del join. El superadministrador ve cursos de varias. */
 	dependencyName: v.string(),
 	title: v.string(),
+	/** Referencia del proxy de storage, o null. La resuelve quien la pinta. */
+	coverImageUrl: v.nullable(v.string()),
 	modality: v.picklist(COURSE_MODALITIES),
 	access: v.picklist(COURSE_ACCESS_TYPES),
 	status: v.picklist(COURSE_STATUSES),
@@ -135,6 +145,8 @@ export const courseDetailSchema = v.object({
 	enrollmentDeadline: v.nullable(v.date()),
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
+	qrOpensBeforeMinutes: v.number(),
+	qrClosesAfterMinutes: v.number(),
 	/** Línea del plan anual que lo originó, si la hay (§6.11). */
 	planLine: v.nullable(
 		v.object({
@@ -192,9 +204,20 @@ const courseFormShape = {
 	enrollmentDeadline: v.optional(dateInput),
 	minAttendance: v.optional(minAttendance),
 	requiresEvaluation: v.optional(v.boolean()),
+	qrOpensBeforeMinutes: v.optional(qrWindowMinutes),
+	qrClosesAfterMinutes: v.optional(qrWindowMinutes),
 	trainers: v.array(documentId),
 	audienceDependencies: v.optional(v.array(documentId)),
 	audienceGroups: v.optional(v.array(documentId)),
+	/**
+	 * Centinela de borrado de la portada.
+	 *
+	 * `FormData` no transporta `null`, así que "quitar la portada" no puede
+	 * viajar como la ausencia del archivo —eso significa "no la toques"—. El
+	 * archivo en sí no entra al contrato: un `File` no existe en el servidor con
+	 * el mismo tipo y contaminaría un esquema que corre en los dos lados.
+	 */
+	removeCover: v.optional(v.boolean()),
 	/**
 	 * Vacío es válido: el curso nace en borrador y se completa después. La
 	 * exigencia de al menos una sesión es de la publicación, no del guardado.

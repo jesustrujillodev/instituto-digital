@@ -1,5 +1,5 @@
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	FormProvider,
 	type Resolver,
@@ -8,6 +8,7 @@ import {
 } from "react-hook-form";
 import type { FetcherWithComponents } from "react-router";
 import { sileo } from "sileo";
+import { toFormData } from "@/lib/form-data";
 import { scrollIntoView } from "@/lib/motion";
 import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
 import type { CourseDetail, CourseFormOptions } from "../domain/course.types";
@@ -23,6 +24,7 @@ import {
 } from "../utils/build-course-payload";
 import {
 	COURSE_INTENTS,
+	COVER_FIELD,
 	type CourseActionData,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
@@ -79,9 +81,17 @@ export function CourseForm({
 		formState: { isDirty },
 	} = methods;
 
+	// La portada vive fuera de react-hook-form (guía §10.4), así que su cambio no
+	// lo ve `isDirty`: se rastrea aparte para que el aviso de cambios sin guardar
+	// siga diciendo la verdad.
+	const [cover, setCover] = useState<File | null>(null);
+	const [coverRemoved, setCoverRemoved] = useState(false);
+
 	const isSubmitting = fetcher.state !== "idle";
 	const isSaved = fetcher.data?.success === true;
-	const hasUnsavedChanges = isDirty && !isSubmitting && !isSaved;
+	const coverTouched = cover !== null || coverRemoved;
+	const hasUnsavedChanges =
+		(isDirty || coverTouched) && !isSubmitting && !isSaved;
 
 	useEffect(() => {
 		const data = fetcher.data;
@@ -94,12 +104,20 @@ export function CourseForm({
 	}, [fetcher.data, setError]);
 
 	const onSubmit = (payload: unknown) => {
+		// El curso sigue viajando como un solo JSON; la portada no cabe ahí, así
+		// que el envío pasa a multipart. `toFormData` omite el archivo cuando es
+		// null, y esa ausencia significa "no la toques": quitarla viaja en el
+		// payload como `removeCover`.
 		fetcher.submit(
-			{
+			toFormData({
 				[INTENT_FIELD]: isEdit ? COURSE_INTENTS.update : COURSE_INTENTS.create,
-				[PAYLOAD_FIELD]: JSON.stringify(payload),
-			},
-			{ method: "post" },
+				[PAYLOAD_FIELD]: JSON.stringify({
+					...(payload as Record<string, unknown>),
+					removeCover: coverRemoved,
+				}),
+				[COVER_FIELD]: cover,
+			}),
+			{ method: "post", encType: "multipart/form-data" },
 		);
 	};
 
@@ -132,6 +150,19 @@ export function CourseForm({
 					organizers={
 						!isEdit && options.canChooseOrganizer ? options.organizers : null
 					}
+					cover={{
+						value: cover,
+						existingUrl: course?.coverImageUrl ?? null,
+						removed: coverRemoved,
+						onChange: (file) => {
+							setCover(file);
+							if (file) setCoverRemoved(false);
+						},
+						onRemove: () => {
+							setCover(null);
+							setCoverRemoved(true);
+						},
+					}}
 				/>
 				<CoursePeopleSection ids={ids} options={options} />
 				<CourseSessionsManager id={ids.sessions} />

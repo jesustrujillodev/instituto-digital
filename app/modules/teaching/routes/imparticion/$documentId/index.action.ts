@@ -1,3 +1,4 @@
+import { CHECK_IN_ERROR_MESSAGES } from "@/modules/check-in/utils/check-in-error-messages";
 import { fail, ok, parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
@@ -80,6 +81,21 @@ export const action = async ({
 
 			return ok(null, {
 				message: `Curso finalizado: ${plural(result.data.completed, "persona completó", "personas completaron")} y se ${result.data.credits === 1 ? "otorgó 1 crédito" : `otorgaron ${result.data.credits} créditos`}.`,
+			});
+		}
+		case TEACHING_INTENTS.rotateQr: {
+			const input = parseInput(documentId);
+			if (!input.success) return localizeError(input, TEACHING_ERROR_MESSAGES);
+
+			// El QR lo administra `check-in`, dueño del concepto; el alcance que
+			// exige es el mismo que el de pasar lista.
+			const result = await context.checkInService.rotateToken(input.data, auth);
+			if (!result.success)
+				return localizeError(result, CHECK_IN_ERROR_MESSAGES);
+
+			return ok(null, {
+				message:
+					"Código QR regenerado. El impreso anterior dejó de funcionar: imprime el nuevo.",
 			});
 		}
 		default:

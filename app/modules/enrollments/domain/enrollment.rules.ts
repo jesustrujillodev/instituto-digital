@@ -8,6 +8,7 @@ import type { Role } from "@/shared/rules/atoms.rules";
 import { createListRule } from "@/shared/rules/list.rules";
 import {
 	ENROLLMENT_BATCH_LIMIT,
+	ENROLLMENT_CLOSING_SOON_DAYS,
 	type EnrollmentStatus,
 } from "./enrollment.config";
 import { EnrollmentFullError } from "./enrollment.errors";
@@ -56,6 +57,22 @@ export const enrollmentRules = {
 } as const;
 
 // ── Reglas de negocio ─────────────────────────────────────────────────────────
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Si la inscripción cierra dentro de la ventana de urgencia.
+ *
+ * Un cierre ya pasado no es urgente: es cerrado, y el catálogo ni siquiera lo
+ * lista.
+ */
+export const isClosingSoon = (closesAt: Date | null, now: Date): boolean => {
+	if (!closesAt) return false;
+
+	const remaining = closesAt.getTime() - now.getTime();
+
+	return remaining > 0 && remaining <= ENROLLMENT_CLOSING_SOON_DAYS * DAY_MS;
+};
 
 const NON_PARTICIPANT_ROLES: readonly Role[] = ["SUPERADMIN", "ADMIN"];
 

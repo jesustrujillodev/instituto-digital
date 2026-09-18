@@ -62,6 +62,10 @@ export const courseOf = (
 	minAttendance: 80,
 	requiresEvaluation: false,
 	finishedAt: null,
+	qrToken: null,
+	qrTokenRotatedAt: null,
+	qrOpensBeforeMinutes: 15,
+	qrClosesAfterMinutes: 15,
 	sessions: [
 		sessionOf(0, "2026-09-01"),
 		sessionOf(1, "2026-09-02"),

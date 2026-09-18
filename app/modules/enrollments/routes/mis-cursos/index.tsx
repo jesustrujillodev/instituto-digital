@@ -27,6 +27,7 @@ import {
 } from "@/shared/components/ui/tabs";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
+import { CourseCover } from "../../components/course-cover";
 import { CourseSessionsList } from "../../components/course-sessions-list";
 import {
 	EnrollmentOriginBadge,
@@ -76,16 +77,28 @@ function MyCourseCard({
 		<Card>
 			<CardContent className="flex flex-col gap-3">
 				<div className="flex flex-wrap items-start justify-between gap-2">
-					<div className="min-w-0">
-						<Link
-							to={detailPath(entry)}
-							className="font-medium hover:underline"
-						>
-							{course.title}
-						</Link>
-						<p className="text-muted-foreground text-xs">
-							Organiza {course.dependencyName}
-						</p>
+					<div className="flex min-w-0 items-start gap-3">
+						{/* Miniatura, no encabezado: aquí el curso ya se eligió y lo que
+						    se viene a hacer es reconocerlo de un vistazo. */}
+						<div className="hidden aspect-video w-28 shrink-0 overflow-hidden rounded-xl bg-muted sm:block">
+							<CourseCover
+								documentId={course.documentId}
+								title={course.title}
+								modality={course.modality}
+								src={course.coverUrl}
+							/>
+						</div>
+						<div className="min-w-0">
+							<Link
+								to={detailPath(entry)}
+								className="font-medium hover:underline"
+							>
+								{course.title}
+							</Link>
+							<p className="text-muted-foreground text-xs">
+								Organiza {course.dependencyName}
+							</p>
+						</div>
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<CourseModalityBadge modality={course.modality} />

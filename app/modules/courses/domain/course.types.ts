@@ -11,6 +11,7 @@ import type {
 import {
 	type CourseAccessType,
 	type CourseModality,
+	type CourseStatus,
 	courseAudienceSchema,
 	courseDetailSchema,
 	courseSessionSchema,
@@ -61,6 +62,8 @@ export interface CourseWriteData {
 	enrollmentDeadline: Date | null;
 	minAttendance: number;
 	requiresEvaluation: boolean;
+	qrOpensBeforeMinutes: number;
+	qrClosesAfterMinutes: number;
 	sessions: readonly CourseSessionData[];
 	trainerIds: readonly number[];
 	audienceDependencyIds: readonly number[];
@@ -75,9 +78,19 @@ export type CreateCourseData = CourseWriteData & {
 	dependencyId: number;
 	createdById: number;
 	planLineId: number | null;
+	/** Referencia del proxy de la portada recién subida, o null si no hay. */
+	coverImageUrl: string | null;
 };
 
-export type UpdateCourseData = CourseWriteData;
+/**
+ * Al actualizar, la portada es OPCIONAL en el sentido fuerte: omitirla significa
+ * "no la toques" y mandarla `null` significa "quítala". Si fuera obligatoria,
+ * cada guardado del formulario borraría la portada de los cursos que no la
+ * cambiaron.
+ */
+export type UpdateCourseData = CourseWriteData & {
+	coverImageUrl?: string | null;
+};
 
 // ===============================================================
 // Opciones de los selectores del formulario
@@ -112,6 +125,37 @@ export interface CourseFormOptions {
 	audienceDependencies: CourseAudienceOption[];
 	audienceGroups: CourseAudienceOption[];
 	canChooseOrganizer: boolean;
+}
+
+// ===============================================================
+// Asistencia por QR (§6.8)
+// ===============================================================
+// El tipo lo declara `courses` porque es dueño de la tabla; lo consume el
+// modulo `check-in`, igual que `teaching` consume `ResultWrite` de enrollments.
+
+export interface QrCourseSession {
+	id: number;
+	documentId: string;
+	startsAt: Date;
+	endsAt: Date;
+	venue: string | null;
+}
+
+/**
+ * El curso resuelto por su token de QR, con las sesiones ordenadas por inicio.
+ *
+ * No lleva alcance: el token opaco ES la autorizacion para leerlo, y quien
+ * escanea no tiene por que administrar el curso.
+ */
+export interface QrCourse {
+	id: number;
+	documentId: string;
+	title: string;
+	status: CourseStatus;
+	dependencyName: string;
+	qrOpensBeforeMinutes: number;
+	qrClosesAfterMinutes: number;
+	sessions: QrCourseSession[];
 }
 
 // ===============================================================

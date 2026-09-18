@@ -25,7 +25,7 @@ Lo que **no** hace todavía:
 
 | Tabla / columna | Qué guarda |
 | --- | --- |
-| `org.course_attendance` | Una marca por `(session_id, user_id)`: `attended`, `recorded_by_id`, `recorded_at` |
+| `org.course_attendance` | Una marca por `(session_id, user_id)`: `attended`, `source` (`MANUAL`/`QR`), `recorded_by_id`, `recorded_at` |
 | `org.enrollments.grade` | Nota opcional 0–100 |
 | `org.enrollments.completed` | Resultado del último cierre o corrección |
 | `org.enrollments.result_recorded_by_id`, `result_recorded_at` | Quién capturó o corrigió el resultado |

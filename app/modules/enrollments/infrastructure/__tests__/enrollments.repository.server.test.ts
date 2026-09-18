@@ -16,6 +16,7 @@ const createHarness = () => {
 				},
 			},
 		} as unknown as ICradle["prisma"],
+		assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
 	});
 
 	return { repository, calls };

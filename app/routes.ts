@@ -5,6 +5,7 @@ import {
 	authRoutes,
 } from "./modules/auth/routes/routes.config";
 import { calendarRoutes } from "./modules/calendar/routes/routes.config";
+import { checkInRoutes } from "./modules/check-in/routes/routes.config";
 import { cloudAdminRoutes } from "./modules/cloud/routes/routes.config";
 import { coursesRoutes } from "./modules/courses/routes/routes.config";
 import { creditsRoutes } from "./modules/credits/routes/routes.config";
@@ -31,6 +32,7 @@ export default [
 	...homeRoutes,
 	...authRoutes,
 	...themeRoutes, // /preferencia-tema — el toggle vive también en landing y login
+	...checkInRoutes, // /asistencia/:token — el escaneo del QR se impone la sesión él mismo
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// ZONA 2 — Dashboard protegido (/dashboard/*)

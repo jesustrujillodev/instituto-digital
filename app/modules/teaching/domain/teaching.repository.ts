@@ -40,4 +40,14 @@ export interface ITeachingRepository {
 		actorId: number,
 		at: Date,
 	): Promise<void>;
+
+	/**
+	 * Auto-registro por QR: marca presente a la propia persona.
+	 *
+	 * Devuelve `false` si ya había una marca de asistencia por QR, sin
+	 * reescribirla — así `recordedAt` conserva el primer escaneo y la pantalla
+	 * puede decir "ya estaba registrada". Una marca manual de ausencia SÍ se
+	 * sobreescribe: quien llega tarde al pase de lista se registra él mismo.
+	 */
+	checkIn(sessionId: number, userId: number, at: Date): Promise<boolean>;
 }

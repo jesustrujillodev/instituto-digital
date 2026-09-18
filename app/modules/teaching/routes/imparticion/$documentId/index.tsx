@@ -5,6 +5,7 @@ import { Flag } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
 import {
 	CourseModalityBadge,
 	CourseStatusBadge,
@@ -194,6 +195,7 @@ export default function ImparticionDetallePage({
 						</TabsTrigger>
 					)}
 					<TabsTrigger value="completion">Completado</TabsTrigger>
+					{detail.qr && <TabsTrigger value="qr">Código QR</TabsTrigger>}
 					{ratings && <TabsTrigger value="ratings">Valoraciones</TabsTrigger>}
 				</TabsList>
 				<TabsContent value="attendance">
@@ -207,6 +209,11 @@ export default function ImparticionDetallePage({
 				<TabsContent value="completion">
 					<CompletionList detail={detail} />
 				</TabsContent>
+				{detail.qr && (
+					<TabsContent value="qr">
+						<CourseQrPanel title={course.title} qr={detail.qr} />
+					</TabsContent>
+				)}
 				{ratings && (
 					<TabsContent value="ratings">
 						<RatingsPanel summary={ratings} />

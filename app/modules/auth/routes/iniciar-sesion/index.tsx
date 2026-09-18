@@ -1,15 +1,22 @@
-import { Form, useActionData, useNavigation } from "react-router";
+import {
+	Form,
+	useActionData,
+	useLoaderData,
+	useNavigation,
+} from "react-router";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import { InstitutionalLogo } from "@/shared/components/common/institutional-logo";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import type { action } from "./index.action";
+import type { loader } from "./index.loader";
 
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
 export default function IniciarSesionPage() {
+	const { data } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const submitting = useNavigation().state === "submitting";
 
@@ -38,7 +45,9 @@ export default function IniciarSesionPage() {
 							Iniciar sesión
 						</h1>
 						<p className="text-sm text-muted-foreground">
-							Entra con el correo y la contraseña que te dio tu dependencia.
+							{data.redirectTo
+								? "Entra para registrar tu asistencia."
+								: "Entra con el correo y la contraseña que te dio tu dependencia."}
 						</p>
 					</div>
 
@@ -52,6 +61,10 @@ export default function IniciarSesionPage() {
 					)}
 
 					<Form method="post" className="space-y-5">
+						{data.redirectTo && (
+							<input type="hidden" name="redirectTo" value={data.redirectTo} />
+						)}
+
 						<div className="space-y-2">
 							<Label htmlFor="email">Correo electrónico</Label>
 							<Input

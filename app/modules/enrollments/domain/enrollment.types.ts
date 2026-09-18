@@ -45,6 +45,8 @@ export interface EnrollmentCourse {
 	dependencyName: string;
 	title: string;
 	description: string | null;
+	/** Ya resuelta a la URL con la que se pinta (CDN o proxy), o null. */
+	coverUrl: string | null;
 	modality: CourseModality;
 	access: CourseAccessType;
 	status: CourseStatus;
@@ -65,18 +67,38 @@ export interface OwnEnrollment {
 	result: EnrollmentResult;
 }
 
+/** El curso tal como lo pinta una tarjeta del catálogo. */
 export interface AvailableCourse {
 	documentId: string;
 	title: string;
+	description: string | null;
+	coverUrl: string | null;
 	dependencyName: string;
 	modality: CourseModality;
 	access: CourseAccessType;
 	capacity: number | null;
 	seatsLeft: number | null;
 	closesAt: Date | null;
+	/** Lo decide el reloj del servidor, no el del navegador. */
+	closesSoon: boolean;
 	firstSessionAt: Date | null;
 	sessionCount: number;
+	/** Quién lo imparte: el primero por nombre, y cuántos más hay. */
+	trainerName: string | null;
+	trainerCount: number;
 	myStatus: EnrollmentStatus | null;
+}
+
+/** Dependencia que organiza al menos un curso visible: opción del filtro. */
+export interface CourseOrganizerOption {
+	documentId: string;
+	name: string;
+}
+
+/** Lo que devuelve el catálogo: la página y las opciones de su filtro. */
+export interface AvailableCourseList {
+	courses: AvailableCourse[];
+	organizers: CourseOrganizerOption[];
 }
 
 export interface EnrollmentPermissions {
@@ -222,7 +244,7 @@ export interface AvailableCourseRow {
 
 // ── Contrato de respuesta ─────────────────────────────────────────────────────
 
-export type AvailableCourseListResponse = AppResponse<AvailableCourse[]>;
+export type AvailableCourseListResponse = AppResponse<AvailableCourseList>;
 export type AvailableCourseDetailResponse = AppResponse<AvailableCourseDetail>;
 export type MyCoursesResponse = AppResponse<MyCourses>;
 export type CourseRosterResponse = AppResponse<CourseRoster>;

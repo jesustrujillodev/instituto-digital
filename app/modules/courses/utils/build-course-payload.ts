@@ -33,6 +33,8 @@ export const buildCoursePayload = (
 	enrollmentDeadline: optionalText(values.enrollmentDeadline),
 	minAttendance: optionalNumber(values.minAttendance),
 	requiresEvaluation: values.requiresEvaluation,
+	qrOpensBeforeMinutes: optionalNumber(values.qrOpensBeforeMinutes),
+	qrClosesAfterMinutes: optionalNumber(values.qrClosesAfterMinutes),
 	trainers: values.trainers,
 	audienceDependencies: values.audienceDependencies,
 	audienceGroups: values.audienceGroups,

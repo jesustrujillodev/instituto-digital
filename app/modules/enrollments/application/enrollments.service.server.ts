@@ -196,7 +196,10 @@ export const createEnrollmentService = ({
 				const filter = await visibilityOf(actor);
 				const now = clock.now();
 
-				const [rows, total] = await Promise.all([
+				// Las tres consultas comparten filtro y son independientes entre sí:
+				// encadenarlas triplicaría la latencia de la primera pantalla que ve
+				// un participante.
+				const [rows, total, organizers] = await Promise.all([
 					enrollmentRepository.findAvailable({
 						filters,
 						filter,
@@ -204,10 +207,20 @@ export const createEnrollmentService = ({
 						userId: actor.userId,
 					}),
 					enrollmentRepository.countAvailable({ filters, filter, now }),
+					enrollmentRepository.findAvailableOrganizers({
+						filters,
+						filter,
+						now,
+					}),
 				]);
 
 				return ok(
-					rows.map((row) => toAvailableCourse(row.course, row.myStatus)),
+					{
+						courses: rows.map((row) =>
+							toAvailableCourse(row.course, row.myStatus, now),
+						),
+						organizers,
+					},
 					{
 						pagination: toPaginationMeta({
 							page: filters.page ?? AVAILABLE_LIST_DEFAULTS.page,

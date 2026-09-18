@@ -60,6 +60,11 @@ export interface TeachingCourse {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	finishedAt: Date | null;
+	/** Nulo mientras nadie genere el QR de asistencia (§6.8). */
+	qrToken: string | null;
+	qrTokenRotatedAt: Date | null;
+	qrOpensBeforeMinutes: number;
+	qrClosesAfterMinutes: number;
 	/** Ordenadas por inicio. */
 	sessions: TeachingSession[];
 	trainers: TeachingPerson[];
@@ -127,6 +132,8 @@ export interface TeachingDetail {
 		finishOpensAt: Date | null;
 		trainers: TeachingPerson[];
 	};
+	/** Solo para quien puede escribir: el QR es una credencial, no un adorno. */
+	qr: TeachingQrView | null;
 	sessions: TeachingSessionView[];
 	participants: TeachingParticipantView[];
 	pendingResults: number;
@@ -138,6 +145,14 @@ export interface TeachingDetail {
 		/** El curso está finalizado y quien mira puede corregirlo. */
 		correct: boolean;
 	};
+}
+
+export interface TeachingQrView {
+	/** Nulo mientras nadie lo genere: la ficha ofrece "Generar código QR". */
+	token: string | null;
+	rotatedAt: Date | null;
+	opensBeforeMinutes: number;
+	closesAfterMinutes: number;
 }
 
 export interface TeachingWriteResult {

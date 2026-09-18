@@ -27,6 +27,7 @@ const SUMMARY_SELECT = {
 	documentId: true,
 	dependencyId: true,
 	title: true,
+	coverImageUrl: true,
 	modality: true,
 	access: true,
 	status: true,
@@ -48,6 +49,8 @@ const DETAIL_SELECT = {
 	enrollmentDeadline: true,
 	minAttendance: true,
 	requiresEvaluation: true,
+	qrOpensBeforeMinutes: true,
+	qrClosesAfterMinutes: true,
 	planLine: {
 		select: {
 			documentId: true,
@@ -88,6 +91,27 @@ const DETAIL_SELECT = {
 	},
 	groupAudience: {
 		select: { group: { select: { documentId: true, name: true } } },
+	},
+} satisfies Prisma.CourseSelect;
+
+/** Lo mínimo que el escaneo del QR necesita: ni roster ni audiencia. */
+const QR_SELECT = {
+	id: true,
+	documentId: true,
+	title: true,
+	status: true,
+	qrOpensBeforeMinutes: true,
+	qrClosesAfterMinutes: true,
+	dependency: { select: { name: true } },
+	sessions: {
+		select: {
+			id: true,
+			documentId: true,
+			startsAt: true,
+			endsAt: true,
+			venue: true,
+		},
+		orderBy: { startsAt: "asc" },
 	},
 } satisfies Prisma.CourseSelect;
 
@@ -155,7 +179,20 @@ const scalarsOf = (data: CourseWriteData) => ({
 	enrollmentDeadline: data.enrollmentDeadline,
 	minAttendance: data.minAttendance,
 	requiresEvaluation: data.requiresEvaluation,
+	qrOpensBeforeMinutes: data.qrOpensBeforeMinutes,
+	qrClosesAfterMinutes: data.qrClosesAfterMinutes,
 });
+
+/**
+ * La portada solo entra al `data` si el servicio la mandó.
+ *
+ * Con spread incondicional, `undefined` llegaría a Prisma en cada guardado del
+ * formulario y —aunque Prisma lo ignora— el contrato dejaría de distinguir
+ * "conservar" de "quitar". Aquí la distinción es explícita: ausente conserva,
+ * `null` quita.
+ */
+const coverOf = (data: UpdateCourseData) =>
+	data.coverImageUrl === undefined ? {} : { coverImageUrl: data.coverImageUrl };
 
 export const createCourseRepository = ({
 	prisma,
@@ -259,6 +296,7 @@ export const createCourseRepository = ({
 			const course = await prisma.course.create({
 				data: {
 					...scalarsOf(data),
+					coverImageUrl: data.coverImageUrl,
 					dependencyId: data.dependencyId,
 					createdById: data.createdById,
 					planLineId: data.planLineId,
@@ -284,7 +322,7 @@ export const createCourseRepository = ({
 			try {
 				const course = await prisma.course.update({
 					where: writeWhere(documentId, scope),
-					data: scalarsOf(data),
+					data: { ...scalarsOf(data), ...coverOf(data) },
 					select: {
 						id: true,
 						sessions: { select: { id: true, documentId: true } },
@@ -368,6 +406,25 @@ export const createCourseRepository = ({
 					...groupScopeWhere(scope),
 				},
 				select: { id: true, documentId: true },
+			});
+		},
+		async findByQrToken(token) {
+			const course = await prisma.course.findUnique({
+				where: { qrToken: token },
+				select: QR_SELECT,
+			});
+
+			if (!course) return null;
+
+			return {
+				...course,
+				dependencyName: course.dependency.name,
+			};
+		},
+		async rotateQrToken(courseId, token, at) {
+			await prisma.course.update({
+				where: { id: courseId },
+				data: { qrToken: token, qrTokenRotatedAt: at },
 			});
 		},
 	};

@@ -9,10 +9,13 @@ const WHERE = { OR: [{ trainers: { some: { userId: 9 } } }] };
  * `teaching.access` y el servicio; aquí se comprueba que el repositorio lo
  * aplique en el `where` y no lea borradores ni cancelados.
  */
-const createHarness = () => {
+const createHarness = (
+	stored: { attended: boolean; source: "MANUAL" | "QR" } | null = null,
+) => {
 	const calls: Record<string, Record<string, unknown>[]> = {
 		findFirst: [],
 		findMany: [],
+		findUnique: [],
 		upsert: [],
 	};
 
@@ -29,6 +32,10 @@ const createHarness = () => {
 				},
 			},
 			courseAttendance: {
+				findUnique: async (args: Record<string, unknown>) => {
+					calls.findUnique.push(args);
+					return stored;
+				},
 				upsert: async (args: Record<string, unknown>) => {
 					calls.upsert.push(args);
 				},
@@ -119,10 +126,79 @@ describe("saveAttendance", () => {
 				sessionId: 101,
 				userId: 51,
 				attended: false,
+				source: "MANUAL",
 				recordedById: 9,
 				recordedAt: at,
 			},
-			update: { attended: false, recordedById: 9, recordedAt: at },
+			update: {
+				attended: false,
+				source: "MANUAL",
+				recordedById: 9,
+				recordedAt: at,
+			},
 		});
+	});
+});
+
+describe("checkIn", () => {
+	const at = new Date("2026-09-01T17:00:00.000Z");
+
+	test("marca presente a la propia persona y deja constancia del QR", async () => {
+		const { repository, calls } = createHarness();
+
+		const written = await repository.checkIn(101, 50, at);
+
+		expect(written).toBe(true);
+		expect(calls.upsert[0]).toEqual({
+			where: { sessionId_userId: { sessionId: 101, userId: 50 } },
+			create: {
+				sessionId: 101,
+				userId: 50,
+				attended: true,
+				source: "QR",
+				recordedById: 50,
+				recordedAt: at,
+			},
+			update: {
+				attended: true,
+				source: "QR",
+				recordedById: 50,
+				recordedAt: at,
+			},
+		});
+	});
+
+	test("sobreescribe una ausencia puesta a mano: quien llega tarde se registra", async () => {
+		const { repository, calls } = createHarness({
+			attended: false,
+			source: "MANUAL",
+		});
+
+		const written = await repository.checkIn(101, 50, at);
+
+		expect(written).toBe(true);
+		expect(calls.upsert).toHaveLength(1);
+	});
+
+	test("sobreescribe una presencia puesta a mano, para que el QR quede auditado", async () => {
+		const { repository, calls } = createHarness({
+			attended: true,
+			source: "MANUAL",
+		});
+
+		expect(await repository.checkIn(101, 50, at)).toBe(true);
+		expect(calls.upsert).toHaveLength(1);
+	});
+
+	test("un segundo escaneo no reescribe: conserva el instante del primero", async () => {
+		const { repository, calls } = createHarness({
+			attended: true,
+			source: "QR",
+		});
+
+		const written = await repository.checkIn(101, 50, at);
+
+		expect(written).toBe(false);
+		expect(calls.upsert).toHaveLength(0);
 	});
 });

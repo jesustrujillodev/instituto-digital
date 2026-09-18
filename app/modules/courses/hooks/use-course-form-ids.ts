@@ -3,6 +3,7 @@ import { useFormIds } from "@/shared/hooks/use-form-ids";
 const FIELD_KEYS = [
 	"title",
 	"description",
+	"cover",
 	"modality",
 	"access",
 	"dependency",
@@ -10,6 +11,8 @@ const FIELD_KEYS = [
 	"enrollmentDeadline",
 	"minAttendance",
 	"requiresEvaluation",
+	"qrOpensBeforeMinutes",
+	"qrClosesAfterMinutes",
 	"trainers",
 	"audience",
 	"sessions",

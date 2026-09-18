@@ -10,6 +10,16 @@ import type { NotificationEvent } from "@/modules/notifications/domain/notificat
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
+import { bucketForKey } from "@/shared/storage/storage.policy";
+import {
+	type StorageTxDeps,
+	withStorageTransaction,
+} from "@/shared/storage/storage.transaction";
+import { getKeyFromUrl } from "@/shared/storage/storage.utils";
+import {
+	type UploadInput,
+	validateUploadInput,
+} from "@/shared/storage/upload-validation";
 import {
 	type CourseScope,
 	canChooseOrganizer,
@@ -17,8 +27,13 @@ import {
 	resolveOrganizerDependency,
 	toAudienceScope,
 } from "../domain/course.access";
-import { COURSE_DEFAULTS, COURSE_LIST_DEFAULTS } from "../domain/course.config";
 import {
+	COURSE_COVER,
+	COURSE_DEFAULTS,
+	COURSE_LIST_DEFAULTS,
+} from "../domain/course.config";
+import {
+	CourseCoverInvalidError,
 	CourseDependencyInactiveError,
 	CourseForbiddenScopeError,
 	CourseInvalidTransitionError,
@@ -60,6 +75,11 @@ type Dependencies = {
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
+	// Storage llega por el cradle, nunca por import: el caso de uso depende del
+	// puerto, y una prueba lo sustituye por un doble sin levantar ningún SDK.
+	storageProvider: ICradle["storageProvider"];
+	storageBucket: ICradle["storageBucket"];
+	storagePublicBucket: ICradle["storagePublicBucket"];
 };
 
 /** Sin repetidos: un id duplicado desajustaría el conteo de elegibles. */
@@ -76,6 +96,9 @@ export const createCourseService = ({
 	runInTransaction,
 	clock,
 	logger,
+	storageProvider,
+	storageBucket,
+	storagePublicBucket,
 }: Dependencies): ICourseService => {
 	const log = logger.child({ module: "courses" });
 	const run = createOperationRunner(log);
@@ -232,11 +255,107 @@ export const createCourseService = ({
 			enrollmentDeadline,
 			minAttendance: dto.minAttendance ?? COURSE_DEFAULTS.minAttendance,
 			requiresEvaluation: dto.requiresEvaluation ?? false,
+			qrOpensBeforeMinutes:
+				dto.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
+			qrClosesAfterMinutes:
+				dto.qrClosesAfterMinutes ?? COURSE_DEFAULTS.qrClosesAfterMinutes,
 			sessions,
 			trainerIds: trainers.map((trainer) => trainer.id),
 			audienceDependencyIds: dependencies.map((entry) => entry.id),
 			audienceGroupIds: groups.map((entry) => entry.id),
 		};
+	};
+
+	// ===============================================================
+	// Portada
+	// ===============================================================
+
+	/**
+	 * Dependencias de la transacción de storage, armadas una vez.
+	 *
+	 * El bucket lo decide la key, no este módulo: `media/` resuelve al bucket
+	 * público cuando existe, y pasar por la política deja la subida correcta
+	 * aunque mañana cambien los prefijos.
+	 */
+	const coverTxDeps = (): StorageTxDeps => {
+		// Error de configuración, no de negocio: sale como UNEXPECTED y se
+		// registra con su mensaje real, que es lo que necesita quien opera.
+		if (!storageBucket) throw new Error("STORAGE_BUCKET_NAME no configurado");
+
+		return {
+			provider: storageProvider,
+			logger: log,
+			buckets: {
+				defaultBucket: storageBucket,
+				publicBucket: storagePublicBucket,
+			},
+			validation: {
+				allowedTypes: COURSE_COVER.allowedTypes,
+				maxBytes: COURSE_COVER.maxBytes,
+				maxCount: 1,
+			},
+		};
+	};
+
+	/**
+	 * Valida la portada ANTES de entrar a la transacción.
+	 *
+	 * La transacción vuelve a validar, pero su `StorageValidationError` no es un
+	 * `DomainError`: llegaría al cliente como error inesperado en vez de decir
+	 * qué tiene de malo el archivo.
+	 */
+	const assertValidCover = (cover: UploadInput) => {
+		const reason = validateUploadInput(cover, {
+			allowedTypes: COURSE_COVER.allowedTypes,
+			maxBytes: COURSE_COVER.maxBytes,
+		});
+		if (reason) throw new CourseCoverInvalidError(reason);
+	};
+
+	/**
+	 * Borra la portada anterior, best-effort y DESPUÉS del commit.
+	 *
+	 * Un objeto que ya no está no puede tumbar un guardado que ya ocurrió; si el
+	 * borrado falla queda un huérfano, que el gestor de nube sabe detectar.
+	 */
+	const discardCover = (previous: string | null) => {
+		if (!previous || !storageBucket) return;
+
+		const key = getKeyFromUrl(previous);
+		if (!key) return;
+
+		void storageProvider
+			.deleteFile(
+				bucketForKey(key, {
+					defaultBucket: storageBucket,
+					publicBucket: storagePublicBucket,
+				}),
+				key,
+			)
+			.catch((error) => {
+				log.warn("[courses] portada anterior no borrada", { key, error });
+			});
+	};
+
+	/**
+	 * Ejecuta la escritura con la portada dentro de la MISMA unidad de trabajo.
+	 *
+	 * La transacción de storage envuelve a la de base: si la fila falla —por el
+	 * cupo, por el alcance, por lo que sea— el objeto recién subido se borra y
+	 * no queda una portada sin curso.
+	 */
+	const withCover = async <T>(
+		cover: UploadInput | null | undefined,
+		write: (coverImageUrl: string | null) => Promise<T>,
+	): Promise<T> => {
+		if (!cover) return write(null);
+
+		assertValidCover(cover);
+
+		return withStorageTransaction(coverTxDeps(), async (tx) => {
+			const uploaded = await tx.upload(COURSE_COVER.prefix, cover);
+			return write(uploaded.url);
+		});
 	};
 
 	return {
@@ -301,29 +420,42 @@ export const createCourseService = ({
 				});
 			});
 		},
-		async create(dto: CreateCourseDto, actor: AuthContext) {
+		async create(
+			dto: CreateCourseDto,
+			actor: AuthContext,
+			cover?: UploadInput | null,
+		) {
 			return run("create", async () => {
 				const scope = requireWriteScope(actor);
 				const dependencyId = await resolveOrganizer(dto.dependency, scope);
 				const data = await buildWriteData(dto, scope);
 
 				// Curso, sesiones, capacitadores y audiencia son una sola escritura
-				// (reglas §8.1): un curso a medias no es un borrador, es basura.
+				// (reglas §8.1): un curso a medias no es un borrador, es basura. La
+				// portada entra en esa misma unidad, una capa más afuera.
 				return ok(
-					await runInTransaction(async () =>
-						courseRepository.create({
-							...data,
-							dependencyId,
-							createdById: actor.userId,
-							planLineId: dto.planLine
-								? await claimPlanLine(dto.planLine, dependencyId)
-								: null,
-						}),
+					await withCover(cover, (coverImageUrl) =>
+						runInTransaction(async () =>
+							courseRepository.create({
+								...data,
+								coverImageUrl,
+								dependencyId,
+								createdById: actor.userId,
+								planLineId: dto.planLine
+									? await claimPlanLine(dto.planLine, dependencyId)
+									: null,
+							}),
+						),
 					),
 				);
 			});
 		},
-		async update(documentId: string, dto: UpdateCourseDto, actor: AuthContext) {
+		async update(
+			documentId: string,
+			dto: UpdateCourseDto,
+			actor: AuthContext,
+			cover?: UploadInput | null,
+		) {
 			return run("update", async () => {
 				const scope = requireWriteScope(actor);
 				const course = await requireCourse(documentId, scope);
@@ -333,17 +465,20 @@ export const createCourseService = ({
 				}
 
 				const data = await buildWriteData(dto, scope);
+				// Tres estados, no dos: archivo nuevo sustituye, `removeCover` quita,
+				// y no mandar nada conserva la que ya tenía.
+				const replaces = Boolean(cover) || dto.removeCover === true;
 
-				return ok(
-					await runInTransaction(async () => {
+				const updated = await withCover(cover, (coverImageUrl) =>
+					runInTransaction(async () => {
 						const { enrolled } = await enrollmentRepository.lockCourseSeats(
 							course.id,
 						);
 						assertCapacityCovers(data.capacity, enrolled);
 
-						const updated = await courseRepository.update(
+						const saved = await courseRepository.update(
 							documentId,
-							data,
+							{ ...data, ...(replaces && { coverImageUrl }) },
 							scope,
 						);
 						if (
@@ -353,14 +488,20 @@ export const createCourseService = ({
 							await notifyEnrolled(course.id, (to) => ({
 								template: "COURSE_UPDATED",
 								to,
-								course: toNotifiedCourse(updated),
-								sessions: toNotifiedSessions(updated.sessions),
+								course: toNotifiedCourse(saved),
+								sessions: toNotifiedSessions(saved.sessions),
 							}));
 						}
 
-						return updated;
+						return saved;
 					}),
 				);
+
+				// Fuera de las dos transacciones a propósito: el objeto viejo ya no lo
+				// referencia nadie, y su borrado no puede revertir lo ya guardado.
+				if (replaces) discardCover(course.coverImageUrl);
+
+				return ok(updated);
 			});
 		},
 		async publish(documentId: string, actor: AuthContext) {

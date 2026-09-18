@@ -15,6 +15,15 @@ export const INTENT_FIELD = "intent";
  */
 export const PAYLOAD_FIELD = "payload";
 
+/**
+ * Campo que transporta la portada.
+ *
+ * Va aparte del JSON porque un `File` no sobrevive a `JSON.stringify`. Quitar
+ * la portada NO viaja aquí —la ausencia del archivo significa "no la toques"—
+ * sino como `removeCover` dentro del payload.
+ */
+export const COVER_FIELD = "cover";
+
 export const COURSE_INTENTS = {
 	create: "create",
 	update: "update",
@@ -35,13 +44,23 @@ export interface ParsedCourseFormData {
 	 * se trata aparte: la regla de entrada lo rechaza como cualquier dato malo.
 	 */
 	payload: unknown;
+	/** La portada elegida, o `null` si el formulario no mandó ninguna. */
+	cover: File | null;
 }
 
 export function parseCourseFormData(formData: FormData): ParsedCourseFormData {
+	// Se lee con `get` y fuera del bucle porque bun-types declara `entries()`
+	// como `[string, string]` —perdiendo `File`—, mientras que `get` sí devuelve
+	// `File | string | null`. Tamaño 0 = el input se envió sin selección.
+	const coverEntry = formData.get(COVER_FIELD);
+	const cover =
+		coverEntry instanceof File && coverEntry.size > 0 ? coverEntry : null;
+
 	const fields: Record<string, string> = {};
 	let intent: string | null = null;
 
 	for (const [key, value] of formData.entries()) {
+		if (key === COVER_FIELD) continue;
 		// Guarda de ejecución: pese al tipo declarado, un envío multipart puede
 		// traer File en cualquier clave.
 		if (typeof value !== "string") continue;
@@ -56,7 +75,12 @@ export function parseCourseFormData(formData: FormData): ParsedCourseFormData {
 		fields[key] = value;
 	}
 
-	return { fields, intent, payload: decodePayload(fields[PAYLOAD_FIELD]) };
+	return {
+		fields,
+		intent,
+		cover,
+		payload: decodePayload(fields[PAYLOAD_FIELD]),
+	};
 }
 
 const decodePayload = (raw: string | undefined): unknown => {

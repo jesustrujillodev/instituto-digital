@@ -7,6 +7,7 @@ export const TEACHING_INTENTS = {
 	attendance: "attendance",
 	results: "results",
 	finish: "finish",
+	rotateQr: "rotate-qr",
 } as const;
 
 export type TeachingActionData = AppResponse<null>;

@@ -1,41 +1,38 @@
 export { loader } from "./index.loader";
 
-import { BookOpen } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { formatZonedDate } from "@/lib/date-utils";
-import { CourseModalityBadge } from "@/modules/courses/components/course-badges";
-import { COURSE_MODALITIES } from "@/modules/courses/domain/course.rules";
-import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
-import { DataTable } from "@/shared/components/common/data-table";
-import { columnHelpers } from "@/shared/components/common/data-table-columns";
+import { BookOpen, SearchX } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigation, useSearchParams } from "react-router";
 import { PageHeader } from "@/shared/components/common/page-header";
-import { TextInput } from "@/shared/components/common/text-input";
+import { Button } from "@/shared/components/ui/button";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/shared/components/ui/select";
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "@/shared/components/ui/empty";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
+import { CatalogPagination } from "../../components/catalog-pagination";
+import { ALL, CatalogToolbar } from "../../components/catalog-toolbar";
+import { CourseCard, CourseCardSkeleton } from "../../components/course-card";
 import {
-	EnrollmentStatusBadge,
-	SeatsBadge,
-} from "../../components/enrollment-badges";
-import type { AvailableCourse } from "../../domain/enrollment.types";
+	AVAILABLE_LIST_DEFAULTS,
+	AVAILABLE_PAGE_SIZES,
+} from "../../domain/enrollment.config";
 import type { Route } from "./+types/index";
 
 const SEARCH_DEBOUNCE_MS = 300;
-const ALL = "all";
 
-type AvailableRow = AvailableCourse & { id: string };
+/** Portadas que se cargan sin esperar al scroll: la primera fila visible. */
+const EAGER_COVERS = 4;
 
-const detailPath = (course: AvailableRow) =>
-	`/dashboard/cursos-disponibles/${course.documentId}`;
-
-const dateOrDash = (value: Date | string | null) =>
-	value ? formatZonedDate(new Date(value)) : "—";
+/** Claves fijas de las siluetas: son idénticas entre sí y no tienen identidad. */
+const SKELETON_KEYS = Array.from(
+	{ length: AVAILABLE_PAGE_SIZES.at(-1) ?? 48 },
+	(_, index) => `skeleton-${index}`,
+);
 
 export const handle = {
 	breadcrumb: () => [{ label: "Cursos disponibles" }],
@@ -49,11 +46,12 @@ export default function CursosDisponiblesPage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { courses, filters },
+		data: { courses, organizers, filters },
 		pagination,
 	} = loaderData;
-	const navigate = useNavigate();
 	const [, setSearchParams] = useSearchParams();
+	const navigation = useNavigation();
+	const location = useLocation();
 
 	const updateParams = useCallback(
 		(patch: Record<string, string | number | null>) => {
@@ -86,36 +84,24 @@ export default function CursosDisponiblesPage({
 		return () => clearTimeout(timeout);
 	}, [searchTerm, filters.search, updateParams]);
 
-	const rows = useMemo<AvailableRow[]>(
-		() => courses.map((course) => ({ ...course, id: course.documentId })),
-		[courses],
-	);
+	const clearFilters = () => {
+		setSearchTerm("");
+		updateParams({
+			search: null,
+			modality: null,
+			dependency: null,
+			page: null,
+		});
+	};
 
-	const columns = useMemo(
-		() => [
-			columnHelpers.text<AvailableRow>("title", "Curso"),
-			columnHelpers.text<AvailableRow>("dependencyName", "Organiza"),
-			columnHelpers.custom<AvailableRow>("modality", "Modalidad", (course) => (
-				<CourseModalityBadge modality={course.modality} />
-			)),
-			columnHelpers.custom<AvailableRow>("firstSessionAt", "Inicia", (course) =>
-				dateOrDash(course.firstSessionAt),
-			),
-			columnHelpers.custom<AvailableRow>("closesAt", "Cierra", (course) =>
-				dateOrDash(course.closesAt),
-			),
-			columnHelpers.custom<AvailableRow>("seatsLeft", "Lugares", (course) => (
-				<SeatsBadge capacity={course.capacity} seatsLeft={course.seatsLeft} />
-			)),
-			columnHelpers.custom<AvailableRow>("myStatus", "Tu estado", (course) =>
-				course.myStatus ? (
-					<EnrollmentStatusBadge status={course.myStatus} />
-				) : (
-					<span className="text-muted-foreground">—</span>
-				),
-			),
-		],
-		[],
+	// Solo una navegación a ESTA ruta es un cambio de filtro o de página. Sin
+	// comparar el destino, hacer clic en una tarjeta disolvería la cuadrícula
+	// entera en siluetas mientras se va a otra pantalla.
+	const isLoading =
+		navigation.state === "loading" &&
+		navigation.location?.pathname === location.pathname;
+	const hasFilters = Boolean(
+		filters.search || filters.modality || filters.dependency,
 	);
 
 	return (
@@ -125,73 +111,110 @@ export default function CursosDisponiblesPage({
 				description="Cursos publicados a los que puedes inscribirte mientras la inscripción siga abierta."
 			/>
 
-			<div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-				<div className="w-full lg:max-w-xs">
-					<TextInput
-						name="search"
-						placeholder="Buscar por título o descripción"
-						value={searchTerm}
-						onChange={(event) => setSearchTerm(event.target.value)}
-					/>
-				</div>
-
-				<Select
-					value={filters.modality || ALL}
-					onValueChange={(value) =>
-						updateParams({ modality: value, page: null })
-					}
-				>
-					<SelectTrigger className="w-40">
-						<SelectValue placeholder="Modalidad" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value={ALL}>Toda modalidad</SelectItem>
-						{COURSE_MODALITIES.map((modality) => (
-							<SelectItem key={modality} value={modality}>
-								{MODALITY_LABELS[modality]}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
-
-			<div className="overflow-hidden rounded-lg border border-border bg-card">
-				<DataTable
-					data={rows}
-					columns={columns}
-					emptyState={{
-						icon: BookOpen,
-						title: "Sin cursos disponibles",
-						description:
-							"No hay cursos abiertos a inscripción que coincidan con la búsqueda.",
-					}}
-					mobileCard={{
-						title: (course) => course.title,
-						description: (course) => course.dependencyName,
-						content: (course) => (
-							<div className="flex flex-wrap gap-2">
-								<CourseModalityBadge modality={course.modality} />
-								<SeatsBadge
-									capacity={course.capacity}
-									seatsLeft={course.seatsLeft}
-								/>
-							</div>
-						),
-					}}
-					pagination={
-						pagination && {
-							total: pagination.total,
-							page: pagination.page,
-							pageSize: pagination.pageSize,
-							pageCount: pagination.totalPages,
-							onPageChange: (nextPage) => updateParams({ page: nextPage }),
-							onPageSizeChange: (nextSize) =>
-								updateParams({ pageSize: nextSize, page: null }),
-						}
-					}
-					onRowClick={(course) => navigate(detailPath(course))}
+			<div className="flex flex-col gap-4">
+				<CatalogToolbar
+					searchTerm={searchTerm}
+					onSearchChange={setSearchTerm}
+					filters={filters}
+					organizers={organizers}
+					onFilterChange={updateParams}
+					onClear={clearFilters}
 				/>
+
+				{/* La región viva se monta SIEMPRE y solo cambia su texto: insertar
+				    una región ya poblada no se anuncia de forma fiable, así que un
+				    lector de pantalla se quedaba sin el recuento tras buscar. */}
+				<p className="min-h-5 text-muted-foreground text-sm" aria-live="polite">
+					{isLoading || !pagination || pagination.total === 0
+						? ""
+						: pagination.total === 1
+							? "1 curso disponible"
+							: `${pagination.total} cursos disponibles`}
+				</p>
+
+				{isLoading ? (
+					<CardGrid>
+						{SKELETON_KEYS.slice(
+							0,
+							pagination?.pageSize ?? AVAILABLE_LIST_DEFAULTS.pageSize,
+						).map((key) => (
+							<li key={key}>
+								<CourseCardSkeleton />
+							</li>
+						))}
+					</CardGrid>
+				) : courses.length === 0 ? (
+					<CatalogEmpty hasFilters={hasFilters} onClear={clearFilters} />
+				) : (
+					<CardGrid>
+						{courses.map((course, index) => (
+							<li key={course.documentId}>
+								<CourseCard course={course} eager={index < EAGER_COVERS} />
+							</li>
+						))}
+					</CardGrid>
+				)}
+
+				{pagination && pagination.total > 0 && (
+					<CatalogPagination
+						page={pagination.page}
+						pageSize={pagination.pageSize}
+						pageCount={pagination.totalPages}
+						total={pagination.total}
+						onPageChange={(nextPage) => updateParams({ page: nextPage })}
+						onPageSizeChange={(nextSize) =>
+							updateParams({ pageSize: nextSize, page: null })
+						}
+					/>
+				)}
 			</div>
 		</div>
+	);
+}
+
+function CardGrid({ children }: { children: React.ReactNode }) {
+	return (
+		<ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+			{children}
+		</ul>
+	);
+}
+
+/**
+ * Los dos vacíos no son el mismo.
+ *
+ * "No hay nada" es información sobre el catálogo; "nada coincide" es sobre lo
+ * que acabas de escribir, y su salida es deshacerlo.
+ */
+function CatalogEmpty({
+	hasFilters,
+	onClear,
+}: {
+	hasFilters: boolean;
+	onClear: () => void;
+}) {
+	return (
+		<Empty>
+			<EmptyHeader>
+				<EmptyMedia variant="icon">
+					{hasFilters ? <SearchX /> : <BookOpen />}
+				</EmptyMedia>
+				<EmptyTitle>
+					{hasFilters ? "Ningún curso coincide" : "Todavía no hay cursos"}
+				</EmptyTitle>
+				<EmptyDescription>
+					{hasFilters
+						? "Prueba con otras palabras o quita algún filtro."
+						: "Cuando una dependencia publique un curso abierto a tu perfil, aparecerá aquí."}
+				</EmptyDescription>
+			</EmptyHeader>
+			{hasFilters && (
+				<EmptyContent>
+					<Button type="button" variant="outline" onClick={onClear}>
+						Limpiar filtros
+					</Button>
+				</EmptyContent>
+			)}
+		</Empty>
 	);
 }

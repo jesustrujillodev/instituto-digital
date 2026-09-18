@@ -168,9 +168,9 @@ Paleta del manual de identidad del Ayuntamiento: guinda y oro sobre neutros cál
 - **Noche**, **Noche Tarjeta**, **Claro Texto**: fondo, tarjeta y texto del modo oscuro.
 
 ### Named Rules
-**The Sello Rule.** El guinda ocupa superficies solo donde se declara la institución: barra lateral, portada y panel de acceso. Dentro del área de trabajo, el guinda es acción, enlace o foco; nunca un fondo de sección.
+**The Sello Rule.** El guinda ocupa superficies solo donde se declara la institución: barra lateral, portada, panel de acceso y la **portada generada** de un curso sin imagen (ver Components). Dentro del área de trabajo, el guinda es acción, enlace o foco; nunca un fondo de sección. Una superficie de medios —el rectángulo donde iría una fotografía— no es una sección: sustituye a una imagen, no enmarca contenido.
 
-**The Oro Escaso Rule.** El oro corporativo distingue un elemento a la vez: el activo, la acción sobre guinda o un filete de marca. Nunca es una superficie grande ni el color de un estado repetido en listas.
+**The Oro Escaso Rule.** El oro corporativo distingue un elemento a la vez: el activo, la acción sobre guinda o un filete de marca. Nunca es una superficie grande ni el color de un estado repetido en listas. La trama de la portada generada es la excepción acotada: vive **dentro** de la superficie guinda, al 18% de opacidad, y desaparece en cuanto el curso tiene imagen propia — no señala estado ni compite con la acción.
 
 **The Token Rule.** Ningún componente escribe un color literal. Todo sale de los tokens del tema, porque el tema publicado puede cambiar sin tocar el código.
 
@@ -240,6 +240,20 @@ Cercanos y claros: altura cómoda, color sólido solo en la acción principal.
 - **Border:** ninguno.
 - **Internal Padding:** 24px (16px en la variante compacta).
 
+### Portada generada
+Cuando un curso no tiene imagen de portada, su hueco no se deja gris: se pinta una placa de marca. `app/modules/enrollments/components/course-cover.tsx`.
+- **Superficie:** el guinda profundo de la barra lateral, con un velo radial del guinda cabildo al 70% desde la esquina superior izquierda — un campo plano se ve impreso.
+- **Trama:** una de seis geometrías vectoriales (retícula, diagonales, puntos, galón, anillos, ladrillos) en oro corporativo al 18%, con giro y escala propios. **Determinista:** las tres variantes salen de un hash FNV-1a del `documentId`, así que el mismo curso se ve siempre igual —el servidor y el cliente pintan lo mismo— y dos tarjetas vecinas no se repiten.
+- **Marca de agua:** el icono de la modalidad, al 25%, saliendo por la esquina inferior derecha.
+- **Regla:** es geometría exacta, nunca ilustración. Ninguna forma se dibuja a mano alzada ni imita una fotografía.
+
+### Tarjeta de curso
+La unidad del catálogo de cursos disponibles, la única pantalla del panel donde se elige en vez de administrar. `app/modules/enrollments/components/course-card.tsx`.
+- **Anatomía:** portada 16:9 al ras del borde superior (`pt-0` sobre la tarjeta), título a dos líneas, resumen a dos líneas, fila de datos y pie con el cupo y la acción.
+- **Distintivos sobre la portada:** los de contorno del proyecto no se leen sobre una fotografía cualquiera. Sobre la portada van dos píldoras sólidas: la modalidad en fondo esmerilado neutro, y el estado propio —solo cuando existe— en guinda sólido.
+- **Una parada de tabulación:** el enlace al detalle se estira con `after:absolute after:inset-0`; nada interactivo se anida dentro.
+- **Foco:** el mismo anillo de 3px al 30% que el resto de controles. La tarjeta no inventa el suyo.
+
 ### Inputs / Fields
 - **Style:** 36px de alto, esquina de 8.8px, sin borde visible en reposo. El relleno es apenas perceptible: la superficie apagada (gris apagado) en claro y el gris campo al 30% en oscuro. Aplica a campos de texto, áreas de texto, selects, grupos de campo, buscador de comandos y buscador de la barra lateral.
 - **Focus:** el borde toma el color del anillo y aparece un halo de 3px al 30%.
@@ -266,7 +280,7 @@ Portada y panel de acceso usan la superficie guinda de la barra lateral con el l
 ### Don't:
 - **Don't** usar el oro corporativo como superficie grande ni como estado repetido. Pendiente: hoy el token `accent` es oro corporativo y pinta el foco de los elementos de menús desplegables y selects; conviene moverlo a un oro suave para cumplir la regla del oro escaso.
 - **Don't** usar el token `input` como relleno de campos de texto: es el contorno de checkboxes y radios, calibrado a 3:1, y como relleno deja el campo pesado y el placeholder en 3:1.
-- **Don't** usar el guinda como fondo de secciones dentro del área de trabajo.
+- **Don't** usar el guinda como fondo de secciones dentro del área de trabajo. La portada generada es superficie de medios, no sección: es la única excepción.
 - **Don't** usar oro corporativo como color de texto sobre fondos claros.
 - **Don't** añadir una segunda familia tipográfica ni declarar Book en 300.
 - **Don't** poner filetes laterales gruesos de color en tarjetas o paneles.

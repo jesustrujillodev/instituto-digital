@@ -5,6 +5,7 @@ import type {
 	CourseSummary,
 	CreateCourseData,
 	ListCoursesDto,
+	QrCourse,
 	UpdateCourseData,
 } from "./course.types";
 
@@ -88,4 +89,18 @@ export interface ICourseRepository {
 		documentIds: readonly string[],
 		scope: AccessScope,
 	): Promise<CourseReference[]>;
+
+	/**
+	 * El curso de un token de QR, con sus sesiones ordenadas por inicio.
+	 *
+	 * Sin alcance a propósito: el token opaco ES la autorización para llegar al
+	 * curso, y quien escanea no lo administra (§6.8).
+	 */
+	findByQrToken(token: string): Promise<QrCourse | null>;
+
+	/**
+	 * Fija el token del QR, generándolo o rotándolo. Al rotar, el código ya
+	 * impreso deja de resolver.
+	 */
+	rotateQrToken(courseId: number, token: string, at: Date): Promise<void>;
 }

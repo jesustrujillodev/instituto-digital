@@ -88,6 +88,10 @@ describe("toTeachingCourse", () => {
 			minAttendance: 80,
 			requiresEvaluation: false,
 			finishedAt: null,
+			qrToken: null,
+			qrTokenRotatedAt: null,
+			qrOpensBeforeMinutes: 15,
+			qrClosesAfterMinutes: 15,
 			sessions: [],
 			trainers: [],
 			enrollments: [

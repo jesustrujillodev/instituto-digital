@@ -2,6 +2,7 @@ import { redirect } from "react-router";
 import { serializeAuthCookies } from "@/core/cookies.server";
 import { validateLogin } from "@/modules/auth/domain/auth.validators";
 import { AUTH_ERROR_MESSAGES } from "@/modules/auth/utils/auth-error-messages";
+import { safeReturnTo } from "@/shared/auth/return-to";
 import { getClientIp } from "@/shared/http/client-ip";
 import { parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
@@ -31,7 +32,9 @@ export const action = async ({
 
 	const cookies = await serializeAuthCookies(result.data);
 
-	throw redirect("/dashboard", {
+	// Del formData crudo: `loginRule` es un `v.object` no-strict, así que un
+	// campo extra pasa la validación pero no llega a `input.data`.
+	throw redirect(safeReturnTo(formData.redirectTo, "/dashboard"), {
 		headers: cookies.map((c) => ["Set-Cookie", c] as [string, string]),
 	});
 };

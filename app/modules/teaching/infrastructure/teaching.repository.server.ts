@@ -35,6 +35,10 @@ const courseSelect = (sessionFilter: Prisma.CourseSessionWhereInput) =>
 		minAttendance: true,
 		requiresEvaluation: true,
 		finishedAt: true,
+		qrToken: true,
+		qrTokenRotatedAt: true,
+		qrOpensBeforeMinutes: true,
+		qrClosesAfterMinutes: true,
 		sessions: {
 			orderBy: { startsAt: "asc" },
 			select: {
@@ -162,9 +166,10 @@ export const createTeachingRepository = ({
 		for (const mark of marks) {
 			const data = {
 				attended: mark.attended,
+				source: "MANUAL",
 				recordedById: actorId,
 				recordedAt: at,
-			};
+			} satisfies Prisma.CourseAttendanceUncheckedUpdateInput;
 
 			await prisma.courseAttendance.upsert({
 				where: { sessionId_userId: { sessionId, userId: mark.userId } },
@@ -172,5 +177,29 @@ export const createTeachingRepository = ({
 				update: data,
 			});
 		}
+	},
+
+	async checkIn(sessionId, userId, at) {
+		const stored = await prisma.courseAttendance.findUnique({
+			where: { sessionId_userId: { sessionId, userId } },
+			select: { attended: true, source: true },
+		});
+
+		if (stored?.attended && stored.source === "QR") return false;
+
+		const data = {
+			attended: true,
+			source: "QR",
+			recordedById: userId,
+			recordedAt: at,
+		} satisfies Prisma.CourseAttendanceUncheckedUpdateInput;
+
+		await prisma.courseAttendance.upsert({
+			where: { sessionId_userId: { sessionId, userId } },
+			create: { sessionId, userId, ...data },
+			update: data,
+		});
+
+		return true;
 	},
 });

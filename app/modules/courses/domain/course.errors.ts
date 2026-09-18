@@ -22,6 +22,7 @@ export const COURSE_ERROR_CODES = {
 	UNKNOWN_AUDIENCE: "COURSE_UNKNOWN_AUDIENCE",
 	CAPACITY_BELOW_ENROLLED: "COURSE_CAPACITY_BELOW_ENROLLED",
 	PLAN_LINE_NOT_FOUND: "COURSE_PLAN_LINE_NOT_FOUND",
+	COVER_INVALID: "COURSE_COVER_INVALID",
 } as const;
 
 export abstract class CourseError extends DomainError {}
@@ -201,5 +202,21 @@ export class CoursePlanLineNotFoundError extends CourseError {
 	readonly code = COURSE_ERROR_CODES.PLAN_LINE_NOT_FOUND;
 	constructor() {
 		super("Plan line not found for this organizer");
+	}
+}
+
+/**
+ * La portada no pasa la allowlist de tipo o el tope de tamaño.
+ *
+ * Existe como error de dominio —y no se deja escapar el `StorageValidationError`
+ * de la transacción— porque aquel no es un `DomainError`: el runner lo
+ * registraría como inesperado y el cliente vería un 500 en vez del motivo.
+ */
+export class CourseCoverInvalidError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.COVER_INVALID;
+	readonly details: { reason: string };
+	constructor(reason: string) {
+		super(`Cover image rejected: ${reason}`);
+		this.details = { reason };
 	}
 }
