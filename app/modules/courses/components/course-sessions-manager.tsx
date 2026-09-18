@@ -1,7 +1,14 @@
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, CalendarRange } from "lucide-react";
 import { useCallback } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { Button } from "@/shared/components/ui/button";
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { COURSE_MAX_SESSIONS } from "../domain/course.config";
 import {
 	COURSE_MODALITIES,
@@ -31,7 +38,7 @@ const placeOf = (modality: CourseModality) =>
 			? "sede"
 			: "enlace";
 
-interface CourseSessionsManagerProps {
+interface CourseProgramFieldsProps {
 	ids: CourseFormIds;
 	/** Publicado: un cambio de horario o lugar se avisa por correo. */
 	isPublished: boolean;
@@ -41,10 +48,10 @@ interface CourseSessionsManagerProps {
  * El programa: modalidad y sesiones van juntas porque la modalidad decide qué
  * lugar pide cada sesión.
  */
-export function CourseSessionsManager({
+export function CourseProgramFields({
 	ids,
 	isPublished,
-}: CourseSessionsManagerProps) {
+}: CourseProgramFieldsProps) {
 	const { getValues } = useFormContext<CourseFormValues>();
 	const { fields, append, remove } = useFieldArray<
 		CourseFormValues,
@@ -62,17 +69,7 @@ export function CourseSessionsManager({
 	const canAdd = fields.length < COURSE_MAX_SESSIONS;
 
 	return (
-		<CourseFormSection
-			section="program"
-			description={
-				<>
-					Horario de Tijuana. Para publicar hace falta al menos una sesión, y
-					cada una con {placeOf(modality)}.
-					{isPublished &&
-						" Si cambias horario o lugar, se avisa por correo a inscritos e invitados."}
-				</>
-			}
-		>
+		<>
 			<div className="sm:max-w-xs">
 				<CourseSelectField
 					id={ids.modality}
@@ -83,46 +80,76 @@ export function CourseSessionsManager({
 				/>
 			</div>
 
+			{isPublished && (
+				<p className="text-muted-foreground text-sm">
+					Si cambias horario o lugar, se avisa por correo a inscritos e
+					invitados.
+				</p>
+			)}
+
 			<div id={ids.sessions} className="flex flex-col gap-5">
 				{fields.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						Todavía no hay sesiones. Puedes guardar el borrador así y
-						programarlas después.
-					</p>
+					<Empty className="border border-border border-dashed p-8">
+						<EmptyHeader>
+							<EmptyMedia variant="icon">
+								<CalendarRange aria-hidden="true" />
+							</EmptyMedia>
+							<EmptyTitle>Sin sesiones todavía</EmptyTitle>
+							<EmptyDescription>
+								Una sesión es una fecha con su horario y su {placeOf(modality)}.
+								Puedes guardar el borrador así y programarlas más adelante.
+							</EmptyDescription>
+						</EmptyHeader>
+						<Button type="button" variant="outline" onClick={addSession}>
+							<CalendarPlus aria-hidden="true" />
+							Agregar la primera sesión
+						</Button>
+					</Empty>
 				) : (
-					<ol className="flex flex-col gap-5">
-						{fields.map((field, index) => (
-							<CourseSessionRow
-								key={field.id}
-								index={index}
-								modality={modality}
-								onRemove={remove}
-							/>
-						))}
-					</ol>
-				)}
+					<>
+						<ol className="flex flex-col gap-5">
+							{fields.map((field, index) => (
+								<CourseSessionRow
+									key={field.id}
+									index={index}
+									modality={modality}
+									onRemove={remove}
+								/>
+							))}
+						</ol>
 
-				<div className="flex flex-wrap items-center gap-3">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={addSession}
-						disabled={!canAdd}
-					>
-						<CalendarPlus aria-hidden="true" />
-						{fields.length === 0
-							? "Agregar la primera sesión"
-							: "Agregar sesión"}
-					</Button>
-					{fields.length > 0 && (
-						<span className="text-muted-foreground text-xs">
-							{canAdd
-								? "La nueva repite el horario y el lugar de la última."
-								: `Máximo ${COURSE_MAX_SESSIONS} sesiones.`}
-						</span>
-					)}
-				</div>
+						<div className="flex flex-wrap items-center gap-3">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={addSession}
+								disabled={!canAdd}
+							>
+								<CalendarPlus aria-hidden="true" />
+								Agregar sesión
+							</Button>
+							<span className="text-muted-foreground text-xs">
+								{canAdd
+									? "La nueva repite el horario y el lugar de la última."
+									: `Máximo ${COURSE_MAX_SESSIONS} sesiones.`}
+							</span>
+						</div>
+					</>
+				)}
 			</div>
+		</>
+	);
+}
+
+export function CourseSessionsManager(props: CourseProgramFieldsProps) {
+	const modality = useWatch<CourseFormValues, "modality">({ name: "modality" });
+
+	return (
+		<CourseFormSection
+			section="program"
+			description={`Horario de Tijuana. Para publicar hace falta al menos una sesión, y cada una con ${placeOf(modality)}.`}
+		>
+			<CourseProgramFields {...props} />
 		</CourseFormSection>
 	);
 }

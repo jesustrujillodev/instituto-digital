@@ -1,17 +1,17 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Pencil, Send } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
+import { CourseAudience } from "../../../components/course-audience";
 import {
 	CourseAccessBadge,
 	CourseModalityBadge,
@@ -20,7 +20,7 @@ import {
 import { CourseFacts } from "../../../components/course-facts";
 import { CourseProgram } from "../../../components/course-program";
 import { CourseStatusPanel } from "../../../components/course-status-panel";
-import type { CourseDetail } from "../../../domain/course.types";
+import { CourseTrainers } from "../../../components/course-trainers";
 import {
 	COURSE_INTENTS,
 	type CourseActionData,
@@ -41,10 +41,6 @@ export function meta({ data }: Route.MetaArgs) {
 	return [{ title: data?.data.course.title ?? "Curso" }];
 }
 
-const trainerNameOf = (trainer: CourseDetail["trainers"][number]) =>
-	[trainer.firstName, trainer.lastName].filter(Boolean).join(" ") ||
-	trainer.email;
-
 export default function CursoPage({ loaderData }: Route.ComponentProps) {
 	const {
 		data: { course, coverUrl, enrollment, publishChecklist, can },
@@ -61,29 +57,15 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 	const submitStatus = (intent: string) =>
 		statusFetcher.submit({ [INTENT_FIELD]: intent }, { method: "post" });
 
-	const isReady = publishChecklist?.every((entry) => entry.done) ?? false;
-
-	const actions = (can.edit || can.publish) && (
-		<>
-			{can.edit && (
-				<Button asChild variant="outline">
-					<Link to={`/dashboard/cursos/${course.documentId}/editar`}>
-						<Pencil aria-hidden="true" />
-						Editar
-					</Link>
-				</Button>
-			)}
-			{can.publish && (
-				<Button
-					type="button"
-					disabled={!isReady || isChangingStatus}
-					onClick={() => submitStatus(COURSE_INTENTS.publish)}
-				>
-					<Send aria-hidden="true" />
-					{isPublishing ? "Publicando…" : "Publicar"}
-				</Button>
-			)}
-		</>
+	// Publicar vive en el panel de estado, junto a la lista de pendientes que lo
+	// habilita: separarlos dejaba el botón apagado sin decir por qué.
+	const actions = can.edit && (
+		<Button asChild variant="outline">
+			<Link to={`/dashboard/cursos/${course.documentId}/editar`}>
+				<Pencil aria-hidden="true" />
+				Editar
+			</Link>
+		</Button>
 	);
 
 	return (
@@ -125,7 +107,9 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						canTeach={can.teach}
 						canCancel={can.cancel}
 						isChangingStatus={isChangingStatus}
+						isPublishing={isPublishing}
 						onCancel={() => setConfirmingCancel(true)}
+						onPublish={() => submitStatus(COURSE_INTENTS.publish)}
 					/>
 
 					<CourseFacts course={course} className="hidden lg:flex" />
@@ -160,36 +144,11 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 					</DetailSection>
 
 					<DetailSection title="Capacitadores">
-						{course.trainers.length === 0 ? (
-							<p className="text-muted-foreground text-sm">
-								Sin capacitadores asignados.
-							</p>
-						) : (
-							<ul className="flex flex-col gap-3">
-								{course.trainers.map((trainer) => (
-									<li
-										key={trainer.userDocumentId}
-										className="flex flex-col gap-0.5"
-									>
-										<p className="flex flex-wrap items-center gap-2 font-medium text-sm">
-											{trainerNameOf(trainer)}
-											{!trainer.isActive && (
-												<Badge variant="destructive">Inactivo</Badge>
-											)}
-										</p>
-										<p className="text-muted-foreground text-sm">
-											{[trainer.specialty, trainer.email]
-												.filter(Boolean)
-												.join(" · ")}
-										</p>
-									</li>
-								))}
-							</ul>
-						)}
+						<CourseTrainers trainers={course.trainers} />
 					</DetailSection>
 
 					<DetailSection title="Audiencia">
-						<CourseAudience course={course} />
+						<CourseAudience access={course.access} audience={course.audience} />
 					</DetailSection>
 				</Card>
 			</div>
@@ -230,57 +189,5 @@ function DetailSection({
 			</header>
 			{children}
 		</section>
-	);
-}
-
-function CourseAudience({ course }: { course: CourseDetail }) {
-	if (course.access === "PUBLIC") {
-		return (
-			<p className="text-sm">
-				Cualquier persona interna puede verlo e inscribirse.
-			</p>
-		);
-	}
-
-	if (course.access === "INVITATION") {
-		return (
-			<p className="text-sm">
-				Solo lo ven las personas invitadas. Las invitaciones se envían desde
-				Inscripciones una vez publicado.
-			</p>
-		);
-	}
-
-	const { dependencies, groups } = course.audience;
-
-	if (dependencies.length + groups.length === 0) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				Restringido, pero todavía sin dependencias ni grupos: nadie podría
-				verlo.
-			</p>
-		);
-	}
-
-	return (
-		<div className="flex flex-col gap-4">
-			{[
-				{ label: "Dependencias completas", entries: dependencies },
-				{ label: "Grupos", entries: groups },
-			]
-				.filter(({ entries }) => entries.length > 0)
-				.map(({ label, entries }) => (
-					<div key={label} className="flex flex-col gap-2">
-						<h3 className="text-muted-foreground text-xs">{label}</h3>
-						<ul className="flex flex-wrap gap-2">
-							{entries.map((entry) => (
-								<li key={entry.documentId}>
-									<Badge variant="outline">{entry.name}</Badge>
-								</li>
-							))}
-						</ul>
-					</div>
-				))}
-		</div>
 	);
 }

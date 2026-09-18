@@ -1,11 +1,4 @@
-import {
-	ArrowRight,
-	Ban,
-	CircleCheck,
-	CircleDashed,
-	ClipboardCheck,
-	Users,
-} from "lucide-react";
+import { ArrowRight, Ban, ClipboardCheck, Send, Users } from "lucide-react";
 import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { Button } from "@/shared/components/ui/button";
@@ -15,8 +8,13 @@ import type {
 	CourseStatus,
 	PublishCheck,
 } from "../domain/course.rules";
-import { publishCheckLabel } from "../utils/course-labels";
+import {
+	firstPendingStep,
+	LAST_STEP_NUMBER,
+	stepPath,
+} from "../utils/course-wizard-steps";
 import type { CourseEnrollmentSummary } from "../utils/to-enrollment-summary";
+import { CoursePublishChecklist } from "./course-publish-checklist";
 
 interface CourseStatusPanelProps {
 	documentId: string;
@@ -28,7 +26,9 @@ interface CourseStatusPanelProps {
 	canTeach: boolean;
 	canCancel: boolean;
 	isChangingStatus: boolean;
+	isPublishing: boolean;
 	onCancel: () => void;
+	onPublish: () => void;
 }
 
 /**
@@ -45,7 +45,9 @@ export function CourseStatusPanel({
 	canTeach,
 	canCancel,
 	isChangingStatus,
+	isPublishing,
 	onCancel,
+	onPublish,
 }: CourseStatusPanelProps) {
 	const rosterPath = `/dashboard/cursos/${documentId}/inscripciones`;
 	const teachingPath = `/dashboard/imparticion/${documentId}`;
@@ -54,7 +56,40 @@ export function CourseStatusPanel({
 		<Card size="sm">
 			<CardContent className="flex flex-col gap-4">
 				{checklist && (
-					<PublishChecklist checklist={checklist} modality={modality} />
+					<div className="flex flex-col gap-3">
+						<CoursePublishChecklist
+							documentId={documentId}
+							checklist={checklist}
+							modality={modality}
+						/>
+
+						{/* La puerta y la acción que la cruza viven juntas: publicar solo
+						    aparece cuando la lista de arriba ya no tiene pendientes. */}
+						{checklist.every((entry) => entry.done) ? (
+							<div className="flex flex-col gap-2">
+								<Button
+									type="button"
+									disabled={isChangingStatus}
+									onClick={onPublish}
+								>
+									<Send aria-hidden="true" />
+									{isPublishing ? "Publicando…" : "Publicar"}
+								</Button>
+								<Button variant="ghost" size="sm" asChild>
+									<Link to={stepPath(documentId, LAST_STEP_NUMBER)}>
+										Revisar antes de publicar
+									</Link>
+								</Button>
+							</div>
+						) : (
+							<Button asChild>
+								<Link to={stepPath(documentId, firstPendingStep(checklist))}>
+									Continuar el alta
+									<ArrowRight className="ml-auto" aria-hidden="true" />
+								</Link>
+							</Button>
+						)}
+					</div>
 				)}
 
 				{status !== "DRAFT" && (
@@ -108,60 +143,6 @@ export function CourseStatusPanel({
 				)}
 			</CardContent>
 		</Card>
-	);
-}
-
-function PublishChecklist({
-	checklist,
-	modality,
-}: {
-	checklist: readonly { check: PublishCheck; done: boolean }[];
-	modality: CourseModality;
-}) {
-	const pending = checklist.filter((entry) => !entry.done).length;
-
-	return (
-		<section
-			aria-labelledby="publish-checklist"
-			className="flex flex-col gap-3"
-		>
-			<div className="flex flex-col gap-0.5">
-				<h2 id="publish-checklist" className="font-medium text-base">
-					Para publicar
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					{pending === 0
-						? "Todo listo. Al publicar, el curso aparece a su audiencia."
-						: pending === 1
-							? "Falta una cosa. Complétala desde Editar."
-							: `Faltan ${pending} cosas. Complétalas desde Editar.`}
-				</p>
-			</div>
-
-			<ul className="flex flex-col gap-2">
-				{checklist.map(({ check, done }) => (
-					<li key={check} className="flex items-start gap-2 text-sm">
-						{done ? (
-							<CircleCheck
-								className="mt-0.5 size-4 shrink-0 text-success-foreground"
-								aria-hidden="true"
-							/>
-						) : (
-							<CircleDashed
-								className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-								aria-hidden="true"
-							/>
-						)}
-						<span className={done ? undefined : "text-muted-foreground"}>
-							{publishCheckLabel(check, modality)}
-							<span className="sr-only">
-								{done ? ": listo" : ": pendiente"}
-							</span>
-						</span>
-					</li>
-				))}
-			</ul>
-		</section>
 	);
 }
 

@@ -17,13 +17,13 @@ export const COURSE_FORM_SECTIONS: readonly {
 }[] = [
 	{
 		key: "general",
-		title: "Datos generales",
+		title: "Identidad",
 		fields: ["dependency", "planLine", "title", "description"],
 	},
 	{ key: "program", title: "Programa", fields: ["modality", "sessions"] },
 	{
 		key: "people",
-		title: "Capacitadores e inscripción",
+		title: "Acceso",
 		fields: [
 			"trainers",
 			"access",
@@ -36,7 +36,7 @@ export const COURSE_FORM_SECTIONS: readonly {
 	},
 	{
 		key: "attendance",
-		title: "Asistencia y evaluación",
+		title: "Reglas",
 		fields: [
 			"minAttendance",
 			"qrOpensBeforeMinutes",

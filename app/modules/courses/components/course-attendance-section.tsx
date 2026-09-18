@@ -7,8 +7,11 @@ import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { CourseFormSection } from "./course-form-section";
 
+export const RULES_DESCRIPTION =
+	"Completa el curso quien alcanza la asistencia mínima y, si hay evaluación, aprueba. Completar da el crédito.";
+
 /** Lo que decide si alguien completa el curso y obtiene su crédito. */
-export const CourseAttendanceSection = memo(function CourseAttendanceSection({
+export const CourseRulesFields = memo(function CourseRulesFields({
 	ids,
 }: {
 	ids: CourseFormIds;
@@ -20,11 +23,8 @@ export const CourseAttendanceSection = memo(function CourseAttendanceSection({
 	} = useFormContext<CourseFormValues>();
 
 	return (
-		<CourseFormSection
-			section="attendance"
-			description="Completa el curso quien alcanza la asistencia mínima y, si hay evaluación, aprueba. Completar da el crédito."
-		>
-			<div className="grid items-start gap-4 sm:grid-cols-3">
+		<>
+			<div className="sm:max-w-xs">
 				<TextInput
 					id={ids.minAttendance}
 					label="Asistencia mínima (%)"
@@ -32,28 +32,9 @@ export const CourseAttendanceSection = memo(function CourseAttendanceSection({
 					min={1}
 					max={100}
 					required
+					helperText="Sobre el total de sesiones del curso."
 					error={errors.minAttendance?.message}
 					{...register("minAttendance")}
-				/>
-				<TextInput
-					id={ids.qrOpensBeforeMinutes}
-					label="El QR abre (min antes)"
-					type="number"
-					min={0}
-					max={240}
-					helperText="Antes del inicio de cada sesión"
-					error={errors.qrOpensBeforeMinutes?.message}
-					{...register("qrOpensBeforeMinutes")}
-				/>
-				<TextInput
-					id={ids.qrClosesAfterMinutes}
-					label="El QR cierra (min después)"
-					type="number"
-					min={0}
-					max={240}
-					helperText="Después del fin de cada sesión"
-					error={errors.qrClosesAfterMinutes?.message}
-					{...register("qrClosesAfterMinutes")}
 				/>
 			</div>
 
@@ -82,6 +63,45 @@ export const CourseAttendanceSection = memo(function CourseAttendanceSection({
 					</div>
 				)}
 			/>
-		</CourseFormSection>
+
+			<fieldset className="flex flex-col gap-3">
+				<legend className="mb-1 font-medium text-sm">
+					Ventana del código QR
+				</legend>
+				<p className="max-w-prose text-muted-foreground text-sm">
+					Quien llega a una sesión escanea su QR para registrarse. Decide cuánto
+					antes se activa y cuánto después deja de aceptar registros.
+				</p>
+
+				<div className="grid items-start gap-4 sm:max-w-md sm:grid-cols-2">
+					<TextInput
+						id={ids.qrOpensBeforeMinutes}
+						label="Se activa (minutos antes)"
+						type="number"
+						min={0}
+						max={240}
+						error={errors.qrOpensBeforeMinutes?.message}
+						{...register("qrOpensBeforeMinutes")}
+					/>
+					<TextInput
+						id={ids.qrClosesAfterMinutes}
+						label="Se cierra (minutos después)"
+						type="number"
+						min={0}
+						max={240}
+						error={errors.qrClosesAfterMinutes?.message}
+						{...register("qrClosesAfterMinutes")}
+					/>
+				</div>
+			</fieldset>
+		</>
 	);
 });
+
+export function CourseAttendanceSection({ ids }: { ids: CourseFormIds }) {
+	return (
+		<CourseFormSection section="attendance" description={RULES_DESCRIPTION}>
+			<CourseRulesFields ids={ids} />
+		</CourseFormSection>
+	);
+}

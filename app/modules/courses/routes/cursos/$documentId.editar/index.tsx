@@ -67,7 +67,6 @@ export default function CursoEditarPage({ loaderData }: Route.ComponentProps) {
 			/>
 
 			<CourseForm
-				mode="edit"
 				ids={ids}
 				fetcher={fetcher}
 				options={options}

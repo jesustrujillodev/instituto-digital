@@ -17,12 +17,8 @@ import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import {
 	buildCourseFormDefaults,
 	type CourseFormValues,
-	type CoursePlanPrefill,
 } from "../utils/build-course-form-defaults";
-import {
-	createCourseFormRule,
-	updateCourseFormRule,
-} from "../utils/build-course-payload";
+import { updateCourseFormRule } from "../utils/build-course-payload";
 import {
 	COURSE_INTENTS,
 	COVER_FIELD,
@@ -36,38 +32,35 @@ import { CoursePeopleSection } from "./course-people-section";
 import { CourseSessionsManager } from "./course-sessions-manager";
 
 interface CourseFormProps {
-	mode: "create" | "edit";
 	ids: CourseFormIds;
 	/** Lo crea la ruta para poder pintar el botón de guardar en el PageHeader. */
 	fetcher: FetcherWithComponents<AppResponse<unknown>>;
 	options: CourseFormOptions;
-	course?: CourseDetail | null;
-	prefill?: CoursePlanPrefill | null;
+	course: CourseDetail;
 }
 
-export function CourseForm({
-	mode,
-	ids,
-	fetcher,
-	options,
-	course,
-	prefill,
-}: CourseFormProps) {
-	const isEdit = mode === "edit";
-
+/**
+ * Edición de un curso que ya existe: todas las secciones a la vista.
+ *
+ * El alta va por pasos (`CourseWizard`) porque ahí se captura de cero; quien
+ * edita viene a un campo concreto y recorrer pasos sería un trayecto de más.
+ */
+export function CourseForm({ ids, fetcher, options, course }: CourseFormProps) {
 	const defaultValues = useMemo(
-		() => buildCourseFormDefaults(course, prefill),
-		[course, prefill],
+		() => buildCourseFormDefaults(course),
+		[course],
 	);
 
 	// El cast expresa "resolver de una regla que transforma los valores antes de
 	// validarlos": la salida ya es la entrada del servidor, no el formulario.
 	const resolver = useMemo(
 		() =>
-			valibotResolver(
-				isEdit ? updateCourseFormRule : createCourseFormRule,
-			) as unknown as Resolver<CourseFormValues, unknown, unknown>,
-		[isEdit],
+			valibotResolver(updateCourseFormRule) as unknown as Resolver<
+				CourseFormValues,
+				unknown,
+				unknown
+			>,
+		[],
 	);
 
 	const methods = useForm<CourseFormValues, unknown, unknown>({
@@ -112,7 +105,7 @@ export function CourseForm({
 		// payload como `removeCover`.
 		fetcher.submit(
 			toFormData({
-				[INTENT_FIELD]: isEdit ? COURSE_INTENTS.update : COURSE_INTENTS.create,
+				[INTENT_FIELD]: COURSE_INTENTS.update,
 				[PAYLOAD_FIELD]: JSON.stringify({
 					...(payload as Record<string, unknown>),
 					removeCover: coverRemoved,
@@ -151,12 +144,10 @@ export function CourseForm({
 				>
 					<CourseGeneralSection
 						ids={ids}
-						organizers={
-							!isEdit && options.canChooseOrganizer ? options.organizers : null
-						}
+						organizers={null}
 						cover={{
 							value: cover,
-							existingUrl: course?.coverImageUrl ?? null,
+							existingUrl: course.coverImageUrl,
 							removed: coverRemoved,
 							onChange: (file) => {
 								setCover(file);
@@ -170,7 +161,7 @@ export function CourseForm({
 					/>
 					<CourseSessionsManager
 						ids={ids}
-						isPublished={course?.status === "PUBLISHED"}
+						isPublished={course.status === "PUBLISHED"}
 					/>
 					<CoursePeopleSection ids={ids} options={options} />
 					<CourseAttendanceSection ids={ids} />

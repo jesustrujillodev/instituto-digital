@@ -15,7 +15,7 @@ const ACCESS_OPTIONS = COURSE_ACCESS_TYPES.map((value) => ({
 	label: ACCESS_LABELS[value],
 }));
 
-interface CoursePeopleSectionProps {
+interface CourseAccessFieldsProps {
 	ids: CourseFormIds;
 	options: CourseFormOptions;
 }
@@ -24,12 +24,12 @@ interface CoursePeopleSectionProps {
  * Quién imparte, quién puede inscribirse y en qué condiciones.
  *
  * `useWatch` vive aquí y no en el orquestador: cambiar el acceso solo tiene que
- * volver a pintar esta sección, no el formulario entero.
+ * volver a pintar estos campos, no el formulario entero.
  */
-export const CoursePeopleSection = memo(function CoursePeopleSection({
+export const CourseAccessFields = memo(function CourseAccessFields({
 	ids,
 	options,
-}: CoursePeopleSectionProps) {
+}: CourseAccessFieldsProps) {
 	const {
 		register,
 		formState: { errors },
@@ -68,10 +68,7 @@ export const CoursePeopleSection = memo(function CoursePeopleSection({
 	);
 
 	return (
-		<CourseFormSection
-			section="people"
-			description="Quién imparte, quién puede verlo y cuántos lugares hay."
-		>
+		<>
 			<CourseChecklistField
 				id={ids.trainers}
 				name="trainers"
@@ -136,6 +133,17 @@ export const CoursePeopleSection = memo(function CoursePeopleSection({
 					{...register("enrollmentDeadline")}
 				/>
 			</div>
-		</CourseFormSection>
+		</>
 	);
 });
+
+export function CoursePeopleSection(props: CourseAccessFieldsProps) {
+	return (
+		<CourseFormSection
+			section="people"
+			description="Quién imparte, quién puede verlo y cuántos lugares hay."
+		>
+			<CourseAccessFields {...props} />
+		</CourseFormSection>
+	);
+}

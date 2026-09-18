@@ -9,35 +9,39 @@ import { CourseCoverField } from "./course-cover-field";
 import { CourseFormSection } from "./course-form-section";
 import { CourseSelectField } from "./course-select-field";
 
-interface CourseGeneralSectionProps {
+/** La portada vive fuera del esquema del formulario (guía §10.4). */
+export interface CourseCoverControl {
+	value: File | null;
+	existingUrl: string | null;
+	removed: boolean;
+	onChange: (file: File | null) => void;
+	onRemove: () => void;
+}
+
+interface CourseGeneralFieldsProps {
 	ids: CourseFormIds;
 	/** `null` cuando la organizadora no se elige: se hereda del alcance. */
 	organizers: readonly CourseAudienceOption[] | null;
-	/** La portada vive en el orquestador: no participa del esquema del formulario. */
-	cover: {
-		value: File | null;
-		existingUrl: string | null;
-		removed: boolean;
-		onChange: (file: File | null) => void;
-		onRemove: () => void;
-	};
+	cover: CourseCoverControl;
 }
 
-export const CourseGeneralSection = memo(function CourseGeneralSection({
+/**
+ * Identidad del curso: lo que el personal lee en el catálogo antes de
+ * inscribirse. Desnudo de encabezado, porque el alta lo pinta como pantalla
+ * completa y la edición lo envuelve en su sección.
+ */
+export const CourseGeneralFields = memo(function CourseGeneralFields({
 	ids,
 	organizers,
 	cover,
-}: CourseGeneralSectionProps) {
+}: CourseGeneralFieldsProps) {
 	const {
 		register,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 
 	return (
-		<CourseFormSection
-			section="general"
-			description="Lo que ve el personal en el catálogo antes de inscribirse."
-		>
+		<>
 			{organizers && (
 				<CourseSelectField
 					id={ids.dependency}
@@ -78,6 +82,17 @@ export const CourseGeneralSection = memo(function CourseGeneralSection({
 				onChange={cover.onChange}
 				onRemove={cover.onRemove}
 			/>
-		</CourseFormSection>
+		</>
 	);
 });
+
+export function CourseGeneralSection(props: CourseGeneralFieldsProps) {
+	return (
+		<CourseFormSection
+			section="general"
+			description="Lo que ve el personal en el catálogo antes de inscribirse."
+		>
+			<CourseGeneralFields {...props} />
+		</CourseFormSection>
+	);
+}

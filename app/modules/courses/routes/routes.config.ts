@@ -8,6 +8,10 @@ export const coursesRoutes = [
 	route("cursos", "modules/courses/routes/cursos/index.tsx"),
 	route("cursos/nuevo", "modules/courses/routes/cursos/nuevo/index.tsx"),
 	route(
+		"cursos/:documentId/nuevo/:paso",
+		"modules/courses/routes/cursos/$documentId.nuevo.$paso/index.tsx",
+	),
+	route(
 		"cursos/:documentId",
 		"modules/courses/routes/cursos/$documentId/index.tsx",
 	),
