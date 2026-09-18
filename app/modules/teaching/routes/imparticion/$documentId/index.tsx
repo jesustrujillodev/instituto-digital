@@ -14,6 +14,7 @@ import {
 	ENROLLMENT_RESULT_LABELS,
 	personNameOf,
 } from "@/modules/enrollments/utils/enrollment-labels";
+import { EvaluationsPanel } from "@/modules/evaluations/components/evaluations-panel";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
@@ -154,7 +155,7 @@ export default function ImparticionDetallePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { ratings, ...detail },
+		data: { ratings, evaluations, ...detail },
 	} = loaderData;
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
@@ -194,6 +195,9 @@ export default function ImparticionDetallePage({
 							{detail.pendingResults > 0 && ` (${detail.pendingResults})`}
 						</TabsTrigger>
 					)}
+					{evaluations && (
+						<TabsTrigger value="evaluations">Evaluaciones</TabsTrigger>
+					)}
 					<TabsTrigger value="completion">Completado</TabsTrigger>
 					{detail.qr && <TabsTrigger value="qr">Código QR</TabsTrigger>}
 					{ratings && <TabsTrigger value="ratings">Valoraciones</TabsTrigger>}
@@ -204,6 +208,16 @@ export default function ImparticionDetallePage({
 				{course.requiresEvaluation && (
 					<TabsContent value="results">
 						<ResultsPanel detail={detail} />
+					</TabsContent>
+				)}
+				{evaluations && (
+					<TabsContent value="evaluations">
+						<EvaluationsPanel
+							courseDocumentId={course.documentId}
+							board={evaluations}
+							sessions={detail.sessions}
+							participants={detail.participants}
+						/>
 					</TabsContent>
 				)}
 				<TabsContent value="completion">

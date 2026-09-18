@@ -25,6 +25,8 @@ import type { IDependencyRepository } from "@/modules/dependencies/domain/depend
 import type { IDependencyService } from "@/modules/dependencies/domain/dependency.service";
 import type { IEnrollmentRepository } from "@/modules/enrollments/domain/enrollment.repository";
 import type { IEnrollmentService } from "@/modules/enrollments/domain/enrollment.service";
+import type { IEvaluationRepository } from "@/modules/evaluations/domain/evaluation.repository";
+import type { IEvaluationService } from "@/modules/evaluations/domain/evaluation.service";
 import type { IGroupRepository } from "@/modules/groups/domain/group.repository";
 import type { IGroupService } from "@/modules/groups/domain/group.service";
 import type { INotificationRepository } from "@/modules/notifications/domain/notification.repository";
@@ -106,6 +108,8 @@ export interface ICradle {
 	checkInService: ICheckInService;
 	creditRepository: ICreditRepository;
 	creditService: ICreditService;
+	evaluationRepository: IEvaluationRepository;
+	evaluationService: IEvaluationService;
 	ratingRepository: IRatingRepository;
 	ratingService: IRatingService;
 	annualPlanRepository: IAnnualPlanRepository;

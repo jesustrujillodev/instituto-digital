@@ -3,6 +3,7 @@ import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	type EnrollmentStatus,
 } from "@/modules/enrollments/domain/enrollment.config";
+import { TEACHABLE_STATUSES } from "@/modules/teaching/domain/teaching.config";
 import { type AccessScope, resolveScope } from "@/shared/auth/scope.rules";
 import type { Role } from "@/shared/rules/atoms.rules";
 import {
@@ -75,6 +76,32 @@ export const resolveCourseScope = (auth: CourseActor): CourseScope => {
 
 export const canManageCourses = (auth: CourseActor): boolean =>
 	resolveCourseScope(auth).kind !== "none";
+
+/**
+ * ¿La ficha puede mandar a la impartición de este curso?
+ *
+ * Refleja `resolveTeachingScope`: organizar basta, pero el capacitador interno
+ * administra lo que creó y solo pasa lista en lo que imparte.
+ */
+export const canOpenTeaching = (
+	scope: CourseScope,
+	course: {
+		status: CourseStatus;
+		trainers: readonly { userDocumentId: string }[];
+	},
+	actorDocumentId: string,
+): boolean => {
+	if (
+		!(TEACHABLE_STATUSES as readonly CourseStatus[]).includes(course.status)
+	) {
+		return false;
+	}
+	if (scope.kind === "global" || scope.kind === "dependency") return true;
+
+	return course.trainers.some(
+		(trainer) => trainer.userDocumentId === actorDocumentId,
+	);
+};
 
 /** Fragmento de `where` que restringe una LECTURA de cursos al alcance. */
 export type CourseScopeWhere = {

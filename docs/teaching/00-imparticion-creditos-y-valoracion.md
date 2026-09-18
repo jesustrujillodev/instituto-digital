@@ -9,6 +9,7 @@ PRD-06 cierra el ciclo del curso en tres módulos:
 | `app/modules/teaching` | §6.8: pase de lista, resultados, cierre y corrección | `/dashboard/imparticion`, `/dashboard/imparticion/:documentId` |
 | `app/modules/credits` | §6.9: mis créditos, créditos del personal, créditos por dependencia | `/dashboard/mis-creditos`, `/dashboard/creditos` |
 | `app/modules/ratings` | §6.10: valorar y ver el promedio | `/dashboard/mis-cursos/:documentId/valorar` (solo action) |
+| `app/modules/evaluations` | §6.8: varias evaluaciones por curso, documentales | `/dashboard/imparticion/:documentId/evaluaciones` (solo action) |
 
 Las decisiones están en [ADR 0006](../adr/0006-imparticion-creditos-y-valoracion.md).
 
@@ -27,6 +28,7 @@ Lo que **no** hace todavía:
 | --- | --- |
 | `org.course_attendance` | Una marca por `(session_id, user_id)`: `attended`, `source` (`MANUAL`/`QR`), `recorded_by_id`, `recorded_at` |
 | `org.enrollments.grade` | Nota opcional 0–100 |
+| `org.course_evaluations`, `org.evaluation_results` | Las evaluaciones del curso y lo capturado en ellas ([referencia](../evaluations/00-evaluaciones.md)) |
 | `org.enrollments.completed` | Resultado del último cierre o corrección |
 | `org.enrollments.result_recorded_by_id`, `result_recorded_at` | Quién capturó o corrigió el resultado |
 | `org.courses.finished_at` | Cuándo se finalizó |
@@ -42,6 +44,10 @@ Lo que **no** hace todavía:
   el último cambio y no quién pulsó guardar después.
 - Los resultados existen solo si el curso `requiresEvaluation`. Una nota
   acompaña a `PASSED` o `FAILED`, nunca a `PENDING`.
+- No confundir el **resultado** con las **evaluaciones**. El resultado es uno por
+  persona y curso, se captura a mano y es el que otorga el crédito. Las
+  evaluaciones son varias, documentales, y no tocan el cierre ni los créditos
+  ([ADR 0010](../adr/0010-evaluaciones-por-curso.md)).
 - Si alguien del envío ya no está inscrito, se rechaza el envío entero
   (`TEACHING_UNKNOWN_PARTICIPANT`).
 - La lista y los resultados viajan como un JSON en el campo `payload`, igual que
@@ -133,6 +139,7 @@ alcance global, como en cursos.
 | Cambiarse de dependencia y pedir una corrección mueve el crédito | Restaurar no toca `dependency_id` |
 | Un externo suma créditos | `creditCandidatesOf` exige cuenta interna con dependencia |
 | Un titular lee los créditos de otra dependencia pidiéndola en la URL | El filtro solo se lee con alcance global |
+| Un participante lee la observación de una evaluación | Ninguna consulta de "Mis cursos" selecciona `evaluation_results` |
 | Se infiere quién dejó un comentario | La consulta del resumen no selecciona al autor |
 | Se valora dos veces con dos pestañas | Unicidad `(course_id, user_id)` → `RATING_ALREADY_RATED` |
 | Una clase nocturna del 31 de diciembre cuenta para el año siguiente | `zonedYearOf` sobre la zona del instituto |

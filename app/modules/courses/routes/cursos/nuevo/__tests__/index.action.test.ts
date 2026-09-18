@@ -7,6 +7,7 @@ import {
 import {
 	type ActorOptions,
 	authPayloadOf,
+	COURSE_ID,
 	failReply,
 	okReply,
 	postRequest,
@@ -34,7 +35,9 @@ const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
 		courseService: {
 			create: async (dto: unknown) => {
 				calls.created.push(dto);
-				return options.failsWith ? failReply(options.failsWith) : okReply(null);
+				return options.failsWith
+					? failReply(options.failsWith)
+					: okReply({ documentId: COURSE_ID });
 			},
 		},
 	} as unknown as ActionArgs["context"];
@@ -68,7 +71,11 @@ describe("cursos/nuevo action", () => {
 
 		const result = await run(JSON.stringify(validCourse), context);
 
-		expect(result.success).toBe(true);
+		// La página usa el documentId para llevar a la ficha del curso nuevo.
+		expect(result).toMatchObject({
+			success: true,
+			data: { documentId: COURSE_ID },
+		});
 		expect(calls.created[0]).toMatchObject({
 			capacity: 20,
 			trainers: [TRAINER_ID],

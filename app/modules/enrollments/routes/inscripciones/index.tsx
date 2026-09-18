@@ -31,11 +31,19 @@ import {
 import type { Route } from "./+types/index";
 
 export const handle = {
-	breadcrumb: () => [
+	breadcrumb: (loaderData) => [
 		{ label: "Cursos", path: "/dashboard/cursos" },
+		...(loaderData
+			? [
+					{
+						label: loaderData.data.course.title,
+						path: `/dashboard/cursos/${loaderData.data.course.documentId}`,
+					},
+				]
+			: []),
 		{ label: "Inscripciones" },
 	],
-} satisfies BreadcrumbHandle;
+} satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta() {
 	return [{ title: "Inscripciones" }];
@@ -85,7 +93,7 @@ export default function InscripcionesPage({
 			<PageHeader
 				title={course.title}
 				description={`Inscripciones · organiza ${course.dependencyName}.`}
-				goBack={`/dashboard/cursos/${course.documentId}/editar`}
+				goBack={`/dashboard/cursos/${course.documentId}`}
 			/>
 
 			<div className="flex flex-wrap gap-2">

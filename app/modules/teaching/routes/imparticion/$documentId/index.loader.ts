@@ -1,3 +1,4 @@
+import { EVALUATION_ERROR_MESSAGES } from "@/modules/evaluations/utils/evaluation-error-messages";
 import { RATING_ERROR_MESSAGES } from "@/modules/ratings/utils/rating-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok, parseInput } from "@/shared/response/response.helpers";
@@ -6,7 +7,7 @@ import { TEACHING_ERROR_MESSAGES } from "../../../utils/teaching-error-messages"
 import { requireTeaching } from "../../require-teaching.server";
 import type { Route } from "./+types/index";
 
-/** GET /dashboard/imparticion/:documentId — lista, resultados, cierre y valoraciones. */
+/** GET /dashboard/imparticion/:documentId — lista, evaluaciones, cierre y valoraciones. */
 export const loader = async ({
 	request,
 	context,
@@ -31,8 +32,17 @@ export const loader = async ({
 		throw toRouteError(ratings.error, RATING_ERROR_MESSAGES);
 	}
 
+	// Las evaluaciones solo existen si el curso evalua, igual que los resultados.
+	const evaluations = detail.data.course.requiresEvaluation
+		? await context.evaluationService.findCourseBoard(documentId, auth)
+		: null;
+	if (evaluations && !evaluations.success) {
+		throw toRouteError(evaluations.error, EVALUATION_ERROR_MESSAGES);
+	}
+
 	return ok({
 		...detail.data,
 		ratings: ratings?.success ? ratings.data : null,
+		evaluations: evaluations?.success ? evaluations.data : null,
 	});
 };

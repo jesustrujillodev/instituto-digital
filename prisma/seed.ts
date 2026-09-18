@@ -202,7 +202,7 @@ async function main() {
 	);
 	console.log("✅ Impartición:");
 	console.log(
-		`   • ${teaching.courses} cursos de Obras Públicas, ${teaching.credits} crédito y ${teaching.ratings} valoraciones`,
+		`   • ${teaching.courses} cursos de Obras Públicas, ${teaching.credits} crédito, ${teaching.ratings} valoraciones y ${teaching.evaluations} evaluaciones`,
 	);
 	console.log(
 		"     Seguridad en obra (lista pasada, falta el resultado de miguel.sop), Primeros auxilios (finalizado)",

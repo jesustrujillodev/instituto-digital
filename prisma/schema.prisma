@@ -80,6 +80,9 @@ model User {
   resultsRecorded    Enrollment[]       @relation("EnrollmentResultRecorder")
   attendance         CourseAttendance[] @relation("AttendanceParticipant")
   attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
+  evaluationsCreated CourseEvaluation[] @relation("EvaluationCreator")
+  evaluationResults  EvaluationResult[] @relation("EvaluationParticipant")
+  evaluationsGraded  EvaluationResult[] @relation("EvaluationRecorder")
   credits            Credit[]           @relation("CreditHolder")
   creditsGranted     Credit[]           @relation("CreditGranter")
   creditsRevoked     Credit[]           @relation("CreditRevoker")
@@ -430,6 +433,7 @@ model Course {
   dependencyAudience CourseDependencyAudience[]
   groupAudience      CourseGroupAudience[]
   enrollments        Enrollment[]
+  evaluations        CourseEvaluation[]
   credits            Credit[]
   ratings            CourseRating[]
 
@@ -463,7 +467,8 @@ model CourseSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  attendance CourseAttendance[]
+  attendance  CourseAttendance[]
+  evaluations CourseEvaluation[]
 
   @@index([courseId, startsAt])
   @@index([startsAt])
@@ -623,6 +628,63 @@ model CourseAttendance {
   @@id([sessionId, userId])
   @@index([userId])
   @@map("course_attendance")
+  @@schema("org")
+}
+
+/// Una evaluacion del curso (§6.8). Hay varias por curso y la sesion es
+/// opcional: un proyecto final no corresponde a un dia concreto.
+model CourseEvaluation {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  /// `SetNull` y no `Cascade`: borrar una sesion al editar el curso no puede
+  /// llevarse por delante evaluaciones ya capturadas.
+  sessionId Int?           @map("session_id")
+  session   CourseSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  title String
+
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("EvaluationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  results EvaluationResult[]
+
+  @@index([courseId])
+  @@index([sessionId])
+  @@map("course_evaluations")
+  @@schema("org")
+}
+
+/// Resultado por persona. La fila existe solo si se capturo: su ausencia es
+/// "sin capturar", igual que en el pase de lista.
+model EvaluationResult {
+  evaluationId Int              @map("evaluation_id")
+  evaluation   CourseEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation("EvaluationParticipant", fields: [userId], references: [id], onDelete: Restrict)
+
+  /// `null` es "sin veredicto todavia": la fila existe porque hay observacion.
+  /// Sin capturar de verdad es que no haya fila, igual que en el pase de lista.
+  passed Boolean?
+
+  /// Observacion de quien imparte. Interna: ninguna proyeccion del participante
+  /// la selecciona.
+  note String?
+
+  recordedById Int      @map("recorded_by_id")
+  recordedBy   User     @relation("EvaluationRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  recordedAt   DateTime @map("recorded_at")
+
+  @@id([evaluationId, userId])
+  @@index([userId])
+  @@map("evaluation_results")
   @@schema("org")
 }
 

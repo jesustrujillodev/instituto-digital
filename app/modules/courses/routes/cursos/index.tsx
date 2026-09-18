@@ -33,6 +33,7 @@ import {
 	COURSE_MODALITIES,
 	COURSE_STATUSES,
 	canCancel,
+	canEdit,
 	canPublish,
 } from "../../domain/course.rules";
 import { MODALITY_LABELS, STATUS_LABELS } from "../../utils/course-labels";
@@ -48,8 +49,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 /** Radix no admite un `SelectItem` con valor vacío: "todos" necesita nombre. */
 const ALL = "all";
 
-const editPath = (course: CourseRow) =>
-	`/dashboard/cursos/${course.documentId}/editar`;
+const detailPath = (course: CourseRow) =>
+	`/dashboard/cursos/${course.documentId}`;
 
 export const handle = {
 	breadcrumb: () => [{ label: "Cursos" }],
@@ -143,7 +144,13 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 
 	const actions = useMemo<DataTableAction<CourseRow>[]>(
 		() => [
-			defaultActions.edit<CourseRow>((course) => navigate(editPath(course))),
+			defaultActions.view<CourseRow>((course) => navigate(detailPath(course))),
+			{
+				...defaultActions.edit<CourseRow>((course) =>
+					navigate(`${detailPath(course)}/editar`),
+				),
+				show: (course) => canEdit(course.status),
+			},
 			{
 				icon: Send,
 				label: "Publicar",
@@ -289,7 +296,7 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 					onSort={(key, direction) =>
 						updateParams({ sortBy: key, sortDir: direction, page: null })
 					}
-					onRowClick={(course) => navigate(editPath(course))}
+					onRowClick={(course) => navigate(detailPath(course))}
 				/>
 			</div>
 

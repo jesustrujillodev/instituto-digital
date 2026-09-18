@@ -12,6 +12,7 @@ import { creditsRoutes } from "./modules/credits/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
 import { dependenciesRoutes } from "./modules/dependencies/routes/routes.config";
 import { enrollmentsRoutes } from "./modules/enrollments/routes/routes.config";
+import { evaluationsRoutes } from "./modules/evaluations/routes/routes.config";
 import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
 import { ratingsRoutes } from "./modules/ratings/routes/routes.config";
@@ -59,6 +60,7 @@ export default [
 					...enrollmentsRoutes, // /dashboard/cursos-disponibles, /dashboard/mis-cursos, /dashboard/cursos/:id/inscripciones
 					...calendarRoutes, // /dashboard/calendario  (cualquier sesión: cada quien ve lo suyo)
 					...teachingRoutes, // /dashboard/imparticion  (quien imparte u organiza)
+					...evaluationsRoutes, // /dashboard/imparticion/:id/evaluaciones  (solo action)
 					...creditsRoutes, // /dashboard/mis-creditos, /dashboard/creditos  (alcance por dependencia)
 					...ratingsRoutes, // /dashboard/mis-cursos/:id/valorar  (solo action)
 					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)

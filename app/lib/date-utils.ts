@@ -157,3 +157,21 @@ export const formatZonedTime = (value: Date): string =>
 /** "5 oct 2026, 09:00–13:00" — el guion es una raya, no un menos. */
 export const formatSessionRange = (startsAt: Date, endsAt: Date): string =>
 	`${formatZonedDate(startsAt)}, ${formatZonedTime(startsAt)}–${formatZonedTime(endsAt)}`;
+
+const dayLabelFormatter = new Intl.DateTimeFormat("es-MX", {
+	timeZone: INSTITUTE_TIME_ZONE,
+	weekday: "short",
+	day: "numeric",
+	month: "short",
+});
+
+/** `{ weekday: "lun", day: "5", month: "oct" }`, para componer una fecha en bloque. */
+export const zonedDayLabelOf = (
+	value: Date,
+): { weekday: string; day: string; month: string } => {
+	const parts = dayLabelFormatter.formatToParts(value);
+	const read = (type: Intl.DateTimeFormatPartTypes) =>
+		(parts.find((part) => part.type === type)?.value ?? "").replace(".", "");
+
+	return { weekday: read("weekday"), day: read("day"), month: read("month") };
+};

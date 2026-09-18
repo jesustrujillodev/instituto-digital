@@ -21,17 +21,27 @@ const okReply = (data: unknown) => ({
 	timestamp: new Date().toISOString(),
 });
 
-const createHarness = (status: string) => {
-	const calls = { ratings: 0 };
+const createHarness = (status: string, requiresEvaluation = false) => {
+	const calls = { ratings: 0, evaluations: 0 };
 	const context = {
 		authPayload,
 		teachingService: {
-			findById: async () => okReply({ course: { status }, participants: [] }),
+			findById: async () =>
+				okReply({
+					course: { status, requiresEvaluation },
+					participants: [],
+				}),
 		},
 		ratingService: {
 			findCourseSummary: async () => {
 				calls.ratings += 1;
 				return okReply({ average: 4.5, count: 2, comments: [] });
+			},
+		},
+		evaluationService: {
+			findCourseBoard: async () => {
+				calls.evaluations += 1;
+				return okReply({ canWrite: true, evaluations: [] });
 			},
 		},
 	} as unknown as LoaderArgs["context"];
@@ -68,6 +78,27 @@ describe("ficha de impartición loader", () => {
 			count: 2,
 			comments: [],
 		});
+	});
+
+	test("un curso sin evaluación no consulta el tablero", async () => {
+		const { context, calls } = createHarness("PUBLISHED");
+
+		const result = await run(context);
+
+		expect(result.data.evaluations).toBeNull();
+		expect(calls.evaluations).toBe(0);
+	});
+
+	test("un curso con evaluación trae su tablero", async () => {
+		const { context, calls } = createHarness("PUBLISHED", true);
+
+		const result = await run(context);
+
+		expect(result.data.evaluations).toEqual({
+			canWrite: true,
+			evaluations: [],
+		});
+		expect(calls.evaluations).toBe(1);
 	});
 
 	test("un documentId mal formado responde 400", async () => {

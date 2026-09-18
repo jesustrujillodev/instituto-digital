@@ -26,7 +26,7 @@ export function Breadcrumb({
 			<nav aria-label="Breadcrumb" className="min-w-0 flex-1">
 				<ol className="flex flex-nowrap items-center gap-1.5">
 					{/* Home link */}
-					<li className="shrink-0">
+					<li className={cn("shrink-0", items.length > 1 && "hidden sm:block")}>
 						<Link
 							to="/dashboard"
 							className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -38,6 +38,7 @@ export function Breadcrumb({
 					{/* Dynamic breadcrumb items */}
 					{items.map((item, index) => {
 						const isLast = index === items.length - 1;
+						const isParent = index === items.length - 2;
 						const displayLabel = truncateText(item.label, maxLabelLength);
 
 						return (
@@ -45,13 +46,21 @@ export function Breadcrumb({
 								key={item.path ?? item.label}
 								className={cn(
 									"flex items-center gap-1.5",
-									isLast ? "min-w-0 flex-1" : "shrink-0",
+									isLast && "min-w-0 flex-1",
+									// En móvil no cabe el rastro entero: queda el padre, que
+									// trunca, y la hoja. Los anteriores vuelven desde `md`.
+									isParent && "min-w-0 shrink",
+									!isLast && !isParent && "hidden shrink-0 md:flex",
 								)}
 							>
 								{/* Chevron separator — always visible, never clipped */}
 								<svg
 									aria-hidden="true"
-									className="stroke-current shrink-0 text-muted-foreground"
+									className={cn(
+										"stroke-current shrink-0 text-muted-foreground",
+										// Sin "Dashboard" delante, la flecha del padre quedaría suelta.
+										isParent && "max-sm:hidden",
+									)}
 									width="17"
 									height="16"
 									viewBox="0 0 17 16"

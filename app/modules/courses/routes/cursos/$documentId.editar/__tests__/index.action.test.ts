@@ -27,7 +27,6 @@ const validCourse = {
 const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
 	const calls = {
 		updated: [] as unknown[],
-		published: [] as string[],
 	};
 	const reply = () =>
 		options.failsWith ? failReply(options.failsWith) : okReply(null);
@@ -37,10 +36,6 @@ const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
 		courseService: {
 			update: async (documentId: string, dto: unknown) => {
 				calls.updated.push({ documentId, dto });
-				return reply();
-			},
-			publish: async (documentId: string) => {
-				calls.published.push(documentId);
 				return reply();
 			},
 		},
@@ -74,14 +69,6 @@ describe("cursos/editar action", () => {
 
 		expect(result.success).toBe(true);
 		expect(calls.updated).toMatchObject([{ documentId: COURSE_ID }]);
-	});
-
-	test("publica desde la ficha sin mandar el formulario", async () => {
-		const { context, calls } = createHarness();
-
-		await run({ [INTENT_FIELD]: COURSE_INTENTS.publish }, context);
-
-		expect(calls.published).toEqual([COURSE_ID]);
 	});
 
 	test("un parámetro de URL que no es uuid no llega al servicio", async () => {

@@ -35,6 +35,8 @@ export type CourseIntent = (typeof COURSE_INTENTS)[keyof typeof COURSE_INTENTS];
 
 /** Respuesta común de los actions del módulo: envelope estándar sin dato. */
 export type CourseActionData = AppResponse<null>;
+/** El alta devuelve el curso creado: la página lleva a su ficha. */
+export type CourseCreateActionData = AppResponse<{ documentId: string }>;
 
 export interface ParsedCourseFormData {
 	fields: Record<string, string>;

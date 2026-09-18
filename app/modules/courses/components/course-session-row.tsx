@@ -16,6 +16,9 @@ interface CourseSessionRowProps {
 /**
  * Una sesión. Cada fila se registra por su cuenta con `useFormContext`, así que
  * teclear en la quinta no vuelve a pintar la primera.
+ *
+ * Solo pinta el lugar que la modalidad usa. Si se cambia de modalidad, el valor
+ * del campo oculto se conserva y vuelve a aparecer al regresar.
  */
 export const CourseSessionRow = memo(function CourseSessionRow({
 	index,
@@ -27,26 +30,32 @@ export const CourseSessionRow = memo(function CourseSessionRow({
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 	const rowErrors = errors.sessions?.[index];
+	const number = index + 1;
+	const showVenue = requiresVenue(modality);
+	const showLink = requiresLink(modality);
 
 	return (
-		<div className="flex flex-col gap-3 rounded-md border border-border p-4">
+		<li
+			aria-label={`Sesión ${number}`}
+			className="flex flex-col gap-3 border-border border-t pt-5 first:border-t-0 first:pt-0"
+		>
 			<div className="flex items-center justify-between">
-				<span className="text-sm font-medium">Sesión #{index + 1}</span>
+				<span className="font-medium text-sm">Sesión {number}</span>
 				<Button
 					type="button"
 					variant="ghost"
-					size="icon"
-					aria-label={`Quitar la sesión ${index + 1}`}
+					size="icon-sm"
+					aria-label={`Quitar la sesión ${number}`}
 					onClick={() => onRemove(index)}
 				>
-					<Trash2 className="h-4 w-4" />
+					<Trash2 aria-hidden="true" />
 				</Button>
 			</div>
 
 			{/* Conserva la identidad de una sesión existente al editar. */}
 			<input type="hidden" {...register(`sessions.${index}.documentId`)} />
 
-			<div className="grid gap-3 sm:grid-cols-3">
+			<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]">
 				<TextInput
 					label="Fecha"
 					type="date"
@@ -70,27 +79,29 @@ export const CourseSessionRow = memo(function CourseSessionRow({
 				/>
 			</div>
 
-			<div className="grid gap-3 sm:grid-cols-2">
-				<TextInput
-					label="Sede"
-					placeholder="Sala de capacitación, edificio B"
-					helperText={
-						requiresVenue(modality) ? "Obligatoria para publicar" : undefined
-					}
-					error={rowErrors?.venue?.message}
-					{...register(`sessions.${index}.venue`)}
-				/>
-				<TextInput
-					label="Enlace"
-					type="url"
-					placeholder="https://"
-					helperText={
-						requiresLink(modality) ? "Obligatorio para publicar" : undefined
-					}
-					error={rowErrors?.link?.message}
-					{...register(`sessions.${index}.link`)}
-				/>
+			<div
+				className={
+					showVenue && showLink ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"
+				}
+			>
+				{showVenue && (
+					<TextInput
+						label="Sede"
+						placeholder="Sala de capacitación, edificio B"
+						error={rowErrors?.venue?.message}
+						{...register(`sessions.${index}.venue`)}
+					/>
+				)}
+				{showLink && (
+					<TextInput
+						label="Enlace"
+						type="url"
+						placeholder="https://"
+						error={rowErrors?.link?.message}
+						{...register(`sessions.${index}.link`)}
+					/>
+				)}
 			</div>
-		</div>
+		</li>
 	);
 });

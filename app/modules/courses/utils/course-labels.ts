@@ -2,6 +2,7 @@ import type {
 	CourseAccessType,
 	CourseModality,
 	CourseStatus,
+	PublishCheck,
 } from "../domain/course.rules";
 
 // El vocabulario persistido está en inglés (reglas §24); la copia, aquí.
@@ -23,4 +24,26 @@ export const STATUS_LABELS: Record<CourseStatus, string> = {
 	PUBLISHED: "Publicado",
 	FINISHED: "Finalizado",
 	CANCELLED: "Cancelado",
+};
+
+const PLACE_LABELS: Record<CourseModality, string> = {
+	IN_PERSON: "Sede en cada sesión",
+	ONLINE: "Enlace en cada sesión",
+	HYBRID: "Sede y enlace en cada sesión",
+};
+
+export const publishCheckLabel = (
+	check: PublishCheck,
+	modality: CourseModality,
+): string => {
+	switch (check) {
+		case "sessions":
+			return "Al menos una sesión";
+		case "places":
+			return PLACE_LABELS[modality];
+		case "trainer":
+			return "Un capacitador activo";
+		case "audience":
+			return "Dependencias o grupos que lo verán";
+	}
 };

@@ -5,6 +5,7 @@ import {
 	INSTITUTE_TIME_ZONE,
 	startOfZonedDay,
 	utcToZonedInput,
+	zonedDayLabelOf,
 	zonedInputToUtc,
 	zonedYearOf,
 } from "../date-utils";
@@ -100,5 +101,16 @@ describe("formatSessionRange", () => {
 		const endsAt = zonedInputToUtc("2026-10-05", "13:00");
 
 		expect(formatSessionRange(startsAt, endsAt)).toContain("09:00–13:00");
+	});
+});
+
+describe("zonedDayLabelOf", () => {
+	// 23:30 en Tijuana ya es el día siguiente en UTC: el bloque debe decir el 5.
+	test("lee el día de Tijuana, sin puntos de abreviatura", () => {
+		const label = zonedDayLabelOf(zonedInputToUtc("2026-10-05", "23:30"));
+
+		expect(label.day).toBe("5");
+		expect(label.month).toBe("oct");
+		expect(label.weekday).not.toContain(".");
 	});
 });

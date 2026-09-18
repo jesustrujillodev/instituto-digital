@@ -122,7 +122,7 @@ export function CourseCoverField({
 				onDrop={handleDrop}
 				onError={(dropError) => setError(coverRejectionMessage(dropError))}
 				aria-labelledby={id}
-				className="group aspect-video max-w-xl overflow-hidden p-0"
+				className="group aspect-video max-w-md overflow-hidden p-0"
 			>
 				{shownUrl ? (
 					<>

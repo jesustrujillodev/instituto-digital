@@ -11,6 +11,7 @@ import { sileo } from "sileo";
 import { toFormData } from "@/lib/form-data";
 import { scrollIntoView } from "@/lib/motion";
 import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
+import type { AppResponse } from "@/shared/response/response.types";
 import type { CourseDetail, CourseFormOptions } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import {
@@ -25,10 +26,11 @@ import {
 import {
 	COURSE_INTENTS,
 	COVER_FIELD,
-	type CourseActionData,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/parse-course-form-data";
+import { CourseAttendanceSection } from "./course-attendance-section";
+import { CourseFormNav } from "./course-form-nav";
 import { CourseGeneralSection } from "./course-general-section";
 import { CoursePeopleSection } from "./course-people-section";
 import { CourseSessionsManager } from "./course-sessions-manager";
@@ -37,7 +39,7 @@ interface CourseFormProps {
 	mode: "create" | "edit";
 	ids: CourseFormIds;
 	/** Lo crea la ruta para poder pintar el botón de guardar en el PageHeader. */
-	fetcher: FetcherWithComponents<CourseActionData>;
+	fetcher: FetcherWithComponents<AppResponse<unknown>>;
 	options: CourseFormOptions;
 	course?: CourseDetail | null;
 	prefill?: CoursePlanPrefill | null;
@@ -140,33 +142,40 @@ export function CourseForm({
 	return (
 		<FormProvider {...methods}>
 			<UnsavedChangesDialog when={hasUnsavedChanges} />
-			<form
-				id={ids.form}
-				onSubmit={handleSubmit(onSubmit, onInvalid)}
-				className="flex flex-col gap-4"
-			>
-				<CourseGeneralSection
-					ids={ids}
-					organizers={
-						!isEdit && options.canChooseOrganizer ? options.organizers : null
-					}
-					cover={{
-						value: cover,
-						existingUrl: course?.coverImageUrl ?? null,
-						removed: coverRemoved,
-						onChange: (file) => {
-							setCover(file);
-							if (file) setCoverRemoved(false);
-						},
-						onRemove: () => {
-							setCover(null);
-							setCoverRemoved(true);
-						},
-					}}
-				/>
-				<CoursePeopleSection ids={ids} options={options} />
-				<CourseSessionsManager id={ids.sessions} />
-			</form>
+			<div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+				<CourseFormNav />
+				<form
+					id={ids.form}
+					onSubmit={handleSubmit(onSubmit, onInvalid)}
+					className="flex flex-col gap-6"
+				>
+					<CourseGeneralSection
+						ids={ids}
+						organizers={
+							!isEdit && options.canChooseOrganizer ? options.organizers : null
+						}
+						cover={{
+							value: cover,
+							existingUrl: course?.coverImageUrl ?? null,
+							removed: coverRemoved,
+							onChange: (file) => {
+								setCover(file);
+								if (file) setCoverRemoved(false);
+							},
+							onRemove: () => {
+								setCover(null);
+								setCoverRemoved(true);
+							},
+						}}
+					/>
+					<CourseSessionsManager
+						ids={ids}
+						isPublished={course?.status === "PUBLISHED"}
+					/>
+					<CoursePeopleSection ids={ids} options={options} />
+					<CourseAttendanceSection ids={ids} />
+				</form>
+			</div>
 		</FormProvider>
 	);
 }

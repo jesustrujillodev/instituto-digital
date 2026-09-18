@@ -5,6 +5,7 @@ import {
 	type CourseScope,
 	canChooseOrganizer,
 	canManageCourses,
+	canOpenTeaching,
 	courseScopeWhere,
 	courseScopeWriteWhere,
 	courseVisibilityWhere,
@@ -289,6 +290,44 @@ describe("dependencyVisibilityWhere", () => {
 	test("no abre cursos por invitación de otras dependencias", () => {
 		expect(JSON.stringify(dependencyVisibilityWhere(10))).not.toContain(
 			"INVITATION",
+		);
+	});
+});
+
+describe("canOpenTeaching", () => {
+	const ACTOR = "actor-document-id";
+	const courseOf = (
+		status: "DRAFT" | "PUBLISHED" | "FINISHED" | "CANCELLED",
+		trainerIds: string[] = [],
+	) => ({
+		status,
+		trainers: trainerIds.map((userDocumentId) => ({ userDocumentId })),
+	});
+	const creator: CourseScope = { kind: "creator", dependencyId: 10, userId: 1 };
+
+	test("un borrador o un cancelado no se imparten", () => {
+		expect(canOpenTeaching({ kind: "global" }, courseOf("DRAFT"), ACTOR)).toBe(
+			false,
+		);
+		expect(
+			canOpenTeaching({ kind: "global" }, courseOf("CANCELLED"), ACTOR),
+		).toBe(false);
+	});
+
+	test("organizar basta para abrir la impartición", () => {
+		expect(
+			canOpenTeaching(
+				{ kind: "dependency", dependencyId: 10 },
+				courseOf("PUBLISHED"),
+				ACTOR,
+			),
+		).toBe(true);
+	});
+
+	test("el capacitador interno solo la abre si imparte el curso", () => {
+		expect(canOpenTeaching(creator, courseOf("FINISHED"), ACTOR)).toBe(false);
+		expect(canOpenTeaching(creator, courseOf("FINISHED", [ACTOR]), ACTOR)).toBe(
+			true,
 		);
 	});
 });

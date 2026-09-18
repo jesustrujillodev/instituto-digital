@@ -47,28 +47,24 @@ const run = (context: LoaderArgs["context"], documentId = COURSE_ID) =>
 	} as unknown as LoaderArgs);
 
 describe("cursos/editar loader", () => {
-	test("un borrador se edita y se publica", async () => {
+	test("un borrador se abre con sus opciones", async () => {
 		const { context } = createHarness();
 
 		const { data } = await run(context);
 
-		expect(data).toMatchObject({
-			canEdit: true,
-			canPublish: true,
-			canCancel: true,
-		});
+		expect(data.course).toMatchObject({ documentId: COURSE_ID });
 	});
 
-	test("un cancelado queda de solo lectura", async () => {
+	test("un cancelado lleva a su ficha en vez de al formulario", async () => {
 		const { context } = createHarness({ status: "CANCELLED" });
 
-		const { data } = await run(context);
+		const thrown = await run(context).catch((e) => e);
 
-		expect(data).toMatchObject({
-			canEdit: false,
-			canPublish: false,
-			canCancel: false,
-		});
+		expect(thrown).toBeInstanceOf(Response);
+		expect(thrown.status).toBe(302);
+		expect(thrown.headers.get("Location")).toBe(
+			`/dashboard/cursos/${COURSE_ID}`,
+		);
 	});
 
 	// Criterio 3 de §7: ni por URL directa. Fuera de alcance es 404, igual que

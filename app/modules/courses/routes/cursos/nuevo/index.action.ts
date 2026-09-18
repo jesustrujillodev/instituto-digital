@@ -3,7 +3,7 @@ import { localizeError } from "@/shared/response/response.messages";
 import { validateCreateCourse } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
 import {
-	type CourseActionData,
+	type CourseCreateActionData,
 	parseCourseFormData,
 } from "../../../utils/parse-course-form-data";
 import { requireCourseScope } from "../../require-course-scope.server";
@@ -13,7 +13,7 @@ import type { Route } from "./+types/index";
 export const action = async ({
 	request,
 	context,
-}: Route.ActionArgs): Promise<CourseActionData> => {
+}: Route.ActionArgs): Promise<CourseCreateActionData> => {
 	const { auth } = await requireCourseScope(request, context);
 
 	const { payload, cover } = parseCourseFormData(await request.formData());
@@ -26,5 +26,8 @@ export const action = async ({
 	const created = await context.courseService.create(input.data, auth, cover);
 	if (!created.success) return localizeError(created, COURSE_ERROR_MESSAGES);
 
-	return ok(null, { message: "Curso creado en borrador" });
+	return ok(
+		{ documentId: created.data.documentId },
+		{ message: "Curso creado en borrador" },
+	);
 };

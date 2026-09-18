@@ -12,7 +12,12 @@ import { zonedInputToUtc } from "@/lib/date-utils";
  *   puede valorar. Hay dos valoraciones para la ficha del capacitador.
  */
 
-type Seeded = { courses: number; credits: number; ratings: number };
+type Seeded = {
+	courses: number;
+	credits: number;
+	ratings: number;
+	evaluations: number;
+};
 
 const byEmail = async (prisma: PrismaClient, email: string) => {
 	const user = await prisma.user.findUnique({
@@ -90,6 +95,7 @@ export async function seedTeaching(prisma: PrismaClient): Promise<Seeded> {
 			},
 		},
 		select: {
+			id: true,
 			sessions: { select: { id: true }, orderBy: { startsAt: "asc" } },
 		},
 	});
@@ -107,6 +113,54 @@ export async function seedTeaching(prisma: PrismaClient): Promise<Seeded> {
 			mark(row.id, dianaSop.id, true),
 			mark(row.id, miguelSop.id, index !== 1),
 		]),
+	});
+
+	// Dos evaluaciones: una atada a la sesión 2 y otra sin día, como el proyecto
+	// final. Lo capturado es interno: no sale en "Mis cursos" (§6.8).
+	await prisma.courseEvaluation.create({
+		data: {
+			courseId: safety.id,
+			sessionId: safety.sessions[1].id,
+			title: "Práctica de campo",
+			createdById: trainerSop.id,
+			results: {
+				create: [
+					{
+						userId: dianaSop.id,
+						passed: true,
+						note: "Aplicó el protocolo sin ayuda.",
+						recordedById: trainerSop.id,
+						recordedAt: now,
+					},
+					{
+						userId: miguelSop.id,
+						passed: false,
+						note: "No se presentó a la práctica.",
+						recordedById: trainerSop.id,
+						recordedAt: now,
+					},
+				],
+			},
+		},
+	});
+
+	await prisma.courseEvaluation.create({
+		data: {
+			courseId: safety.id,
+			title: "Proyecto final",
+			createdById: trainerSop.id,
+			results: {
+				create: [
+					{
+						userId: miguelSop.id,
+						passed: null,
+						note: "Falta que entregue el reporte.",
+						recordedById: trainerSop.id,
+						recordedAt: now,
+					},
+				],
+			},
+		},
 	});
 
 	const firstAid = await prisma.course.create({
@@ -169,5 +223,5 @@ export async function seedTeaching(prisma: PrismaClient): Promise<Seeded> {
 		],
 	});
 
-	return { courses: 2, credits: 1, ratings: 2 };
+	return { courses: 2, credits: 1, ratings: 2, evaluations: 2 };
 }

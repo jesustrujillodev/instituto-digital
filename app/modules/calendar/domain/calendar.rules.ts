@@ -137,7 +137,7 @@ export const resolveCourseHref = (
 	plan: CalendarPlan,
 ): string | null => {
 	if (lenses.includes("organizing") || lenses.includes("global")) {
-		return `/dashboard/cursos/${courseDocumentId}/editar`;
+		return `/dashboard/cursos/${courseDocumentId}`;
 	}
 	if (
 		lenses.includes("enrolled") ||

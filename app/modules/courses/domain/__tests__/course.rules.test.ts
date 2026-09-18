@@ -11,6 +11,7 @@ import {
 	canCancel,
 	canEdit,
 	canPublish,
+	publishChecklist,
 	requiresLink,
 	requiresVenue,
 } from "../course.rules";
@@ -246,5 +247,70 @@ describe("assertPublishable", () => {
 		expect(() =>
 			assertPublishable(courseOf({ access: "INVITATION" })),
 		).not.toThrow();
+	});
+});
+
+describe("publishChecklist", () => {
+	const pending = (course: PublishableCourse) =>
+		publishChecklist(course)
+			.filter((entry) => !entry.done)
+			.map((entry) => entry.check);
+
+	test("un borrador completo no deja pendientes", () => {
+		expect(pending(courseOf())).toEqual([]);
+	});
+
+	test("sin sesiones falta tanto el programa como su sede", () => {
+		expect(pending(courseOf({ sessions: [] }))).toEqual(["sessions", "places"]);
+	});
+
+	test("una sesión híbrida sin enlace deja la sede pendiente", () => {
+		expect(
+			pending(
+				courseOf({
+					modality: "HYBRID",
+					sessions: [sessionOf(), sessionOf({ link: "https://x.test" })],
+				}),
+			),
+		).toEqual(["places"]);
+	});
+
+	test("un capacitador archivado no cuenta", () => {
+		expect(pending(courseOf({ trainers: [{ isActive: false }] }))).toEqual([
+			"trainer",
+		]);
+	});
+
+	test("la audiencia solo se exige al acceso restringido", () => {
+		expect(
+			publishChecklist(courseOf()).map((entry) => entry.check),
+		).not.toContain("audience");
+		expect(pending(courseOf({ access: "RESTRICTED" }))).toEqual(["audience"]);
+	});
+
+	// La lista y la aserción describen la misma regla: si divergen, la ficha
+	// promete una publicación que el servicio rechaza.
+	test.each<[string, Partial<PublishableCourse>]>([
+		["completo", {}],
+		["sin sesiones", { sessions: [] }],
+		["sin sede", { sessions: [sessionOf({ venue: null })] }],
+		["sin capacitador activo", { trainers: [{ isActive: false }] }],
+		["restringido sin audiencia", { access: "RESTRICTED" }],
+		[
+			"en línea sin enlace",
+			{ modality: "ONLINE", sessions: [sessionOf({ link: null })] },
+		],
+	])("coincide con assertPublishable: %s", (_, overrides) => {
+		const course = courseOf(overrides);
+		const publishable = (() => {
+			try {
+				assertPublishable(course);
+				return true;
+			} catch {
+				return false;
+			}
+		})();
+
+		expect(pending(course).length === 0).toBe(publishable);
 	});
 });

@@ -47,6 +47,23 @@ export const emptySessionValues = (): CourseSessionFormValues => ({
 	link: "",
 });
 
+/**
+ * La sesión que sigue a `previous`: mismo horario y mismo lugar, fecha por
+ * elegir. Casi todos los cursos repiten sala y hora de una sesión a otra.
+ */
+export const nextSessionValues = (
+	previous?: CourseSessionFormValues,
+): CourseSessionFormValues =>
+	previous
+		? {
+				...emptySessionValues(),
+				startTime: previous.startTime,
+				endTime: previous.endTime,
+				venue: previous.venue,
+				link: previous.link,
+			}
+		: emptySessionValues();
+
 /** Las fechas llegan como `Date` o, si algo las serializó, como texto ISO. */
 const asDate = (value: Date | string): Date =>
 	value instanceof Date ? value : new Date(value);

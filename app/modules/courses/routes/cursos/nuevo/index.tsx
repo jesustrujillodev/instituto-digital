@@ -2,17 +2,15 @@ export { action } from "./index.action";
 export { loader } from "./index.loader";
 
 import { useFetcher, useNavigate } from "react-router";
-import {
-	FormActions,
-	FormFooter,
-} from "@/shared/components/common/form-actions";
+import { FormActions } from "@/shared/components/common/form-actions";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseForm } from "../../../components/course-form";
+import { CourseSaveBar } from "../../../components/course-save-bar";
 import { useCourseFormIds } from "../../../hooks/use-course-form-ids";
-import type { CourseActionData } from "../../../utils/parse-course-form-data";
+import type { CourseCreateActionData } from "../../../utils/parse-course-form-data";
 import type { Route } from "./+types/index";
 
 const LIST_PATH = "/dashboard/cursos";
@@ -35,12 +33,16 @@ export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 	const navigate = useNavigate();
 	const ids = useCourseFormIds();
 
-	const fetcher = useFetcher<CourseActionData>();
+	const fetcher = useFetcher<CourseCreateActionData>();
 	const isSubmitting = fetcher.state !== "idle";
 
 	useFetcherToast(fetcher, {
 		errorMessage: "No se pudo crear el curso",
-		onSuccess: () => navigate(LIST_PATH),
+		onSuccess: () => {
+			if (fetcher.data?.success) {
+				navigate(`${LIST_PATH}/${fetcher.data.data.documentId}`);
+			}
+		},
 	});
 
 	const actions = (
@@ -57,10 +59,10 @@ export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Nuevo curso"
-				description="Se guarda como borrador. Puedes dejarlo incompleto y publicarlo cuando tenga sesiones y capacitador."
+				description="Se guarda como borrador: puedes dejarlo incompleto y publicarlo desde su ficha."
 				goBack={LIST_PATH}
 				actions={actions}
-				collapseActionsOnMobile
+				actionsClassName="hidden md:flex"
 			/>
 
 			{prefill && (
@@ -80,7 +82,7 @@ export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 				prefill={prefill}
 			/>
 
-			<FormFooter>{actions}</FormFooter>
+			<CourseSaveBar>{actions}</CourseSaveBar>
 		</div>
 	);
 }

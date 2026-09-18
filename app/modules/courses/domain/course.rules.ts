@@ -373,6 +373,48 @@ export const assertPublishable = (course: {
 	}
 };
 
+export type PublishCheck = "sessions" | "trainer" | "places" | "audience";
+
+/**
+ * Las mismas condiciones de `assertPublishable`, pero todas a la vez y sin
+ * lanzar: es lo que la ficha de un borrador enseña como lista de pendientes.
+ *
+ * La audiencia solo aparece si el acceso es restringido; en los demás no hay
+ * nada que cumplir.
+ */
+export const publishChecklist = (course: {
+	modality: CourseModality;
+	access: CourseAccessType;
+	sessions: readonly { venue: string | null; link: string | null }[];
+	trainers: readonly { isActive: boolean }[];
+	audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
+}): { check: PublishCheck; done: boolean }[] => {
+	const placed = course.sessions.every(
+		(session) =>
+			(!requiresVenue(course.modality) || Boolean(session.venue)) &&
+			(!requiresLink(course.modality) || Boolean(session.link)),
+	);
+
+	const checks: { check: PublishCheck; done: boolean }[] = [
+		{ check: "sessions", done: course.sessions.length > 0 },
+		{ check: "places", done: course.sessions.length > 0 && placed },
+		{
+			check: "trainer",
+			done: course.trainers.some((trainer) => trainer.isActive),
+		},
+	];
+
+	if (course.access === "RESTRICTED") {
+		checks.push({
+			check: "audience",
+			done:
+				course.audience.dependencies.length + course.audience.groups.length > 0,
+		});
+	}
+
+	return checks;
+};
+
 type ScheduledSession = {
 	documentId?: string;
 	startsAt: Date;

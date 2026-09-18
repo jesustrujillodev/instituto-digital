@@ -257,8 +257,8 @@ describe("resolveCourseHref", () => {
 	);
 
 	test.each([
-		[["organizing", "enrolled"], participant, "/dashboard/cursos/c1/editar"],
-		[["global"], participant, "/dashboard/cursos/c1/editar"],
+		[["organizing", "enrolled"], participant, "/dashboard/cursos/c1"],
+		[["global"], participant, "/dashboard/cursos/c1"],
 		[["enrolled"], participant, "/dashboard/cursos-disponibles/c1"],
 		[["invited"], participant, "/dashboard/cursos-disponibles/c1"],
 		[["teaching"], participant, "/dashboard/cursos-disponibles/c1"],

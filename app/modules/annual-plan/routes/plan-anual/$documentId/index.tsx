@@ -54,7 +54,7 @@ const newCoursePath = (line: PlanLineView) =>
 
 const coursePath = (line: PlanLineView) =>
 	line.activeCourse
-		? `/dashboard/cursos/${line.activeCourse.documentId}/editar`
+		? `/dashboard/cursos/${line.activeCourse.documentId}`
 		: null;
 
 export const handle = {

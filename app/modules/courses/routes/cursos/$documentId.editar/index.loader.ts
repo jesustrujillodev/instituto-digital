@@ -1,13 +1,17 @@
+import { redirect } from "react-router";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
-import { canCancel, canEdit, canPublish } from "../../../domain/course.rules";
+import { canEdit } from "../../../domain/course.rules";
 import { validateFindCourse } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/editar — ficha del curso.
+ * GET /dashboard/cursos/:documentId/editar — formulario de edición.
+ *
+ * Un curso finalizado o cancelado ya no se edita: la URL lleva a su ficha en
+ * vez de pintar un formulario que no se puede guardar.
  *
  * Fuera de alcance responde 404 igual que inexistente: un capacitador no
  * confirma por URL que exista un curso que no creó.
@@ -31,13 +35,9 @@ export const loader = async ({
 	if (!options.success)
 		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 
-	const { status } = course.data;
+	if (!canEdit(course.data.status)) {
+		throw redirect(`/dashboard/cursos/${documentId}`);
+	}
 
-	return ok({
-		course: course.data,
-		options: options.data,
-		canEdit: canEdit(status),
-		canPublish: canPublish(status),
-		canCancel: canCancel(status),
-	});
+	return ok({ course: course.data, options: options.data });
 };

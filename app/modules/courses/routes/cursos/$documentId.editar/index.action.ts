@@ -6,15 +6,18 @@ import {
 } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
 import {
-	COURSE_INTENTS,
 	type CourseActionData,
 	parseCourseFormData,
 } from "../../../utils/parse-course-form-data";
-import { runStatusIntent } from "../../course-status-intents.server";
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/:documentId/editar — guardar, publicar o cancelar. */
+/**
+ * POST /dashboard/cursos/:documentId/editar — guardar.
+ *
+ * Publicar y cancelar viven en la ficha: publicar desde aquí usaría lo último
+ * guardado y no lo que está en pantalla.
+ */
 export const action = async ({
 	request,
 	context,
@@ -22,13 +25,7 @@ export const action = async ({
 }: Route.ActionArgs): Promise<CourseActionData> => {
 	const { auth } = await requireCourseScope(request, context);
 
-	const { intent, payload, cover } = parseCourseFormData(
-		await request.formData(),
-	);
-
-	if (intent !== COURSE_INTENTS.update) {
-		return runStatusIntent(intent, params.documentId, auth, context);
-	}
+	const { payload, cover } = parseCourseFormData(await request.formData());
 
 	const input = parseInput(() => ({
 		documentId: validateFindCourse({ documentId: params.documentId })

@@ -4,6 +4,7 @@ import type { CourseDetail } from "../../domain/course.types";
 import {
 	buildCourseFormDefaults,
 	emptySessionValues,
+	nextSessionValues,
 } from "../build-course-form-defaults";
 
 const course = {
@@ -104,5 +105,31 @@ describe("emptySessionValues", () => {
 		expect(Object.keys(emptySessionValues()).sort()).toEqual(
 			["date", "documentId", "endTime", "link", "startTime", "venue"].sort(),
 		);
+	});
+});
+
+describe("nextSessionValues", () => {
+	test("sin sesión previa es una fila vacía", () => {
+		expect(nextSessionValues()).toEqual(emptySessionValues());
+	});
+
+	test("repite horario y lugar, pero no la fecha ni la identidad", () => {
+		const next = nextSessionValues({
+			documentId: "existente",
+			date: "2026-10-05",
+			startTime: "09:00",
+			endTime: "13:00",
+			venue: "Sala A",
+			link: "https://x.test",
+		});
+
+		expect(next).toEqual({
+			documentId: "",
+			date: "",
+			startTime: "09:00",
+			endTime: "13:00",
+			venue: "Sala A",
+			link: "https://x.test",
+		});
 	});
 });
