@@ -102,7 +102,7 @@ describe("accessTokenPayloadSchema", () => {
 		sub: "11111111-1111-4111-8111-111111111111",
 		userId: 7,
 		email: "ana@empresa.com",
-		role: "ADMIN",
+		role: "SUPERADMIN",
 		dependencyId: null,
 		isTrainer: false,
 	};

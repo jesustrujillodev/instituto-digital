@@ -1,7 +1,6 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { type AccessScope, resolveScope } from "@/shared/auth/scope.rules";
 import { ROLES, type Role } from "@/shared/rules/atoms.rules";
-import type { UserType } from "./user.rules";
 import type { SafeUser } from "./user.types";
 
 /**
@@ -24,8 +23,7 @@ const RANK: Record<Role, number> = {
 	USER: 0,
 	DEPENDENCY_DEPUTY: 1,
 	DEPENDENCY_HEAD: 2,
-	ADMIN: 3,
-	SUPERADMIN: 4,
+	SUPERADMIN: 3,
 };
 
 /**
@@ -37,20 +35,18 @@ const RANK: Record<Role, number> = {
  * al nuevo— y revoca los tokens de ambos. Otorgarla desde el formulario de
  * usuario se saltaría ese relevo y chocaría contra el índice único parcial.
  *
- * `ADMIN` conserva lo que ya podía en la plantilla y no gana la capacidad de
- * crear superadministradores.
+ * Cada lista va en el orden de `ROLES`, de mayor a menor: el selector del
+ * formulario la pinta tal cual.
  */
 const ASSIGNABLE_ROLES: Record<Role, readonly Role[]> = {
-	SUPERADMIN: ["USER", "ADMIN", "SUPERADMIN", "DEPENDENCY_DEPUTY"],
-	ADMIN: ["USER", "ADMIN"],
-	DEPENDENCY_HEAD: ["USER", "DEPENDENCY_DEPUTY"],
+	SUPERADMIN: ["SUPERADMIN", "DEPENDENCY_DEPUTY", "USER"],
+	DEPENDENCY_HEAD: ["DEPENDENCY_DEPUTY", "USER"],
 	DEPENDENCY_DEPUTY: ["USER"],
 	USER: [],
 };
 
 /** Quién entra a la pantalla de gestión de cuentas; el alcance la recorta. */
 export const USER_MANAGER_ROLES: readonly Role[] = [
-	"ADMIN",
 	"SUPERADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
@@ -190,23 +186,38 @@ export const canManageUser = (
 };
 
 /**
- * ¿Puede cambiarse de dependencia por su cuenta?
+ * ¿Puede este actor mover esta cuenta a otra dependencia?
  *
- * El titular no, mientras lo sea (regla 6): dejaría su dependencia sin quien la
- * administre, y el índice único parcial le impediría además ser titular de la
- * nueva si ya tiene uno. Primero el superadministrador designa a otro.
+ * Nadie se cambia a sí mismo: la adscripción la decide quien administra. El
+ * superadministrador mueve a cualquiera; el titular y el auxiliar, solo a los
+ * participantes de su propia dependencia, hacia cualquier otra.
  *
- * El auxiliar sí puede: pierde el rol al salir, y eso lo resuelve
- * `roleAfterDependencyChange`.
+ * Un externo queda fuera por su tipo: no pertenece a ninguna dependencia y el
+ * CHECK `users_type_coherence` le prohíbe tener una.
  *
- * Un externo tampoco, y no por su rol —es `USER`, el que sí puede— sino por su
- * tipo: no pertenece a ninguna dependencia y el CHECK `users_type_coherence` le
- * prohíbe tener una.
+ * No excluye al titular movido: esa es la regla 6, un estado de la cuenta y no
+ * un permiso del actor, y el servicio la responde con su propio error.
  */
-export const canChangeOwnDependency = (
-	actorRole: Role,
-	actorType: UserType,
-): boolean => actorType === "INTERNAL" && actorRole !== "DEPENDENCY_HEAD";
+export const canChangeUserDependency = (
+	actor: Pick<AuthContext, "userId" | "role" | "dependencyId">,
+	target: Pick<SafeUser, "id" | "role" | "dependencyId" | "type">,
+): boolean => {
+	if (target.type !== "INTERNAL" || target.id === actor.userId) return false;
+
+	switch (actor.role) {
+		case "SUPERADMIN":
+			return true;
+		case "DEPENDENCY_HEAD":
+		case "DEPENDENCY_DEPUTY":
+			return (
+				target.role === "USER" &&
+				actor.dependencyId !== null &&
+				target.dependencyId === actor.dependencyId
+			);
+		default:
+			return false;
+	}
+};
 
 /**
  * Rol que le queda a quien cambia de dependencia.
@@ -215,7 +226,7 @@ export const canChangeOwnDependency = (
  * al salir se pierden. Las inscripciones, los créditos y el historial se
  * conservan, que es lo que la regla 7 separa.
  *
- * El titular está bloqueado aguas arriba por `canChangeOwnDependency`; se degrada
+ * El titular está bloqueado aguas arriba por el servicio (regla 6); se degrada
  * aquí igualmente porque un titular arrastrado a otra dependencia es un estado
  * peor que una degradación inesperada.
  */

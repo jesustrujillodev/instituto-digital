@@ -27,10 +27,7 @@ const DEPENDENCY_ROLES = [
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
 ] as const satisfies readonly Role[];
-const PLATFORM_ROLES = [
-	"ADMIN",
-	"SUPERADMIN",
-] as const satisfies readonly Role[];
+const PLATFORM_ROLES = ["SUPERADMIN"] as const satisfies readonly Role[];
 
 /**
  * Navegación declarativa del dashboard, en secciones ordenadas por intención.
@@ -149,10 +146,9 @@ export const navigationSections: readonly NavSection[] = [
 				label: "Dependencias",
 				path: "/dashboard/dependencias",
 				icon: Building2,
-				roles: ["SUPERADMIN"],
 			},
 			{ label: "Usuarios", path: "/dashboard/usuarios", icon: Users },
-			{ label: "Nube", path: "/dashboard/nube", icon: Cloud, roles: ["ADMIN"] },
+			{ label: "Nube", path: "/dashboard/nube", icon: Cloud },
 		],
 	},
 	{
@@ -209,7 +205,7 @@ export const footerNavigationConfig: readonly NavItem[] = [
 		label: "Sesiones",
 		path: "/dashboard/sesiones",
 		icon: MonitorSmartphone,
-		roles: ["ADMIN", "SUPERADMIN"],
+		roles: ["SUPERADMIN"],
 	},
 	{
 		label: "Personalización",

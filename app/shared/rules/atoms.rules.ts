@@ -34,18 +34,16 @@ const newPassword = v.pipe(
 //
 // `USER` es el rol base y hace además de participante del instituto:
 // reutilizarlo en vez de introducir `PARTICIPANT` evita un backfill y es el
-// valor por defecto que ya tiene la columna. `ADMIN` es herencia de la
-// plantilla y no lo usa ninguna cuenta del instituto; sobrevive hasta que se
-// retire su último consumidor.
+// valor por defecto que ya tiene la columna.
 //
-// La jerarquía entre ellos NO vive aquí (ver el JSDoc de `hasRole`): está en
-// modules/users/domain/user.access.rules.ts.
+// El orden es el de la jerarquía, de mayor a menor: selectores y filtros lo
+// muestran tal cual. La jerarquía como regla NO vive aquí (ver el JSDoc de
+// `hasRole`): está en modules/users/domain/user.access.rules.ts.
 export const ROLES = [
-	"USER",
-	"ADMIN",
 	"SUPERADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
+	"USER",
 ] as const;
 
 export type Role = (typeof ROLES)[number];

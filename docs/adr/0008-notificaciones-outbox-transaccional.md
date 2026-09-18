@@ -110,7 +110,7 @@ desarrollo, Mailpit en `compose.yml`.
 | Un aviso no se envía dos veces por réplica | `FOR UPDATE SKIP LOCKED` + `locked_until` |
 | Ningún correo lleva credenciales | Plantillas + pruebas de `users`, `trainers` y plantillas |
 | Solo los cambios de horario, sede o enlace avisan | `hasScheduleChanges` en `course.rules.ts` |
-| Un traslado propio no avisa | `changeDependency`, rama `!isSelf` |
+| Todo traslado avisa: nadie se traslada a sí mismo | `canChangeUserDependency` en `user.access.rules.ts` |
 
 **Lo que no se garantiza:** la entrega en el buzón. Un `SENT` significa que el
 servidor SMTP aceptó el mensaje.

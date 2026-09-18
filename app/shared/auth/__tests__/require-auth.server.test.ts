@@ -60,9 +60,9 @@ describe("requireAuth", () => {
 	test("carries the role through untouched", async () => {
 		const auth = await requireAuth(
 			REQUEST,
-			contextOf(payloadOf({ role: "ADMIN" })),
+			contextOf(payloadOf({ role: "SUPERADMIN" })),
 		);
 
-		expect(auth.role).toBe("ADMIN");
+		expect(auth.role).toBe("SUPERADMIN");
 	});
 });

@@ -67,7 +67,6 @@ describe("dependencias loader — guard", () => {
 	test("ningún rol salvo SUPERADMIN entra", async () => {
 		for (const role of [
 			"USER",
-			"ADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {

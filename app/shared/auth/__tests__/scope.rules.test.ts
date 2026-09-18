@@ -21,12 +21,6 @@ describe("resolveScope", () => {
 		});
 	});
 
-	// ADMIN conserva el alcance de la plantilla, donde es quien administra a todo
-	// el mundo. Ninguna cuenta del instituto lo usa.
-	test("ADMIN conserva el alcance global de la plantilla", () => {
-		expect(resolveScope(authOf("ADMIN", null))).toEqual({ kind: "global" });
-	});
-
 	test("el titular y el auxiliar quedan acotados a su dependencia", () => {
 		for (const role of ["DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"] as const) {
 			expect(resolveScope(authOf(role, 42))).toEqual({

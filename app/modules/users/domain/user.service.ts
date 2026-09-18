@@ -108,13 +108,12 @@ export interface IUserService {
 	/**
 	 * Cambio de adscripción, inmediato y sin aprobación.
 	 *
-	 * Sirve a los dos caminos: alguien cambiándose por su cuenta desde su perfil, y
-	 * un administrador moviendo a otra persona. Los distingue comparando la cuenta
-	 * con el actor, porque las reglas no son las mismas: un titular no puede
-	 * cambiarse mientras lo sea, y nadie puede mover a alguien de rango superior.
+	 * Siempre lo hace otra persona: quién puede mover a quién lo decide
+	 * `canChangeUserDependency`, y a un titular no lo mueve nadie mientras lo sea.
 	 *
-	 * Queda en la bitácora con fecha y autor, degrada el rol de auxiliar y revoca
-	 * los tokens para que el alcance nuevo valga desde la siguiente petición.
+	 * Queda en la bitácora con fecha y autor, degrada el rol de auxiliar, avisa a
+	 * la persona movida y revoca sus tokens para que el alcance nuevo valga desde
+	 * la siguiente petición.
 	 */
 	changeDependency(
 		documentId: string,

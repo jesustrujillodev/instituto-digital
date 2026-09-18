@@ -14,7 +14,6 @@ export const CREDIT_YEAR_RANGE = { min: 2000, max: 2100 } as const;
  */
 export const CREDIT_MANAGER_ROLES: readonly Role[] = [
 	"SUPERADMIN",
-	"ADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
 ];

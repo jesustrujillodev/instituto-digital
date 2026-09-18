@@ -6,8 +6,11 @@ import {
 	isLockedOutForRole,
 } from "../security-state.rules";
 
-const claimsWithRole = (userId: number, iat: number, role: "USER" | "ADMIN") =>
-	({ userId, role, iat }) as const;
+const claimsWithRole = (
+	userId: number,
+	iat: number,
+	role: "USER" | "SUPERADMIN",
+) => ({ userId, role, iat }) as const;
 
 const EPOCH = new Date("2026-07-30T12:00:00.000Z");
 
@@ -118,25 +121,31 @@ describe("evaluateToken", () => {
 	describe("lockdown", () => {
 		const issuedAfterEpoch = iatOf(new Date(EPOCH.getTime() + 60_000));
 
-		test("scope 'all' blocks USER and ADMIN alike", () => {
+		test("scope 'all' blocks USER and SUPERADMIN alike", () => {
 			const snapshot = snapshotOf({ lockdownAt: EPOCH, lockdownScope: "all" });
 
 			expect(
 				evaluateToken(claimsWithRole(1, issuedAfterEpoch, "USER"), snapshot),
 			).toEqual({ allowed: false, reason: "LOCKDOWN" });
 			expect(
-				evaluateToken(claimsWithRole(1, issuedAfterEpoch, "ADMIN"), snapshot),
+				evaluateToken(
+					claimsWithRole(1, issuedAfterEpoch, "SUPERADMIN"),
+					snapshot,
+				),
 			).toEqual({ allowed: false, reason: "LOCKDOWN" });
 		});
 
-		test("scope 'except-admin' lets ADMIN through and blocks USER", () => {
+		test("scope 'except-admin' lets SUPERADMIN through and blocks USER", () => {
 			const snapshot = snapshotOf({
 				lockdownAt: EPOCH,
 				lockdownScope: "except-admin",
 			});
 
 			expect(
-				evaluateToken(claimsWithRole(1, issuedAfterEpoch, "ADMIN"), snapshot),
+				evaluateToken(
+					claimsWithRole(1, issuedAfterEpoch, "SUPERADMIN"),
+					snapshot,
+				),
 			).toEqual({ allowed: true });
 			expect(
 				evaluateToken(claimsWithRole(1, issuedAfterEpoch, "USER"), snapshot),
@@ -170,24 +179,17 @@ describe("isLockedOutForRole", () => {
 
 	test("sin lockdown activo no bloquea a nadie", () => {
 		expect(isLockedOutForRole(snapshotFor(null, null), "USER")).toBe(false);
-		expect(isLockedOutForRole(snapshotFor(null, "all"), "ADMIN")).toBe(false);
+		expect(isLockedOutForRole(snapshotFor(null, "all"), "SUPERADMIN")).toBe(
+			false,
+		);
 	});
 
 	test("el alcance all no exime a ningún rol", () => {
 		expect(isLockedOutForRole(snapshotFor(new Date(), "all"), "USER")).toBe(
 			true,
 		);
-		expect(isLockedOutForRole(snapshotFor(new Date(), "all"), "ADMIN")).toBe(
-			true,
-		);
-	});
-
-	test("except-admin exime solo a los roles de plataforma", () => {
 		expect(
-			isLockedOutForRole(snapshotFor(new Date(), "except-admin"), "ADMIN"),
-		).toBe(false);
-		expect(
-			isLockedOutForRole(snapshotFor(new Date(), "except-admin"), "USER"),
+			isLockedOutForRole(snapshotFor(new Date(), "all"), "SUPERADMIN"),
 		).toBe(true);
 	});
 
@@ -220,9 +222,9 @@ describe("isLockedOutForRole", () => {
 	// MÁS restrictivo. Interpretarlo como "sin restricción" dejaría la plataforma
 	// abierta justo cuando alguien acaba de cerrarla.
 	test("un lockdown activo sin alcance declarado se trata como all", () => {
-		expect(isLockedOutForRole(snapshotFor(new Date(), null), "ADMIN")).toBe(
-			true,
-		);
+		expect(
+			isLockedOutForRole(snapshotFor(new Date(), null), "SUPERADMIN"),
+		).toBe(true);
 		expect(isLockedOutForRole(snapshotFor(new Date(), null), "USER")).toBe(
 			true,
 		);
@@ -238,8 +240,8 @@ describe("exemptRolesFor", () => {
 		expect(exemptRolesFor("all")).toEqual([]);
 	});
 
-	test("except-admin exime a los roles de plataforma", () => {
-		expect(exemptRolesFor("except-admin")).toEqual(["ADMIN", "SUPERADMIN"]);
+	test("except-admin exime solo al superadministrador", () => {
+		expect(exemptRolesFor("except-admin")).toEqual(["SUPERADMIN"]);
 	});
 
 	test("coincide con lo que decide isLockedOutForRole", () => {
@@ -249,7 +251,7 @@ describe("exemptRolesFor", () => {
 		};
 
 		for (const scope of ["all", "except-admin"] as const) {
-			for (const role of ["USER", "ADMIN", "SUPERADMIN", "DEPENDENCY_HEAD"]) {
+			for (const role of ["USER", "SUPERADMIN", "DEPENDENCY_HEAD"]) {
 				expect(
 					isLockedOutForRole({ ...lockedDown, lockdownScope: scope }, role),
 				).toBe(!exemptRolesFor(scope).includes(role as never));

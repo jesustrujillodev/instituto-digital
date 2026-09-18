@@ -118,7 +118,7 @@ login, rotación y cierre de sesión.
 |---|---:|---|
 | `auth.service.login.server.test.ts` | 18 | Rate limit por email y por IP con su `retryAfterMs`; el corte **antes** de bcrypt; el hash dummy que iguala el timing de un correo inexistente; que en la base se persiste el **hash** del refresh token; el cap de sesiones; `logout` idempotente. |
 | `auth.service.refresh.server.test.ts` | 22 | Rotación compare-and-swap; reintento **único** ante `stale`; hit de gracia que devuelve `refreshToken: null`; reuso fuera de la ventana que revoca la familia entera; single-flight compartiendo una rotación entre concurrentes; el corte `except-admin` en las dos ramas que resuelven usuario. |
-| `auth.service.server.test.ts` | 4 | El lockdown corta login y refresh; alcance `all` sin llamar a `compare`; `except-admin` que deja pasar a ADMIN y bloquea a USER tras el mismo bcrypt. |
+| `auth.service.server.test.ts` | 4 | El lockdown corta login y refresh; alcance `all` sin llamar a `compare`; `except-admin` que deja pasar a SUPERADMIN y bloquea a USER tras el mismo bcrypt. |
 | `token.service.server.test.ts` | 16 | Round-trip firmar/verificar; rechazo de otro secreto, otro issuer, otra audiencia, firma alterada y token expirado; un rol fuera de la tupla **no supera la verificación** aunque esté bien firmado; el token no transporta más claims que los declarados. |
 | `session-monitor.service.server.test.ts` | 15 | Revocación y epoch (por sesión no lo toca, por usuario y global sí); dueños resueltos **deduplicados**; ningún hash llega a la respuesta; `revokeAllExceptCurrent` sin sesión que preservar no borra nada. |
 | `security-state.service.server.test.ts` | 3 | `lockdown` transaccional una sola vez; `getState` nunca expone `lockdownReason`. |
@@ -136,7 +136,7 @@ invalidan la caché.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `sesiones/index.action.test.ts` | 23 | El `switch` de las seis intenciones; guard `ADMIN` repetido en el action; el token de refresh que viaja **crudo** al servicio; la confirmación reforzada del lockdown; una intención desconocida no ejecuta nada. |
+| `sesiones/index.action.test.ts` | 23 | El `switch` de las seis intenciones; guard `SUPERADMIN` repetido en el action; el token de refresh que viaja **crudo** al servicio; la confirmación reforzada del lockdown; una intención desconocida no ejecuta nada. |
 | `sesiones/index.loader.test.ts` | 12 | Guard; filtros del query string con sus defaults; basura y decimales descartados; corte con el status del código cuando el servicio falla. |
 | `iniciar-sesion/index.action.test.ts` | 10 | Redirect con `Set-Cookie` en el éxito; IP validada y user-agent hacia el servicio; **un input inválido lee exactamente igual que unas credenciales incorrectas** (anti-enumeración). |
 | `iniciar-sesion/index.loader.test.ts` | 4 | Quien ya tiene sesión no ve el formulario. |
@@ -174,7 +174,7 @@ Cubre las dos fases: el modo claro/oscuro/sistema
 cookie ya decide (corre en toda petición: el fallo sería de rendimiento y no lo
 notaría nadie hasta producción); que degrade al tema base ante cualquier fallo de
 lectura —el tema no es una decisión de seguridad—; y el punto de seguridad del
-preview: **la cookie se ignora si el rol verificado en servidor no es ADMIN**.
+preview: **la cookie se ignora si el rol verificado en servidor no es SUPERADMIN**.
 Después, las once operaciones de la biblioteca con su envelope en éxito **y** en
 fallo, verificando en cada rechazo que no se escribió nada.
 
@@ -192,7 +192,7 @@ degradar es el servicio—. Cada escritura invalida.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `personalizacion/index.action.test.ts` | 37 | El guard de ADMIN **repetido en el action** —un loader protegido no protege las mutaciones de su propia ruta—; que las diez intenciones validen en la frontera antes de tocar el caso de uso; y la mecánica de la cookie de preview: se guarda el borrador **antes** de encenderla, es `HttpOnly` y de sesión, y activar o borrar un tema la apaga en el mismo movimiento. |
+| `personalizacion/index.action.test.ts` | 37 | El guard de SUPERADMIN **repetido en el action** —un loader protegido no protege las mutaciones de su propia ruta—; que las diez intenciones validen en la frontera antes de tocar el caso de uso; y la mecánica de la cookie de preview: se guarda el borrador **antes** de encenderla, es `HttpOnly` y de sesión, y activar o borrar un tema la apaga en el mismo movimiento. |
 | `personalizacion/index.loader.test.ts` | 12 | 403 para `USER` y redirect para anónimo; que el tema abierto salga de la URL y caiga al activo cuando el id ya no existe; y que una biblioteca vacía —seed sin correr— devuelva un estado vacío en vez de reventar. |
 | `preferencia-tema/index.action.test.ts` | 5 | Que la cookie se emita **aunque falle** guardar en la cuenta (fallo degradado, no total) y que un modo inventado no llegue a emitirla. |
 
@@ -229,8 +229,8 @@ Y, desde PRD-01, el aislamiento: cada método **reenvía el mismo alcance** a
 que no aparecen—; fuera de alcance responde `USER_NOT_FOUND` y no un permiso
 denegado; sin rango responde `FORBIDDEN_SCOPE` y **sí** lo dice, porque el actor
 ya conoce la cuenta; `archive` revoca epoch y sesiones; `changeDependency` escribe
-bitácora con su autor, degrada al auxiliar y bloquea al titular tanto en
-autoservicio como movido por un administrador.
+bitácora con su autor, degrada al auxiliar, rechaza el traslado propio y el que
+sale del alcance de titulares y auxiliares, y bloquea al titular movido.
 
 ### `routes/**/__tests__/` — 56 tests
 
@@ -443,7 +443,7 @@ que un curso no se publique sin lo que §6.5 exige.
 | `build-course-form-defaults.test.ts` | 4 | Ningún campo `undefined` y que las horas precargadas vuelvan a la zona del instituto. |
 | `parse-course-form-data.test.ts` | 4 | Que el payload JSON se decodifique con sus tipos y que uno roto llegue como `null`. |
 | `course-error-messages.test.ts` | 4 | Cobertura de códigos, reserva, y que la copia nombre la sesión. |
-| `to-course-rows.test.ts` | 1 | Que la PK interna no llegue a la tabla. |
+| `to-course-cards.test.ts` | 2 | Que la PK interna no llegue a la tarjeta y que la portada se pinte con la URL resuelta. |
 
 ---
 

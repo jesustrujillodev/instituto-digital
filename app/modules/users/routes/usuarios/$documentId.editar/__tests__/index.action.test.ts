@@ -35,9 +35,11 @@ const createHarness = (
 		resetUser?: SafeUser;
 		revokeFails?: boolean;
 		photoFails?: boolean;
+		changeFails?: string;
 	} = {},
 ) => {
 	const calls = {
+		changeDependency: [] as { documentId: string; dependency: string }[],
 		update: [] as { documentId: string; dto: unknown }[],
 		resetPassword: [] as { documentId: string; password: string }[],
 		updatePhoto: [] as string[],
@@ -63,7 +65,7 @@ const createHarness = (
 						sub: DOCUMENT_ID,
 						userId: 7,
 						email: "ana@empresa.com",
-						role: options.role ?? "ADMIN",
+						role: options.role ?? "SUPERADMIN",
 						iat: 1_800_000_000,
 					},
 		userService: {
@@ -76,6 +78,10 @@ const createHarness = (
 				return options.resetFails
 					? failOf(options.resetFails)
 					: okOf(options.resetUser ?? user);
+			},
+			changeDependency: async (documentId: string, dependency: string) => {
+				calls.changeDependency.push({ documentId, dependency });
+				return options.changeFails ? failOf(options.changeFails) : okOf(user);
 			},
 			updatePhoto: async (documentId: string) => {
 				calls.updatePhoto.push(documentId);
@@ -291,5 +297,62 @@ describe("usuarios/editar action — restablecer contraseña", () => {
 			expect(result.error.message).toBe("El usuario ya no existe.");
 		}
 		expect(calls.revokeAllForUser).toEqual([]);
+	});
+});
+
+describe("usuarios/editar action — cambiar dependencia", () => {
+	const DEPENDENCY_ID = "22222222-2222-4222-8222-222222222222";
+	const CHANGE_FIELDS = {
+		[INTENT_FIELD]: USER_INTENTS.changeDependency,
+		dependency: DEPENDENCY_ID,
+	};
+
+	test("traslada la cuenta de la URL al destino elegido", async () => {
+		const { context, calls } = createHarness({ role: "SUPERADMIN" });
+
+		const result = await run(formRequest(CHANGE_FIELDS), context);
+
+		expect(result.success && result.message).toBe("Dependencia actualizada");
+		expect(calls.changeDependency).toEqual([
+			{ documentId: DOCUMENT_ID, dependency: DEPENDENCY_ID },
+		]);
+		expect(calls.update).toEqual([]);
+	});
+
+	test("un destino que no es uuid falla sin llegar al servicio", async () => {
+		const { context, calls } = createHarness({ role: "SUPERADMIN" });
+
+		const result = await run(
+			formRequest({ ...CHANGE_FIELDS, dependency: "5" }),
+			context,
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("VALIDATION_ERROR");
+		expect(calls.changeDependency).toEqual([]);
+	});
+
+	// Criterio de aceptación 9: el motivo se dice, no se oculta.
+	test("sobre un titular responde el motivo", async () => {
+		const { context } = createHarness({
+			role: "SUPERADMIN",
+			changeFails: "HEAD_CANNOT_LEAVE_DEPENDENCY",
+		});
+
+		const result = await run(formRequest(CHANGE_FIELDS), context);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.code).toBe("HEAD_CANNOT_LEAVE_DEPENDENCY");
+		}
+	});
+
+	test("sin permiso sobre la cuenta responde FORBIDDEN_SCOPE", async () => {
+		const { context } = createHarness({ changeFails: "FORBIDDEN_SCOPE" });
+
+		const result = await run(formRequest(CHANGE_FIELDS), context);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
 	});
 });

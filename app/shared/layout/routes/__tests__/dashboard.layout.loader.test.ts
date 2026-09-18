@@ -62,7 +62,7 @@ describe("dashboard layout loader", () => {
 	});
 
 	test("devuelve la identidad dentro del envelope estándar", async () => {
-		const { context } = createHarness({ role: "ADMIN" });
+		const { context } = createHarness({ role: "SUPERADMIN" });
 
 		const result = await run(context);
 
@@ -70,7 +70,7 @@ describe("dashboard layout loader", () => {
 		expect(result.data.user).toEqual({
 			documentId: "11111111-1111-4111-8111-111111111111",
 			email: "ana@empresa.com",
-			role: "ADMIN",
+			role: "SUPERADMIN",
 		});
 	});
 

@@ -600,16 +600,12 @@ describe("createUserService — changeDependency", () => {
 
 	// Regla 7: auxiliar y titular son cargos DE una dependencia y se pierden al
 	// salir. Las inscripciones y el historial se conservan.
-	test("el auxiliar se degrada a participante al cambiarse", async () => {
+	test("el auxiliar movido se degrada a participante", async () => {
 		const { service, calls } = createHarness({
-			user: userOf({ id: 99, role: "DEPENDENCY_DEPUTY", dependencyId: 3 }),
+			user: userOf({ role: "DEPENDENCY_DEPUTY", dependencyId: 3 }),
 		});
 
-		await service.changeDependency(
-			DOCUMENT_ID,
-			DEPENDENCY_ID,
-			actorOf("DEPENDENCY_DEPUTY", 3),
-		);
+		await service.changeDependency(DOCUMENT_ID, DEPENDENCY_ID, actorOf());
 
 		expect(calls.changeDependency).toHaveLength(1);
 		expect((calls.changeDependency[0] as { nextRole: string }).nextRole).toBe(
@@ -617,11 +613,25 @@ describe("createUserService — changeDependency", () => {
 		);
 	});
 
-	// Criterio de aceptación 9 del PRD. Dejaría su dependencia sin quien la
-	// administre, y el índice único parcial le impediría ser titular de la nueva.
-	test("un titular no puede cambiarse por su cuenta", async () => {
+	test("un titular mueve a un participante de su dependencia", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.changeDependency(
+			DOCUMENT_ID,
+			DEPENDENCY_ID,
+			actorOf("DEPENDENCY_HEAD", 3),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.changeDependency).toMatchObject([
+			{ toDependencyId: 5, changedById: 99 },
+		]);
+		expect(calls.revoked).toEqual([7]);
+	});
+
+	test("un titular no mueve a su auxiliar", async () => {
 		const { service, calls } = createHarness({
-			user: userOf({ id: 99, role: "DEPENDENCY_HEAD", dependencyId: 3 }),
+			user: userOf({ role: "DEPENDENCY_DEPUTY", dependencyId: 3 }),
 		});
 
 		const result = await service.changeDependency(
@@ -631,15 +641,43 @@ describe("createUserService — changeDependency", () => {
 		);
 
 		expect(result.success).toBe(false);
-		if (!result.success) {
-			expect(result.error.code).toBe("HEAD_CANNOT_LEAVE_DEPENDENCY");
-		}
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
 		expect(calls.changeDependency).toEqual([]);
 	});
 
-	// La misma regla, ahora sobre la cuenta movida: relevar al titular es un acto
-	// propio del superadministrador, no un efecto colateral de un traslado.
-	test("tampoco lo puede mover un administrador", async () => {
+	test("un auxiliar no mueve a nadie de otra dependencia", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.changeDependency(
+			DOCUMENT_ID,
+			DEPENDENCY_ID,
+			actorOf("DEPENDENCY_DEPUTY", 8),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		expect(calls.changeDependency).toEqual([]);
+	});
+
+	test("nadie se cambia a sí mismo", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ id: 99, role: "USER", dependencyId: 3 }),
+		});
+
+		const result = await service.changeDependency(
+			DOCUMENT_ID,
+			DEPENDENCY_ID,
+			actorOf("USER", 3),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		expect(calls.changeDependency).toEqual([]);
+	});
+
+	// Criterio de aceptación 9 del PRD: relevar al titular se hace designando a
+	// otro desde la dependencia, no como efecto colateral de un traslado.
+	test("ni el superadministrador mueve a un titular", async () => {
 		const { service, calls } = createHarness({
 			user: userOf({ role: "DEPENDENCY_HEAD", dependencyId: 3 }),
 		});
@@ -900,21 +938,6 @@ describe("createUserService — avisos (§6.12)", () => {
 				toDependency: "Desarrollo Social",
 			},
 		]);
-	});
-
-	test("cambiarse uno mismo no avisa", async () => {
-		const { service, calls } = createHarness({
-			user: userOf({ id: 99, role: "USER", dependencyId: 3 }),
-		});
-
-		await service.changeDependency(
-			DOCUMENT_ID,
-			DEPENDENCY_ID,
-			actorOf("USER", 3),
-		);
-
-		expect(calls.changeDependency).toHaveLength(1);
-		expect(calls.notified).toEqual([]);
 	});
 
 	test("si el alta falla no se encola nada", async () => {

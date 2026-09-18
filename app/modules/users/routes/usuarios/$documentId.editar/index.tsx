@@ -8,10 +8,9 @@ import {
 	FormFooter,
 } from "@/shared/components/common/form-actions";
 import { PageHeader } from "@/shared/components/common/page-header";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
-import { DependencyHistory } from "../../../components/dependency-history";
+import { DependencySection } from "../../../components/dependency-section";
 import { ResetPasswordDialog } from "../../../components/reset-password-dialog";
 import { UserForm } from "../../../components/user-form";
 import { useUserFormIds } from "../../../hooks/use-user-form-ids";
@@ -43,7 +42,7 @@ export function meta({ data }: Route.MetaArgs) {
 export default function EditarUsuarioPage({
 	loaderData,
 }: Route.ComponentProps) {
-	const { user, history, assignableRoles } = loaderData.data;
+	const { user, history, assignableRoles, dependencyChange } = loaderData.data;
 	const navigate = useNavigate();
 	const ids = useUserFormIds();
 	const [resetOpen, setResetOpen] = useState(false);
@@ -90,14 +89,15 @@ export default function EditarUsuarioPage({
 			{/* La bitácora va como sección de la pantalla que ya tiene el dato, no
 			    como ruta aparte: una segunda pantalla exigiría un segundo guard sobre
 			    el mismo recurso. */}
-			<Card className="mt-4">
-				<CardContent className="flex flex-col gap-3">
-					<span className="font-medium text-foreground text-sm">
-						Historial de adscripción
-					</span>
-					<DependencyHistory entries={history} />
-				</CardContent>
-			</Card>
+			<DependencySection
+				user={{
+					documentId: user.documentId,
+					name: displayName,
+					role: user.role,
+				}}
+				history={history}
+				change={dependencyChange}
+			/>
 
 			<FormFooter>{actions}</FormFooter>
 

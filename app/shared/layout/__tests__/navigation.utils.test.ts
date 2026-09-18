@@ -21,7 +21,7 @@ describe("filterNavigationByRole", () => {
 	test("drops an item whose roles exclude the current one", () => {
 		const items: NavItem[] = [
 			{ label: "Inicio", path: "/dashboard" },
-			{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] },
+			{ label: "Usuarios", path: "/usuarios", roles: ["SUPERADMIN"] },
 		];
 
 		const result = filterNavigationByRole(items, viewerOf("USER"));
@@ -32,10 +32,12 @@ describe("filterNavigationByRole", () => {
 
 	test("keeps an item whose roles include the current one", () => {
 		const items: NavItem[] = [
-			{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] },
+			{ label: "Usuarios", path: "/usuarios", roles: ["SUPERADMIN"] },
 		];
 
-		expect(filterNavigationByRole(items, viewerOf("ADMIN"))).toHaveLength(1);
+		expect(filterNavigationByRole(items, viewerOf("SUPERADMIN"))).toHaveLength(
+			1,
+		);
 	});
 
 	test("filters children recursively", () => {
@@ -44,7 +46,7 @@ describe("filterNavigationByRole", () => {
 				label: "Administración",
 				path: "/admin",
 				children: [
-					{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] },
+					{ label: "Usuarios", path: "/usuarios", roles: ["SUPERADMIN"] },
 					{ label: "Perfil", path: "/perfil" },
 				],
 			},
@@ -62,7 +64,9 @@ describe("filterNavigationByRole", () => {
 		const items: NavItem[] = [
 			{
 				label: "Administración",
-				children: [{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] }],
+				children: [
+					{ label: "Usuarios", path: "/usuarios", roles: ["SUPERADMIN"] },
+				],
 			},
 		];
 
@@ -76,7 +80,9 @@ describe("filterNavigationByRole", () => {
 			{
 				label: "Administración",
 				path: "/admin",
-				children: [{ label: "Usuarios", path: "/usuarios", roles: ["ADMIN"] }],
+				children: [
+					{ label: "Usuarios", path: "/usuarios", roles: ["SUPERADMIN"] },
+				],
 			},
 		];
 
@@ -86,13 +92,13 @@ describe("filterNavigationByRole", () => {
 		expect(result[0].children).toEqual([]);
 	});
 
-	// El propio grupo se descarta antes de mirar a los hijos: un ADMIN-only no se
+	// El propio grupo se descarta antes de mirar a los hijos: un SUPERADMIN-only no se
 	// abre porque dentro haya algo público.
 	test("a group excluded by role is dropped before its children are inspected", () => {
 		const items: NavItem[] = [
 			{
 				label: "Administración",
-				roles: ["ADMIN"],
+				roles: ["SUPERADMIN"],
 				children: [{ label: "Perfil", path: "/perfil" }],
 			},
 		];
@@ -136,7 +142,7 @@ describe("filterNavigationByRole", () => {
 	});
 
 	test("an empty list stays empty", () => {
-		expect(filterNavigationByRole([], viewerOf("ADMIN"))).toEqual([]);
+		expect(filterNavigationByRole([], viewerOf("SUPERADMIN"))).toEqual([]);
 	});
 });
 
@@ -145,7 +151,7 @@ describe("filterNavigationSections", () => {
 		const sections: NavSection[] = [
 			{
 				label: "Administración",
-				roles: ["ADMIN"],
+				roles: ["SUPERADMIN"],
 				items: [{ label: "Nube", path: "/nube" }],
 			},
 		];
@@ -158,7 +164,7 @@ describe("filterNavigationSections", () => {
 		const sections: NavSection[] = [
 			{
 				label: "Gestión",
-				items: [{ label: "Grupos", path: "/grupos", roles: ["ADMIN"] }],
+				items: [{ label: "Grupos", path: "/grupos", roles: ["SUPERADMIN"] }],
 			},
 		];
 
@@ -170,8 +176,13 @@ describe("filterNavigationSections", () => {
 			{
 				label: "Gestión",
 				items: [
-					{ label: "Cursos", path: "/cursos", trainer: true, roles: ["ADMIN"] },
-					{ label: "Grupos", path: "/grupos", roles: ["ADMIN"] },
+					{
+						label: "Cursos",
+						path: "/cursos",
+						trainer: true,
+						roles: ["SUPERADMIN"],
+					},
+					{ label: "Grupos", path: "/grupos", roles: ["SUPERADMIN"] },
 				],
 			},
 		];
@@ -193,8 +204,8 @@ describe("filterNavigationSections", () => {
 			},
 		];
 
-		expect(filterNavigationSections(sections, viewerOf("ADMIN", true))).toEqual(
-			[],
-		);
+		expect(
+			filterNavigationSections(sections, viewerOf("SUPERADMIN", true)),
+		).toEqual([]);
 	});
 });

@@ -47,11 +47,11 @@ describe("isUnauthorizedError / isForbiddenError / isNotFoundError", () => {
 describe("isForbiddenRoleError", () => {
 	// La razón de existir de la función: ya hay OTRO 403 en la app —el de Origin
 	// no confiable del middleware CSRF, con body de texto plano—, y ese debe
-	// mostrar el mensaje genérico, no "te falta el rol ADMIN".
+	// mostrar el mensaje genérico, no "te falta el rol SUPERADMIN".
 	test("narrows the requireRole 403 by its code", () => {
 		const error = routeErrorOf(HTTP_STATUS.FORBIDDEN, {
 			code: FORBIDDEN_ROLE_CODE,
-			requiredRoles: ["ADMIN"],
+			requiredRoles: ["SUPERADMIN"],
 		});
 
 		expect(isForbiddenRoleError(error)).toBe(true);

@@ -31,7 +31,7 @@ const actorOf = (overrides: Partial<Actor> = {}): Actor => ({
 });
 
 describe("resolveCourseScope", () => {
-	test.each([["SUPERADMIN" as Role], ["ADMIN" as Role]])(
+	test.each([["SUPERADMIN" as Role]])(
 		"%s administra cursos de cualquier dependencia",
 		(role) => {
 			expect(resolveCourseScope(actorOf({ role }))).toEqual({ kind: "global" });

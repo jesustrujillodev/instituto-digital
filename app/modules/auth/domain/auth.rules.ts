@@ -94,10 +94,10 @@ export type SessionStatusFilter = (typeof SESSION_STATUSES)[number];
  * está duplicado por necesidad —un loader protegido no protege las mutaciones de
  * su ruta— y con dos listas escritas a mano acabarían divergiendo.
  *
- * Incluye al superadministrador porque el monitor es también donde se levanta un
- * lockdown, y dejarlo fuera dejaría la plataforma sin nadie que pueda reabrirla.
+ * Es también donde se levanta un lockdown, así que quien entra aquí tiene que
+ * ser un rol exento de `except-admin`: si no, nadie podría reabrir la plataforma.
  */
-export const SESSION_MONITOR_ROLES: readonly Role[] = ["ADMIN", "SUPERADMIN"];
+export const SESSION_MONITOR_ROLES: readonly Role[] = ["SUPERADMIN"];
 
 export const listSessionsRule = createListRule({
 	userId: v.optional(userId),

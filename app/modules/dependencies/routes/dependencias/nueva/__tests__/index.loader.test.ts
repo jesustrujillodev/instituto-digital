@@ -39,7 +39,6 @@ describe("nueva dependencia loader", () => {
 	test("cualquier otro rol recibe 403", async () => {
 		for (const role of [
 			"USER",
-			"ADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {

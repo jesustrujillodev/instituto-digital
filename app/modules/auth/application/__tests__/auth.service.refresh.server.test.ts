@@ -230,7 +230,7 @@ describe("createAuthService — normal rotation", () => {
 				id: 7,
 				documentId: "11111111-1111-4111-8111-111111111111",
 				email: "ana@empresa.com",
-				role: "ADMIN",
+				role: "SUPERADMIN",
 				dependencyId: null,
 				isTrainer: false,
 			},
@@ -428,10 +428,10 @@ describe("createAuthService — lockdown except-admin during refresh", () => {
 		);
 	});
 
-	test("lets an ADMIN rotate normally", async () => {
+	test("lets a SUPERADMIN rotate normally", async () => {
 		const { service } = createHarness({
 			snapshot: exceptAdmin,
-			user: userWith("ADMIN"),
+			user: userWith("SUPERADMIN"),
 		});
 
 		const result = await service.refresh(RAW_TOKEN);
@@ -457,10 +457,10 @@ describe("createAuthService — lockdown except-admin during refresh", () => {
 		);
 	});
 
-	test("lets an ADMIN through the grace branch", async () => {
+	test("lets a SUPERADMIN through the grace branch", async () => {
 		const { service } = createHarness({
 			snapshot: exceptAdmin,
-			user: userWith("ADMIN"),
+			user: userWith("SUPERADMIN"),
 			session: sessionOf({
 				refreshTokenHash: hashOf("token-ya-rotado"),
 				prevTokenHash: CURRENT_HASH,

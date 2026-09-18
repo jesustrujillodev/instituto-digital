@@ -20,11 +20,10 @@ export const USER_INTENTS = {
 	archive: "archive",
 	unarchive: "unarchive",
 	delete: "delete",
-	// Autoservicio, desde /dashboard/perfil. Separadas de sus equivalentes
-	// administrativas porque las reglas no son las mismas: el cambio de contraseña
-	// propio exige la anterior, y el de dependencia lo bloquea el rol de titular.
-	changePassword: "change-password",
 	changeDependency: "change-dependency",
+	// Autoservicio, desde /dashboard/perfil. Separada del reseteo administrativo
+	// porque exige la contraseña anterior.
+	changePassword: "change-password",
 } as const;
 
 export type UserIntent = (typeof USER_INTENTS)[keyof typeof USER_INTENTS];

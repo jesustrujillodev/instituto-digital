@@ -27,7 +27,7 @@ export const action = async ({
 	context,
 }: Route.ActionArgs): Promise<CloudActionData> => {
 	// 🔒 El guard se repite: un loader protegido no protege las mutaciones.
-	const auth = await requireRole(request, context, ["ADMIN"]);
+	const auth = await requireRole(request, context, ["SUPERADMIN"]);
 
 	const formData = await request.formData();
 	const intent = formData.get(INTENT_FIELD);

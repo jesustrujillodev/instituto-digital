@@ -18,5 +18,5 @@ export const validateListUsers = (data: unknown) =>
 	v.parse(userRules.list, data);
 export const validateDeleteUser = (data: unknown) =>
 	v.parse(userRules.delete, data);
-export const validateChangeOwnDependency = (data: unknown) =>
-	v.parse(userRules.changeOwnDependency, data);
+export const validateChangeDependency = (data: unknown) =>
+	v.parse(userRules.changeDependency, data);

@@ -1,6 +1,6 @@
 # Sistema de enrutado y autorización de presentación — Referencia de punta a punta
 
-**Última actualización:** 2026-07-25 · Este documento describe el sistema **como
+**Última actualización:** 2026-09-18 · Este documento describe el sistema **como
 está implementado**. Registra el *qué* y el *cómo* de la capa de rutas: cómo se
 compone el árbol, dónde vive el gate de autenticación, cómo se responde a un
 fallo de autorización y qué piezas de UI derivan del rol.
@@ -89,8 +89,8 @@ export default [
     layout("shared/layout/routes/dashboard.boundary.tsx", [
       ...prefix("dashboard", [
         ...dashboardRoutes,   // /dashboard
-        ...usersRoutes,       // /dashboard/usuarios  (ADMIN)
-        ...authAdminRoutes,   // /dashboard/sesiones  (ADMIN)
+        ...usersRoutes,       // /dashboard/usuarios  (gestión con alcance)
+        ...authAdminRoutes,   // /dashboard/sesiones  (SUPERADMIN)
       ]),
     ]),
   ]),
@@ -120,7 +120,7 @@ Puntos de diseño:
 // app/modules/<modulo>/routes/routes.config.ts
 import { type RouteConfigEntry, route } from "@react-router/dev/routes";
 
-/** Gestión de usuarios — solo ADMIN (impuesto en index.loader.ts). */
+/** Gestión de usuarios — con alcance (impuesto en index.loader.ts). */
 export const usersRoutes = [
   route("usuarios", "modules/users/routes/usuarios/index.tsx"),
 ] satisfies RouteConfigEntry[];
@@ -180,7 +180,7 @@ flowchart TD
 
 ```ts
 // app/shared/rules/atoms.rules.ts
-export const ROLES = ["USER", "ADMIN"] as const;
+export const ROLES = ["SUPERADMIN", "DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY", "USER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export function hasRole(role: Role, allowed: readonly Role[]): boolean {
@@ -237,8 +237,8 @@ Uso típico, como primera línea del loader:
 
 ```ts
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
-  // 🔒 Solo ADMIN — un rol insuficiente produce un 403 real (no un redirect).
-  const auth = await requireRole(request, context, ["ADMIN"]);
+  // 🔒 Solo SUPERADMIN — un rol insuficiente produce un 403 real (no un redirect).
+  const auth = await requireRole(request, context, ["SUPERADMIN"]);
   return { auth };
 };
 ```
@@ -370,10 +370,10 @@ del provider y haría falta un mecanismo distinto según dónde viva el componen
 | `useRole()` | `{ role, hasRole(allowed) }` |
 | `<RoleGuard allowedRoles={[...]} fallback invert>` | Condicional declarativo en JSX |
 
-> **Matiz de doctrina:** `allowedRoles={["ADMIN"]}` **no** contradice la regla de
+> **Matiz de doctrina:** `allowedRoles={["SUPERADMIN"]}` **no** contradice la regla de
 > "nunca comparar strings de rol inline". Es una decisión declarativa y tipada, de
-> la misma forma que `requireRole(request, context, ["ADMIN"])`. Lo prohibido es
-> la comparación ad-hoc `auth.role === "ADMIN"` incrustada en el markup.
+> la misma forma que `requireRole(request, context, ["SUPERADMIN"])`. Lo prohibido es
+> la comparación ad-hoc `auth.role === "SUPERADMIN"` incrustada en el markup.
 
 ## 9. Navegación declarativa
 
@@ -417,7 +417,7 @@ export const navigationSections: readonly NavSection[] = [
 
 ```ts
 export const footerNavigationConfig: readonly NavItem[] = [
-  { label: "Sesiones", path: "/dashboard/sesiones", icon: MonitorSmartphone, roles: ["ADMIN"] },
+  { label: "Sesiones", path: "/dashboard/sesiones", icon: MonitorSmartphone, roles: ["SUPERADMIN"] },
 ];
 ```
 
@@ -452,7 +452,7 @@ Componentes instalados para esta capa: `sidebar`, `collapsible`, `dropdown-menu`
 | `/dashboard/grupos/*` | Protegida | `requireScope(GROUP_ACCESS_ROLES)` |
 | `/dashboard/cursos/*` | Protegida | `requireCourseScope` (admite al capacitador interno; ver [courses/00](../courses/00-cursos-sesiones-y-acceso.md) §4). Incluye `/:documentId/inscripciones` |
 | `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
-| `/dashboard/nube` | Protegida | `requireRole(["ADMIN"])` |
+| `/dashboard/nube` | Protegida | `requireRole(["SUPERADMIN"])` |
 | `/dashboard/sesiones` | Protegida | `requireRole(SESSION_MONITOR_ROLES)` |
 | `/dashboard/personalizacion` | Protegida | `requireRole(["SUPERADMIN"])` |
 | `/api/storage` | Infraestructura | Mixta por prefijo de key |

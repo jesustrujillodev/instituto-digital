@@ -33,11 +33,7 @@ const failOf = (code: string) => ({
 });
 
 const createHarness = (
-	options: {
-		role?: Role | null;
-		passwordFails?: string;
-		dependencyFails?: string;
-	} = {},
+	options: { role?: Role | null; passwordFails?: string } = {},
 ) => {
 	const calls = {
 		password: [] as unknown[],
@@ -69,9 +65,7 @@ const createHarness = (
 				actor: unknown,
 			) => {
 				calls.dependency.push({ documentId, dependency, actor });
-				return options.dependencyFails
-					? failOf(options.dependencyFails)
-					: okOf({ documentId });
+				return okOf({ documentId });
 			},
 		},
 	} as unknown as ActionArgs["context"];
@@ -146,80 +140,6 @@ describe("perfil action — contraseña", () => {
 	});
 });
 
-describe("perfil action — dependencia", () => {
-	// El sujeto sale del TOKEN, no del formulario: aceptarlo del cliente
-	// convertiría esta pantalla —sin guard de rol— en una vía para mover a otros.
-	test("se cambia a sí mismo, con el documentId del token", async () => {
-		const { context, calls } = createHarness();
-
-		const result = await run(
-			formRequest({
-				dependency: DEPENDENCY_ID,
-				// Un envío manipulado que intenta mover a otra persona.
-				documentId: "99999999-9999-4999-8999-999999999999",
-				[INTENT_FIELD]: USER_INTENTS.changeDependency,
-			}),
-			context,
-		);
-
-		expect(result.success).toBe(true);
-		expect(calls.dependency).toHaveLength(1);
-		expect((calls.dependency[0] as { documentId: string }).documentId).toBe(
-			DOCUMENT_ID,
-		);
-	});
-
-	test("avisa de que hay que volver a entrar para que el alcance valga", async () => {
-		const { context } = createHarness();
-
-		const result = await run(
-			formRequest({
-				dependency: DEPENDENCY_ID,
-				[INTENT_FIELD]: USER_INTENTS.changeDependency,
-			}),
-			context,
-		);
-
-		expect(result.success && result.message).toContain("iniciar sesión");
-	});
-
-	// Criterio de aceptación 9: el motivo se dice, no se oculta.
-	test("un titular recibe el motivo por el que no puede cambiarse", async () => {
-		const { context } = createHarness({
-			role: "DEPENDENCY_HEAD",
-			dependencyFails: "HEAD_CANNOT_LEAVE_DEPENDENCY",
-		});
-
-		const result = await run(
-			formRequest({
-				dependency: DEPENDENCY_ID,
-				[INTENT_FIELD]: USER_INTENTS.changeDependency,
-			}),
-			context,
-		);
-
-		expect(result.success).toBe(false);
-		if (!result.success) {
-			expect(result.error.message).toContain("titular");
-		}
-	});
-
-	test("un destino que no es uuid falla sin llegar al servicio", async () => {
-		const { context, calls } = createHarness();
-
-		const result = await run(
-			formRequest({
-				dependency: "5",
-				[INTENT_FIELD]: USER_INTENTS.changeDependency,
-			}),
-			context,
-		);
-
-		expect(result.success).toBe(false);
-		expect(calls.dependency).toEqual([]);
-	});
-});
-
 describe("perfil action — guard e intenciones", () => {
 	test("sin sesión redirige a login", async () => {
 		const { context } = createHarness({ role: null });
@@ -245,6 +165,23 @@ describe("perfil action — guard e intenciones", () => {
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error.code).toBe("VALIDATION_ERROR");
 		expect(calls).toEqual({ password: [], dependency: [] });
+	});
+
+	// La adscripción la decide quien administra, desde la edición del usuario.
+	test("nadie se cambia de dependencia desde su perfil", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			formRequest({
+				dependency: DEPENDENCY_ID,
+				[INTENT_FIELD]: USER_INTENTS.changeDependency,
+			}),
+			context,
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("VALIDATION_ERROR");
+		expect(calls.dependency).toEqual([]);
 	});
 
 	test("sin intención falla igual", async () => {

@@ -42,7 +42,7 @@ const createHarness = (options: { role?: Role; failWith?: string } = {}) => {
 			sub: "11111111-1111-4111-8111-111111111111",
 			userId: 7,
 			email: "admin@test.com",
-			role: options.role ?? "ADMIN",
+			role: options.role ?? "SUPERADMIN",
 			iat: 1_800_000_000,
 		},
 		cloudService: {

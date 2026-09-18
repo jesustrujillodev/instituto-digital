@@ -1,7 +1,7 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Building2, KeyRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -9,14 +9,6 @@ import { PasswordInput } from "@/shared/components/common/password-input";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { FieldLegend, FieldSet } from "@/shared/components/ui/field";
-import { Label } from "@/shared/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/shared/components/ui/select";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { DependencyHistory } from "../../components/dependency-history";
@@ -50,24 +42,17 @@ function Dato({ label, value }: { label: string; value: string }) {
 
 export default function PerfilPage({ loaderData }: Route.ComponentProps) {
 	const {
-		data: { user, dependencyName, dependencies, canChangeDependency, history },
+		data: { user, dependencyName, history },
 	} = loaderData;
 
-	// Un fetcher por operación: el estado de envío de cambiar la contraseña no
-	// tiene por qué deshabilitar el selector de dependencia ni al revés.
 	const passwordFetcher = useFetcher<UserActionData>();
-	const dependencyFetcher = useFetcher<UserActionData>();
-
 	useFetcherToast(passwordFetcher);
-	useFetcherToast(dependencyFetcher);
 
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
-	const [nextDependency, setNextDependency] = useState("");
 
 	const isChangingPassword = passwordFetcher.state !== "idle";
-	const isChangingDependency = dependencyFetcher.state !== "idle";
 
 	const passwordError =
 		passwordFetcher.data && !passwordFetcher.data.success
@@ -114,57 +99,10 @@ export default function PerfilPage({ loaderData }: Route.ComponentProps) {
 					<FieldSet>
 						<FieldLegend>Adscripción</FieldLegend>
 
-						{canChangeDependency ? (
-							<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-								<div className="flex w-full flex-col gap-2 sm:max-w-sm">
-									<Label htmlFor="perfil-dependencia">
-										Cambiar de dependencia
-									</Label>
-									<Select
-										value={nextDependency}
-										onValueChange={setNextDependency}
-									>
-										<SelectTrigger id="perfil-dependencia">
-											<SelectValue placeholder="Elige tu dependencia" />
-										</SelectTrigger>
-										<SelectContent>
-											{dependencies.map((dependency) => (
-												<SelectItem
-													key={dependency.documentId}
-													value={dependency.documentId}
-												>
-													{dependency.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-
-								<Button
-									onClick={() =>
-										dependencyFetcher.submit(
-											{
-												dependency: nextDependency,
-												[INTENT_FIELD]: USER_INTENTS.changeDependency,
-											},
-											{ method: "post" },
-										)
-									}
-									disabled={isChangingDependency || !nextDependency}
-								>
-									<Building2 className="h-4 w-4" />
-									{isChangingDependency ? "Cambiando…" : "Cambiar"}
-								</Button>
-							</div>
-						) : (
-							// Se explica el motivo en vez de esconder el control: si no, quien
-							// es titular no sabe qué tiene que pasar antes.
-							<p className="text-muted-foreground text-sm">
-								Eres titular de tu dependencia, así que no puedes cambiarte
-								mientras lo seas. Pide al superadministrador que designe a otra
-								persona antes.
-							</p>
-						)}
+						<p className="text-muted-foreground text-sm">
+							Si cambias de área, pide al titular o auxiliar de tu dependencia
+							que te traslade.
+						</p>
 
 						<DependencyHistory entries={history} />
 					</FieldSet>

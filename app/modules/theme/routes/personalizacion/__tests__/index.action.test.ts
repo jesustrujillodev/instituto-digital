@@ -96,7 +96,7 @@ describe("guard", () => {
 	// 🔒 El guard se repite en el action: un loader protegido no protege las
 	// mutaciones de su propia ruta.
 	test("a non-superadmin gets a 403 before anything is called", async () => {
-		const { context, calls } = createHarness({ role: "ADMIN" });
+		const { context, calls } = createHarness({ role: "DEPENDENCY_HEAD" });
 
 		await expect(
 			run(

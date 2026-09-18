@@ -13,10 +13,10 @@ interface RoleGuardProps {
 /**
  * Envoltorio declarativo para condicionar JSX por rol — SOLO UX.
  *
- * `allowedRoles={["ADMIN"]}` no contradice la doctrina de "nunca comparar
+ * `allowedRoles={["SUPERADMIN"]}` no contradice la doctrina de "nunca comparar
  * strings de rol inline": es una decisión declarativa y tipada, de la misma
- * forma que `requireRole(request, context, ["ADMIN"])`. Lo prohibido es la
- * comparación ad-hoc `auth.role === "ADMIN"` incrustada en el markup.
+ * forma que `requireRole(request, context, ["SUPERADMIN"])`. Lo prohibido es la
+ * comparación ad-hoc `auth.role === "SUPERADMIN"` incrustada en el markup.
  */
 export function RoleGuard({
 	allowedRoles,

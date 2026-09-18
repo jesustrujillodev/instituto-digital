@@ -21,7 +21,6 @@ import type { CourseStatus } from "./course.rules";
  * tupla solo sirve para redactar el 403 — igual que en el catálogo de PRD-02.
  */
 export const COURSE_MANAGER_ROLES: readonly Role[] = [
-	"ADMIN",
 	"SUPERADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",

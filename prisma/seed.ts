@@ -50,19 +50,6 @@ async function main() {
 	// dependencia que la acoge.
 	const organization = await seedOrganization(prisma, password);
 
-	const admin = await prisma.user.create({
-		data: {
-			email: "admin@test.com",
-			password,
-			firstName: "Admin",
-			lastName: "Test",
-			role: "ADMIN",
-			employeeNumber: "EMP-0001",
-			jobTitle: "Administrador de la plataforma",
-			dependencyId: organization.unassignedId,
-		},
-	});
-
 	const user = await prisma.user.create({
 		data: {
 			email: "user@test.com",
@@ -106,12 +93,12 @@ async function main() {
 	// YA publicados —un tema sin publicar no se puede activar—.
 	//
 	// Idempotente por nombre y NO destructivo: un re-run del seed actualiza los
-	// presets pero no toca los temas que haya creado el admin ni cuál está
+	// presets pero no toca los temas que haya creado el superadministrador ni cuál está
 	// activo. Un seed que borrara `themes` se llevaría por delante el tema en
 	// producción de cualquier entorno donde alguien lo ejecutara por error.
 	// Un preset retirado del config no se puede borrar desde el builder (la
 	// invariante lo impide) y sus tokens pueden dejar de validar. Es de fábrica,
-	// no del admin, así que el seed lo retira. Si estaba activo, la FK con
+	// no del superadministrador, así que el seed lo retira. Si estaba activo, la FK con
 	// `SetNull` deja la plataforma en el tema base.
 	await prisma.theme.deleteMany({
 		where: {
@@ -215,7 +202,6 @@ async function main() {
 		"     2026: Primeros auxilios (realizada), Seguridad en obra (programada), Presupuestos (pendiente), Topografía (cancelada)",
 	);
 	console.log("✅ Cuentas de la plantilla:");
-	console.log(`   • ${admin.email} (ADMIN)  — password: Password123!`);
 	console.log(`   • ${user.email}  (USER)   — password: Password123!`);
 	console.log("✅ Security state row ready (id = 1)");
 	console.log(

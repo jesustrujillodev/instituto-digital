@@ -32,7 +32,7 @@ firmadas y `SameSite=Lax`:
   tokens (robo de sesión) que revoca todas las sesiones del usuario afectado.
 - Logout individual y logout global (todas las sesiones del usuario).
 - Cap configurable de sesiones activas por usuario.
-- **Monitor de sesiones** (`/dashboard/sesiones`, solo `ADMIN`): listado
+- **Monitor de sesiones** (`/dashboard/sesiones`, solo `SUPERADMIN`): listado
   paginado de todas las sesiones activas de la plataforma, con revocación
   puntual (una sesión), por usuario (todas las de una cuenta) o global
   (todas salvo la propia).
@@ -67,7 +67,7 @@ Ver [docs/routing/00-sistema-enrutado.md](./docs/routing/00-sistema-enrutado.md)
 
 ### 👤 Gestión de usuarios
 
-CRUD completo tras `requireRole(["ADMIN"])`, en `/usuarios`:
+CRUD completo tras `requireScope(USER_MANAGER_ROLES)`, en `/usuarios`, recortado por el alcance de cada rol:
 
 - Listado paginado y filtrable, alta, edición y reseteo administrativo de
   contraseña (no exige la anterior).
@@ -103,7 +103,7 @@ declarando únicamente su allowlist de campos.
 
 ```http
 GET /dashboard/usuarios
-  ?filters[role][$eq]=ADMIN
+  ?filters[role][$eq]=SUPERADMIN
   &filters[createdAt][$gte]=2026-01-01
   &filters[$or][0][firstName][$contains]=ana
   &filters[$or][1][lastName][$contains]=ana
@@ -170,7 +170,7 @@ la URL limpia serían si no dos direcciones con el mismo contenido).
 ### 🎨 Temas y modo oscuro
 
 La regla que gobierna la feature: **el tema es de la plataforma; el modo es de la
-persona.** Un `ADMIN` define la marca; cada usuario elige su comodidad.
+persona.** El `SUPERADMIN` define la marca; cada usuario elige su comodidad.
 
 - **Modo claro / oscuro / sistema por usuario**, persistido en cookie `httpOnly`
   y en la cuenta (la cookie manda, porque es lo único disponible para una
@@ -181,7 +181,7 @@ persona.** Un `ADMIN` define la marca; cada usuario elige su comodidad.
   variantes tras un `@media (prefers-color-scheme)`, así que la app sigue el
   cambio del sistema operativo **en vivo, sin recargar**. Funciona con JS
   deshabilitado.
-- **Theme builder** (`/dashboard/personalizacion`, solo `ADMIN`): biblioteca de
+- **Theme builder** (`/dashboard/personalizacion`, solo `SUPERADMIN`): biblioteca de
   temas con **borrador y publicado separados** y un único tema activo garantizado
   por construcción (una fila, una FK). Edición de los 36 colores de shadcn en
   ambas variantes más tipografía, radios, bordes, sombras y espaciado.
@@ -332,7 +332,7 @@ export const createUserRule = v.object({ email, password, firstName: v.optional(
 export const updateUserRule = v.partial(v.omit(createUserRule, ['password']))
 
 // Lista extiende la paginación genérica de shared
-export const listUsersRule  = createListRule({ role: v.optional(v.picklist(['USER', 'ADMIN'])) })
+export const listUsersRule  = createListRule({ role: v.optional(v.picklist(ROLES)) })
 ```
 
 Los **campos atómicos** (`email`, `password`) se reutilizan entre rules sin forzar herencia de schemas completos. Esto permite que cada rule sea explícita e independiente.

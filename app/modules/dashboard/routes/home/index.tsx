@@ -28,7 +28,7 @@ export default function DashboardHomePage() {
 				</p>
 			</div>
 
-			<RoleGuard allowedRoles={["ADMIN"]}>
+			<RoleGuard allowedRoles={["SUPERADMIN"]}>
 				<Card className="max-w-md">
 					<CardHeader>
 						<CardTitle>Administración</CardTitle>

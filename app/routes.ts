@@ -64,8 +64,8 @@ export default [
 					...creditsRoutes, // /dashboard/mis-creditos, /dashboard/creditos  (alcance por dependencia)
 					...ratingsRoutes, // /dashboard/mis-cursos/:id/valorar  (solo action)
 					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)
-					...cloudAdminRoutes, // /dashboard/nube  (ADMIN)
-					...authAdminRoutes, // /dashboard/sesiones  (ADMIN)
+					...cloudAdminRoutes, // /dashboard/nube  (SUPERADMIN)
+					...authAdminRoutes, // /dashboard/sesiones  (SUPERADMIN)
 					...themeAdminRoutes, // /dashboard/personalizacion  (SUPERADMIN)
 				]),
 			]),

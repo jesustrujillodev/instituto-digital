@@ -22,7 +22,7 @@ const PAYLOAD: AccessTokenPayload = {
 	sub: "11111111-1111-4111-8111-111111111111",
 	userId: 7,
 	email: "ana@empresa.com",
-	role: "ADMIN",
+	role: "SUPERADMIN",
 	dependencyId: null,
 	isTrainer: false,
 };
@@ -62,7 +62,7 @@ describe("createTokenService — sign and verify", () => {
 	});
 
 	// Un token firmado con otro secreto no vale aunque su forma sea correcta: es
-	// lo único que impide que cualquiera se acuñe un rol ADMIN.
+	// lo único que impide que cualquiera se acuñe un rol SUPERADMIN.
 	test("returns null for a token signed with another secret", async () => {
 		const mine = createTokenService({ authConfig: configOf() });
 		const theirs = createTokenService({

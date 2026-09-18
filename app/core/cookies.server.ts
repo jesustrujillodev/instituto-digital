@@ -59,8 +59,8 @@ export const themeModeCookie = createCookie("__theme_mode", {
 // que ese loader devuelve, no leyendo la cookie.
 //
 // No lleva `secrets` porque NO autoriza nada: el loader solo la atiende si el rol
-// verificado en servidor es ADMIN. Cualquiera puede fabricarla; a quien no sea
-// admin no le sirve de nada.
+// verificado en servidor es SUPERADMIN. Cualquiera puede fabricarla; a quien no
+// lo sea no le sirve de nada.
 //
 // De sesión (sin `maxAge`): un preview es algo que se está probando ahora, no un
 // estado que deba sobrevivir al cierre del navegador.

@@ -30,7 +30,6 @@ describe("canParticipate", () => {
 		["DEPENDENCY_DEPUTY", 3, true],
 		["USER", null, false],
 		["SUPERADMIN", 3, false],
-		["ADMIN", null, false],
 	] as const)("%s con dependencia %s → %s", (role, dependencyId, expected) => {
 		expect(canParticipate({ role, dependencyId })).toBe(expected);
 	});

@@ -18,7 +18,7 @@ import { requireAuth } from "./require-auth.server";
  *   reencaminar en vez de cortar (p. ej. onboarding incompleto).
  *
  * Usage:
- *   const auth = await requireRole(request, context, ["ADMIN"]);
+ *   const auth = await requireRole(request, context, ["SUPERADMIN"]);
  */
 export async function requireRole(
 	request: Request,

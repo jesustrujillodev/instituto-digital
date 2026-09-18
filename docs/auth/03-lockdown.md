@@ -27,12 +27,12 @@ aunque el `iat` del token sea posterior a cualquiera de ellos
 
 ## 2. Alcances
 
-- **`all`** — nadie exento, ni siquiera ADMIN. Se usa cuando se sospecha que
+- **`all`** — nadie exento, ni siquiera SUPERADMIN. Se usa cuando se sospecha que
   una cuenta administrativa está comprometida: exceptuar un rol es exceptuar
   el que podría ser el problema. Consecuencia directa: **el panel de
   administración queda inalcanzable**, así que solo se puede levantar con
   `bun run lockdown lift` (§5).
-- **`except-admin`** — ADMIN sigue operando (login, refresh, acceso en
+- **`except-admin`** — SUPERADMIN sigue operando (login, refresh, acceso en
   curso). Es el alcance operable desde el panel: permite investigar y
   levantar el cierre sin salir de la aplicación.
 
@@ -45,8 +45,8 @@ aunque el `iat` del token sea posterior a cualquiera de ellos
    epoch global de la Fase A).
 2. **Purga de sesiones** — mata la capacidad de renovar.
    - `all` → se purgan todas.
-   - `except-admin` → se purgan todas salvo las de usuarios `ADMIN`. Purgar
-     también las de ADMIN expulsaría al operador y haría el alcance inútil:
+   - `except-admin` → se purgan todas salvo las de usuarios `SUPERADMIN`. Purgar
+     también las de SUPERADMIN expulsaría al operador y haría el alcance inútil:
      sus access tokens igual mueren por el epoch global, pero su sesión
      sobrevive y el silent refresh la recupera.
 3. `lockdown_at` + `scope`/`reason`/`by` — bloquea `login` y `refresh`.

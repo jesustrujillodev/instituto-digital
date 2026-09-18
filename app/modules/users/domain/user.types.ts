@@ -3,7 +3,7 @@ import type { AppResponse } from "@/shared/response/response.types";
 import { createResponseSchema } from "@/shared/rules/response.rules";
 import type {
 	adminResetPasswordRule,
-	changeOwnDependencyRule,
+	changeDependencyRule,
 	changePasswordRule,
 	createUserRule,
 	deleteUserRule,
@@ -39,9 +39,7 @@ export type AdminResetPasswordDto = v.InferInput<typeof adminResetPasswordRule>;
 export type FindUserDto = v.InferInput<typeof findUserRule>;
 export type ListUsersDto = v.InferInput<typeof listUsersRule>;
 export type DeleteUserDto = v.InferInput<typeof deleteUserRule>;
-export type ChangeOwnDependencyDto = v.InferInput<
-	typeof changeOwnDependencyRule
->;
+export type ChangeDependencyDto = v.InferInput<typeof changeDependencyRule>;
 
 /**
  * Una línea de la bitácora de adscripción, ya legible.

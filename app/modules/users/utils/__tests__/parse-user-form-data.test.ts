@@ -13,13 +13,13 @@ describe("parseUserFormData", () => {
 	test("separa la foto de los campos de texto", () => {
 		const formData = new FormData();
 		formData.append("email", "ana@empresa.com");
-		formData.append("role", "ADMIN");
+		formData.append("role", "SUPERADMIN");
 		formData.append(PHOTO_FIELD, pngFile());
 
 		const { fields, photo } = parseUserFormData(formData);
 
 		// El File nunca debe llegar al DTO: valibot lo rechazaría.
-		expect(fields).toEqual({ email: "ana@empresa.com", role: "ADMIN" });
+		expect(fields).toEqual({ email: "ana@empresa.com", role: "SUPERADMIN" });
 		expect(photo).toBeInstanceOf(File);
 		expect(photo?.name).toBe("foto.png");
 	});

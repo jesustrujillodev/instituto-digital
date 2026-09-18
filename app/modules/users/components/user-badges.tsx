@@ -14,7 +14,6 @@ export const ROLE_LABELS: Record<Role, string> = {
 	DEPENDENCY_HEAD: "Titular",
 	DEPENDENCY_DEPUTY: "Auxiliar",
 	USER: "Participante",
-	ADMIN: "Administrador",
 };
 
 /**
@@ -29,13 +28,11 @@ export const ROLE_FILTER_LABELS: Record<Role, string> = {
 	DEPENDENCY_HEAD: "Titulares",
 	DEPENDENCY_DEPUTY: "Auxiliares",
 	USER: "Participantes",
-	ADMIN: "Administradores",
 };
 
-/** Los roles de plataforma se destacan; los de dependencia y el base, no. */
+/** El rol de plataforma se destaca; los de dependencia y el base, no. */
 const ROLE_VARIANTS: Record<Role, "default" | "secondary"> = {
 	SUPERADMIN: "default",
-	ADMIN: "default",
 	DEPENDENCY_HEAD: "secondary",
 	DEPENDENCY_DEPUTY: "secondary",
 	USER: "secondary",

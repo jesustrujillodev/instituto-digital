@@ -25,16 +25,12 @@ export type AccessScope =
  * Se deriva del rol y de la dependencia del claim, nunca de lo que pida la
  * petición: es la única forma de que añadir un filtro a la URL no pueda ampliar
  * lo que alguien alcanza.
- *
- * `ADMIN` conserva alcance global por compatibilidad con la plantilla, donde es
- * el rol que administra a todo el mundo. Ninguna cuenta del instituto lo usa.
  */
 export const resolveScope = (
 	auth: Pick<AuthContext, "userId" | "role" | "dependencyId">,
 ): AccessScope => {
 	switch (auth.role) {
 		case "SUPERADMIN":
-		case "ADMIN":
 			return { kind: "global" };
 
 		case "DEPENDENCY_HEAD":

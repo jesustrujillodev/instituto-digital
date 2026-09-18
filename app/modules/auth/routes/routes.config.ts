@@ -15,7 +15,7 @@ export const authRoutes = [
  *
  * Array aparte de `authRoutes` porque se monta en otro sitio del árbol — dentro
  * del layout del dashboard, que impone la autenticación de forma estructural.
- * El rol lo impone además cada loader y action con `requireRole(["ADMIN"])`.
+ * El rol lo impone además cada loader y action con `SESSION_MONITOR_ROLES`.
  */
 export const authAdminRoutes = [
 	route("sesiones", "modules/auth/routes/sesiones/index.tsx"),

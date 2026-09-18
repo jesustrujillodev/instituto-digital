@@ -37,10 +37,10 @@ describe("usuarios/nuevo loader", () => {
 	// Sin servicio de por medio, pero con el MISMO envelope: la pantalla lee la
 	// misma forma venga de donde venga el dato.
 	test("devuelve la identidad dentro del envelope estándar", async () => {
-		const result = await run(contextOf("ADMIN"));
+		const result = await run(contextOf("SUPERADMIN"));
 
 		expect(result.success).toBe(true);
-		expect(result.data.auth.role).toBe("ADMIN");
+		expect(result.data.auth.role).toBe("SUPERADMIN");
 		expect(result.timestamp).toEqual(expect.any(String));
 	});
 
@@ -53,7 +53,6 @@ describe("usuarios/nuevo loader", () => {
 		// El titular y el auxiliar SÍ dan de alta: el alcance recorta a quién, no si
 		// pueden. Quien no entra es el participante.
 		expect(thrown.data.requiredRoles).toEqual([
-			"ADMIN",
 			"SUPERADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",

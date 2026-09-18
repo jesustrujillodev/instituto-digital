@@ -7,7 +7,7 @@ está implementado**.
 
 ## 1. Qué es
 
-`/dashboard/nube` (solo `ADMIN`) enseña el almacenamiento de objetos como un
+`/dashboard/nube` (solo `SUPERADMIN`) enseña el almacenamiento de objetos como un
 árbol de carpetas y permite:
 
 - ver miniaturas, tamaño, fecha, visibilidad y **a quién pertenece** cada archivo;
@@ -132,7 +132,7 @@ navegador → fetch(url) × N                directo al bucket: 0 bytes por el s
 
 | Amenaza | Defensa |
 |---|---|
-| Un no-admin lista o borra | `requireRole(["ADMIN"])` en loader **y** action |
+| Un no-superadmin lista o borra | `requireRole(["SUPERADMIN"])` en loader **y** action |
 | Path traversal por la URL o el formulario | `cloud.rules.ts`: sin `/` inicial, `.`, `..`, segmentos vacíos ni caracteres de control |
 | Borrar el bucket entero de un clic | la raíz no es seleccionable; carpetas exigen escribir su nombre |
 | Borrado a medias de una carpeta enorme | la selección se rechaza entera si pasa del tope |

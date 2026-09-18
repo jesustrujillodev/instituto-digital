@@ -243,7 +243,7 @@ describe("enrollmentService.listAvailable", () => {
 	test("un actor que no puede cursar no ve catálogo", async () => {
 		const { service } = createHarness();
 
-		const result = await service.listAvailable({}, actorOf("ADMIN"));
+		const result = await service.listAvailable({}, actorOf("SUPERADMIN"));
 
 		expect(result).toMatchObject({
 			success: false,

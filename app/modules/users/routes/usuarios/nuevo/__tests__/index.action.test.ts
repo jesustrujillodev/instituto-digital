@@ -43,7 +43,7 @@ const createHarness = (
 						sub: DOCUMENT_ID,
 						userId: 7,
 						email: "ana@empresa.com",
-						role: options.role ?? "ADMIN",
+						role: options.role ?? "SUPERADMIN",
 						dependencyId: null,
 						iat: 1_800_000_000,
 					},

@@ -21,7 +21,7 @@ const createHarness = (
 						sub: "11111111-1111-4111-8111-111111111111",
 						userId: 7,
 						email: "ana@empresa.com",
-						role: options.role ?? "ADMIN",
+						role: options.role ?? "SUPERADMIN",
 						dependencyId: null,
 						iat: 1_800_000_000,
 					},
@@ -99,7 +99,7 @@ describe("usuarios loader — filtros", () => {
 
 		await run(
 			requestOf(
-				"?page=2&pageSize=25&search=ana&role=ADMIN&status=archived&sortBy=email&sortDir=asc",
+				"?page=2&pageSize=25&search=ana&role=SUPERADMIN&status=archived&sortBy=email&sortDir=asc",
 			),
 			context,
 		);
@@ -108,7 +108,7 @@ describe("usuarios loader — filtros", () => {
 			page: 2,
 			pageSize: 25,
 			search: "ana",
-			role: "ADMIN",
+			role: "SUPERADMIN",
 			status: "archived",
 			sortBy: "email",
 			sortDir: "asc",
@@ -176,7 +176,7 @@ describe("usuarios loader — respuesta", () => {
 
 		const result = await run(requestOf(), context);
 
-		expect(result.data.auth.role).toBe("ADMIN");
+		expect(result.data.auth.role).toBe("SUPERADMIN");
 	});
 
 	// Un loader que falla no tiene pantalla que mostrar: corta con el status del

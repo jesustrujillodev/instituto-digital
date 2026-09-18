@@ -57,7 +57,7 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Solo cursos `PUBLISHED` admiten inscribirse, aceptar, asignar o invitar | `isEnrollmentOpen` |
 | La baja se permite hasta que empiece la primera sesión | `canWithdraw` |
 | Inscribirse, aceptar y asignar ocupan lugar; invitar no | `assertSeatsFor` en `enroll`, `accept` y `assign` |
-| Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos, `SUPERADMIN` y `ADMIN` quedan fuera) |
+| Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos y `SUPERADMIN` quedan fuera) |
 | Asignar es todo o nada: si no hay cupo para el lote, nadie entra | `assign` |
 | Invitar omite a quien ya está `INVITED` o `ENROLLED` y reinvita a quien rechazó o se dio de baja | `invite` |
 

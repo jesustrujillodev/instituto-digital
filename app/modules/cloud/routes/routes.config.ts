@@ -1,7 +1,7 @@
 import { type RouteConfigEntry, route } from "@react-router/dev/routes";
 
 /**
- * Gestor de archivos en la nube — solo ADMIN (impuesto en loader y action).
+ * Gestor de archivos en la nube — solo SUPERADMIN (impuesto en loader y action).
  *
  * Va en la ZONA 3 de app/routes.ts. La carpeta abierta viaja en la URL
  * (`?path=media/curso-induccion-2026/`), así que atrás/adelante y los enlaces

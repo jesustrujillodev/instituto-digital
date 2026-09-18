@@ -39,9 +39,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { Textarea } from "@/shared/components/ui/textarea";
 
 const ROWS = [
-	{ name: "Ana Ruiz", role: "ADMIN", state: "Activa" },
-	{ name: "Beto Salas", role: "USER", state: "Pendiente" },
-	{ name: "Cris Vela", role: "USER", state: "Archivada" },
+	{ name: "Ana Ruiz", role: "Superadministradora", state: "Activa" },
+	{ name: "Beto Salas", role: "Participante", state: "Pendiente" },
+	{ name: "Cris Vela", role: "Participante", state: "Archivada" },
 ];
 
 const SIDEBAR_ITEMS = [

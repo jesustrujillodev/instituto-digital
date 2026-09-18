@@ -35,7 +35,6 @@ describe("canViewCatalog", () => {
 	test("los roles de gestión entran siempre", () => {
 		for (const role of [
 			"SUPERADMIN",
-			"ADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {

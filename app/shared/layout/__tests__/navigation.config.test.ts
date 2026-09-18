@@ -16,7 +16,6 @@ const ALL_ROLES = [
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
 	"SUPERADMIN",
-	"ADMIN",
 ] as const;
 
 const flatten = (items: readonly NavItem[]): NavItem[] =>
@@ -108,7 +107,7 @@ describe("navigationSections — orden por intención", () => {
 
 	// Los roles de plataforma no cursan (§3): su trabajo principal es la estructura.
 	test("los roles de plataforma empiezan por la administración", () => {
-		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
+		for (const role of ["SUPERADMIN"] as const) {
 			expect(sectionLabelsFor(role, true)).toEqual([
 				undefined,
 				"Administración",
@@ -145,9 +144,9 @@ describe("navigationSections — filtrado por rol", () => {
 		"/dashboard/mis-creditos",
 	];
 
-	test("un ADMIN ve todo lo que ve un USER salvo lo de participante, y además lo suyo", () => {
+	test("un SUPERADMIN ve todo lo que ve un USER salvo lo de participante, y además lo suyo", () => {
 		const userPaths = mainPathsFor("USER");
-		const adminPaths = mainPathsFor("ADMIN");
+		const adminPaths = mainPathsFor("SUPERADMIN");
 
 		for (const path of userPaths) {
 			if (path && !PARTICIPANT_PATHS.includes(path)) {
@@ -167,7 +166,7 @@ describe("navigationSections — filtrado por rol", () => {
 				expect.arrayContaining(PARTICIPANT_PATHS),
 			);
 		}
-		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
+		for (const role of ["SUPERADMIN"] as const) {
 			for (const path of PARTICIPANT_PATHS) {
 				expect(mainPathsFor(role)).not.toContain(path);
 			}
@@ -190,9 +189,21 @@ describe("navigationSections — filtrado por rol", () => {
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 			"USER",
-			"ADMIN",
 		] as const) {
 			expect(mainPathsFor(role)).not.toContain("/dashboard/dependencias");
+		}
+	});
+
+	// Su loader y su action exigen SUPERADMIN: el enlace no puede ofrecerse a más.
+	test("solo el superadministrador ve la nube", () => {
+		expect(mainPathsFor("SUPERADMIN")).toContain("/dashboard/nube");
+
+		for (const role of [
+			"DEPENDENCY_HEAD",
+			"DEPENDENCY_DEPUTY",
+			"USER",
+		] as const) {
+			expect(mainPathsFor(role)).not.toContain("/dashboard/nube");
 		}
 	});
 
@@ -258,17 +269,14 @@ describe("navigationSections — filtrado por rol", () => {
 });
 
 describe("footerNavigationConfig", () => {
-	// El monitor de sesiones opera sobre sesiones de terceros: su loader exige los
-	// roles de plataforma, así que el enlace tiene que declarar los mismos.
-	test("el monitor de sesiones está restringido a los roles de plataforma", () => {
+	// El monitor de sesiones opera sobre sesiones de terceros: su loader exige
+	// SUPERADMIN, así que el enlace tiene que declarar lo mismo.
+	test("el monitor de sesiones solo lo ve el superadministrador", () => {
 		expect(pathsFor(footerNavigationConfig, "USER")).toEqual([]);
 		expect(pathsFor(footerNavigationConfig, "DEPENDENCY_HEAD")).toEqual([]);
-
-		for (const role of ["ADMIN", "SUPERADMIN"] as const) {
-			expect(pathsFor(footerNavigationConfig, role)).toContain(
-				"/dashboard/sesiones",
-			);
-		}
+		expect(pathsFor(footerNavigationConfig, "SUPERADMIN")).toContain(
+			"/dashboard/sesiones",
+		);
 	});
 
 	// El tema es de toda la plataforma: su loader y su action exigen SUPERADMIN.
@@ -278,7 +286,6 @@ describe("footerNavigationConfig", () => {
 		);
 
 		for (const role of [
-			"ADMIN",
 			"USER",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",

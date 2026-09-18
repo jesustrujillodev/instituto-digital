@@ -5,7 +5,7 @@ import { ROLES, type Role } from "@/shared/rules/atoms.rules";
 import {
 	assignableRoles,
 	canAssignRole,
-	canChangeOwnDependency,
+	canChangeUserDependency,
 	canManageDeputies,
 	canManageUser,
 	roleAfterDependencyChange,
@@ -122,9 +122,12 @@ describe("assignableRoles / canAssignRole", () => {
 		}
 	});
 
-	test("ADMIN conserva lo de la plantilla y no crea superadministradores", () => {
-		expect(assignableRoles("ADMIN")).toEqual(["USER", "ADMIN"]);
-		expect(canAssignRole("ADMIN", "SUPERADMIN")).toBe(false);
+	// El selector del formulario las pinta tal cual: de mayor a menor.
+	test("las listas siguen el orden jerárquico de ROLES", () => {
+		for (const role of ROLES) {
+			const assignable = assignableRoles(role);
+			expect(assignable).toEqual(ROLES.filter((r) => assignable.includes(r)));
+		}
 	});
 
 	// Se deriva de lo que puede otorgar en vez de declararse aparte: dos listas
@@ -209,26 +212,88 @@ describe("canManageUser", () => {
 	});
 });
 
-describe("canChangeOwnDependency / roleAfterDependencyChange", () => {
-	// Regla 6: dejaría su dependencia sin quien la administre.
-	test("el titular no puede cambiarse mientras lo sea", () => {
-		expect(canChangeOwnDependency("DEPENDENCY_HEAD", "INTERNAL")).toBe(false);
+describe("canChangeUserDependency", () => {
+	const internal = (
+		role: Role,
+		dependencyId: number | null = 3,
+		id = 7,
+	): Pick<SafeUser, "id" | "role" | "dependencyId" | "type"> => ({
+		...targetOf(role, dependencyId, id),
+		type: "INTERNAL",
 	});
 
-	test("el resto del personal interno sí puede", () => {
-		for (const role of ROLES.filter((r) => r !== "DEPENDENCY_HEAD")) {
-			expect(canChangeOwnDependency(role, "INTERNAL")).toBe(true);
-		}
-	});
-
-	// No por su rol —es `USER`, el que sí puede— sino por su tipo: no pertenece a
-	// ninguna dependencia y el CHECK `users_type_coherence` le prohíbe tener una.
-	test("un externo no puede cambiarse, tenga el rol que tenga", () => {
+	test("el superadministrador mueve a cualquiera de cualquier dependencia", () => {
 		for (const role of ROLES) {
-			expect(canChangeOwnDependency(role, "EXTERNAL")).toBe(false);
+			expect(
+				canChangeUserDependency(actorOf("SUPERADMIN", null), internal(role, 8)),
+			).toBe(true);
 		}
 	});
 
+	test("titular y auxiliar mueven a los participantes de su dependencia", () => {
+		for (const role of ["DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"] as const) {
+			expect(
+				canChangeUserDependency(actorOf(role, 3), internal("USER", 3)),
+			).toBe(true);
+		}
+	});
+
+	test("titular y auxiliar no mueven a nadie de otra dependencia", () => {
+		for (const role of ["DEPENDENCY_HEAD", "DEPENDENCY_DEPUTY"] as const) {
+			expect(
+				canChangeUserDependency(actorOf(role, 3), internal("USER", 8)),
+			).toBe(false);
+		}
+	});
+
+	test("titular y auxiliar solo mueven participantes, no otros cargos", () => {
+		for (const role of ROLES.filter((r) => r !== "USER")) {
+			expect(
+				canChangeUserDependency(
+					actorOf("DEPENDENCY_HEAD", 3),
+					internal(role, 3),
+				),
+			).toBe(false);
+		}
+	});
+
+	test("un titular sin dependencia no mueve a nadie", () => {
+		expect(
+			canChangeUserDependency(
+				actorOf("DEPENDENCY_HEAD", null),
+				internal("USER", null),
+			),
+		).toBe(false);
+	});
+
+	test("el participante no mueve a nadie", () => {
+		for (const role of ["USER"] as const) {
+			expect(
+				canChangeUserDependency(actorOf(role, 3), internal("USER", 3)),
+			).toBe(false);
+		}
+	});
+
+	test("nadie se cambia a sí mismo, ni el superadministrador", () => {
+		for (const role of ROLES) {
+			expect(
+				canChangeUserDependency(actorOf(role, 3, 7), internal("USER", 3, 7)),
+			).toBe(false);
+		}
+	});
+
+	// El CHECK `users_type_coherence` le prohíbe tener dependencia.
+	test("un externo no se mueve", () => {
+		expect(
+			canChangeUserDependency(actorOf("SUPERADMIN", null), {
+				...targetOf("USER", null),
+				type: "EXTERNAL",
+			}),
+		).toBe(false);
+	});
+});
+
+describe("roleAfterDependencyChange", () => {
 	// Regla 7: auxiliar y titular son cargos DE una dependencia, no atributos de
 	// la persona. Las inscripciones y el historial se conservan aparte.
 	test("los cargos de dependencia se pierden al salir", () => {
@@ -239,7 +304,6 @@ describe("canChangeOwnDependency / roleAfterDependencyChange", () => {
 	test("los demás roles sobreviven al cambio", () => {
 		expect(roleAfterDependencyChange("USER")).toBe("USER");
 		expect(roleAfterDependencyChange("SUPERADMIN")).toBe("SUPERADMIN");
-		expect(roleAfterDependencyChange("ADMIN")).toBe("ADMIN");
 	});
 });
 

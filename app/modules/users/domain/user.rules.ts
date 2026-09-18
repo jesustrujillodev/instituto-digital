@@ -198,7 +198,7 @@ export const changePasswordRule = v.pipe(
 );
 
 /**
- * Reseteo de contraseña ejecutado por un ADMIN sobre OTRA cuenta.
+ * Reseteo de contraseña ejecutado por quien administra OTRA cuenta.
  *
  * Deliberadamente NO pide `currentPassword`: quien administra no la conoce.
  * Es una regla distinta de `changePasswordRule` (autoservicio), no una variante
@@ -237,13 +237,8 @@ export const deleteUserRule = v.object({
 	documentId: v.pipe(v.string(), v.uuid()),
 });
 
-/**
- * Cambio de adscripción desde el propio perfil.
- *
- * Solo el destino: el sujeto es quien envía, y tomarlo del formulario permitiría
- * mover a otra persona desde una pantalla que no tiene ese guard.
- */
-export const changeOwnDependencyRule = v.object({
+/** Traslado de una cuenta: solo el destino, la cuenta movida sale de la URL. */
+export const changeDependencyRule = v.object({
 	dependency: dependencyDocumentId,
 });
 
@@ -255,5 +250,5 @@ export const userRules = {
 	find: findUserRule,
 	list: listUsersRule,
 	delete: deleteUserRule,
-	changeOwnDependency: changeOwnDependencyRule,
+	changeDependency: changeDependencyRule,
 } as const;

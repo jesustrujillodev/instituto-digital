@@ -11,7 +11,7 @@ import {
 } from "@/shared/storage/upload-validation";
 import {
 	canAssignRole,
-	canChangeOwnDependency,
+	canChangeUserDependency,
 	canManageUser,
 	roleAfterDependencyChange,
 } from "../domain/user.access.rules";
@@ -400,24 +400,13 @@ export const createUserService = ({
 				const user = await userRepository.findById(documentId, scope);
 				if (!user) throw new UserNotFoundError();
 
-				const isSelf = user.id === actor.userId;
-
-				if (isSelf) {
-					// Autoservicio: sin aprobación, pero el titular no puede irse mientras
-					// lo sea (regla 6). Dejaría su dependencia sin quien la administre, y
-					// el índice único parcial le impediría ser titular de la nueva.
-					if (!canChangeOwnDependency(actor.role, user.type)) {
-						throw new HeadCannotLeaveDependencyError();
-					}
-				} else {
-					// Traslado administrativo: las mismas dos condiciones que cualquier
-					// otra mutación sobre una cuenta ajena.
-					if (!canManageUser(actor, user)) throw new ForbiddenScopeError();
-					// Y la misma regla 6, ahora sobre la cuenta movida: relevar al titular
-					// es un acto propio del superadministrador, no un efecto colateral.
-					if (user.role === "DEPENDENCY_HEAD") {
-						throw new HeadCannotLeaveDependencyError();
-					}
+				if (!canChangeUserDependency(actor, user)) {
+					throw new ForbiddenScopeError();
+				}
+				// Regla 6: relevar al titular se hace designando a otro desde la
+				// dependencia, no como efecto colateral de un traslado.
+				if (user.role === "DEPENDENCY_HEAD") {
+					throw new HeadCannotLeaveDependencyError();
 				}
 
 				const dependency = await resolveTargetDependency(
@@ -429,7 +418,7 @@ export const createUserService = ({
 				if (user.dependencyId === dependency.id) return ok(user);
 
 				const fromDependency =
-					!isSelf && user.dependencyId !== null
+					user.dependencyId !== null
 						? await dependencyRepository.findByInternalId(user.dependencyId)
 						: null;
 
@@ -442,18 +431,14 @@ export const createUserService = ({
 						nextRole: roleAfterDependencyChange(user.role),
 						scope,
 					});
-					// Quien se cambia a sí mismo ya lo sabe: solo se avisa del traslado
-					// que hizo un administrador (§6.12).
-					if (!isSelf) {
-						await notificationService.notify([
-							{
-								template: "DEPENDENCY_CHANGED",
-								to: moved,
-								fromDependency: fromDependency?.name ?? null,
-								toDependency: dependency.name,
-							},
-						]);
-					}
+					await notificationService.notify([
+						{
+							template: "DEPENDENCY_CHANGED",
+							to: moved,
+							fromDependency: fromDependency?.name ?? null,
+							toDependency: dependency.name,
+						},
+					]);
 					return moved;
 				});
 

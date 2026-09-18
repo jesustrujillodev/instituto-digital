@@ -12,7 +12,6 @@ import { hasRole, type Role } from "@/shared/rules/atoms.rules";
  * `canViewCatalog`.
  */
 export const TRAINER_CATALOG_ROLES: readonly Role[] = [
-	"ADMIN",
 	"SUPERADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
@@ -20,7 +19,6 @@ export const TRAINER_CATALOG_ROLES: readonly Role[] = [
 
 /** Quién activa perfiles y registra capacitadores externos. */
 export const TRAINER_ADMIN_ROLES: readonly Role[] = [
-	"ADMIN",
 	"SUPERADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",

@@ -74,7 +74,7 @@ export const isClosingSoon = (closesAt: Date | null, now: Date): boolean => {
 	return remaining > 0 && remaining <= ENROLLMENT_CLOSING_SOON_DAYS * DAY_MS;
 };
 
-const NON_PARTICIPANT_ROLES: readonly Role[] = ["SUPERADMIN", "ADMIN"];
+const NON_PARTICIPANT_ROLES: readonly Role[] = ["SUPERADMIN"];
 
 /** Solo cursa quien pertenece a una dependencia y no tiene un rol global (§3, §6.6). */
 export const canParticipate = (

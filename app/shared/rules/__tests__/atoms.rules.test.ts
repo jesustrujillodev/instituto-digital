@@ -7,35 +7,31 @@ describe("ROLES", () => {
 	// requireRole y la navegación lo heredan sin tocarse.
 	test("is the single source of truth for the role tuple", () => {
 		expect(ROLES).toEqual([
-			"USER",
-			"ADMIN",
 			"SUPERADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
+			"USER",
 		]);
 	});
 
-	// El alta de un rol es un cambio de contrato: viaja firmado dentro del access
-	// token y gobierna cada `requireRole`. Que los del instituto estén presentes
-	// se afirma aquí y no se deduce del largo de la tupla.
-	test("incluye los roles del instituto", () => {
-		expect(v.safeParse(atoms.role, "SUPERADMIN").success).toBe(true);
-		expect(v.safeParse(atoms.role, "DEPENDENCY_HEAD").success).toBe(true);
-		expect(v.safeParse(atoms.role, "DEPENDENCY_DEPUTY").success).toBe(true);
+	// El rol de la plantilla se retiró: un token o una fila que lo traiga ya no
+	// valida, en vez de colarse con un alcance que nadie documenta.
+	test("no acepta el ADMIN heredado de la plantilla", () => {
+		expect(v.safeParse(atoms.role, "ADMIN").success).toBe(false);
 	});
 });
 
 describe("hasRole", () => {
 	test("returns true when the role is in the allowed list", () => {
-		expect(hasRole("ADMIN", ["USER", "ADMIN"])).toBe(true);
+		expect(hasRole("SUPERADMIN", ["USER", "SUPERADMIN"])).toBe(true);
 	});
 
 	test("returns false when the role is not in the allowed list", () => {
-		expect(hasRole("USER", ["ADMIN"])).toBe(false);
+		expect(hasRole("USER", ["SUPERADMIN"])).toBe(false);
 	});
 
 	test("returns false for an empty allowed list", () => {
-		expect(hasRole("ADMIN", [])).toBe(false);
+		expect(hasRole("SUPERADMIN", [])).toBe(false);
 	});
 });
 

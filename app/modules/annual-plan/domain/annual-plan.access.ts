@@ -8,7 +8,6 @@ import type { Role } from "@/shared/rules/atoms.rules";
  */
 export const PLAN_ACCESS_ROLES: readonly Role[] = [
 	"SUPERADMIN",
-	"ADMIN",
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
 ];

@@ -4,6 +4,7 @@ import { localizeError } from "@/shared/response/response.messages";
 import { USER_MANAGER_ROLES } from "../../../domain/user.access.rules";
 import {
 	validateAdminResetPassword,
+	validateChangeDependency,
 	validateFindUser,
 	validateUpdateUser,
 } from "../../../domain/user.validators";
@@ -16,10 +17,10 @@ import { USER_ERROR_MESSAGES } from "../../../utils/user-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * Dos operaciones en un mismo action —actualizar el perfil y restablecer la
- * contraseña— separadas por el `intent` del envío, no por el conjunto de campos
- * recibidos: el diálogo de contraseña se abre también desde el listado y no debe
- * poder disparar un guardado de perfil, ni al revés.
+ * Tres operaciones en un mismo action —actualizar el perfil, restablecer la
+ * contraseña y trasladar de dependencia— separadas por el `intent` del envío, no
+ * por el conjunto de campos recibidos: el diálogo de contraseña se abre también
+ * desde el listado y no debe poder disparar un guardado de perfil, ni al revés.
  */
 export const action = async ({
 	request,
@@ -63,6 +64,24 @@ export const action = async ({
 				? "Contraseña restablecida. Se cerraron sus sesiones abiertas."
 				: "Contraseña restablecida, pero no se pudieron cerrar sus sesiones abiertas.",
 		});
+	}
+
+	if (intent === USER_INTENTS.changeDependency) {
+		const input = parseInput(() => ({
+			documentId: validateFindUser({ documentId: params.documentId })
+				.documentId,
+			...validateChangeDependency(fields),
+		}));
+		if (!input.success) return localizeError(input, USER_ERROR_MESSAGES);
+
+		const result = await context.userService.changeDependency(
+			input.data.documentId,
+			input.data.dependency,
+			auth,
+		);
+		if (!result.success) return localizeError(result, USER_ERROR_MESSAGES);
+
+		return ok(null, { message: "Dependencia actualizada" });
 	}
 
 	const input = parseInput(() => ({

@@ -81,7 +81,7 @@ resuelve a `self` en el `AccessScope` compartido, que para cursos significaría
 "ninguno". Por eso el módulo traduce el alcance a uno suyo:
 
 ```
-global      → SUPERADMIN, ADMIN
+global      → SUPERADMIN
 dependency  → DEPENDENCY_HEAD, DEPENDENCY_DEPUTY con dependencia
 creator     → cualquier otro rol + perfil de capacitador + dependencia
 none        → el resto, incluido el capacitador EXTERNO

@@ -32,12 +32,12 @@ const SCOPE_OPTIONS: ReadonlyArray<{
 }> = [
 	{
 		value: "except-admin",
-		label: "Todos salvo ADMIN",
+		label: "Todos salvo superadministradores",
 		consequence: "Nadie más entra. Se levanta desde esta pantalla.",
 	},
 	{
 		value: "all",
-		label: "Todos, incluido ADMIN",
+		label: "Todos, incluidos superadministradores",
 		consequence: (
 			<>
 				Nadie entra, tampoco tú. Solo se levanta en el servidor con{" "}

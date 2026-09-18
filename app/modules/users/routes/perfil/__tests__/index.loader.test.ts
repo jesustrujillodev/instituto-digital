@@ -22,7 +22,6 @@ const failOf = (code: string) => ({
 const createHarness = (
 	options: {
 		role?: Role | null;
-		type?: "INTERNAL" | "EXTERNAL";
 		dependencyId?: number | null;
 		findFails?: string;
 		dependencyFails?: boolean;
@@ -58,7 +57,6 @@ const createHarness = (
 							firstName: "Ana",
 							lastName: "Ruiz",
 							role: options.role ?? "USER",
-							type: options.type ?? "INTERNAL",
 							employeeNumber: "EMP-0007",
 							jobTitle: "Coordinadora",
 							dependencyId,
@@ -73,7 +71,6 @@ const createHarness = (
 					? failOf("DEPENDENCY_NOT_FOUND")
 					: okOf({ id, name: "Obras Públicas" });
 			},
-			listActive: async () => okOf([]),
 		},
 	} as unknown as LoaderArgs["context"];
 
@@ -95,7 +92,6 @@ describe("perfil loader — acceso", () => {
 	test("cualquier rol entra a su propio perfil", async () => {
 		for (const role of [
 			"USER",
-			"ADMIN",
 			"SUPERADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
@@ -148,34 +144,6 @@ describe("perfil loader — datos", () => {
 
 		expect(calls.byInternalId).toEqual([]);
 		expect(result.success && result.data.dependencyName).toBeNull();
-	});
-
-	// Criterio de aceptación 9: el titular no puede cambiarse mientras lo sea. La
-	// pantalla lo explica en vez de esconder el control.
-	test("el titular no puede cambiar de dependencia", async () => {
-		const result = await run(
-			createHarness({ role: "DEPENDENCY_HEAD" }).context,
-		);
-
-		expect(result.success && result.data.canChangeDependency).toBe(false);
-	});
-
-	test("el auxiliar sí puede", async () => {
-		const result = await run(
-			createHarness({ role: "DEPENDENCY_DEPUTY" }).context,
-		);
-
-		expect(result.success && result.data.canChangeDependency).toBe(true);
-	});
-
-	// No por su rol —es `USER`, el que sí puede— sino por su tipo: no pertenece a
-	// ninguna dependencia y el CHECK `users_type_coherence` le prohíbe tener una.
-	test("un capacitador externo no puede cambiar de dependencia", async () => {
-		const result = await run(
-			createHarness({ role: "USER", type: "EXTERNAL" }).context,
-		);
-
-		expect(result.success && result.data.canChangeDependency).toBe(false);
 	});
 
 	test("una cuenta que no se alcanza corta con 404", async () => {

@@ -73,7 +73,6 @@ describe("editar dependencia loader — guard", () => {
 	test("cualquier rol salvo SUPERADMIN recibe 403", async () => {
 		for (const role of [
 			"USER",
-			"ADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {

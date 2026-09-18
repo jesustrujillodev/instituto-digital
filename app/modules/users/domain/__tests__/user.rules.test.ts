@@ -219,7 +219,8 @@ describe("createUserRule", () => {
 	test("el rol es opcional y solo admite los de la tupla", () => {
 		expect(v.safeParse(createUserRule, valid).success).toBe(true);
 		expect(
-			v.safeParse(createUserRule, { ...valid, role: "ADMIN" }).success,
+			v.safeParse(createUserRule, { ...valid, role: "DEPENDENCY_DEPUTY" })
+				.success,
 		).toBe(true);
 		expect(
 			v.safeParse(createUserRule, { ...valid, role: "OWNER" }).success,
@@ -258,7 +259,9 @@ describe("updateUserRule", () => {
 		expect(v.safeParse(updateUserRule, { firstName: "Ana" }).success).toBe(
 			true,
 		);
-		expect(v.safeParse(updateUserRule, { role: "ADMIN" }).success).toBe(true);
+		expect(
+			v.safeParse(updateUserRule, { role: "DEPENDENCY_DEPUTY" }).success,
+		).toBe(true);
 	});
 
 	// NO incluye password: cambiar la contraseña es otra regla, con su propia
@@ -288,7 +291,8 @@ describe("changePasswordRule", () => {
 	});
 
 	// Autoservicio: exige demostrar que se conoce la anterior. Es justo lo que la
-	// regla del ADMIN no pide, y por eso son dos reglas y no una con un opcional.
+	// regla del reseteo administrativo no pide, y por eso son dos reglas y no una
+	// con un opcional.
 	test("exige la contraseña actual", () => {
 		const { currentPassword: _, ...sinActual } = valid;
 
@@ -369,7 +373,7 @@ describe("userRules", () => {
 	test("expone las ocho reglas del módulo", () => {
 		expect(Object.keys(userRules).sort()).toEqual([
 			"adminResetPassword",
-			"changeOwnDependency",
+			"changeDependency",
 			"changePassword",
 			"create",
 			"delete",

@@ -52,9 +52,9 @@ El rol es **el cargo administrativo** de la persona dentro de la plataforma. Cad
 persona tiene **exactamente uno**.
 
 Los valores posibles están declarados en un solo lugar,
-[`app/shared/rules/atoms.rules.ts:43-49`](../../app/shared/rules/atoms.rules.ts),
+[`app/shared/rules/atoms.rules.ts:42-47`](../../app/shared/rules/atoms.rules.ts),
 y el texto que ve el usuario en
-[`app/modules/users/components/user-badges.tsx:12-18`](../../app/modules/users/components/user-badges.tsx):
+[`app/modules/users/components/user-badges.tsx:12-17`](../../app/modules/users/components/user-badges.tsx):
 
 | Valor en código | Texto en pantalla | Qué administra |
 | --- | --- | --- |
@@ -62,7 +62,6 @@ y el texto que ve el usuario en
 | `DEPENDENCY_HEAD` | Titular | Su dependencia. Designa y retira auxiliares |
 | `DEPENDENCY_DEPUTY` | Auxiliar | Su dependencia, igual que el titular salvo gestionar auxiliares |
 | `USER` | Participante | Nada más que su propia cuenta |
-| `ADMIN` | Administrador | Heredado de la plantilla original. Ninguna cuenta del instituto lo usa |
 
 ### 3.2 · Por qué es un solo valor
 
@@ -175,7 +174,7 @@ calcula cada vez con una sola función.
 [`app/modules/enrollments/domain/enrollment.rules.ts:60-66`](../../app/modules/enrollments/domain/enrollment.rules.ts):
 
 ```ts
-const NON_PARTICIPANT_ROLES: readonly Role[] = ["SUPERADMIN", "ADMIN"];
+const NON_PARTICIPANT_ROLES: readonly Role[] = ["SUPERADMIN"];
 
 export const canParticipate = (actor) =>
 	actor.dependencyId !== null && !NON_PARTICIPANT_ROLES.includes(actor.role);
@@ -199,7 +198,6 @@ Los casos están fijados en la prueba
 | `DEPENDENCY_DEPUTY` | Sí | Sí | Cumple las dos condiciones |
 | `USER` | No | No | Sin dependencia (el capacitador externo está en este caso) |
 | `SUPERADMIN` | Cualquiera | No | Rol de alcance global |
-| `ADMIN` | Cualquiera | No | Rol de alcance global |
 
 El perfil de capacitador **no interviene**: ni lo da ni lo quita.
 
@@ -253,7 +251,7 @@ token de acceso, nunca de lo que pida la URL
 
 | Rol | Alcance | Significado |
 | --- | --- | --- |
-| `SUPERADMIN`, `ADMIN` | `global` | Todo |
+| `SUPERADMIN` | `global` | Todo |
 | `DEPENDENCY_HEAD`, `DEPENDENCY_DEPUTY` con dependencia | `dependency` | Lo de su dependencia |
 | `DEPENDENCY_HEAD`, `DEPENDENCY_DEPUTY` sin dependencia | `none` | Nada (caso de datos inconsistentes) |
 | `USER` | `self` | Solo lo propio |

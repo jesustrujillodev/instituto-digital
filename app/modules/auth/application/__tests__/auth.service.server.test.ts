@@ -36,7 +36,7 @@ const createHarness = (
 	options: { role?: string } = {},
 ) => {
 	const calls = { compare: 0 };
-	const role = options.role ?? "ADMIN";
+	const role = options.role ?? "SUPERADMIN";
 
 	const passwordService = {
 		hash: async () => "dummy-hash",
@@ -133,7 +133,7 @@ describe("createAuthService — lockdown cuts login and refresh", () => {
 		expect(calls.compare).toBe(0);
 	});
 
-	test("login lets ADMIN through under scope 'except-admin' (compare IS called)", async () => {
+	test("login lets SUPERADMIN through under scope 'except-admin' (compare IS called)", async () => {
 		const { service, calls } = createHarness(
 			snapshotOf({ lockdownAt: new Date(), lockdownScope: "except-admin" }),
 		);

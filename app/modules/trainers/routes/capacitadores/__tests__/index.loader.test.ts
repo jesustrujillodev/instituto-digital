@@ -109,7 +109,6 @@ describe("capacitadores loader — guard", () => {
 	test("los roles de gestión entran sin perfil", async () => {
 		for (const role of [
 			"SUPERADMIN",
-			"ADMIN",
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {

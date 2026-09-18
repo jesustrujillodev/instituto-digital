@@ -7,8 +7,8 @@ import { CLOUD_ERROR_MESSAGES } from "../../utils/cloud-error-messages";
 import type { Route } from "./+types/index";
 
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
-	// 🔒 Solo ADMIN: un rol insuficiente produce un 403 real.
-	await requireRole(request, context, ["ADMIN"]);
+	// 🔒 Solo SUPERADMIN: un rol insuficiente produce un 403 real.
+	await requireRole(request, context, ["SUPERADMIN"]);
 
 	const { searchParams } = new URL(request.url);
 

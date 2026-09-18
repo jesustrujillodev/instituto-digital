@@ -111,3 +111,19 @@ tupla: ahora el mapper valida al leer, y la migración normaliza lo que hubiera.
 | Alcance inyectado en el cradle | Compila cuando se olvida, y deja el servicio inservible desde la semilla |
 | Enum nativo de Postgres para `role` | Cada rol nuevo sería una migración; la tupla de valibot ya es el punto único de variación |
 | Comprobar el alcance después de leer | Una rama olvidada devuelve la fila; en el `where` no hay rama que olvidar |
+
+## 5. Actualización · 2026-09-18 — se retira `ADMIN`
+
+`ADMIN` sobrevivía de la plantilla con alcance global sin figurar en el alcance
+del MVP. Se retira de la tupla: todo lo que podía hacer —incluida la nube, que
+era exclusiva suya— pasa a `SUPERADMIN`. La tupla queda en orden jerárquico
+(`SUPERADMIN`, `DEPENDENCY_HEAD`, `DEPENDENCY_DEPUTY`, `USER`), que es el orden
+en que la muestran selectores y filtros.
+
+El cambio no lleva migración de datos. Una fila que conserve `role = 'ADMIN'`
+deja de validar contra la tupla: no inicia sesión y rompe el mapeo de los
+listados que la incluyan. Antes de desplegar hay que reasignar esas cuentas a
+mano; en desarrollo basta con volver a correr el seed, que ya no crea ninguna.
+
+El alcance de lockdown `except-admin` conserva su nombre porque es un valor
+persistido: hoy exime solo a `SUPERADMIN`.

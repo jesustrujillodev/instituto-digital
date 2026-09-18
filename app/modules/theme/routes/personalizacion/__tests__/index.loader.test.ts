@@ -111,7 +111,7 @@ describe("personalizacion loader", () => {
 	// 🔒 El tema es de la plataforma: quien lo cambia lo cambia para todo el
 	// mundo. Un USER recibe 403 real, no un redirect que borraría la URL.
 	test("a non-superadmin gets a 403", async () => {
-		const { context } = createHarness({ role: "ADMIN" });
+		const { context } = createHarness({ role: "DEPENDENCY_HEAD" });
 
 		await expect(run(await requestOf(), context)).rejects.toMatchObject({
 			init: { status: 403 },

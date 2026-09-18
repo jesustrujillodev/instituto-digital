@@ -31,7 +31,7 @@ type EvaluableClaims = Pick<
  *
  * El nombre del alcance es historia: es un valor PERSISTIDO en
  * `SecurityState.lockdownScope` y renombrarlo exigiría migrar datos sin ganar
- * nada. Lo que exime hoy es ADMIN y SUPERADMIN.
+ * nada. Lo que exime hoy es solo SUPERADMIN.
  *
  * Tipado contra `Role` y no contra `string`: un rol mal escrito debe fallar en
  * compilación, no descubrirse el día de un incidente dejando fuera de la
@@ -39,7 +39,7 @@ type EvaluableClaims = Pick<
  */
 const EXEMPT_ROLES: Record<LockdownScope, readonly Role[]> = {
 	all: [],
-	"except-admin": ["ADMIN", "SUPERADMIN"],
+	"except-admin": ["SUPERADMIN"],
 };
 
 /**

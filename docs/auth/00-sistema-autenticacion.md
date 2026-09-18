@@ -66,7 +66,7 @@ app/
 │       ├── iniciar-sesion/        página + action (login) + loader (skip si ya autenticado)
 │       ├── cerrar-sesion/         action: cierra LA sesión actual
 │       ├── cerrar-sesiones/       action: cierra TODAS las sesiones del usuario
-│       └── sesiones/              página ADMIN: monitor de sesiones (§6.5)
+│       └── sesiones/              página SUPERADMIN: monitor de sesiones (§6.5)
 ├── shared/
 │   ├── auth/require-auth.server.ts    guard de autenticación para loaders/actions
 │   ├── auth/require-role.server.ts    guard de autorización por rol (único punto RBAC)
@@ -252,12 +252,12 @@ Requiere autenticación; revoca **todas** las sesiones del usuario
 (`logoutAll(userId)`) — el mismo caso de uso que dispara la detección de reuso
 — y limpia cookies.
 
-### 6.5 Monitor de sesiones (`/dashboard/sesiones`, solo ADMIN)
+### 6.5 Monitor de sesiones (`/dashboard/sesiones`, solo SUPERADMIN)
 
 Panel de administración sobre las sesiones de **terceros**. Vive en un servicio
 propio (`SessionMonitorService`) y no en `AuthService`: aquel resuelve la sesión
 de quien pide y parte de él corre en el middleware de cada petición; este solo
-se alcanza tras un `requireRole(["ADMIN"])` en el loader **y** en el action.
+se alcanza tras un `requireRole(SESSION_MONITOR_ROLES)` (solo `SUPERADMIN`) en el loader **y** en el action.
 
 **Listado.** Página global y filtrable de todas las sesiones de la plataforma.
 Los filtros (búsqueda por nombre/correo del dueño, estado, orden, paginación)

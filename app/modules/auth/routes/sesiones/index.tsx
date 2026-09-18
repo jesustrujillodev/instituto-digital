@@ -343,7 +343,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 					<AlertDescription className="flex items-center gap-2 text-destructive">
 						<ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
 						{lockdownScope === "except-admin" ? (
-							"Solo ADMIN puede entrar mientras dure el lockdown."
+							"Solo los superadministradores pueden entrar mientras dure el lockdown."
 						) : (
 							<span>
 								Solo se levanta en el servidor:{" "}

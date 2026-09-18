@@ -13,7 +13,7 @@ enviados de forma asíncrona sin bloquear ninguna operación. El transporte vive
 | --- | --- | --- | --- |
 | `ACCOUNT_CREATED` | Cuenta nueva | `users#create`, `trainers#createExternal` | Siempre. **Sin contraseña** |
 | `PASSWORD_RESET` | La cuenta | `users#resetPassword` | Siempre. Sin la contraseña |
-| `DEPENDENCY_CHANGED` | Cuenta movida | `users#changeDependency` | Solo si lo hizo otra persona y la dependencia cambió |
+| `DEPENDENCY_CHANGED` | Cuenta movida | `users#changeDependency` | Siempre que la dependencia cambió (el traslado lo hace otra persona) |
 | `COURSE_INVITATION` | Cada invitado | `enrollments#invite` | Solo los invitados del lote, no los omitidos |
 | `ENROLLMENT_CONFIRMED` | La persona | `enrollments#enroll`, `#accept` | — |
 | `ENROLLMENT_ASSIGNED` | Cada asignado | `enrollments#assign` | — |

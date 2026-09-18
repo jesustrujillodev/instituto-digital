@@ -23,8 +23,7 @@ query con otro guard, que es justo donde se cuelan los fallos de aislamiento.
 | `SUPERADMIN` | Superadministrador | Global | Crea y desactiva dependencias, designa titulares, administra a cualquiera |
 | `DEPENDENCY_HEAD` | Titular | Su dependencia | Uno por dependencia. Da de alta a su personal, designa y retira auxiliares |
 | `DEPENDENCY_DEPUTY` | Auxiliar | Su dependencia | Lo mismo que el titular salvo gestionar auxiliares |
-| `USER` | Participante | Lo propio | Rol base. Ve su perfil y se cambia de dependencia |
-| `ADMIN` | Administrador | Global | Heredado de la plantilla. Ninguna cuenta del instituto lo usa |
+| `USER` | Participante | Lo propio | Rol base. Ve su perfil; no se cambia de dependencia por su cuenta |
 
 La tupla se edita en `app/shared/rules/atoms.rules.ts` y **solo ahí**. La
 jerarquía entre roles no vive con ella: está en
@@ -48,7 +47,7 @@ que **toda mutación de rol o de dependencia revoca los tokens del afectado**.
 `app/shared/auth/scope.rules.ts` convierte el claim en un `AccessScope`:
 
 ```
-global      → SUPERADMIN, ADMIN
+global      → SUPERADMIN
 dependency  → DEPENDENCY_HEAD, DEPENDENCY_DEPUTY con dependencia
 self        → USER
 none        → DEPENDENCY_HEAD o DEPENDENCY_DEPUTY SIN dependencia
@@ -138,14 +137,27 @@ Inmediato y sin aprobación (`changeDependency`). Escribe en la misma transacci�
 el `UPDATE` de la cuenta y el `INSERT` en `org.dependency_changes`, para que no
 quede alguien movido sin rastro de quién lo movió.
 
-Cuando lo hace un titular, un auxiliar o el superadministrador —no la propia
-persona—, se encola en la misma transacción el aviso `DEPENDENCY_CHANGED` con la
-dependencia de origen y la de destino (PRD-08).
+Se hace desde la sección "Historial de adscripción" de la edición del usuario
+(`/dashboard/usuarios/:documentId/editar`), en un diálogo propio con el intent
+`change-dependency`. El perfil ya no ofrece el cambio: la adscripción la decide
+quien administra. En la misma transacción se encola el aviso
+`DEPENDENCY_CHANGED` con la dependencia de origen y la de destino (PRD-08).
+
+Quién mueve a quién lo decide `canChangeUserDependency`:
+
+| Actor | Puede trasladar |
+| --- | --- |
+| `SUPERADMIN` | A cualquier cuenta interna, de cualquier dependencia a cualquier otra |
+| `DEPENDENCY_HEAD`, `DEPENDENCY_DEPUTY` | Solo a participantes (`USER`) de su dependencia, hacia cualquier otra |
+| `USER` | A nadie |
+
+Nadie se traslada a sí mismo, y un externo no se traslada porque no tiene
+dependencia. Fuera de esa tabla responde `FORBIDDEN_SCOPE`.
 
 Reglas que gobiernan el cambio:
 
-- Un **titular no puede cambiarse mientras lo sea**, ni por su cuenta ni movido
-  por un administrador. Dejaría su dependencia sin quien la administre, y el
+- Un **titular no se traslada mientras lo sea**, ni siquiera por el
+  superadministrador. Dejaría su dependencia sin quien la administre, y el
   índice parcial le impediría ser titular de la nueva. Primero se designa a otro.
 - Un **auxiliar pierde el cargo** al salir: `roleAfterDependencyChange` lo
   degrada a `USER`. Auxiliar y titular son cargos DE una dependencia, no
