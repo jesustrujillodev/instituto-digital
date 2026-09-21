@@ -25,6 +25,7 @@ const createHarness = (options: ActorOptions & { isOpen?: boolean } = {}) => {
 				okReply({
 					course: { documentId: COURSE_ID, isOpen: options.isOpen ?? true },
 					entries: [],
+					reach: { organizer: true, canInvite: true },
 				}),
 			listRosterOptions: async (...args: unknown[]) => {
 				calls.push({ method: "listRosterOptions", args });
@@ -101,6 +102,26 @@ describe("inscripciones action", () => {
 			success: true,
 			message: "2 invitados, 1 omitido",
 		});
+		expect(calls[0]?.args[1]).toEqual({
+			userDocumentIds: [],
+			groupDocumentIds: [GROUP_ID],
+		});
+	});
+
+	test("inscribir un grupo completo llega al servicio con sus grupos", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await action({
+			request: postRequest(PATH, {
+				intent: "assign",
+				groupDocumentIds: GROUP_ID,
+			}),
+			context,
+			params: { documentId: COURSE_ID },
+		} as unknown as ActionArgs);
+
+		expect(result).toMatchObject({ success: true, message: "1 inscrito" });
+		expect(calls[0]?.method).toBe("assign");
 		expect(calls[0]?.args[1]).toEqual({
 			userDocumentIds: [],
 			groupDocumentIds: [GROUP_ID],

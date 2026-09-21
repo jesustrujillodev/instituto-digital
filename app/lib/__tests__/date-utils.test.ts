@@ -102,6 +102,16 @@ describe("formatSessionRange", () => {
 
 		expect(formatSessionRange(startsAt, endsAt)).toContain("09:00–13:00");
 	});
+
+	test("si cruza la medianoche repite la fecha del cierre", () => {
+		const startsAt = zonedInputToUtc("2026-10-05", "23:45");
+		const endsAt = zonedInputToUtc("2026-10-06", "00:15");
+		const range = formatSessionRange(startsAt, endsAt);
+
+		expect(range).toContain("23:45");
+		expect(range).toContain("00:15");
+		expect(range).toContain("6 oct 2026");
+	});
 });
 
 describe("zonedDayLabelOf", () => {

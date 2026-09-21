@@ -1,10 +1,13 @@
 import { Prisma } from "@prisma/client";
 import type { ICradle } from "@/shared/di/container.types";
+import { resolveAssetRef } from "@/shared/storage/public-url";
+import { toMyCredit } from "../domain/credit.mapper";
 import type { ICreditRepository } from "../domain/credit.repository";
 import type { StaffQuery } from "../domain/credit.types";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
+	assetUrlResolver: ICradle["assetUrlResolver"];
 };
 
 const SEARCHABLE_FIELDS = ["firstName", "lastName", "email"] as const;
@@ -47,164 +50,195 @@ const staffWhere = ({
 
 export const createCreditRepository = ({
 	prisma,
-}: Dependencies): ICreditRepository => ({
-	async findByCourse(courseId) {
-		return prisma.credit.findMany({
-			where: { courseId },
-			select: { userId: true, dependencyId: true, revokedAt: true },
-		});
-	},
+	assetUrlResolver,
+}: Dependencies): ICreditRepository => {
+	const resolveCover = (reference: string | null) =>
+		resolveAssetRef(assetUrlResolver, reference);
 
-	async grant(candidates, { courseId, fiscalYear, at, actorId }) {
-		if (candidates.length === 0) return;
+	return {
+		async findByCourse(courseId) {
+			return prisma.credit.findMany({
+				where: { courseId },
+				select: { userId: true, dependencyId: true, revokedAt: true },
+			});
+		},
 
-		await prisma.credit.createMany({
-			data: candidates.map((candidate) => ({
-				userId: candidate.userId,
-				dependencyId: candidate.dependencyId,
-				courseId,
-				fiscalYear,
-				grantedAt: at,
-				grantedById: actorId,
-			})),
-		});
-	},
+		async grant(candidates, { courseId, fiscalYear, at, actorId }) {
+			if (candidates.length === 0) return;
 
-	async restore(userIds, { courseId, fiscalYear, at, actorId }) {
-		if (userIds.length === 0) return;
+			await prisma.credit.createMany({
+				data: candidates.map((candidate) => ({
+					userId: candidate.userId,
+					dependencyId: candidate.dependencyId,
+					courseId,
+					fiscalYear,
+					grantedAt: at,
+					grantedById: actorId,
+				})),
+			});
+		},
 
-		await prisma.credit.updateMany({
-			where: {
-				courseId,
-				userId: { in: [...userIds] },
-				revokedAt: { not: null },
-			},
-			data: {
-				fiscalYear,
-				grantedAt: at,
-				grantedById: actorId,
-				revokedAt: null,
-				revokedById: null,
-			},
-		});
-	},
+		async restore(userIds, { courseId, fiscalYear, at, actorId }) {
+			if (userIds.length === 0) return;
 
-	async revoke(userIds, { courseId, at, actorId }) {
-		if (userIds.length === 0) return;
+			await prisma.credit.updateMany({
+				where: {
+					courseId,
+					userId: { in: [...userIds] },
+					revokedAt: { not: null },
+				},
+				data: {
+					fiscalYear,
+					grantedAt: at,
+					grantedById: actorId,
+					revokedAt: null,
+					revokedById: null,
+				},
+			});
+		},
 
-		await prisma.credit.updateMany({
-			where: { courseId, userId: { in: [...userIds] }, revokedAt: null },
-			data: { revokedAt: at, revokedById: actorId },
-		});
-	},
+		async revoke(userIds, { courseId, at, actorId }) {
+			if (userIds.length === 0) return;
 
-	async findMine(userId) {
-		const rows = await prisma.credit.findMany({
-			where: { userId, revokedAt: null },
-			orderBy: [{ fiscalYear: "desc" }, { grantedAt: "desc" }],
-			select: {
-				documentId: true,
-				fiscalYear: true,
-				grantedAt: true,
-				dependency: { select: { name: true } },
-				course: { select: { documentId: true, title: true } },
-			},
-		});
+			await prisma.credit.updateMany({
+				where: { courseId, userId: { in: [...userIds] }, revokedAt: null },
+				data: { revokedAt: at, revokedById: actorId },
+			});
+		},
 
-		return rows.map((row) => ({
-			documentId: row.documentId,
-			courseDocumentId: row.course.documentId,
-			courseTitle: row.course.title,
-			dependencyName: row.dependency.name,
-			fiscalYear: row.fiscalYear,
-			grantedAt: row.grantedAt,
-		}));
-	},
-
-	async findStaff(query) {
-		const rows = await prisma.user.findMany({
-			where: staffWhere(query),
-			orderBy: [{ firstName: "asc" }, { email: "asc" }],
-			skip: (query.page - 1) * query.pageSize,
-			take: query.pageSize,
-			select: {
-				documentId: true,
-				firstName: true,
-				lastName: true,
-				email: true,
-				dependencyId: true,
-				dependency: { select: { name: true } },
-				_count: {
-					select: {
-						credits: {
-							where: creditsFor(query.dependencyId, query.fiscalYear),
+		async findMine(userId) {
+			const rows = await prisma.credit.findMany({
+				where: { userId, revokedAt: null },
+				orderBy: [{ fiscalYear: "desc" }, { grantedAt: "desc" }],
+				select: {
+					documentId: true,
+					fiscalYear: true,
+					grantedAt: true,
+					dependency: { select: { name: true } },
+					course: {
+						select: {
+							id: true,
+							documentId: true,
+							title: true,
+							modality: true,
+							coverImageUrl: true,
+							dependency: { select: { name: true } },
+							sessions: {
+								select: { startsAt: true, endsAt: true },
+								orderBy: { startsAt: "asc" },
+							},
+							enrollments: { where: { userId }, select: { grade: true } },
 						},
 					},
 				},
-			},
-		});
+			});
 
-		return rows.map((row) => ({
-			userDocumentId: row.documentId,
-			firstName: row.firstName,
-			lastName: row.lastName,
-			email: row.email,
-			currentDependencyName: row.dependency?.name ?? null,
-			transferred: row.dependencyId !== query.dependencyId,
-			credits: row._count.credits,
-		}));
-	},
+			const attended = await prisma.courseAttendance.findMany({
+				where: {
+					userId,
+					attended: true,
+					session: { courseId: { in: rows.map((row) => row.course.id) } },
+				},
+				select: { session: { select: { courseId: true } } },
+			});
+			const attendedByCourse = new Map<number, number>();
+			for (const { session } of attended) {
+				attendedByCourse.set(
+					session.courseId,
+					(attendedByCourse.get(session.courseId) ?? 0) + 1,
+				);
+			}
 
-	async countStaff(query) {
-		return prisma.user.count({ where: staffWhere(query) });
-	},
+			return rows.map((row) =>
+				toMyCredit(row, attendedByCourse.get(row.course.id) ?? 0, resolveCover),
+			);
+		},
 
-	async summarizeByDependency(fiscalYear) {
-		const groups = await prisma.credit.groupBy({
-			by: ["dependencyId", "userId"],
-			where: { fiscalYear, revokedAt: null },
-			_count: { _all: true },
-		});
+		async findStaff(query) {
+			const rows = await prisma.user.findMany({
+				where: staffWhere(query),
+				orderBy: [{ firstName: "asc" }, { email: "asc" }],
+				skip: (query.page - 1) * query.pageSize,
+				take: query.pageSize,
+				select: {
+					documentId: true,
+					firstName: true,
+					lastName: true,
+					email: true,
+					dependencyId: true,
+					dependency: { select: { name: true } },
+					_count: {
+						select: {
+							credits: {
+								where: creditsFor(query.dependencyId, query.fiscalYear),
+							},
+						},
+					},
+				},
+			});
 
-		const totals = new Map<number, { credits: number; people: number }>();
-		for (const group of groups) {
-			const current = totals.get(group.dependencyId) ?? {
-				credits: 0,
-				people: 0,
-			};
-			current.credits += group._count._all;
-			current.people += 1;
-			totals.set(group.dependencyId, current);
-		}
+			return rows.map((row) => ({
+				userDocumentId: row.documentId,
+				firstName: row.firstName,
+				lastName: row.lastName,
+				email: row.email,
+				currentDependencyName: row.dependency?.name ?? null,
+				transferred: row.dependencyId !== query.dependencyId,
+				credits: row._count.credits,
+			}));
+		},
 
-		// Una dependencia desactivada sigue apareciendo si obtuvo créditos ese año.
-		const dependencies = await prisma.dependency.findMany({
-			where: {
-				OR: [{ archivedAt: null }, { id: { in: [...totals.keys()] } }],
-			},
-			orderBy: { name: "asc" },
-			select: DEPENDENCY_SELECT,
-		});
+		async countStaff(query) {
+			return prisma.user.count({ where: staffWhere(query) });
+		},
 
-		return dependencies.map((dependency) => ({
-			dependencyDocumentId: dependency.documentId,
-			name: dependency.name,
-			credits: totals.get(dependency.id)?.credits ?? 0,
-			people: totals.get(dependency.id)?.people ?? 0,
-		}));
-	},
+		async summarizeByDependency(fiscalYear) {
+			const groups = await prisma.credit.groupBy({
+				by: ["dependencyId", "userId"],
+				where: { fiscalYear, revokedAt: null },
+				_count: { _all: true },
+			});
 
-	async findDependency(documentId) {
-		return prisma.dependency.findUnique({
-			where: { documentId },
-			select: DEPENDENCY_SELECT,
-		});
-	},
+			const totals = new Map<number, { credits: number; people: number }>();
+			for (const group of groups) {
+				const current = totals.get(group.dependencyId) ?? {
+					credits: 0,
+					people: 0,
+				};
+				current.credits += group._count._all;
+				current.people += 1;
+				totals.set(group.dependencyId, current);
+			}
 
-	async findDependencyById(id) {
-		return prisma.dependency.findUnique({
-			where: { id },
-			select: DEPENDENCY_SELECT,
-		});
-	},
-});
+			// Una dependencia desactivada sigue apareciendo si obtuvo créditos ese año.
+			const dependencies = await prisma.dependency.findMany({
+				where: {
+					OR: [{ archivedAt: null }, { id: { in: [...totals.keys()] } }],
+				},
+				orderBy: { name: "asc" },
+				select: DEPENDENCY_SELECT,
+			});
+
+			return dependencies.map((dependency) => ({
+				dependencyDocumentId: dependency.documentId,
+				name: dependency.name,
+				credits: totals.get(dependency.id)?.credits ?? 0,
+				people: totals.get(dependency.id)?.people ?? 0,
+			}));
+		},
+
+		async findDependency(documentId) {
+			return prisma.dependency.findUnique({
+				where: { documentId },
+				select: DEPENDENCY_SELECT,
+			});
+		},
+
+		async findDependencyById(id) {
+			return prisma.dependency.findUnique({
+				where: { id },
+				select: DEPENDENCY_SELECT,
+			});
+		},
+	};
+};

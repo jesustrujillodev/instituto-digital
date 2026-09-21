@@ -9,6 +9,7 @@ import {
 	EnrollmentForbiddenScopeError,
 	EnrollmentFullError,
 	EnrollmentInvitationNotFoundError,
+	EnrollmentInvitationsDisabledError,
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
 	EnrollmentStateChangedError,
@@ -48,6 +49,10 @@ describe("códigos estables", () => {
 			ENROLLMENT_ERROR_CODES.UNKNOWN_PARTICIPANT,
 		],
 		[new EnrollmentUnknownGroupError(), ENROLLMENT_ERROR_CODES.UNKNOWN_GROUP],
+		[
+			new EnrollmentInvitationsDisabledError(),
+			ENROLLMENT_ERROR_CODES.INVITATIONS_DISABLED,
+		],
 		[new EnrollmentStateChangedError(), ENROLLMENT_ERROR_CODES.STATE_CHANGED],
 	])("$constructor.name expone su código", (error, code) => {
 		expect(error.code).toBe(code);

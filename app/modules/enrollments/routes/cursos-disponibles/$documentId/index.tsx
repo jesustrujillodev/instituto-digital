@@ -1,9 +1,9 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Check, LogOut, UserPlus, X } from "lucide-react";
+import { Check, LogOut, Users, X } from "lucide-react";
 import { useState } from "react";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import {
 	CourseAccessBadge,
@@ -23,13 +23,11 @@ import {
 	EnrollmentStatusBadge,
 	SeatsBadge,
 } from "../../../components/enrollment-badges";
-import { ParticipantPicker } from "../../../components/participant-picker";
 import { personNameOf } from "../../../utils/enrollment-labels";
 import {
 	ENROLLMENT_INTENTS,
 	type EnrollmentActionData,
 	INTENT_FIELD,
-	USERS_FIELD,
 } from "../../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
@@ -50,13 +48,11 @@ export default function CursoDisponiblePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { course, enrollment, can, candidates, personSearch },
+		data: { course, enrollment, can },
 	} = loaderData;
 
 	const fetcher = useFetcher<EnrollmentActionData>();
-	const assignFetcher = useFetcher<EnrollmentActionData>();
 	useFetcherToast(fetcher);
-	useFetcherToast(assignFetcher);
 
 	const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
 	const isSubmitting = fetcher.state !== "idle";
@@ -64,15 +60,16 @@ export default function CursoDisponiblePage({
 	const submit = (intent: string) =>
 		fetcher.submit({ [INTENT_FIELD]: intent }, { method: "post" });
 
-	const assign = (selected: readonly string[]) => {
-		const body = new FormData();
-		for (const documentId of selected) body.append(USERS_FIELD, documentId);
-		body.append(INTENT_FIELD, ENROLLMENT_INTENTS.assign);
-		assignFetcher.submit(body, { method: "post" });
-	};
-
 	const actions = (
 		<div className="flex flex-wrap gap-2">
+			{can.assign && (
+				<Button variant="outline" asChild>
+					<Link to={`/dashboard/cursos/${course.documentId}/inscripciones`}>
+						<Users className="h-4 w-4" />
+						Inscribir a mi personal
+					</Link>
+				</Button>
+			)}
 			{can.decline && (
 				<Button
 					variant="outline"
@@ -186,37 +183,6 @@ export default function CursoDisponiblePage({
 					</CardContent>
 				</Card>
 			</div>
-
-			{can.assign && (
-				<Card>
-					<CardContent className="flex flex-col gap-3">
-						<div>
-							<h3 className="font-medium text-sm">Asignar personal</h3>
-							<p className="text-muted-foreground text-xs">
-								Personal de tu dependencia. Asignar ocupa lugar en el curso.
-							</p>
-						</div>
-						<ParticipantPicker
-							candidates={candidates}
-							search={personSearch}
-							resetKey={assignFetcher.data?.success ? assignFetcher.data : null}
-							actions={(selected) => (
-								<Button
-									onClick={() => assign(selected)}
-									disabled={
-										assignFetcher.state !== "idle" || selected.length === 0
-									}
-								>
-									<UserPlus className="h-4 w-4" />
-									{selected.length <= 1
-										? "Asignar al curso"
-										: `Asignar ${selected.length} al curso`}
-								</Button>
-							)}
-						/>
-					</CardContent>
-				</Card>
-			)}
 
 			<ConfirmDialog
 				open={confirmingWithdraw}

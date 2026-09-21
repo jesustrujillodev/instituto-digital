@@ -207,6 +207,16 @@ export const isEmailWorkerEnabled = (
 		? config.NODE_ENV !== "test"
 		: config.EMAIL_WORKER_ENABLED === "true";
 
+/**
+ * Railway publica el dominio del servicio sin esquema y no expone la URL
+ * completa. Derivarla evita repetir el dominio a mano en cada entorno;
+ * `APP_BASE_URL` sigue ganando cuando el despliegue tiene dominio propio.
+ */
+const railwayPublicUrl = (): string | undefined =>
+	process.env.RAILWAY_PUBLIC_DOMAIN
+		? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+		: undefined;
+
 const result = v.safeParse(envSchema, {
 	DATABASE_URL: process.env.DATABASE_URL,
 	JWT_SECRET: process.env.JWT_SECRET,
@@ -245,7 +255,7 @@ const result = v.safeParse(envSchema, {
 	SMTP_USER: process.env.SMTP_USER,
 	SMTP_PASSWORD: process.env.SMTP_PASSWORD,
 	MAIL_FROM: process.env.MAIL_FROM,
-	APP_BASE_URL: process.env.APP_BASE_URL,
+	APP_BASE_URL: process.env.APP_BASE_URL ?? railwayPublicUrl(),
 	EMAIL_WORKER_ENABLED: process.env.EMAIL_WORKER_ENABLED,
 	EMAIL_WORKER_INTERVAL_S: process.env.EMAIL_WORKER_INTERVAL_S,
 });

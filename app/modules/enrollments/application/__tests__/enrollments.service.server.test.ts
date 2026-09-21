@@ -7,6 +7,7 @@ import type { Role } from "@/shared/rules/atoms.rules";
 import type { EnrollmentStatus } from "../../domain/enrollment.config";
 import { ENROLLMENT_ERROR_CODES } from "../../domain/enrollment.errors";
 import type {
+	CandidateAccount,
 	EnrollmentCourse,
 	EnrollmentWrite,
 	MyCourseEntry,
@@ -45,6 +46,7 @@ const courseOf = (
 	capacity: null,
 	enrolledCount: 0,
 	enrollmentDeadline: null,
+	finishedAt: null,
 	sessions: [
 		{
 			documentId: "s1",
@@ -84,6 +86,10 @@ const participantOf = (id: number, documentId: string): ParticipantAccount => ({
 
 interface HarnessOptions {
 	course?: EnrollmentCourse | null;
+	/** `false`: el actor ve el curso por su dependencia, pero no lo organiza. */
+	managed?: boolean;
+	candidates?: CandidateAccount[];
+	enrollable?: { groupId: number; userDocumentId: string }[];
 	own?: EnrollmentStatus | null;
 	seats?: { capacity: number | null; enrolled: number };
 	participants?: ParticipantAccount[];
@@ -106,14 +112,23 @@ const createHarness = (options: HarnessOptions = {}) => {
 		participantScopes: [] as (number | null)[],
 		availableFilters: [] as unknown[],
 		organizerFilters: [] as unknown[],
+		rosterScopes: [] as (number | null)[],
+		candidateScopes: [] as (number | null)[],
 	};
 	let inTransaction = false;
 
 	const enrollmentRepository = {
-		findCourse: async (_documentId: string, filter: unknown) => {
+		findCourse: async (_documentId: string, filter: object) => {
 			calls.courseFilters.push(filter);
+			// El filtro de escritura son igualdades; el de visibilidad, un `OR`.
+			if (options.managed === false && !("OR" in filter)) return null;
 			return options.course === undefined ? courseOf() : options.course;
 		},
+		findRoster: async (_courseId: number, dependencyId: number | null) => {
+			calls.rosterScopes.push(dependencyId);
+			return [];
+		},
+		findGroupEnrollable: async () => options.enrollable ?? [],
 		findEnrollment: async () =>
 			options.own
 				? {
@@ -149,7 +164,10 @@ const createHarness = (options: HarnessOptions = {}) => {
 		},
 		findGroupParticipants: async () => options.groupMembers ?? [],
 		findMine: async () => options.mine ?? [],
-		searchCandidates: async () => [],
+		searchCandidates: async (params: { dependencyId: number | null }) => {
+			calls.candidateScopes.push(params.dependencyId);
+			return options.candidates ?? [];
+		},
 		findAvailable: async (params: { filters: unknown; filter: unknown }) => {
 			calls.availableFilters.push(params.filters);
 			calls.courseFilters.push(params.filter);
@@ -175,6 +193,15 @@ const createHarness = (options: HarnessOptions = {}) => {
 
 	const groupRepository = {
 		findGroupIdsOfUser: async () => [5],
+		findActive: async () => [
+			{
+				id: 900,
+				documentId: GROUP_ID,
+				name: "Ventanilla",
+				dependencyName: "SEDESOL",
+				memberCount: 3,
+			},
+		],
 	} as unknown as ICradle["groupRepository"];
 
 	const runInTransaction = (async <T>(callback: () => Promise<T>) => {
@@ -554,6 +581,62 @@ describe("enrollmentService.assign", () => {
 		});
 	});
 
+	test("inscribe a un grupo completo y omite a los miembros de otra dependencia", async () => {
+		const { service, calls } = createHarness({
+			groupMembers: [
+				participantOf(100, USER_A),
+				{ ...participantOf(101, USER_B), dependencyId: 9 },
+			],
+		});
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [], groupDocumentIds: [GROUP_ID] },
+			actorOf("DEPENDENCY_HEAD", { userId: 60, dependencyId: 4 }),
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { affected: 1, skipped: 1 },
+		});
+		expect(calls.saved.map(({ data }) => data.userId)).toEqual([100]);
+	});
+
+	test("el cupo cuenta a los miembros del grupo junto con las personas", async () => {
+		const { service, calls } = createHarness({
+			seats: { capacity: 10, enrolled: 8 },
+			participants: [participantOf(100, USER_A)],
+			groupMembers: [participantOf(101, USER_B), participantOf(102, "c")],
+		});
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A], groupDocumentIds: [GROUP_ID] },
+			actorOf("DEPENDENCY_HEAD", { userId: 60, dependencyId: 4 }),
+		);
+
+		expect(result).toMatchObject({
+			error: {
+				code: ENROLLMENT_ERROR_CODES.FULL,
+				details: { seatsLeft: 2 },
+			},
+		});
+		expect(calls.saved).toHaveLength(0);
+	});
+
+	test("una dependencia que no organiza el curso inscribe a su personal", async () => {
+		const { service, calls } = createHarness({ managed: false });
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A] },
+			head,
+		);
+
+		expect(result).toMatchObject({ success: true, data: { affected: 1 } });
+		expect(calls.participantScopes).toEqual([3]);
+	});
+
 	test("un capacitador interno solo asigna en los cursos que creó", async () => {
 		const { service, calls } = createHarness({ course: null });
 
@@ -575,9 +658,11 @@ describe("enrollmentService.assign", () => {
 
 describe("enrollmentService.invite", () => {
 	const trainer = actorOf("USER", { isTrainer: true });
+	const byInvitation = courseOf({ access: "INVITATION" });
 
 	test("expande grupos, deduplica y omite a los activos", async () => {
 		const { service, calls } = createHarness({
+			course: byInvitation,
 			participants: [participantOf(100, USER_A)],
 			groupMembers: [
 				participantOf(100, USER_A),
@@ -611,7 +696,10 @@ describe("enrollmentService.invite", () => {
 	});
 
 	test("un grupo fuera de su alcance rechaza el envío", async () => {
-		const { service, calls } = createHarness({ eligibleGroups: 0 });
+		const { service, calls } = createHarness({
+			course: byInvitation,
+			eligibleGroups: 0,
+		});
 
 		const result = await service.invite(
 			COURSE_ID,
@@ -627,7 +715,7 @@ describe("enrollmentService.invite", () => {
 
 	test("un curso cerrado no admite invitaciones", async () => {
 		const { service } = createHarness({
-			course: courseOf({ status: "DRAFT" }),
+			course: courseOf({ access: "INVITATION", status: "DRAFT" }),
 		});
 
 		const result = await service.invite(
@@ -642,7 +730,7 @@ describe("enrollmentService.invite", () => {
 	});
 
 	test("sin alcance de administración falla con su código", async () => {
-		const { service } = createHarness();
+		const { service } = createHarness({ course: byInvitation });
 
 		const result = await service.invite(
 			COURSE_ID,
@@ -652,6 +740,114 @@ describe("enrollmentService.invite", () => {
 
 		expect(result).toMatchObject({
 			error: { code: ENROLLMENT_ERROR_CODES.FORBIDDEN_SCOPE },
+		});
+	});
+
+	test("un curso público o restringido no admite invitaciones", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.invite(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A], groupDocumentIds: [] },
+			trainer,
+		);
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.INVITATIONS_DISABLED },
+		});
+		expect(calls.saved).toHaveLength(0);
+	});
+});
+
+describe("enrollmentService.listRoster", () => {
+	const head = actorOf("DEPENDENCY_HEAD", { dependencyId: 3 });
+
+	test("quien organiza ve a todas las personas", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.listRoster(COURSE_ID, head);
+
+		expect(result).toMatchObject({
+			data: { reach: { organizer: true, canInvite: false } },
+		});
+		expect(calls.rosterScopes).toEqual([null]);
+	});
+
+	test("una dependencia invitada solo ve a su personal", async () => {
+		const { service, calls } = createHarness({ managed: false });
+
+		const result = await service.listRoster(COURSE_ID, head);
+
+		expect(result).toMatchObject({ data: { reach: { organizer: false } } });
+		expect(calls.rosterScopes).toEqual([3]);
+	});
+
+	test("un capacitador interno no alcanza cursos ajenos", async () => {
+		const { service } = createHarness({ managed: false });
+
+		const result = await service.listRoster(
+			COURSE_ID,
+			actorOf("USER", { isTrainer: true }),
+		);
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+	});
+});
+
+describe("enrollmentService.listRosterOptions", () => {
+	const head = actorOf("DEPENDENCY_HEAD", { dependencyId: 4 });
+	const candidateOf = (documentId: string, dependencyId: number) => ({
+		documentId,
+		firstName: null,
+		lastName: null,
+		email: `${documentId}@instituto.gob.mx`,
+		dependencyName: "SEDESOL",
+		dependencyId,
+	});
+
+	test("en un curso por invitación marca a quién solo se puede invitar", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ access: "INVITATION" }),
+			candidates: [candidateOf(USER_A, 4), candidateOf(USER_B, 9)],
+		});
+
+		const result = await service.listRosterOptions(COURSE_ID, undefined, head);
+
+		expect(calls.candidateScopes).toEqual([null]);
+		expect(result).toMatchObject({
+			data: {
+				candidates: [
+					{ documentId: USER_A, assignable: true },
+					{ documentId: USER_B, assignable: false },
+				],
+			},
+		});
+	});
+
+	test("en un curso sin invitación solo ofrece personal propio", async () => {
+		const { service, calls } = createHarness();
+
+		await service.listRosterOptions(COURSE_ID, undefined, head);
+
+		expect(calls.candidateScopes).toEqual([4]);
+	});
+
+	test("cada grupo trae a los miembros que ocuparían lugar", async () => {
+		const { service } = createHarness({
+			enrollable: [
+				{ groupId: 900, userDocumentId: USER_A },
+				{ groupId: 901, userDocumentId: USER_B },
+			],
+		});
+
+		const result = await service.listRosterOptions(COURSE_ID, undefined, head);
+
+		expect(result).toMatchObject({
+			data: {
+				groups: [{ documentId: GROUP_ID, enrollableMemberIds: [USER_A] }],
+			},
 		});
 	});
 });
@@ -830,6 +1026,7 @@ describe("avisos de inscripción e invitación (§6.12)", () => {
 
 	test("invitar avisa solo a los invitados de verdad, no a los omitidos", async () => {
 		const { service, calls } = createHarness({
+			course: courseOf({ access: "INVITATION" }),
 			participants: [participantOf(100, USER_A)],
 			groupMembers: [participantOf(101, USER_B)],
 			existing: [{ userId: 101, status: "INVITED" }],

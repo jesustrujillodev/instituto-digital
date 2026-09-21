@@ -34,7 +34,6 @@ const createHarness = (
 			withdraw: reply("withdraw", null),
 			accept: reply("accept", null),
 			decline: reply("decline", null),
-			assign: reply("assign", { affected: 2, skipped: 1 }),
 		},
 	} as unknown as ActionArgs["context"];
 
@@ -82,25 +81,13 @@ describe("cursos-disponibles/:documentId action", () => {
 		});
 	});
 
-	test("asignar resume el lote", async () => {
+	test("inscribir a otras personas ya no se atiende desde la ficha", async () => {
 		const { context, calls } = createHarness({ role: "DEPENDENCY_HEAD" });
 
 		const result = await run(context, {
 			intent: "assign",
 			userDocumentIds: [USER_ID],
 		});
-
-		expect(result).toMatchObject({
-			success: true,
-			message: "2 asignados, 1 omitido",
-		});
-		expect(calls[0]?.args[1]).toEqual({ userDocumentIds: [USER_ID] });
-	});
-
-	test("asignar sin personas falla en la validación", async () => {
-		const { context, calls } = createHarness({ role: "DEPENDENCY_HEAD" });
-
-		const result = await run(context, { intent: "assign" });
 
 		expect(result).toMatchObject({ success: false });
 		expect(calls).toHaveLength(0);

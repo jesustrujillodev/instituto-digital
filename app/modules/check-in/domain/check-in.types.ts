@@ -11,6 +11,20 @@ import type { AppResponse } from "@/shared/response/response.types";
 export type CheckInSession = QrCourseSession;
 export type CheckInCourse = QrCourse;
 
+// ── Ventana de escaneo ────────────────────────────────────────────────────────
+
+/** La tolerancia que configura el curso, en minutos. */
+export interface CheckInWindow {
+	opensBeforeMinutes: number;
+	closesAfterMinutes: number;
+}
+
+/** Esa tolerancia aplicada a una sesión concreta: el intervalo que acepta escaneos. */
+export interface SessionWindow {
+	opensAt: Date;
+	closesAt: Date;
+}
+
 // ── Lo que ve la pantalla ─────────────────────────────────────────────────────
 
 export interface CheckInCourseView {

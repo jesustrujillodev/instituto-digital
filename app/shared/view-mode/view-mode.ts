@@ -9,6 +9,7 @@ export const VIEW_MODE_SCREENS = {
 	teaching: "imparticion",
 	available: "cursos-disponibles",
 	mine: "mis-cursos",
+	credits: "mis-creditos",
 } as const;
 export type ViewModeScreen =
 	(typeof VIEW_MODE_SCREENS)[keyof typeof VIEW_MODE_SCREENS];

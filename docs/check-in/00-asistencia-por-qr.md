@@ -55,14 +55,22 @@ Escaneo del QR
 
 `resolveSessionOutcome` recorre las sesiones y compara el instante contra
 `[startsAt − opensBefore, endsAt + closesAfter]`, con los bordes **inclusivos**.
+Es un intervalo continuo: vale cualquier instante entre los dos extremos, no
+solo los extremos ni solo el horario de la sesión.
 
 | Situación | Resultado | Qué ve quien escanea |
 | --- | --- | --- |
 | Una ventana contiene el instante | `ACTIVE` | Se registra |
 | Varias la contienen | `ACTIVE`, la que abrió antes | Se registra |
-| Todas por delante | `TOO_EARLY` + `opensAt` | "El registro abre el …" |
-| Todas por detrás | `CLOSED` + `closedAt` | "El registro cerró el …" |
+| Todas por delante | `TOO_EARLY` + `window` | "Todavía no abre… durante todo este rango: …" |
+| Todas por detrás | `CLOSED` + `window` | "El registro estuvo abierto …" |
 | El curso no tiene sesiones | `WITHOUT_SESSIONS` | "Todavía no tiene sesiones" |
+
+Los dos rechazos de ventana llevan el intervalo **entero** (`opensAt` y
+`closesAt`), no el extremo que falta: con un solo instante en pantalla, "abre a
+las 14:30" se lee como el único momento válido. La copia lo imprime con la
+etiqueta de zona (`INSTITUTE_TIME_ZONE_LABEL`), porque quien abre la plataforma
+desde otra zona horaria ve horas que no son las de su reloj.
 
 ## 5. Rechazos
 
@@ -76,8 +84,8 @@ Todos llevan un `code` estable; el texto vive en
 | `CHECK_IN_NOT_ENROLLED` | Sin inscripción, `DECLINED` o `WITHDRAWN` | 403 |
 | `CHECK_IN_INVITATION_PENDING` | `INVITED`, con `details.courseDocumentId` | 403 |
 | `CHECK_IN_WITHOUT_SESSIONS` | Publicado sin sesiones | 409 |
-| `CHECK_IN_SESSION_NOT_OPEN` | Con `details.opensAt` | 409 |
-| `CHECK_IN_SESSION_CLOSED` | Con `details.closedAt` | 409 |
+| `CHECK_IN_SESSION_NOT_OPEN` | Con `details.opensAt` y `details.closesAt` | 409 |
+| `CHECK_IN_SESSION_CLOSED` | Con `details.opensAt` y `details.closesAt` | 409 |
 | `CHECK_IN_RATE_LIMITED` | Con `details.retryAfterMs` | 429 |
 | `CHECK_IN_FORBIDDEN_SCOPE` | Rotar el QR sin alcance de impartición | 403 |
 

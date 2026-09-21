@@ -69,6 +69,7 @@ import { createMemorySingleFlight } from "@/shared/concurrency/single-flight.mem
 import { createConsoleLogger } from "@/shared/logging/logger.console";
 import { createMailerFromEnv } from "@/shared/mail/mailer.factory.server";
 import { createMemoryRateLimiter } from "@/shared/rate-limit/rate-limiter.memory";
+import { createExcelSpreadsheetWriter } from "@/shared/spreadsheet/exceljs.spreadsheet-writer.server";
 import { createAssetUrlResolver } from "@/shared/storage/public-url";
 import { createStorageProviderFromEnv } from "@/shared/storage/storage.factory";
 import { systemClock } from "@/shared/time/clock";
@@ -246,6 +247,7 @@ export const configureContainer = async (
 		annualPlanService: asSingleton(createAnnualPlanService),
 		mailer: asValue(mailer),
 		appBaseUrl: asValue(appBaseUrl),
+		spreadsheetWriter: asValue(createExcelSpreadsheetWriter()),
 		notificationRepository: asSingleton(createNotificationRepository),
 		notificationService: asSingleton(createNotificationService),
 		// Una fuente por módulo que guarda keys de storage. Añadir un módulo con

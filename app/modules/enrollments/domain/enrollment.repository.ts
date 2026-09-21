@@ -7,6 +7,7 @@ import type {
 import type { EnrollmentStatus } from "./enrollment.config";
 import type {
 	AvailableCourseRow,
+	CandidateAccount,
 	CourseOrganizerOption,
 	EnrollmentCourse,
 	EnrollmentState,
@@ -15,7 +16,6 @@ import type {
 	MyCourseRecord,
 	NotifiableParticipant,
 	ParticipantAccount,
-	ParticipantCandidate,
 	ResultWrite,
 	RosterEntry,
 	StoredEnrollment,
@@ -105,7 +105,11 @@ export interface IEnrollmentRepository {
 
 	/** Invitaciones pendientes e inscripciones activas de la persona. */
 	findMine(userId: number): Promise<MyCourseRecord[]>;
-	findRoster(courseId: number): Promise<RosterEntry[]>;
+	/** Con `dependencyId`, solo quienes se inscribieron con esa dependencia. */
+	findRoster(
+		courseId: number,
+		dependencyId: number | null,
+	): Promise<RosterEntry[]>;
 
 	/** Cuentas internas y activas de entre las pedidas; con `dependencyId`, solo de esa dependencia. */
 	findParticipants(
@@ -116,10 +120,19 @@ export interface IEnrollmentRepository {
 	findGroupParticipants(
 		groupIds: readonly number[],
 	): Promise<ParticipantAccount[]>;
+	/**
+	 * Por grupo, los miembros internos y activos que aún no están inscritos al
+	 * curso; con `dependencyId`, solo los de esa dependencia.
+	 */
+	findGroupEnrollable(params: {
+		courseId: number;
+		groupIds: readonly number[];
+		dependencyId: number | null;
+	}): Promise<{ groupId: number; userDocumentId: string }[]>;
 	/** Personas sin invitación pendiente ni inscripción activa en el curso. */
 	searchCandidates(params: {
 		courseId: number;
 		dependencyId: number | null;
 		search?: string;
-	}): Promise<ParticipantCandidate[]>;
+	}): Promise<CandidateAccount[]>;
 }

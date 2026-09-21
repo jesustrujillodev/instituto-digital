@@ -41,6 +41,7 @@ const COURSE_SELECT = {
 	status: true,
 	capacity: true,
 	enrollmentDeadline: true,
+	finishedAt: true,
 	dependency: { select: { name: true } },
 	_count: {
 		select: { enrollments: { where: { status: "ENROLLED" } } },
@@ -359,9 +360,9 @@ export const createEnrollmentRepository = ({
 			);
 		},
 
-		async findRoster(courseId) {
+		async findRoster(courseId, dependencyId) {
 			const rows = await prisma.enrollment.findMany({
-				where: { courseId },
+				where: { courseId, ...(dependencyId !== null && { dependencyId }) },
 				orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
 				select: {
 					documentId: true,
@@ -416,6 +417,28 @@ export const createEnrollmentRepository = ({
 			return toParticipants(rows);
 		},
 
+		async findGroupEnrollable({ courseId, groupIds, dependencyId }) {
+			if (groupIds.length === 0) return [];
+
+			const rows = await prisma.groupMember.findMany({
+				where: {
+					groupId: { in: [...groupIds] },
+					user: {
+						type: "INTERNAL",
+						archivedAt: null,
+						dependencyId: dependencyId ?? { not: null },
+						enrollments: { none: { courseId, status: "ENROLLED" } },
+					},
+				},
+				select: { groupId: true, user: { select: { documentId: true } } },
+			});
+
+			return rows.map((row) => ({
+				groupId: row.groupId,
+				userDocumentId: row.user.documentId,
+			}));
+		},
+
 		async searchCandidates({ courseId, dependencyId, search }) {
 			const rows = await prisma.user.findMany({
 				where: {
@@ -436,14 +459,22 @@ export const createEnrollmentRepository = ({
 					firstName: true,
 					lastName: true,
 					email: true,
+					dependencyId: true,
 					dependency: { select: { name: true } },
 				},
 			});
 
-			return rows.map(({ dependency, ...candidate }) => ({
-				...candidate,
-				dependencyName: dependency?.name ?? "",
-			}));
+			return rows.flatMap(({ dependency, dependencyId, ...candidate }) =>
+				dependencyId === null
+					? []
+					: [
+							{
+								...candidate,
+								dependencyId,
+								dependencyName: dependency?.name ?? "",
+							},
+						],
+			);
 		},
 
 		async findAvailableOrganizers({ filters, filter, now }) {

@@ -289,6 +289,32 @@
 		--sileo-state-info: oklch(0.45 0 0);
 		--sileo-state-action: oklch(from var(--primary) 0.5 c h);
 	}
+
+	/*
+	 * La píldora lleva el tono del primario, apenas: con la misma luminosidad que
+	 * los #1a1a1a / #f2f2f2 de Sileo y un croma que no llega a leerse como color,
+	 * solo como un grafito o un papel de la casa. Al conservar la luminosidad, el
+	 * contraste medido arriba no se mueve. `fill` por CSS gana al atributo que
+	 * pone Sileo, y la animación no lo toca.
+	 */
+	body
+		[data-sileo-viewport][data-theme="light"]
+		:is([data-sileo-pill], [data-sileo-body]) {
+		fill: oklch(from var(--primary) 0.218 0.018 h);
+	}
+	body
+		[data-sileo-viewport][data-theme="dark"]
+		:is([data-sileo-pill], [data-sileo-body]) {
+		fill: oklch(from var(--primary) 0.961 0.008 h);
+	}
+}
+
+/* Tamaños de la escala del tema (`text-sm`) y no los rem fijos de Sileo, para
+   que el "Tamaño base" del builder también los mueva. La familia ya llega
+   heredada de <body>. */
+body [data-sileo-viewport] [data-sileo-title],
+body [data-sileo-viewport] [data-sileo-description] {
+	font-size: calc(var(--theme-font-size) * 0.875);
 }
 
 /* Por encima del velo de Sheet y Dialog (z-50): un toast lanzado desde un panel
@@ -349,6 +375,12 @@ body [data-sileo-viewport][data-theme="dark"] [data-sileo-description] {
 	button:not(:disabled),
 	[role="button"]:not([aria-disabled="true"]) {
 		cursor: pointer;
+	}
+	/* Edge pinta su propio ojo dentro de los campos de contraseña: dos controles
+	   para lo mismo, y el suyo ignora el tema y el foco de la aplicación. */
+	input::-ms-reveal,
+	input::-ms-clear {
+		display: none;
 	}
 	::selection {
 		@apply bg-primary text-primary-foreground;

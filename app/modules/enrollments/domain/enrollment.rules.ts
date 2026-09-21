@@ -2,6 +2,7 @@ import * as v from "valibot";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import {
 	COURSE_MODALITIES,
+	type CourseAccessType,
 	type CourseStatus,
 } from "@/modules/courses/domain/course.rules";
 import type { Role } from "@/shared/rules/atoms.rules";
@@ -33,11 +34,8 @@ export const searchParticipantsRule = v.object({
 	search: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
 });
 
-export const assignParticipantsRule = v.object({
-	userDocumentIds: v.pipe(documentIds, v.minLength(1)),
-});
-
-export const inviteParticipantsRule = v.pipe(
+/** Un lote de personas, de grupos o de ambos: lo mismo para inscribir que para invitar. */
+const participantBatchRule = v.pipe(
 	v.object({
 		userDocumentIds: v.optional(documentIds, []),
 		groupDocumentIds: v.optional(documentIds, []),
@@ -47,6 +45,9 @@ export const inviteParticipantsRule = v.pipe(
 		"Elige al menos una persona o un grupo",
 	),
 );
+
+export const assignParticipantsRule = participantBatchRule;
+export const inviteParticipantsRule = participantBatchRule;
 
 export const enrollmentRules = {
 	findCourse: findEnrollmentCourseRule,
@@ -100,6 +101,14 @@ export const isEnrollmentOpen = (
 
 	return course.status === "PUBLISHED" && closesAt !== null && now < closesAt;
 };
+
+/**
+ * Invitar solo tiene sentido donde nadie más puede entrar: en un curso público
+ * o restringido, quien está en la audiencia ya puede inscribirse solo.
+ */
+export const acceptsInvitations = (course: {
+	access: CourseAccessType;
+}): boolean => course.access === "INVITATION";
 
 export const canWithdraw = (
 	course: Pick<EnrollmentWindow, "status" | "firstSessionAt">,

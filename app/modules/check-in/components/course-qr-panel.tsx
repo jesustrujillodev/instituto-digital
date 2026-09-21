@@ -2,7 +2,7 @@ import { Download, QrCode, RefreshCw } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
-import { formatZonedDate } from "@/lib/date-utils";
+import { formatZonedDate, INSTITUTE_TIME_ZONE_LABEL } from "@/lib/date-utils";
 import {
 	INTENT_FIELD,
 	TEACHING_INTENTS,
@@ -114,9 +114,10 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 						Asistencia por QR
 					</h2>
 					<p className="text-xs text-muted-foreground">
-						Quien escanea registra su asistencia a la sesión en curso. Abre{" "}
-						{qr.opensBeforeMinutes} min antes y cierra {qr.closesAfterMinutes}{" "}
-						min después de cada sesión.
+						Quien escanea registra su asistencia a la sesión en curso. Acepta
+						registros sin interrupción desde {qr.opensBeforeMinutes} min antes
+						del inicio hasta {qr.closesAfterMinutes} min después del fin de cada
+						sesión, en {INSTITUTE_TIME_ZONE_LABEL}.
 					</p>
 				</div>
 

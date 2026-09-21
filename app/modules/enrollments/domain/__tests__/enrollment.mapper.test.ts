@@ -20,6 +20,7 @@ const rawOf = (
 	status: "PUBLISHED",
 	capacity: 2,
 	enrollmentDeadline: null,
+	finishedAt: null,
 	dependency: { name: "SEDESOL" },
 	_count: { enrollments: 1 },
 	sessions: [

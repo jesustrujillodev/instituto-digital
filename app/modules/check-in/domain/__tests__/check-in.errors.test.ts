@@ -25,11 +25,17 @@ describe("códigos", () => {
 		],
 		[new CheckInWithoutSessionsError(), CHECK_IN_ERROR_CODES.WITHOUT_SESSIONS],
 		[
-			new CheckInSessionNotOpenError(new Date(0)),
+			new CheckInSessionNotOpenError({
+				opensAt: new Date(0),
+				closesAt: new Date(0),
+			}),
 			CHECK_IN_ERROR_CODES.SESSION_NOT_OPEN,
 		],
 		[
-			new CheckInSessionClosedError(new Date(0)),
+			new CheckInSessionClosedError({
+				opensAt: new Date(0),
+				closesAt: new Date(0),
+			}),
 			CHECK_IN_ERROR_CODES.SESSION_CLOSED,
 		],
 		[new CheckInRateLimitedError(1000), CHECK_IN_ERROR_CODES.RATE_LIMITED],
@@ -41,15 +47,19 @@ describe("códigos", () => {
 });
 
 describe("details", () => {
+	// Los dos extremos, no solo el que falta: la copia describe el rango entero.
 	test("las fechas viajan como ISO, serializables en el envelope", () => {
-		const opensAt = new Date("2026-09-01T16:45:00.000Z");
-
-		expect(new CheckInSessionNotOpenError(opensAt).details).toEqual({
+		const window = {
+			opensAt: new Date("2026-09-01T16:45:00.000Z"),
+			closesAt: new Date("2026-09-01T19:15:00.000Z"),
+		};
+		const range = {
 			opensAt: "2026-09-01T16:45:00.000Z",
-		});
-		expect(new CheckInSessionClosedError(opensAt).details).toEqual({
-			closedAt: "2026-09-01T16:45:00.000Z",
-		});
+			closesAt: "2026-09-01T19:15:00.000Z",
+		};
+
+		expect(new CheckInSessionNotOpenError(window).details).toEqual(range);
+		expect(new CheckInSessionClosedError(window).details).toEqual(range);
 	});
 
 	test("la invitación pendiente lleva el curso para poder enlazarla", () => {

@@ -1,10 +1,11 @@
-import { EyeIcon, EyeOff, Key } from "lucide-react";
+import { Key } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
 import { Link } from "react-router";
 import { generateSecurePassword } from "@/lib/password-generator";
 import { cn } from "@/lib/utils";
 import { Input, type InputProps } from "../ui/input";
 import { Label } from "../ui/label";
+import { PasswordVisibilityToggle } from "./password-visibility-toggle";
 
 interface Props extends InputProps {
 	label: string;
@@ -160,27 +161,13 @@ export function PasswordInput({
 					{...props}
 					type={!showPassword ? "password" : "text"}
 				/>
-				<div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-3">
-					<button
-						type="button"
-						onClick={() => setShowPassword(!showPassword)}
-						className={cn(
-							"lg:cursor-pointer transition-colors",
-							hasError
-								? "text-destructive hover:text-destructive/80"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-						aria-label={
-							showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-						}
-					>
-						{showPassword ? (
-							<EyeIcon className="h-4 w-4" />
-						) : (
-							<EyeOff className="h-4 w-4" />
-						)}
-					</button>
-				</div>
+				<PasswordVisibilityToggle
+					visible={showPassword}
+					onToggle={() => setShowPassword(!showPassword)}
+					controls={props.id ?? props.name}
+					disabled={props.disabled}
+					invalid={hasError}
+				/>
 			</div>
 			{error && (
 				<span

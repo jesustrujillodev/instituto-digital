@@ -1,14 +1,24 @@
-import { formatZonedDate, formatZonedTime } from "@/lib/date-utils";
+import {
+	formatSessionRange,
+	INSTITUTE_TIME_ZONE_LABEL,
+} from "@/lib/date-utils";
 import { HTTP_STATUS } from "@/shared/http/route-error";
 import type { ErrorMessageMap } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import { CHECK_IN_ERROR_CODES } from "../domain/check-in.errors";
 
-const at = (value: unknown): string => {
-	const date = new Date(String(value));
-	return Number.isNaN(date.getTime())
-		? "otro momento"
-		: `${formatZonedDate(date)} a las ${formatZonedTime(date)}`;
+/** "21 sep 2026, 14:30–15:15 (hora de Tijuana)", o null si los ISO no llegaron. */
+const windowOf = (
+	details: Record<string, unknown> | undefined,
+): string | null => {
+	const opensAt = new Date(String(details?.opensAt));
+	const closesAt = new Date(String(details?.closesAt));
+
+	if (Number.isNaN(opensAt.getTime()) || Number.isNaN(closesAt.getTime())) {
+		return null;
+	}
+
+	return `${formatSessionRange(opensAt, closesAt)} (${INSTITUTE_TIME_ZONE_LABEL})`;
 };
 
 export const CHECK_IN_ERROR_MESSAGES: ErrorMessageMap = {
@@ -39,13 +49,22 @@ export const CHECK_IN_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CHECK_IN_ERROR_CODES.SESSION_NOT_OPEN]: {
-		message: (error) =>
-			`El registro de la próxima sesión abre el ${at(error.details?.opensAt)}.`,
+		message: (error) => {
+			const window = windowOf(error.details);
+			return window
+				? `Todavía no abre el registro. Podrás registrar tu asistencia durante todo este rango: ${window}.`
+				: "Todavía no abre el registro de la próxima sesión.";
+		},
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CHECK_IN_ERROR_CODES.SESSION_CLOSED]: {
-		message: (error) =>
-			`El registro cerró el ${at(error.details?.closedAt)}. Pide a quien imparte el curso que registre tu asistencia.`,
+		message: (error) => {
+			const window = windowOf(error.details);
+			const closed = window
+				? `El registro estuvo abierto ${window}.`
+				: "El registro de la última sesión ya cerró.";
+			return `${closed} Pide a quien imparte el curso que registre tu asistencia.`;
+		},
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CHECK_IN_ERROR_CODES.RATE_LIMITED]: {

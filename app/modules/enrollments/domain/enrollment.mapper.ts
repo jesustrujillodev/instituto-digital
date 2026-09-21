@@ -40,6 +40,7 @@ export interface EnrollmentCourseRaw {
 	status: CourseStatus;
 	capacity: number | null;
 	enrollmentDeadline: Date | null;
+	finishedAt: Date | null;
 	dependency: { name: string };
 	_count: { enrollments: number };
 	sessions: readonly {
@@ -74,6 +75,7 @@ export const toEnrollmentCourse = (
 		capacity: raw.capacity,
 		enrolledCount: raw._count.enrollments,
 		enrollmentDeadline: raw.enrollmentDeadline,
+		finishedAt: raw.finishedAt,
 		sessions,
 		trainers: raw.trainers.map(({ user }) => ({ ...user })),
 		firstSessionAt: sessions.at(0)?.startsAt ?? null,

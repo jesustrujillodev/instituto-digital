@@ -48,6 +48,6 @@ EXPOSE 3000
 # Las migraciones se aplican externamente (CI/CD o script manual contra Neon)
 # antes del deploy, por lo que el contenedor solo levanta el servidor.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD curl -f http://localhost:3000/ || exit 1
+  CMD curl -f "http://localhost:${PORT}/" || exit 1
 
 CMD ["node", "node_modules/@react-router/serve/bin.js", "./build/server/index.js"]

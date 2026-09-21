@@ -50,7 +50,7 @@ worker (cada 15 s)   ▼
 | `SMTP_SECURE` | `false` | `true` para el puerto 465 |
 | `SMTP_USER`, `SMTP_PASSWORD` | — | Autenticación, si el servidor la pide |
 | `MAIL_FROM` | — | Remitente. Obligatorio con `SMTP_HOST` |
-| `APP_BASE_URL` | `http://localhost:5173` | Origen de los enlaces, sin barra final. Obligatorio con `SMTP_HOST`; `https` en producción |
+| `APP_BASE_URL` | `RAILWAY_PUBLIC_DOMAIN`, si lo hay | Origen de los enlaces, sin barra final. Obligatorio con `SMTP_HOST`; `https` en producción. En Railway se deriva del dominio público del servicio, y solo se declara con dominio propio |
 | `EMAIL_WORKER_ENABLED` | Sí, salvo en `test` | `false` para un proceso que no debe enviar |
 | `EMAIL_WORKER_INTERVAL_S` | 15 | Periodo del worker |
 

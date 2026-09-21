@@ -16,7 +16,7 @@ import {
 } from "../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/:documentId/inscripciones — invitar o asignar. */
+/** POST /dashboard/cursos/:documentId/inscripciones — inscribir o invitar. */
 export const action = async ({
 	request,
 	context,
@@ -60,6 +60,7 @@ export const action = async ({
 				documentId: documentId(),
 				dto: validateAssignParticipants({
 					userDocumentIds: form.userDocumentIds,
+					groupDocumentIds: form.groupDocumentIds,
 				}),
 			}));
 			if (!input.success)
@@ -76,8 +77,8 @@ export const action = async ({
 
 			return ok(null, {
 				message: batchMessage(result.data, {
-					singular: "asignado",
-					plural: "asignados",
+					singular: "inscrito",
+					plural: "inscritos",
 				}),
 			});
 		}

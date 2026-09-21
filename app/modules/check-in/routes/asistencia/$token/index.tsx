@@ -7,7 +7,11 @@ import {
 	useLoaderData,
 	useRouteError,
 } from "react-router";
-import { formatSessionRange, formatZonedTime } from "@/lib/date-utils";
+import {
+	formatSessionRange,
+	formatZonedTime,
+	INSTITUTE_TIME_ZONE_LABEL,
+} from "@/lib/date-utils";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import { InstitutionalLogo } from "@/shared/components/common/institutional-logo";
 import { Button } from "@/shared/components/ui/button";
@@ -67,6 +71,9 @@ export default function AsistenciaPage() {
 			<p className="text-sm text-muted-foreground">
 				{formatSessionRange(data.session.startsAt, data.session.endsAt)}
 			</p>
+			<p className="text-xs text-muted-foreground">
+				{INSTITUTE_TIME_ZONE_LABEL}
+			</p>
 			{data.session.venue && (
 				<p className="text-sm text-muted-foreground">{data.session.venue}</p>
 			)}
@@ -86,7 +93,8 @@ export default function AsistenciaPage() {
 								: "Asistencia registrada"}
 						</p>
 						<p className="mt-1 text-xs text-muted-foreground">
-							{formatZonedTime(result.data.recordedAt)}
+							{formatZonedTime(result.data.recordedAt)} (
+							{INSTITUTE_TIME_ZONE_LABEL})
 						</p>
 					</div>
 				)}

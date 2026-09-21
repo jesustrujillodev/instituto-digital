@@ -1,4 +1,5 @@
 import type * as v from "valibot";
+import type { CourseModality } from "@/modules/courses/domain/course.rules";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	creditsOverviewQueryRule,
@@ -41,14 +42,33 @@ export interface CreditWriteContext {
 
 // ── Lectura ───────────────────────────────────────────────────────────────────
 
+export interface MyCreditCourse {
+	documentId: string;
+	title: string;
+	modality: CourseModality;
+	coverUrl: string | null;
+	/** La organizadora del curso. */
+	dependencyName: string;
+	sessionCount: number;
+	firstSessionAt: Date | null;
+	lastSessionEndsAt: Date | null;
+	totalMinutes: number;
+}
+
 export interface MyCredit {
 	documentId: string;
-	courseDocumentId: string;
-	courseTitle: string;
 	/** La dependencia para la que cuenta, que puede no ser la actual. */
 	dependencyName: string;
 	fiscalYear: number;
 	grantedAt: Date;
+	course: MyCreditCourse;
+	attendedSessions: number;
+	grade: number | null;
+}
+
+export interface CreditTally {
+	label: string;
+	total: number;
 }
 
 export interface MyCredits {
@@ -56,7 +76,10 @@ export interface MyCredits {
 	yearTotal: number;
 	historicTotal: number;
 	/** Ejercicios con algún crédito, más el pedido. Descendentes. */
-	years: number[];
+	years: { fiscalYear: number; total: number }[];
+	/** Del ejercicio, de mayor a menor. */
+	byDependency: CreditTally[];
+	/** Solo los del ejercicio. */
 	credits: MyCredit[];
 }
 

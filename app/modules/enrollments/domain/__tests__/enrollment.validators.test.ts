@@ -37,11 +37,18 @@ describe("validateSearchParticipants", () => {
 });
 
 describe("validateAssignParticipants", () => {
-	test("exige al menos una persona", () => {
+	test("exige al menos una persona o un grupo", () => {
 		expect(() => validateAssignParticipants({ userDocumentIds: [] })).toThrow();
 		expect(validateAssignParticipants({ userDocumentIds: [USER_ID] })).toEqual({
 			userDocumentIds: [USER_ID],
+			groupDocumentIds: [],
 		});
+	});
+
+	test("inscribe un grupo completo sin personas sueltas", () => {
+		expect(
+			validateAssignParticipants({ groupDocumentIds: [GROUP_ID] }),
+		).toEqual({ userDocumentIds: [], groupDocumentIds: [GROUP_ID] });
 	});
 });
 

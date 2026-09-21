@@ -48,6 +48,8 @@ export const ENROLLMENT_ERROR_MESSAGES: ErrorMessageMap = {
 		"Alguna de las personas elegidas no está disponible para este curso.",
 	[ENROLLMENT_ERROR_CODES.UNKNOWN_GROUP]:
 		"Alguno de los grupos elegidos ya no está disponible.",
+	[ENROLLMENT_ERROR_CODES.INVITATIONS_DISABLED]:
+		"Este curso no es por invitación: inscribe a las personas directamente.",
 	[ENROLLMENT_ERROR_CODES.STATE_CHANGED]:
 		"La inscripción cambió mientras se procesaba. Recarga e inténtalo de nuevo.",
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

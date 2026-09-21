@@ -59,6 +59,9 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Inscribirse, aceptar y asignar ocupan lugar; invitar no | `assertSeatsFor` en `enroll`, `accept` y `assign` |
 | Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos y `SUPERADMIN` quedan fuera) |
 | Asignar es todo o nada: si no hay cupo para el lote, nadie entra | `assign` |
+| Asignar e invitar aceptan personas y grupos; un grupo se expande a sus miembros internos y activos | `resolveBatch` en el servicio |
+| Una persona elegida fuera de alcance rechaza el lote; un miembro de grupo fuera de alcance solo se omite | `resolveBatch` |
+| Solo se invita en cursos `INVITATION`: en uno público o restringido, la audiencia ya puede inscribirse sola | `acceptsInvitations`, `ENROLLMENT_INVITATIONS_DISABLED` |
 | Invitar omite a quien ya está `INVITED` o `ENROLLED` y reinvita a quien rechazó o se dio de baja | `invite` |
 
 El instante actual llega por el cradle (`clock`) para probar estas reglas con
@@ -69,9 +72,14 @@ fechas fijas.
 | Operación | Quién | Alcance |
 | --- | --- | --- |
 | Ver cursos disponibles, inscribirse, baja, aceptar, rechazar | Quien cumple `canParticipate` | Lo que ve según `courseVisibilityWhere` |
-| Asignar (desde el detalle o desde Inscripciones) | Superadministrador, titular, auxiliar, capacitador interno | Superadministrador: cualquier curso y persona. Titular y auxiliar: cursos que ve su dependencia (`dependencyVisibilityWhere`). Capacitador: los que creó. En los tres últimos, solo personal de su dependencia |
-| Invitar personas o grupos | Los mismos | Cursos que administran; grupos de `toAudienceScope` |
-| Ver la lista de inscritos | Los mismos | `courseScopeWhere` |
+| Asignar personas o grupos | Superadministrador, titular, auxiliar, capacitador interno | Superadministrador: cualquier curso y persona. Titular y auxiliar: cursos que ve su dependencia (`dependencyVisibilityWhere`). Capacitador: los que creó. En los tres últimos, solo personal de su dependencia |
+| Invitar personas o grupos | Los mismos | Cursos `INVITATION` que ven. Quien organiza invita a cualquier dependencia; los demás, solo a su personal |
+| Ver la lista de inscritos | Los mismos | Quien organiza la ve completa; una dependencia que manda personal a un curso ajeno ve solo a la suya |
+
+Las cuatro operaciones resuelven el alcance en `requireRosterAccess`: primero con
+el filtro de escritura (organiza) y, si no, con `dependencyVisibilityWhere`
+(manda personal). Hoy ninguna dependencia ve los cursos `INVITATION` de otra, así
+que en la práctica solo quien organiza invita.
 
 Un curso fuera de alcance responde **404**, igual que uno inexistente.
 
@@ -80,9 +88,10 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 | Ruta | Guard | Pantalla |
 | --- | --- | --- |
 | `/dashboard/cursos-disponibles` | `requireParticipant` | Cuadrícula de tarjetas con portada. Publicados, visibles y con la inscripción abierta |
-| `/dashboard/cursos-disponibles/:documentId` | `requireParticipant` | Detalle con sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`, `assign` |
+| `/dashboard/cursos-disponibles/:documentId` | `requireParticipant` | Detalle con sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`. Si la dependencia puede asignar, enlaza a Inscripciones con "Inscribir a mi personal" |
 | `/dashboard/mis-cursos` | `requireParticipant` | Invitaciones pendientes, más próximos, en curso y finalizados. Intents `accept`, `decline` |
-| `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Lista de inscritos e invitados. Intents `invite` y `assign` |
+| `/dashboard/mis-cursos/finalizados.xlsx` | `requireParticipant` | Ruta de recurso: descarga los finalizados en Excel, con una hoja "Cursos" y otra "Sesiones". El libro lo arma `spreadsheetWriter` (exceljs), y las fechas salen en la hora del instituto |
+| `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign` e `invite`. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
 
 El menú muestra "Cursos disponibles" y "Mis cursos" a `USER`, `DEPENDENCY_HEAD` y
 `DEPENDENCY_DEPUTY`. El capacitador externo tiene rol `USER` y ve los enlaces,

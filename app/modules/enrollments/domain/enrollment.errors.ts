@@ -12,6 +12,7 @@ export const ENROLLMENT_ERROR_CODES = {
 	FORBIDDEN_SCOPE: "ENROLLMENT_FORBIDDEN_SCOPE",
 	UNKNOWN_PARTICIPANT: "ENROLLMENT_UNKNOWN_PARTICIPANT",
 	UNKNOWN_GROUP: "ENROLLMENT_UNKNOWN_GROUP",
+	INVITATIONS_DISABLED: "ENROLLMENT_INVITATIONS_DISABLED",
 	STATE_CHANGED: "ENROLLMENT_STATE_CHANGED",
 } as const;
 
@@ -98,6 +99,14 @@ export class EnrollmentUnknownGroupError extends EnrollmentError {
 	readonly code = ENROLLMENT_ERROR_CODES.UNKNOWN_GROUP;
 	constructor() {
 		super("One or more selected groups are not available");
+	}
+}
+
+/** El curso no es por invitación: a su audiencia se la inscribe, no se la invita. */
+export class EnrollmentInvitationsDisabledError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.INVITATIONS_DISABLED;
+	constructor() {
+		super("Course does not accept invitations");
 	}
 }
 

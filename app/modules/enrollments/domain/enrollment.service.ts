@@ -9,7 +9,6 @@ import type {
 	InviteParticipantsDto,
 	ListAvailableCoursesDto,
 	MyCoursesResponse,
-	ParticipantCandidatesResponse,
 	RosterOptionsResponse,
 } from "./enrollment.types";
 
@@ -28,13 +27,10 @@ export interface IEnrollmentService {
 		actor: AuthContext,
 	): Promise<AvailableCourseDetailResponse>;
 	listMine(actor: AuthContext): Promise<MyCoursesResponse>;
-	/** Personal de la dependencia del actor al que puede asignar al curso. */
-	listAssignCandidates(
-		courseDocumentId: string,
-		search: string | undefined,
-		actor: AuthContext,
-	): Promise<ParticipantCandidatesResponse>;
-
+	/**
+	 * Quien organiza ve a todas las personas; una dependencia que manda personal
+	 * a un curso ajeno, solo a la suya.
+	 */
 	listRoster(
 		courseDocumentId: string,
 		actor: AuthContext,
@@ -61,13 +57,19 @@ export interface IEnrollmentService {
 		courseDocumentId: string,
 		actor: AuthContext,
 	): Promise<EnrollmentMutationResponse>;
-	/** Todo o nada: si falta cupo para el lote, no inscribe a nadie. */
+	/**
+	 * Inscribe personas y miembros de grupos. Todo o nada: si falta cupo para el
+	 * lote, no inscribe a nadie. Los miembros fuera de su alcance se omiten.
+	 */
 	assign(
 		courseDocumentId: string,
 		dto: AssignParticipantsDto,
 		actor: AuthContext,
 	): Promise<BatchResultResponse>;
-	/** No ocupa cupo; omite a quien ya tiene invitación o inscripción activa. */
+	/**
+	 * Solo en cursos por invitación. No ocupa cupo; omite a quien ya tiene
+	 * invitación o inscripción activa.
+	 */
 	invite(
 		courseDocumentId: string,
 		dto: InviteParticipantsDto,

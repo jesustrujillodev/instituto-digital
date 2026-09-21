@@ -5,12 +5,36 @@ import { createCreditRepository } from "../credits.repository.server";
 const AT = new Date("2026-09-03T17:00:00.000Z");
 const CONTEXT = { courseId: 10, fiscalYear: 2026, at: AT, actorId: 9 };
 
+const MINE_ROW = {
+	documentId: "k",
+	fiscalYear: 2026,
+	grantedAt: AT,
+	dependency: { name: "Obras Públicas" },
+	course: {
+		id: 10,
+		documentId: "c",
+		title: "Liderazgo",
+		modality: "IN_PERSON",
+		coverImageUrl: null,
+		dependency: { name: "Oficialía Mayor" },
+		sessions: [
+			{
+				startsAt: new Date("2026-09-01T16:00:00.000Z"),
+				endsAt: new Date("2026-09-01T18:00:00.000Z"),
+			},
+		],
+		enrollments: [{ grade: 88 }],
+	},
+};
+
 const createHarness = (groups: unknown[] = []) => {
 	const calls: Record<string, Record<string, unknown>[]> = {
 		createMany: [],
 		updateMany: [],
 		userFindMany: [],
 		dependencyFindMany: [],
+		creditFindMany: [],
+		attendanceFindMany: [],
 	};
 
 	const repository = createCreditRepository({
@@ -23,6 +47,16 @@ const createHarness = (groups: unknown[] = []) => {
 					calls.updateMany.push(args);
 				},
 				groupBy: async () => groups,
+				findMany: async (args: Record<string, unknown>) => {
+					calls.creditFindMany.push(args);
+					return [MINE_ROW];
+				},
+			},
+			courseAttendance: {
+				findMany: async (args: Record<string, unknown>) => {
+					calls.attendanceFindMany.push(args);
+					return [{ session: { courseId: 10 } }, { session: { courseId: 10 } }];
+				},
 			},
 			user: {
 				findMany: async (args: Record<string, unknown>) => {
@@ -50,6 +84,7 @@ const createHarness = (groups: unknown[] = []) => {
 				},
 			},
 		} as unknown as ICradle["prisma"],
+		assetUrlResolver: (key: string) => `https://cdn.test/${key}`,
 	});
 
 	return { repository, calls };
@@ -106,6 +141,31 @@ describe("escrituras", () => {
 		expect(calls.updateMany[0].data).toMatchObject({
 			revokedAt: null,
 			revokedById: null,
+		});
+	});
+});
+
+describe("findMine", () => {
+	test("solo vigentes, con la asistencia propia contada por curso", async () => {
+		const { repository, calls } = createHarness();
+
+		const [credit] = await repository.findMine(50);
+
+		expect(calls.creditFindMany[0]).toMatchObject({
+			where: { userId: 50, revokedAt: null },
+		});
+		expect(calls.attendanceFindMany[0]).toMatchObject({
+			where: {
+				userId: 50,
+				attended: true,
+				session: { courseId: { in: [10] } },
+			},
+		});
+		expect(credit).toMatchObject({
+			dependencyName: "Obras Públicas",
+			attendedSessions: 2,
+			grade: 88,
+			course: { dependencyName: "Oficialía Mayor", totalMinutes: 120 },
 		});
 	});
 });

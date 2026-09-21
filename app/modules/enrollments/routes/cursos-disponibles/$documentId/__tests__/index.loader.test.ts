@@ -11,10 +11,7 @@ import { loader } from "../index.loader";
 
 type LoaderArgs = Parameters<typeof loader>[0];
 
-const createHarness = (
-	options: ActorOptions & { canAssign?: boolean; findFails?: string } = {},
-) => {
-	const calls = { candidateSearches: [] as unknown[] };
+const createHarness = (options: ActorOptions & { findFails?: string } = {}) => {
 	const context = {
 		authPayload: authPayloadOf(options),
 		enrollmentService: {
@@ -24,16 +21,12 @@ const createHarness = (
 					: okReply({
 							course: { documentId: COURSE_ID },
 							enrollment: null,
-							can: { assign: options.canAssign ?? false },
+							can: { assign: true },
 						}),
-			listAssignCandidates: async (_id: string, search: unknown) => {
-				calls.candidateSearches.push(search);
-				return okReply([{ documentId: "u1" }]);
-			},
 		},
 	} as unknown as LoaderArgs["context"];
 
-	return { context, calls };
+	return { context };
 };
 
 const run = (context: LoaderArgs["context"], query = "") =>
@@ -55,25 +48,15 @@ describe("cursos-disponibles/:documentId loader", () => {
 		expect(thrown.init.status).toBe(404);
 	});
 
-	test("sin permiso de asignar no busca candidatos", async () => {
-		const { context, calls } = createHarness();
+	test("la ficha solo trae el detalle: inscribir personal vive en su propia vista", async () => {
+		const { context } = createHarness({ role: "DEPENDENCY_HEAD" });
 
-		const { data } = await run(context, "?persona=ana");
+		const { data } = await run(context);
 
-		expect(calls.candidateSearches).toHaveLength(0);
-		expect(data.candidates).toEqual([]);
-	});
-
-	test("el titular recibe los candidatos con el término de la URL", async () => {
-		const { context, calls } = createHarness({
-			role: "DEPENDENCY_HEAD",
-			canAssign: true,
+		expect(data).toEqual({
+			course: { documentId: COURSE_ID },
+			enrollment: null,
+			can: { assign: true },
 		});
-
-		const { data } = await run(context, "?persona=ana");
-
-		expect(calls.candidateSearches).toEqual(["ana"]);
-		expect(data.personSearch).toBe("ana");
-		expect(data.candidates).toHaveLength(1);
 	});
 });

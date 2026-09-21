@@ -1,7 +1,14 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Building2, CalendarDays, Check, Layers, X } from "lucide-react";
+import {
+	Building2,
+	CalendarDays,
+	Check,
+	Download,
+	Layers,
+	X,
+} from "lucide-react";
 import { useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { CourseStatusBadge } from "@/modules/courses/components/course-badges";
@@ -298,7 +305,15 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 						emptyMessage="No tienes cursos en curso."
 					/>
 				</TabsContent>
-				<TabsContent value="finished">
+				<TabsContent value="finished" className="flex flex-col gap-4">
+					{data.finished.length > 0 && (
+						<Button variant="outline" size="sm" className="self-end" asChild>
+							<a href="/dashboard/mis-cursos/finalizados.xlsx" download>
+								<Download />
+								Descargar Excel
+							</a>
+						</Button>
+					)}
 					<CourseList
 						entries={data.finished}
 						layout={layout}

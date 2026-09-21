@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ENROLLMENT_ERROR_CODES } from "../enrollment.errors";
 import {
+	acceptsInvitations,
 	assertSeatsFor,
 	canParticipate,
 	canTransition,
@@ -69,6 +70,14 @@ describe("enrollmentClosesAt e isEnrollmentOpen", () => {
 
 		expect(enrollmentClosesAt(course)).toBeNull();
 		expect(isEnrollmentOpen(course, new Date("2026-09-01"))).toBe(false);
+	});
+});
+
+describe("acceptsInvitations", () => {
+	test("solo un curso por invitación admite invitar", () => {
+		expect(acceptsInvitations({ access: "INVITATION" })).toBe(true);
+		expect(acceptsInvitations({ access: "PUBLIC" })).toBe(false);
+		expect(acceptsInvitations({ access: "RESTRICTED" })).toBe(false);
 	});
 });
 

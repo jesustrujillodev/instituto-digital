@@ -1,24 +1,30 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Send, UserPlus, Users } from "lucide-react";
-import { useState } from "react";
 import { useFetcher } from "react-router";
-import { CourseStatusBadge } from "@/modules/courses/components/course-badges";
+import {
+	CourseAccessBadge,
+	CourseStatusBadge,
+} from "@/modules/courses/components/course-badges";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Label } from "@/shared/components/ui/label";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@/shared/components/ui/tabs";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
+import { BatchActions } from "../../components/batch-actions";
 import {
 	EnrollmentOriginBadge,
 	EnrollmentStatusBadge,
 	SeatsBadge,
 } from "../../components/enrollment-badges";
+import { GroupPicker } from "../../components/group-picker";
 import { ParticipantPicker } from "../../components/participant-picker";
 import { personNameOf } from "../../utils/enrollment-labels";
 import {
@@ -30,19 +36,33 @@ import {
 } from "../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
+const AVAILABLE_PATH = "/dashboard/cursos-disponibles";
+
 export const handle = {
-	breadcrumb: (loaderData) => [
-		{ label: "Cursos", path: "/dashboard/cursos" },
-		...(loaderData
+	breadcrumb: (loaderData) => {
+		const data = loaderData?.data;
+		if (!data) return [{ label: "Inscripciones" }];
+
+		// Quien no organiza el curso llegó desde el catálogo y no puede abrir su
+		// ficha de administración: sus migas vuelven por donde vino.
+		return data.reach.organizer
 			? [
+					{ label: "Cursos", path: "/dashboard/cursos" },
 					{
-						label: loaderData.data.course.title,
-						path: `/dashboard/cursos/${loaderData.data.course.documentId}`,
+						label: data.course.title,
+						path: `/dashboard/cursos/${data.course.documentId}`,
 					},
+					{ label: "Inscripciones" },
 				]
-			: []),
-		{ label: "Inscripciones" },
-	],
+			: [
+					{ label: "Cursos disponibles", path: AVAILABLE_PATH },
+					{
+						label: data.course.title,
+						path: `${AVAILABLE_PATH}/${data.course.documentId}`,
+					},
+					{ label: "Inscribir personal" },
+				];
+	},
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta() {
@@ -53,171 +73,160 @@ export default function InscripcionesPage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { course, entries, options, personSearch },
+		data: { course, entries, options, personSearch, reach },
 	} = loaderData;
 
-	const peopleFetcher = useFetcher<EnrollmentActionData>();
-	const groupFetcher = useFetcher<EnrollmentActionData>();
-	useFetcherToast(peopleFetcher);
-	useFetcherToast(groupFetcher);
+	const fetcher = useFetcher<EnrollmentActionData>();
+	useFetcherToast(fetcher);
+	const busy = fetcher.state !== "idle";
+	const resetKey = fetcher.data?.success ? fetcher.data : null;
 
-	const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
 	const enrolled = entries.filter((entry) => entry.status === "ENROLLED");
+	const showDependency = reach.organizer;
 
-	const submitPeople = (intent: string, selected: readonly string[]) => {
+	const submit = (
+		intent: string,
+		field: typeof USERS_FIELD | typeof GROUPS_FIELD,
+		documentIds: readonly string[],
+	) => {
 		const body = new FormData();
-		for (const documentId of selected) body.append(USERS_FIELD, documentId);
+		for (const documentId of documentIds) body.append(field, documentId);
 		body.append(INTENT_FIELD, intent);
-		peopleFetcher.submit(body, { method: "post" });
+		fetcher.submit(body, { method: "post" });
 	};
-
-	const inviteGroups = () => {
-		const body = new FormData();
-		for (const documentId of selectedGroups) {
-			body.append(GROUPS_FIELD, documentId);
-		}
-		body.append(INTENT_FIELD, ENROLLMENT_INTENTS.invite);
-		groupFetcher.submit(body, { method: "post" });
-		setSelectedGroups([]);
-	};
-
-	const toggleGroup = (documentId: string) =>
-		setSelectedGroups((previous) =>
-			previous.includes(documentId)
-				? previous.filter((id) => id !== documentId)
-				: [...previous, documentId],
-		);
 
 	return (
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
-				description={`Inscripciones · organiza ${course.dependencyName}.`}
-				goBack={`/dashboard/cursos/${course.documentId}`}
+				description={
+					reach.organizer
+						? `Inscripciones · organiza ${course.dependencyName}.`
+						: `Inscribe a personal de tu dependencia · organiza ${course.dependencyName}.`
+				}
+				goBack={
+					reach.organizer
+						? `/dashboard/cursos/${course.documentId}`
+						: `${AVAILABLE_PATH}/${course.documentId}`
+				}
 			/>
 
 			<div className="flex flex-wrap gap-2">
-				<CourseStatusBadge status={course.status} />
+				{reach.organizer && <CourseStatusBadge status={course.status} />}
+				<CourseAccessBadge access={course.access} />
 				<SeatsBadge capacity={course.capacity} seatsLeft={course.seatsLeft} />
-				<Badge variant="outline">{enrolled.length} inscritos</Badge>
+				<Badge variant="outline">
+					{reach.organizer
+						? `${enrolled.length} inscritos`
+						: `${enrolled.length} de tu dependencia`}
+				</Badge>
 			</div>
 
 			{!course.isOpen && (
 				<Alert>
 					<AlertDescription>
-						La inscripción está cerrada o el curso no está publicado: no se
-						puede invitar ni asignar.
+						La inscripción está cerrada o el curso no está publicado: ya no se
+						puede inscribir ni invitar.
 					</AlertDescription>
 				</Alert>
 			)}
 
 			{options && (
-				<div className="grid gap-4 lg:grid-cols-2">
-					<Card>
-						<CardContent className="flex flex-col gap-3">
-							<div>
-								<h3 className="font-medium text-sm">
-									Invitar o asignar personas
-								</h3>
-								<p className="text-muted-foreground text-xs">
-									Invitar no aparta lugar. Asignar inscribe de inmediato y solo
-									admite personal de tu dependencia.
-								</p>
-							</div>
-							<ParticipantPicker
-								candidates={options.candidates}
-								search={personSearch}
-								showDependency
-								resetKey={
-									peopleFetcher.data?.success ? peopleFetcher.data : null
-								}
-								actions={(selected) => {
-									const disabled =
-										peopleFetcher.state !== "idle" || selected.length === 0;
-									return (
-										<div className="flex flex-wrap gap-2">
-											<Button
-												disabled={disabled}
-												onClick={() =>
-													submitPeople(ENROLLMENT_INTENTS.invite, selected)
-												}
-											>
-												<Send className="h-4 w-4" />
-												Invitar
-											</Button>
-											<Button
-												variant="outline"
-												disabled={disabled}
-												onClick={() =>
-													submitPeople(ENROLLMENT_INTENTS.assign, selected)
-												}
-											>
-												<UserPlus className="h-4 w-4" />
-												Asignar
-											</Button>
-										</div>
-									);
-								}}
-							/>
-						</CardContent>
-					</Card>
+				<Card>
+					<CardContent className="flex flex-col gap-4">
+						<div>
+							<h3 className="font-medium text-sm">
+								{reach.canInvite ? "Inscribir o invitar" : "Inscribir"}
+							</h3>
+							<p className="text-muted-foreground text-xs">
+								{reach.canInvite
+									? "Inscribir aparta el lugar de inmediato. Invitar deja que cada persona acepte o rechace."
+									: "Inscribir aparta el lugar de inmediato y avisa por correo a cada persona."}
+							</p>
+						</div>
 
-					<Card>
-						<CardContent className="flex flex-col gap-3">
-							<div>
-								<h3 className="font-medium text-sm">Invitar un grupo</h3>
-								<p className="text-muted-foreground text-xs">
-									Se invita a cada miembro; quien ya tiene invitación o
-									inscripción se omite.
-								</p>
-							</div>
-							{options.groups.length === 0 ? (
-								<p className="text-muted-foreground text-sm">
-									No hay grupos activos en tu alcance.
-								</p>
-							) : (
-								<ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-									{options.groups.map((group) => (
-										<li key={group.documentId}>
-											<Label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
-												<Checkbox
-													checked={selectedGroups.includes(group.documentId)}
-													onCheckedChange={() => toggleGroup(group.documentId)}
-												/>
-												<span className="min-w-0">
-													<span className="block truncate text-sm">
-														{group.name}
-													</span>
-													<span className="block truncate text-muted-foreground text-xs">
-														{group.dependencyName} · {group.memberCount}{" "}
-														miembros
-													</span>
-												</span>
-											</Label>
-										</li>
-									))}
-								</ul>
-							)}
-							<Button
-								onClick={inviteGroups}
-								disabled={
-									groupFetcher.state !== "idle" || selectedGroups.length === 0
-								}
-							>
-								<Users className="h-4 w-4" />
-								Invitar grupo
-							</Button>
-						</CardContent>
-					</Card>
-				</div>
+						<Tabs defaultValue="people">
+							<TabsList>
+								<TabsTrigger value="people">Personas</TabsTrigger>
+								<TabsTrigger value="groups">Grupos</TabsTrigger>
+							</TabsList>
+
+							<TabsContent value="people" className="pt-2">
+								<ParticipantPicker
+									candidates={options.candidates}
+									search={personSearch}
+									showDependency={showDependency}
+									resetKey={resetKey}
+									actions={(selected) => {
+										const ids = selected.map((person) => person.documentId);
+										return (
+											<BatchActions
+												selected={selected.length}
+												seatsNeeded={selected.length}
+												seatsLeft={course.seatsLeft}
+												inviteOnly={
+													selected.filter((person) => !person.assignable).length
+												}
+												canInvite={reach.canInvite}
+												busy={busy}
+												onAssign={() =>
+													submit(ENROLLMENT_INTENTS.assign, USERS_FIELD, ids)
+												}
+												onInvite={() =>
+													submit(ENROLLMENT_INTENTS.invite, USERS_FIELD, ids)
+												}
+											/>
+										);
+									}}
+								/>
+							</TabsContent>
+
+							<TabsContent value="groups" className="pt-2">
+								<GroupPicker
+									groups={options.groups}
+									showDependency={showDependency}
+									resetKey={resetKey}
+									actions={(selected) => {
+										const ids = selected.map((group) => group.documentId);
+										const members = new Set(
+											selected.flatMap((group) => group.enrollableMemberIds),
+										);
+										return (
+											<BatchActions
+												selected={selected.length}
+												seatsNeeded={members.size}
+												seatsLeft={course.seatsLeft}
+												inviteOnly={0}
+												canInvite={reach.canInvite}
+												busy={busy}
+												onAssign={() =>
+													submit(ENROLLMENT_INTENTS.assign, GROUPS_FIELD, ids)
+												}
+												onInvite={() =>
+													submit(ENROLLMENT_INTENTS.invite, GROUPS_FIELD, ids)
+												}
+											/>
+										);
+									}}
+								/>
+							</TabsContent>
+						</Tabs>
+					</CardContent>
+				</Card>
 			)}
 
 			<Card>
 				<CardContent className="flex flex-col gap-3">
-					<h3 className="font-medium text-sm">Personas</h3>
+					<h3 className="font-medium text-sm">
+						{reach.organizer
+							? "Personas en el curso"
+							: "Tu personal en el curso"}
+					</h3>
 					{entries.length === 0 ? (
 						<p className="text-muted-foreground text-sm">
-							Nadie se ha inscrito ni ha sido invitado todavía.
+							{reach.organizer
+								? "Nadie se ha inscrito ni ha sido invitado todavía."
+								: "Nadie de tu dependencia está en este curso todavía."}
 						</p>
 					) : (
 						<ul className="flex flex-col divide-y divide-border">
@@ -231,7 +240,9 @@ export default function InscripcionesPage({
 											{personNameOf(entry)}
 										</p>
 										<p className="truncate text-muted-foreground text-xs">
-											{entry.email} · {entry.dependencyName}
+											{showDependency
+												? `${entry.email} · ${entry.dependencyName}`
+												: entry.email}
 										</p>
 									</div>
 									<div className="flex flex-wrap gap-2">

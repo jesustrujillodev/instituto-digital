@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
 	Form,
 	useActionData,
@@ -6,6 +7,7 @@ import {
 } from "react-router";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import { InstitutionalLogo } from "@/shared/components/common/institutional-logo";
+import { PasswordVisibilityToggle } from "@/shared/components/common/password-visibility-toggle";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -19,6 +21,7 @@ export default function IniciarSesionPage() {
 	const { data } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const submitting = useNavigation().state === "submitting";
+	const [passwordVisible, setPasswordVisible] = useState(false);
 
 	return (
 		<main className="grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -78,13 +81,21 @@ export default function IniciarSesionPage() {
 
 						<div className="space-y-2">
 							<Label htmlFor="password">Contraseña</Label>
-							<Input
-								id="password"
-								name="password"
-								type="password"
-								required
-								autoComplete="current-password"
-							/>
+							<div className="relative">
+								<Input
+									id="password"
+									name="password"
+									type={passwordVisible ? "text" : "password"}
+									required
+									autoComplete="current-password"
+									className="pr-10"
+								/>
+								<PasswordVisibilityToggle
+									visible={passwordVisible}
+									onToggle={() => setPasswordVisible((shown) => !shown)}
+									controls="password"
+								/>
+							</div>
 						</div>
 
 						<Button type="submit" className="w-full" disabled={submitting}>

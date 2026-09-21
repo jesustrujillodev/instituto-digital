@@ -1,25 +1,35 @@
 export { loader } from "./index.loader";
 
-import { Award } from "lucide-react";
-import { useSearchParams } from "react-router";
+import {
+	Building2,
+	CalendarDays,
+	Clock,
+	GraduationCap,
+	UserCheck,
+} from "lucide-react";
+import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { cn } from "@/lib/utils";
+import {
+	CourseCardFrame,
+	CourseCardList,
+	type CourseMetaItem,
+} from "@/modules/courses/components/course-card-frame";
 import { PageHeader } from "@/shared/components/common/page-header";
+import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
 import { Badge } from "@/shared/components/ui/badge";
-import { Card, CardContent } from "@/shared/components/ui/card";
+import { Button } from "@/shared/components/ui/button";
 import {
 	Empty,
+	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/shared/components/ui/select";
+import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
+import { VIEW_MODE_SCREENS, type ViewMode } from "@/shared/view-mode/view-mode";
+import type { MyCredit, MyCredits } from "../../domain/credit.types";
 import { CREDIT_PARAMS } from "../../utils/credit-params";
 import type { Route } from "./+types/index";
 
@@ -31,56 +41,167 @@ export function meta() {
 	return [{ title: "Mis créditos" }];
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+const hoursFormat = new Intl.NumberFormat("es-MX", {
+	maximumFractionDigits: 1,
+});
+
+const creditsLabel = (total: number) =>
+	total === 1 ? "1 crédito" : `${total} créditos`;
+
+/** "12 sep" o "12 sep – 3 oct". */
+const dateRangeOf = ({ course }: MyCredit) => {
+	if (!course.firstSessionAt) return "Sin fecha";
+
+	const first = formatZonedDate(new Date(course.firstSessionAt));
+	const last = course.lastSessionEndsAt
+		? formatZonedDate(new Date(course.lastSessionEndsAt))
+		: first;
+
+	return first === last ? first : `${first} – ${last}`;
+};
+
+const metaOf = (credit: MyCredit): CourseMetaItem[] => {
+	const { course } = credit;
+	const items: CourseMetaItem[] = [
+		{ icon: Building2, label: course.dependencyName, wide: true },
+		{ icon: CalendarDays, label: dateRangeOf(credit) },
+	];
+
+	if (course.totalMinutes > 0) {
+		items.push({
+			icon: Clock,
+			label: `${hoursFormat.format(course.totalMinutes / 60)} h`,
+		});
+	}
+	items.push({
+		icon: UserCheck,
+		label: `Asistencia ${credit.attendedSessions} de ${course.sessionCount}`,
+	});
+	if (credit.grade !== null) {
+		items.push({ icon: GraduationCap, label: `Nota ${credit.grade}` });
+	}
+
+	return items;
+};
+
+/** Cada ejercicio con su total; el enlace cambia el que se consulta. */
+function YearNav({ data }: { data: MyCredits }) {
 	return (
-		<Card>
-			<CardContent className="flex flex-col gap-1">
-				<span className="text-muted-foreground text-xs">{label}</span>
-				<span className="font-semibold text-2xl">{value}</span>
-			</CardContent>
-		</Card>
+		<nav aria-label="Ejercicios" className="-mx-1 overflow-x-auto px-1 pb-1">
+			<ul className="inline-flex gap-1 rounded-full bg-muted p-1">
+				{data.years.map(({ fiscalYear, total }) => {
+					const active = fiscalYear === data.fiscalYear;
+
+					return (
+						<li key={fiscalYear}>
+							<Link
+								to={`?${CREDIT_PARAMS.fiscalYear}=${fiscalYear}`}
+								preventScrollReset
+								aria-current={active ? "page" : undefined}
+								aria-label={`Ejercicio ${fiscalYear}: ${creditsLabel(total)}`}
+								className={cn(
+									"inline-flex h-8 items-center gap-2 rounded-full px-3.5 font-medium text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/30",
+									active
+										? "bg-background text-foreground shadow-sm"
+										: "text-foreground/60 hover:text-foreground",
+								)}
+							>
+								{fiscalYear}
+								<span
+									className={cn(
+										"min-w-5 rounded-full px-1.5 text-center text-xs tabular-nums",
+										active
+											? "bg-primary text-primary-foreground"
+											: "bg-background/60",
+									)}
+								>
+									{total}
+								</span>
+							</Link>
+						</li>
+					);
+				})}
+			</ul>
+		</nav>
+	);
+}
+
+function YearSummary({ data }: { data: MyCredits }) {
+	return (
+		<div className="flex flex-col gap-1">
+			<p className="text-muted-foreground text-sm">
+				<span className="font-semibold text-2xl text-foreground tabular-nums">
+					{data.yearTotal}
+				</span>{" "}
+				{data.yearTotal === 1 ? "crédito" : "créditos"} en {data.fiscalYear}
+				<span aria-hidden="true"> · </span>
+				<span className="tabular-nums">{data.historicTotal}</span> en total
+			</p>
+			{data.byDependency.length > 1 && (
+				<p className="text-muted-foreground text-xs">
+					Cuentan para{" "}
+					{data.byDependency.map((row, index) => (
+						<span key={row.label}>
+							{index > 0 && " · "}
+							<span className="text-foreground">{row.label}</span>{" "}
+							<span className="tabular-nums">({row.total})</span>
+						</span>
+					))}
+				</p>
+			)}
+		</div>
+	);
+}
+
+function CreditCard({
+	credit,
+	layout,
+	showDependency,
+}: {
+	credit: MyCredit;
+	layout: ViewMode;
+	showDependency: boolean;
+}) {
+	return (
+		<CourseCardFrame
+			layout={layout}
+			href={`/dashboard/cursos-disponibles/${credit.course.documentId}`}
+			course={credit.course}
+			meta={metaOf(credit)}
+			footer={
+				<>
+					<span className="text-muted-foreground text-xs">
+						Otorgado el {formatZonedDate(new Date(credit.grantedAt))}
+					</span>
+					{showDependency && (
+						<Badge variant="outline">Cuenta para {credit.dependencyName}</Badge>
+					)}
+				</>
+			}
+		/>
 	);
 }
 
 export default function MisCreditosPage({ loaderData }: Route.ComponentProps) {
 	const { data } = loaderData;
-	const [, setSearchParams] = useSearchParams();
-	const credits = data.credits.filter(
-		(credit) => credit.fiscalYear === data.fiscalYear,
-	);
+	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.credits, data.view);
+	const showDependency = data.byDependency.length > 1;
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-6">
 			<PageHeader
 				title="Mis créditos"
-				description="Un crédito por cada curso completado. Cuenta para la dependencia a la que pertenecías al obtenerlo."
+				description="Un crédito por cada curso que completas. Cuenta para la dependencia a la que pertenecías al obtenerlo."
+				actions={<ViewModeToggle value={layout} onChange={setLayout} />}
+				actionsClassName="items-end *:w-auto"
 			/>
 
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="grid flex-1 gap-3 sm:grid-cols-2">
-					<Stat label={`Ejercicio ${data.fiscalYear}`} value={data.yearTotal} />
-					<Stat label="Acumulado histórico" value={data.historicTotal} />
-				</div>
-				<Select
-					value={String(data.fiscalYear)}
-					onValueChange={(value) =>
-						setSearchParams({ [CREDIT_PARAMS.fiscalYear]: value })
-					}
-				>
-					<SelectTrigger className="w-40">
-						<SelectValue placeholder="Ejercicio" />
-					</SelectTrigger>
-					<SelectContent>
-						{data.years.map((year) => (
-							<SelectItem key={year} value={String(year)}>
-								Ejercicio {year}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
+			<section aria-label="Resumen" className="flex flex-col gap-4">
+				<YearNav data={data} />
+				<YearSummary data={data} />
+			</section>
 
-			{credits.length === 0 ? (
+			{data.credits.length === 0 ? (
 				<Empty>
 					<EmptyHeader>
 						<EmptyTitle>Sin créditos en {data.fiscalYear}</EmptyTitle>
@@ -89,34 +210,26 @@ export default function MisCreditosPage({ loaderData }: Route.ComponentProps) {
 							completaste.
 						</EmptyDescription>
 					</EmptyHeader>
+					<EmptyContent>
+						<Button variant="outline" asChild>
+							<Link to="/dashboard/cursos-disponibles">
+								Ver cursos disponibles
+							</Link>
+						</Button>
+					</EmptyContent>
 				</Empty>
 			) : (
-				<Card>
-					<CardContent>
-						<ul className="flex flex-col divide-y divide-border">
-							{credits.map((credit) => (
-								<li
-									key={credit.documentId}
-									className="flex flex-wrap items-center justify-between gap-2 py-2"
-								>
-									<div className="flex min-w-0 items-center gap-3">
-										<Award className="h-4 w-4 text-muted-foreground" />
-										<div className="min-w-0">
-											<p className="truncate font-medium text-sm">
-												{credit.courseTitle}
-											</p>
-											<p className="truncate text-muted-foreground text-xs">
-												Otorgado el{" "}
-												{formatZonedDate(new Date(credit.grantedAt))}
-											</p>
-										</div>
-									</div>
-									<Badge variant="outline">{credit.dependencyName}</Badge>
-								</li>
-							))}
-						</ul>
-					</CardContent>
-				</Card>
+				<CourseCardList layout={layout}>
+					{data.credits.map((credit) => (
+						<li key={credit.documentId}>
+							<CreditCard
+								credit={credit}
+								layout={layout}
+								showDependency={showDependency}
+							/>
+						</li>
+					))}
+				</CourseCardList>
 			)}
 		</div>
 	);

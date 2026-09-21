@@ -5,11 +5,10 @@ import {
 	assertActiveSession,
 	assertCheckInOpen,
 	assertEnrolled,
-	type CheckInWindow,
 	resolveSessionOutcome,
 	windowOf,
 } from "../check-in.rules";
-import type { CheckInSession } from "../check-in.types";
+import type { CheckInSession, CheckInWindow } from "../check-in.types";
 
 const WINDOW: CheckInWindow = {
 	opensBeforeMinutes: 15,
@@ -93,6 +92,34 @@ describe("resolveSessionOutcome", () => {
 		expect(closes.kind).toBe("ACTIVE");
 	});
 
+	// El rango es continuo, no sus dos extremos: se reportó que solo se podía
+	// registrar justo al abrir y justo al cerrar.
+	test("acepta cualquier instante entre los dos extremos", () => {
+		const session = sessionOf(0, "2026-09-01", "14:00", "14:00");
+
+		for (const time of ["13:45", "13:50", "13:58", "14:00", "14:07", "14:15"]) {
+			const outcome = resolveSessionOutcome(
+				[session],
+				WINDOW,
+				zonedInputToUtc("2026-09-01", time),
+			);
+
+			expect(outcome.kind).toBe("ACTIVE");
+		}
+	});
+
+	test("la ventana cubre también todo el horario de la sesión", () => {
+		for (const time of ["08:45", "09:30", "10:00", "10:45", "11:00", "11:15"]) {
+			const outcome = resolveSessionOutcome(
+				sessions,
+				WINDOW,
+				zonedInputToUtc("2026-09-01", time),
+			);
+
+			expect(outcome.kind).toBe("ACTIVE");
+		}
+	});
+
 	test("un milisegundo antes de abrir todavía no cuenta", () => {
 		const outcome = resolveSessionOutcome(
 			sessions,
@@ -112,7 +139,10 @@ describe("resolveSessionOutcome", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "TOO_EARLY",
-			opensAt: zonedInputToUtc("2026-09-01", "08:45"),
+			window: {
+				opensAt: zonedInputToUtc("2026-09-01", "08:45"),
+				closesAt: zonedInputToUtc("2026-09-01", "11:15"),
+			},
 		});
 	});
 
@@ -125,7 +155,7 @@ describe("resolveSessionOutcome", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "TOO_EARLY",
-			opensAt: zonedInputToUtc("2026-09-02", "08:45"),
+			window: { opensAt: zonedInputToUtc("2026-09-02", "08:45") },
 		});
 	});
 
@@ -138,7 +168,10 @@ describe("resolveSessionOutcome", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "CLOSED",
-			closedAt: zonedInputToUtc("2026-09-03", "11:15"),
+			window: {
+				opensAt: zonedInputToUtc("2026-09-03", "08:45"),
+				closesAt: zonedInputToUtc("2026-09-03", "11:15"),
+			},
 		});
 	});
 

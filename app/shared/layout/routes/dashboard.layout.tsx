@@ -2,9 +2,7 @@ export { loader } from "./dashboard.layout.loader";
 
 import type { CSSProperties } from "react";
 import { Outlet, useLoaderData } from "react-router";
-import { Toaster } from "sileo";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
-import { useThemeMode } from "@/modules/theme/hooks/use-theme-mode";
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -13,13 +11,13 @@ import {
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import { DashboardBreadcrumb } from "../components/dashboard-breadcrumb";
 import { DashboardSidebar } from "../components/dashboard-sidebar";
+import { DashboardToaster } from "../components/dashboard-toaster";
 import { DashboardUserMenu } from "../components/dashboard-user-menu";
 
 export default function DashboardLayout() {
 	const {
 		data: { user, securityState },
 	} = useLoaderData<typeof import("./dashboard.layout.loader").loader>();
-	const { mode } = useThemeMode();
 
 	// TooltipProvider es necesario aquí: SidebarProvider NO lo incluye, y
 	// SidebarMenuButton monta un Tooltip cuando la barra está colapsada a iconos.
@@ -62,14 +60,7 @@ export default function DashboardLayout() {
 						</div>
 					</div>
 				</SidebarInset>
-				{/*
-				 * Sileo no lee la clase `dark` de <html>: necesita el modo para elegir
-				 * el relleno de la píldora, que va invertido a propósito (oscura en
-				 * claro, clara en oscuro). `mode` ya es el resuelto por el servidor y
-				 * Sileo entiende los mismos tres valores. Los colores de estado salen
-				 * de los tokens del tema: ver el bloque de Sileo en app.css.
-				 */}
-				<Toaster theme={mode} position="top-center" />
+				<DashboardToaster />
 			</SidebarProvider>
 		</TooltipProvider>
 	);

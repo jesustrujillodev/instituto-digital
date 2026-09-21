@@ -1,6 +1,7 @@
 import { requireParticipant } from "@/modules/enrollments/routes/require-participant.server";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok, parseInput } from "@/shared/response/response.helpers";
+import { readViewMode, VIEW_MODE_SCREENS } from "@/shared/view-mode/view-mode";
 import { validateMyCreditsQuery } from "../../domain/credit.validators";
 import { CREDIT_ERROR_MESSAGES } from "../../utils/credit-error-messages";
 import { CREDIT_PARAMS, readPositiveInt } from "../../utils/credit-params";
@@ -21,5 +22,11 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const result = await context.creditService.listMine(input.data, auth);
 	if (!result.success) throw toRouteError(result.error, CREDIT_ERROR_MESSAGES);
 
-	return ok(result.data);
+	return ok({
+		...result.data,
+		view: readViewMode(
+			request.headers.get("Cookie"),
+			VIEW_MODE_SCREENS.credits,
+		),
+	});
 };

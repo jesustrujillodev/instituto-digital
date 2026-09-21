@@ -13,6 +13,16 @@
 /** Única constante de zona horaria del proyecto. */
 export const INSTITUTE_TIME_ZONE = "America/Tijuana";
 
+/**
+ * Cómo se nombra esa zona en pantalla.
+ *
+ * Quien abre la plataforma desde otra zona ve horas que no son las de su reloj,
+ * y sin la etiqueta lo natural es leerlas como propias: una sesión a las 14:45
+ * de Tijuana son las 15:45 en el centro del país, y el desfase solo se nota
+ * cuando el registro de asistencia ya cerró.
+ */
+export const INSTITUTE_TIME_ZONE_LABEL = "hora de Tijuana";
+
 /** `YYYY-MM-DD`, lo que produce y consume `<input type="date">`. */
 export const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -129,6 +139,15 @@ export const endOfZonedDay = (dateInput: string): Date =>
 export const startOfZonedDay = (value: Date): Date =>
 	zonedInputToUtc(utcToZonedInput(value).date, "00:00");
 
+/**
+ * La hora de pared del instituto, disfrazada de instante UTC.
+ *
+ * Para formatos sin zona horaria, como las fechas de Excel: se escriben tal
+ * cual los componentes UTC, así que tienen que ser los del reloj local.
+ */
+export const zonedWallClockOf = (value: Date): Date =>
+	new Date(asPseudoUtc(zonedPartsOf(value)));
+
 /** El año calendario local: el ejercicio de un crédito (§6.9). */
 export const zonedYearOf = (value: Date): number => zonedPartsOf(value).year;
 
@@ -154,9 +173,21 @@ export const formatZonedDate = (value: Date): string =>
 export const formatZonedTime = (value: Date): string =>
 	timeFormatter.format(value);
 
-/** "5 oct 2026, 09:00–13:00" — el guion es una raya, no un menos. */
-export const formatSessionRange = (startsAt: Date, endsAt: Date): string =>
-	`${formatZonedDate(startsAt)}, ${formatZonedTime(startsAt)}–${formatZonedTime(endsAt)}`;
+/**
+ * "5 oct 2026, 09:00–13:00" — el guion es una raya, no un menos.
+ *
+ * Si los dos extremos caen en días distintos se repite la fecha: una ventana
+ * que cruza la medianoche escrita como "5 oct 2026, 23:45–00:15" se lee al
+ * revés.
+ */
+export const formatSessionRange = (startsAt: Date, endsAt: Date): string => {
+	const from = formatZonedDate(startsAt);
+	const to = formatZonedDate(endsAt);
+
+	return from === to
+		? `${from}, ${formatZonedTime(startsAt)}–${formatZonedTime(endsAt)}`
+		: `${from}, ${formatZonedTime(startsAt)} – ${to}, ${formatZonedTime(endsAt)}`;
+};
 
 const dayLabelFormatter = new Intl.DateTimeFormat("es-MX", {
 	timeZone: INSTITUTE_TIME_ZONE,

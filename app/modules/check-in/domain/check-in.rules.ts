@@ -10,7 +10,12 @@ import {
 	CheckInSessionNotOpenError,
 	CheckInWithoutSessionsError,
 } from "./check-in.errors";
-import type { CheckInCourse, CheckInSession } from "./check-in.types";
+import type {
+	CheckInCourse,
+	CheckInSession,
+	CheckInWindow,
+	SessionWindow,
+} from "./check-in.types";
 
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 
@@ -29,16 +34,6 @@ export const checkInRules = {
 } as const;
 
 // ── Ventana de escaneo ────────────────────────────────────────────────────────
-
-export interface CheckInWindow {
-	opensBeforeMinutes: number;
-	closesAfterMinutes: number;
-}
-
-export interface SessionWindow {
-	opensAt: Date;
-	closesAt: Date;
-}
 
 const MINUTE_MS = 60_000;
 
@@ -63,8 +58,8 @@ export const windowOfCourse = (
 
 export type SessionOutcome =
 	| { kind: "ACTIVE"; session: CheckInSession }
-	| { kind: "TOO_EARLY"; session: CheckInSession; opensAt: Date }
-	| { kind: "CLOSED"; session: CheckInSession; closedAt: Date }
+	| { kind: "TOO_EARLY"; session: CheckInSession; window: SessionWindow }
+	| { kind: "CLOSED"; session: CheckInSession; window: SessionWindow }
 	| { kind: "WITHOUT_SESSIONS" };
 
 /**
@@ -82,41 +77,32 @@ export const resolveSessionOutcome = (
 ): SessionOutcome => {
 	if (sessions.length === 0) return { kind: "WITHOUT_SESSIONS" };
 
-	let earliestOpen: { session: CheckInSession; opensAt: Date } | null = null;
-	let upcoming: { session: CheckInSession; opensAt: Date } | null = null;
-	let latestClosed: { session: CheckInSession; closedAt: Date } | null = null;
+	type Candidate = { session: CheckInSession; window: SessionWindow };
+
+	let earliestOpen: Candidate | null = null;
+	let upcoming: Candidate | null = null;
+	let latestClosed: Candidate | null = null;
 
 	for (const session of sessions) {
-		const { opensAt, closesAt } = windowOf(session, window);
+		const sessionWindow = windowOf(session, window);
+		const { opensAt, closesAt } = sessionWindow;
 
 		if (opensAt <= now && now <= closesAt) {
-			if (!earliestOpen || opensAt < earliestOpen.opensAt) {
-				earliestOpen = { session, opensAt };
+			if (!earliestOpen || opensAt < earliestOpen.window.opensAt) {
+				earliestOpen = { session, window: sessionWindow };
 			}
 		} else if (now < opensAt) {
-			if (!upcoming || opensAt < upcoming.opensAt) {
-				upcoming = { session, opensAt };
+			if (!upcoming || opensAt < upcoming.window.opensAt) {
+				upcoming = { session, window: sessionWindow };
 			}
-		} else if (!latestClosed || closesAt > latestClosed.closedAt) {
-			latestClosed = { session, closedAt: closesAt };
+		} else if (!latestClosed || closesAt > latestClosed.window.closesAt) {
+			latestClosed = { session, window: sessionWindow };
 		}
 	}
 
 	if (earliestOpen) return { kind: "ACTIVE", session: earliestOpen.session };
-	if (upcoming) {
-		return {
-			kind: "TOO_EARLY",
-			session: upcoming.session,
-			opensAt: upcoming.opensAt,
-		};
-	}
-	if (latestClosed) {
-		return {
-			kind: "CLOSED",
-			session: latestClosed.session,
-			closedAt: latestClosed.closedAt,
-		};
-	}
+	if (upcoming) return { kind: "TOO_EARLY", ...upcoming };
+	if (latestClosed) return { kind: "CLOSED", ...latestClosed };
 
 	return { kind: "WITHOUT_SESSIONS" };
 };
@@ -156,9 +142,9 @@ export function assertActiveSession(
 		case "ACTIVE":
 			return;
 		case "TOO_EARLY":
-			throw new CheckInSessionNotOpenError(outcome.opensAt);
+			throw new CheckInSessionNotOpenError(outcome.window);
 		case "CLOSED":
-			throw new CheckInSessionClosedError(outcome.closedAt);
+			throw new CheckInSessionClosedError(outcome.window);
 		case "WITHOUT_SESSIONS":
 			throw new CheckInWithoutSessionsError();
 	}

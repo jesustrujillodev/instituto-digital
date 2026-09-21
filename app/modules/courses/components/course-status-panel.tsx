@@ -120,7 +120,7 @@ export function CourseStatusPanel({
 							<Link to={rosterPath}>
 								<Users aria-hidden="true" />
 								{status === "PUBLISHED"
-									? "Inscribir e invitar"
+									? "Inscribir personal"
 									: "Ver inscripciones"}
 								<ArrowRight className="ml-auto" aria-hidden="true" />
 							</Link>

@@ -25,6 +25,7 @@ const STORAGE_VARS = [
 	"SMTP_HOST",
 	"MAIL_FROM",
 	"APP_BASE_URL",
+	"RAILWAY_PUBLIC_DOMAIN",
 	"EMAIL_WORKER_ENABLED",
 ];
 
@@ -261,6 +262,23 @@ describe("env.server — correo", () => {
 		await expect(
 			importEnv({ APP_BASE_URL: "http://localhost:5173/" }),
 		).rejects.toThrow("APP_BASE_URL debe ser un origen absoluto");
+	});
+
+	test("sin APP_BASE_URL, el dominio público de Railway es el origen", async () => {
+		const { env } = await importEnv({
+			RAILWAY_PUBLIC_DOMAIN: "instituto.up.railway.app",
+		});
+
+		expect(env.APP_BASE_URL).toBe("https://instituto.up.railway.app");
+	});
+
+	test("APP_BASE_URL gana al dominio de Railway", async () => {
+		const { env } = await importEnv({
+			RAILWAY_PUBLIC_DOMAIN: "instituto.up.railway.app",
+			APP_BASE_URL: "https://capacitacion.gob.mx",
+		});
+
+		expect(env.APP_BASE_URL).toBe("https://capacitacion.gob.mx");
 	});
 
 	test("con SMTP completo arranca", async () => {

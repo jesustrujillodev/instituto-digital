@@ -45,6 +45,7 @@ import type { SingleFlight } from "@/shared/concurrency/single-flight";
 import type { Logger } from "@/shared/logging/logger";
 import type { IMailer } from "@/shared/mail/mailer.port";
 import type { RateLimiter } from "@/shared/rate-limit/rate-limiter";
+import type { ISpreadsheetWriter } from "@/shared/spreadsheet/spreadsheet.port";
 import type { IObjectReferenceSource } from "@/shared/storage/object-reference.port";
 import type { AssetUrlResolver } from "@/shared/storage/public-url";
 import type { IStorageProvider } from "@/shared/storage/storage.port";
@@ -119,6 +120,9 @@ export interface ICradle {
 	// lean variables de entorno, igual que `storageBucket`.
 	mailer: IMailer;
 	appBaseUrl: string;
+	// Genera los .xlsx que se descargan. Sin estado: se inyecta para que las
+	// rutas que exportan se prueben sin armar un libro real.
+	spreadsheetWriter: ISpreadsheetWriter;
 	notificationRepository: INotificationRepository;
 	notificationService: INotificationService;
 	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo

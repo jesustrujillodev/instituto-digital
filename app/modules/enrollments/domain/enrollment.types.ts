@@ -53,6 +53,7 @@ export interface EnrollmentCourse {
 	capacity: number | null;
 	enrolledCount: number;
 	enrollmentDeadline: Date | null;
+	finishedAt: Date | null;
 	/** Ordenadas por inicio. */
 	sessions: EnrollmentCourseSession[];
 	trainers: EnrollmentCourseTrainer[];
@@ -159,6 +160,13 @@ export interface RosterEntry {
 	updatedAt: Date;
 }
 
+/** Desde qué lado opera el actor las inscripciones de un curso. */
+export interface RosterReach {
+	/** Si no organiza, solo ve y mueve al personal de su dependencia. */
+	organizer: boolean;
+	canInvite: boolean;
+}
+
 export interface CourseRoster {
 	course: EnrollmentCourse & {
 		seatsLeft: number | null;
@@ -166,6 +174,7 @@ export interface CourseRoster {
 		isOpen: boolean;
 	};
 	entries: RosterEntry[];
+	reach: RosterReach;
 }
 
 export interface ParticipantCandidate {
@@ -176,16 +185,27 @@ export interface ParticipantCandidate {
 	dependencyName: string;
 }
 
-export interface InviteGroupOption {
+export interface CandidateAccount extends ParticipantCandidate {
+	dependencyId: number;
+}
+
+export interface RosterCandidate extends ParticipantCandidate {
+	/** Solo se inscribe directo al personal propio; al resto solo se le invita. */
+	assignable: boolean;
+}
+
+export interface RosterGroupOption {
 	documentId: string;
 	name: string;
 	dependencyName: string;
 	memberCount: number;
+	/** Los miembros que ocuparían lugar al inscribir el grupo. */
+	enrollableMemberIds: string[];
 }
 
 export interface RosterOptions {
-	candidates: ParticipantCandidate[];
-	groups: InviteGroupOption[];
+	candidates: RosterCandidate[];
+	groups: RosterGroupOption[];
 }
 
 export interface BatchResult {
@@ -249,6 +269,5 @@ export type AvailableCourseDetailResponse = AppResponse<AvailableCourseDetail>;
 export type MyCoursesResponse = AppResponse<MyCourses>;
 export type CourseRosterResponse = AppResponse<CourseRoster>;
 export type RosterOptionsResponse = AppResponse<RosterOptions>;
-export type ParticipantCandidatesResponse = AppResponse<ParticipantCandidate[]>;
 export type EnrollmentMutationResponse = AppResponse<null>;
 export type BatchResultResponse = AppResponse<BatchResult>;

@@ -1,11 +1,7 @@
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
-import {
-	validateFindEnrollmentCourse,
-	validateSearchParticipants,
-} from "../../../domain/enrollment.validators";
+import { validateFindEnrollmentCourse } from "../../../domain/enrollment.validators";
 import { ENROLLMENT_ERROR_MESSAGES } from "../../../utils/enrollment-error-messages";
-import { PERSON_SEARCH_PARAM } from "../../../utils/parse-enrollment-form-data";
 import { requireParticipant } from "../../require-participant.server";
 import type { Route } from "./+types/index";
 
@@ -28,25 +24,5 @@ export const loader = async ({
 		throw toRouteError(detail.error, ENROLLMENT_ERROR_MESSAGES);
 	}
 
-	const { search } = validateSearchParticipants({
-		search:
-			new URL(request.url).searchParams.get(PERSON_SEARCH_PARAM) || undefined,
-	});
-
-	const candidates = detail.data.can.assign
-		? await context.enrollmentService.listAssignCandidates(
-				documentId,
-				search,
-				auth,
-			)
-		: null;
-	if (candidates && !candidates.success) {
-		throw toRouteError(candidates.error, ENROLLMENT_ERROR_MESSAGES);
-	}
-
-	return ok({
-		...detail.data,
-		candidates: candidates?.success ? candidates.data : [],
-		personSearch: search ?? "",
-	});
+	return ok(detail.data);
 };

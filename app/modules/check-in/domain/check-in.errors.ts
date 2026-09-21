@@ -1,4 +1,5 @@
 import { DomainError } from "@/shared/errors/domain-error";
+import type { SessionWindow } from "./check-in.types";
 
 export const CHECK_IN_ERROR_CODES = {
 	INVALID_TOKEN: "CHECK_IN_INVALID_TOKEN",
@@ -57,21 +58,34 @@ export class CheckInWithoutSessionsError extends CheckInError {
 	}
 }
 
+/**
+ * Los dos extremos viajan, no solo el que falta.
+ *
+ * Quien escanea necesita leer el intervalo entero: con un solo instante en
+ * pantalla, "abre a las 14:30" se entiende como el único momento válido, y el
+ * malentendido crece si el reloj de quien lee va en otra zona.
+ */
 export class CheckInSessionNotOpenError extends CheckInError {
 	readonly code = CHECK_IN_ERROR_CODES.SESSION_NOT_OPEN;
-	readonly details: { opensAt: string };
-	constructor(opensAt: Date) {
+	readonly details: { opensAt: string; closesAt: string };
+	constructor(window: SessionWindow) {
 		super("Check-in for the next session has not opened yet");
-		this.details = { opensAt: opensAt.toISOString() };
+		this.details = {
+			opensAt: window.opensAt.toISOString(),
+			closesAt: window.closesAt.toISOString(),
+		};
 	}
 }
 
 export class CheckInSessionClosedError extends CheckInError {
 	readonly code = CHECK_IN_ERROR_CODES.SESSION_CLOSED;
-	readonly details: { closedAt: string };
-	constructor(closedAt: Date) {
+	readonly details: { opensAt: string; closesAt: string };
+	constructor(window: SessionWindow) {
 		super("Check-in for the last session is already closed");
-		this.details = { closedAt: closedAt.toISOString() };
+		this.details = {
+			opensAt: window.opensAt.toISOString(),
+			closesAt: window.closesAt.toISOString(),
+		};
 	}
 }
 

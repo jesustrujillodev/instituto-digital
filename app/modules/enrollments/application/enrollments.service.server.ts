@@ -1,7 +1,6 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import {
 	type CourseScope,
-	courseScopeWhere,
 	courseScopeWriteWhere,
 	courseVisibilityWhere,
 	dependencyVisibilityWhere,
@@ -27,6 +26,7 @@ import {
 	EnrollmentCourseNotFoundError,
 	EnrollmentForbiddenScopeError,
 	EnrollmentInvitationNotFoundError,
+	EnrollmentInvitationsDisabledError,
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
 	EnrollmentStateChangedError,
@@ -40,6 +40,7 @@ import {
 } from "../domain/enrollment.mapper";
 import type { CourseFilter } from "../domain/enrollment.repository";
 import {
+	acceptsInvitations,
 	assertSeatsFor,
 	canParticipate,
 	canTransition,
@@ -71,29 +72,22 @@ type Dependencies = {
 
 const unique = (values: readonly string[]): string[] => [...new Set(values)];
 
-/** Filtro de cursos a los que el actor puede asignar personal (§6.6). */
-const assignFilterOf = (scope: CourseScope): CourseFilter | null => {
-	switch (scope.kind) {
-		case "global":
-			return {};
-		case "dependency":
-			return dependencyVisibilityWhere(scope.dependencyId);
-		case "creator":
-			return courseScopeWriteWhere(scope);
-		case "none":
-			return null;
-		default: {
-			const exhaustive: never = scope;
-			return exhaustive;
-		}
-	}
-};
-
 /** Dependencia a la que se limita el personal asignable; `null` en el alcance global. */
 const assignableDependencyOf = (scope: CourseScope): number | null =>
 	scope.kind === "dependency" || scope.kind === "creator"
 		? scope.dependencyId
 		: null;
+
+/** El curso cuyas inscripciones opera el actor, y desde qué lado. */
+interface RosterAccess {
+	course: EnrollmentCourse;
+	scope: CourseScope;
+	organizer: boolean;
+	/** Tope de personas que alcanza al inscribir; `null` es cualquiera. */
+	assignLimit: number | null;
+	/** Lo mismo al invitar: quien organiza invita a gente de otras dependencias. */
+	inviteLimit: number | null;
+}
 
 export const createEnrollmentService = ({
 	enrollmentRepository,
@@ -177,16 +171,91 @@ export const createEnrollmentService = ({
 		}
 	};
 
-	/** El curso que el actor administra, con el alcance de escritura. */
-	const requireManagedCourse = (documentId: string, actor: AuthContext) => {
+	/**
+	 * Quien organiza el curso opera sus inscripciones completas. Una dependencia
+	 * que lo ve sin organizarlo (§6.6) solo manda y ve a su propio personal.
+	 */
+	const requireRosterAccess = async (
+		documentId: string,
+		actor: AuthContext,
+	): Promise<RosterAccess> => {
 		const scope = resolveCourseScope(actor);
-		const filter = courseScopeWriteWhere(scope);
-		if (filter === null) throw new EnrollmentForbiddenScopeError();
+		const write = courseScopeWriteWhere(scope);
+		if (write === null) throw new EnrollmentForbiddenScopeError();
 
-		return requireCourse(documentId, filter).then((course) => ({
-			course,
+		const assignLimit = assignableDependencyOf(scope);
+		const managed = await enrollmentRepository.findCourse(documentId, write);
+		if (managed) {
+			return {
+				course: managed,
+				scope,
+				organizer: true,
+				assignLimit,
+				inviteLimit: null,
+			};
+		}
+		if (scope.kind !== "dependency") throw new EnrollmentCourseNotFoundError();
+
+		return {
+			course: await requireCourse(
+				documentId,
+				dependencyVisibilityWhere(scope.dependencyId),
+			),
 			scope,
-		}));
+			organizer: false,
+			assignLimit,
+			inviteLimit: scope.dependencyId,
+		};
+	};
+
+	/**
+	 * Personas y miembros de grupos de un lote, sin repetir.
+	 *
+	 * Una persona elegida fuera del tope rechaza el lote entero; un miembro de
+	 * grupo fuera del tope solo se omite, porque nadie lo eligió a él.
+	 */
+	const resolveBatch = async (
+		dto: AssignParticipantsDto,
+		access: RosterAccess,
+		limit: number | null,
+	) => {
+		const userDocumentIds = unique(dto.userDocumentIds ?? []);
+		const groupDocumentIds = unique(dto.groupDocumentIds ?? []);
+
+		const [people, groups] = await Promise.all([
+			enrollmentRepository.findParticipants(userDocumentIds, limit),
+			courseRepository.findEligibleGroups(
+				groupDocumentIds,
+				toAudienceScope(access.scope),
+			),
+		]);
+		if (people.length !== userDocumentIds.length) {
+			throw new EnrollmentUnknownParticipantError();
+		}
+		if (groups.length !== groupDocumentIds.length) {
+			throw new EnrollmentUnknownGroupError();
+		}
+
+		const members = groups.length
+			? await enrollmentRepository.findGroupParticipants(
+					groups.map((group) => group.id),
+				)
+			: [];
+
+		const reachable = new Map<number, ParticipantAccount>();
+		for (const participant of people) {
+			reachable.set(participant.id, participant);
+		}
+
+		const requested = new Set(reachable.keys());
+		for (const member of members) {
+			requested.add(member.id);
+			if (limit === null || member.dependencyId === limit) {
+				reachable.set(member.id, member);
+			}
+		}
+
+		return { reachable, requested: requested.size };
 	};
 
 	return {
@@ -311,41 +380,20 @@ export const createEnrollmentService = ({
 			});
 		},
 
-		async listAssignCandidates(
-			courseDocumentId: string,
-			search: string | undefined,
-			actor: AuthContext,
-		) {
-			return run("listAssignCandidates", async () => {
-				const scope = resolveCourseScope(actor);
-				const course = await requireCourse(
-					courseDocumentId,
-					assignFilterOf(scope),
-				);
-
-				return ok(
-					await enrollmentRepository.searchCandidates({
-						courseId: course.id,
-						dependencyId: assignableDependencyOf(scope),
-						search,
-					}),
-				);
-			});
-		},
-
 		async listRoster(courseDocumentId: string, actor: AuthContext) {
 			return run("listRoster", async () => {
-				const scope = resolveCourseScope(actor);
-				if (scope.kind === "none") throw new EnrollmentForbiddenScopeError();
-
-				const course = await requireCourse(
-					courseDocumentId,
-					courseScopeWhere(scope),
-				);
+				const access = await requireRosterAccess(courseDocumentId, actor);
 
 				return ok({
-					course: withAvailability(course, clock.now()),
-					entries: await enrollmentRepository.findRoster(course.id),
+					course: withAvailability(access.course, clock.now()),
+					entries: await enrollmentRepository.findRoster(
+						access.course.id,
+						access.organizer ? null : access.inviteLimit,
+					),
+					reach: {
+						organizer: access.organizer,
+						canInvite: acceptsInvitations(access.course),
+					},
 				});
 			});
 		},
@@ -356,27 +404,39 @@ export const createEnrollmentService = ({
 			actor: AuthContext,
 		) {
 			return run("listRosterOptions", async () => {
-				const { course, scope } = await requireManagedCourse(
-					courseDocumentId,
-					actor,
-				);
+				const access = await requireRosterAccess(courseDocumentId, actor);
+				const { course, assignLimit } = access;
 
 				const [candidates, groups] = await Promise.all([
 					enrollmentRepository.searchCandidates({
 						courseId: course.id,
-						dependencyId: null,
+						dependencyId: acceptsInvitations(course)
+							? access.inviteLimit
+							: assignLimit,
 						search,
 					}),
-					groupRepository.findActive(toAudienceScope(scope)),
+					groupRepository.findActive(toAudienceScope(access.scope)),
 				]);
 
+				const enrollable = await enrollmentRepository.findGroupEnrollable({
+					courseId: course.id,
+					groupIds: groups.map((group) => group.id),
+					dependencyId: assignLimit,
+				});
+
 				return ok({
-					candidates,
+					candidates: candidates.map(({ dependencyId, ...candidate }) => ({
+						...candidate,
+						assignable: assignLimit === null || dependencyId === assignLimit,
+					})),
 					groups: groups.map((group) => ({
 						documentId: group.documentId,
 						name: group.name,
 						dependencyName: group.dependencyName,
 						memberCount: group.memberCount,
+						enrollableMemberIds: enrollable
+							.filter((row) => row.groupId === group.id)
+							.map((row) => row.userDocumentId),
 					})),
 				});
 			});
@@ -546,35 +606,28 @@ export const createEnrollmentService = ({
 			actor: AuthContext,
 		) {
 			return run("assign", async () => {
-				const scope = resolveCourseScope(actor);
-				const filter = assignFilterOf(scope);
-				if (filter === null) throw new EnrollmentForbiddenScopeError();
-
-				const course = await requireCourse(courseDocumentId, filter);
+				const access = await requireRosterAccess(courseDocumentId, actor);
+				const { course } = access;
 				const now = clock.now();
 				requireOpen(course, now);
 
-				const requested = unique(dto.userDocumentIds);
-				const participants = await enrollmentRepository.findParticipants(
-					requested,
-					assignableDependencyOf(scope),
+				const { reachable, requested } = await resolveBatch(
+					dto,
+					access,
+					access.assignLimit,
 				);
-				if (participants.length !== requested.length) {
-					throw new EnrollmentUnknownParticipantError();
-				}
 
 				return ok(
 					await runInTransaction(async () => {
 						const seats = await enrollmentRepository.lockCourseSeats(course.id);
 						const existing = new Map(
 							(
-								await enrollmentRepository.findEnrollments(
-									course.id,
-									participants.map((participant) => participant.id),
-								)
+								await enrollmentRepository.findEnrollments(course.id, [
+									...reachable.keys(),
+								])
 							).map((entry) => [entry.userId, entry.status]),
 						);
-						const pending = participants.filter(
+						const pending = [...reachable.values()].filter(
 							(participant) => existing.get(participant.id) !== "ENROLLED",
 						);
 
@@ -598,7 +651,7 @@ export const createEnrollmentService = ({
 
 						return {
 							affected: pending.length,
-							skipped: participants.length - pending.length,
+							skipped: requested - pending.length,
 						};
 					}),
 				);
@@ -611,51 +664,30 @@ export const createEnrollmentService = ({
 			actor: AuthContext,
 		) {
 			return run("invite", async () => {
-				const { course, scope } = await requireManagedCourse(
-					courseDocumentId,
-					actor,
-				);
+				const access = await requireRosterAccess(courseDocumentId, actor);
+				const { course } = access;
+				if (!acceptsInvitations(course)) {
+					throw new EnrollmentInvitationsDisabledError();
+				}
 				const now = clock.now();
 				requireOpen(course, now);
 
-				const userDocumentIds = unique(dto.userDocumentIds ?? []);
-				const groupDocumentIds = unique(dto.groupDocumentIds ?? []);
-
-				const [people, groups] = await Promise.all([
-					enrollmentRepository.findParticipants(userDocumentIds, null),
-					courseRepository.findEligibleGroups(
-						groupDocumentIds,
-						toAudienceScope(scope),
-					),
-				]);
-				if (people.length !== userDocumentIds.length) {
-					throw new EnrollmentUnknownParticipantError();
-				}
-				if (groups.length !== groupDocumentIds.length) {
-					throw new EnrollmentUnknownGroupError();
-				}
-
-				const members = groups.length
-					? await enrollmentRepository.findGroupParticipants(
-							groups.map((group) => group.id),
-						)
-					: [];
-
-				const invitees = new Map<number, ParticipantAccount>();
-				for (const participant of [...people, ...members]) {
-					invitees.set(participant.id, participant);
-				}
+				const { reachable, requested } = await resolveBatch(
+					dto,
+					access,
+					access.inviteLimit,
+				);
 
 				return ok(
 					await runInTransaction(async () => {
 						const existing = new Map(
 							(
 								await enrollmentRepository.findEnrollments(course.id, [
-									...invitees.keys(),
+									...reachable.keys(),
 								])
 							).map((entry) => [entry.userId, entry.status]),
 						);
-						const pending = [...invitees.values()].filter((participant) => {
+						const pending = [...reachable.values()].filter((participant) => {
 							const status = existing.get(participant.id);
 							return !status || !ACTIVE_ENROLLMENT_STATUSES.includes(status);
 						});
@@ -678,7 +710,7 @@ export const createEnrollmentService = ({
 
 						return {
 							affected: pending.length,
-							skipped: invitees.size - pending.length,
+							skipped: requested - pending.length,
 						};
 					}),
 				);
