@@ -11,12 +11,27 @@ export const CONTENT_INTENTS = {
 	updateLesson: "update-lesson",
 	archiveLesson: "archive-lesson",
 	reorder: "reorder",
+	uploadUrl: "upload-url",
+	saveMaterial: "save-material",
 } as const;
 
 export type ContentActionData = AppResponse<null>;
 
 export const contentPath = (courseDocumentId: string) =>
 	`/dashboard/cursos/${courseDocumentId}/contenido`;
+
+/**
+ * La ruta del material de una lección.
+ *
+ * Es aparte del temario para que el árbol no cargue el cuerpo de cada lección:
+ * el panel lo pide con `fetcher.load` cuando se abre, y escribe contra la misma
+ * ruta. Así las dos superficies —el paso del alta y la pantalla del curso
+ * publicado— siguen montando el mismo panel.
+ */
+export const materialPath = (
+	courseDocumentId: string,
+	lessonDocumentId: string,
+) => `${contentPath(courseDocumentId)}/${lessonDocumentId}`;
 
 export interface ParsedContentFormData {
 	intent: string | null;

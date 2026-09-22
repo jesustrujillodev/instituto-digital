@@ -31,6 +31,7 @@ import { createCheckInService } from "@/modules/check-in/application/check-in.se
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createContentService } from "@/modules/content/application/content.service.server";
 import { createContentRepository } from "@/modules/content/infrastructure/content.repository.server";
+import { createLessonMaterialReferenceSource } from "@/modules/content/infrastructure/lesson-material.references.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
 import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
@@ -259,6 +260,7 @@ export const configureContainer = async (
 		objectReferenceSources: asSingleton((cradle: ICradle) => [
 			createUserPhotoReferenceSource(cradle),
 			createCourseCoverReferenceSource(cradle),
+			createLessonMaterialReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
 		themeRepository: asValue(themeRepository),

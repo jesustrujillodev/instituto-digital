@@ -10,6 +10,11 @@ export const CONTENT_ERROR_CODES = {
 	TOO_MANY_LESSONS: "CONTENT_TOO_MANY_LESSONS",
 	MODULE_NOT_EMPTY: "CONTENT_MODULE_NOT_EMPTY",
 	INVALID_ORDER: "CONTENT_INVALID_ORDER",
+	MATERIAL_MISMATCH: "CONTENT_MATERIAL_MISMATCH",
+	UPLOAD_INVALID: "CONTENT_UPLOAD_INVALID",
+	UPLOAD_NOT_FOUND: "CONTENT_UPLOAD_NOT_FOUND",
+	UPLOAD_TOO_LARGE: "CONTENT_UPLOAD_TOO_LARGE",
+	LINK_INVALID: "CONTENT_LINK_INVALID",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -81,5 +86,54 @@ export class ContentInvalidOrderError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.INVALID_ORDER;
 	constructor() {
 		super("Requested order does not match stored content");
+	}
+}
+
+/** El material que llega no es de la clase que declara la lección. */
+export class ContentMaterialMismatchError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.MATERIAL_MISMATCH;
+	readonly details: { expected: string; received: string };
+	constructor(expected: string, received: string) {
+		super("Material does not match the lesson type");
+		this.details = { expected, received };
+	}
+}
+
+/** Tipo o tamaño fuera de lo permitido, comprobado ANTES de firmar la subida. */
+export class ContentUploadInvalidError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.UPLOAD_INVALID;
+	readonly details: { reason: string };
+	constructor(reason: string) {
+		super("Upload rejected by validation");
+		this.details = { reason };
+	}
+}
+
+/** Se confirma una key que el bucket no tiene: la subida nunca llegó. */
+export class ContentUploadNotFoundError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.UPLOAD_NOT_FOUND;
+	constructor() {
+		super("Uploaded object not found in storage");
+	}
+}
+
+/**
+ * El control que la firma no puede dar: una URL firmada de `PUT` fija el tipo
+ * pero no el tamaño, así que el tope solo existe si se comprueba al confirmar.
+ */
+export class ContentUploadTooLargeError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.UPLOAD_TOO_LARGE;
+	readonly details: { limit: number; size: number };
+	constructor(limit: number, size: number) {
+		super("Uploaded object exceeds the allowed size");
+		this.details = { limit, size };
+	}
+}
+
+/** Solo http(s): un `javascript:` guardado es una inyección con fecha diferida. */
+export class ContentLinkInvalidError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.LINK_INVALID;
+	constructor() {
+		super("External link must be http or https");
 	}
 }

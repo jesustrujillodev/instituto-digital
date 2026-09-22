@@ -5,6 +5,8 @@ import type {
 	DeleteFilesResult,
 	IStorageProvider,
 	StorageConfig,
+	StorageObject,
+	UploadUrlOptions,
 } from "./storage.port";
 
 const MAX_LIST_RESULTS = 1000;
@@ -301,6 +303,69 @@ export const createGcsStorageProvider = (
 				return url;
 			} catch (error) {
 				logger.error("[GCS] fallo al generar presigned URL", {
+					bucket: bucketName,
+					key,
+					error: String(error),
+				});
+				throw error;
+			}
+		},
+
+		async getUploadUrl(
+			bucketName: string,
+			key: string,
+			options: UploadUrlOptions,
+		): Promise<string> {
+			try {
+				if (useEmulator && emulatorHost) {
+					// fake-gcs-server no firma: acepta la subida por su API de medios.
+					return `${emulatorHost}/upload/storage/v1/b/${bucketName}/o?uploadType=media&name=${encodeURIComponent(
+						key,
+					)}`;
+				}
+
+				const [url] = await storage
+					.bucket(bucketName)
+					.file(key)
+					.getSignedUrl({
+						version: "v4",
+						action: "write",
+						expires: Date.now() + (options.expiresInSeconds ?? 900) * 1000,
+						// Nada de `extensionHeaders`: lo que se firma pasa a ser
+						// cabecera obligatoria para quien sube, y el navegador solo
+						// manda `Content-Type`.
+						contentType: options.contentType,
+					});
+
+				return url;
+			} catch (error) {
+				logger.error("[GCS] fallo al generar URL de subida", {
+					bucket: bucketName,
+					key,
+					error: String(error),
+				});
+				throw error;
+			}
+		},
+
+		async statObject(
+			bucketName: string,
+			key: string,
+		): Promise<StorageObject | null> {
+			try {
+				const [metadata] = await storage
+					.bucket(bucketName)
+					.file(key)
+					.getMetadata();
+
+				return {
+					key,
+					size: Number(metadata.size ?? 0),
+					lastModified: metadata.updated ? new Date(metadata.updated) : null,
+				};
+			} catch (error: unknown) {
+				if ((error as { code?: number }).code === 404) return null;
+				logger.error("[GCS] fallo al leer metadatos", {
 					bucket: bucketName,
 					key,
 					error: String(error),

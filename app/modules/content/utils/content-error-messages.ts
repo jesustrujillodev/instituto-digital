@@ -61,5 +61,32 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 			"El orden ya no coincide con lo que hay guardado. Vuelve a cargar la página.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[CONTENT_ERROR_CODES.MATERIAL_MISMATCH]: {
+		message:
+			"El material no corresponde a la clase de la lección. Vuelve a cargar la página.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.UPLOAD_INVALID]: {
+		message: "Ese archivo no se puede subir: revisa su formato y su tamaño.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CONTENT_ERROR_CODES.UPLOAD_NOT_FOUND]: {
+		message: "La subida no llegó a completarse. Inténtalo de nuevo.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.UPLOAD_TOO_LARGE]: {
+		message: (error) => {
+			const limit = limitOf(error);
+
+			return limit === null
+				? "El archivo supera el tamaño permitido."
+				: `El archivo supera los ${Math.floor(limit / (1024 * 1024))} MB permitidos.`;
+		},
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CONTENT_ERROR_CODES.LINK_INVALID]: {
+		message: "El enlace debe empezar por http:// o https://.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

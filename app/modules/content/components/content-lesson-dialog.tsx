@@ -115,6 +115,10 @@ export function ContentLessonDialog({
 					className="flex flex-col gap-4"
 					onSubmit={(event) => {
 						event.preventDefault();
+						// React propaga por su árbol aunque Radix portale el diálogo fuera
+						// del DOM: sin esto el envío llega al formulario del wizard, que
+						// monta este panel y avanzaría de paso.
+						event.stopPropagation();
 						submit();
 					}}
 				>

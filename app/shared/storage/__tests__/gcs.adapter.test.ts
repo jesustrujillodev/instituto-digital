@@ -5,6 +5,7 @@ import type { Logger } from "@/shared/logging/logger";
 const getFiles = vi.fn();
 const deleteObject = vi.fn();
 const getSignedUrl = vi.fn(async () => ["https://firmada"]);
+const getMetadata = vi.fn(async () => [{ size: "2048", updated: undefined }]);
 
 vi.mock("@google-cloud/storage", () => ({
 	Storage: class {
@@ -14,6 +15,7 @@ vi.mock("@google-cloud/storage", () => ({
 				file: (name: string) => ({
 					delete: (options: unknown) => deleteObject(name, options),
 					getSignedUrl,
+					getMetadata,
 				}),
 			};
 		}
@@ -36,6 +38,7 @@ beforeEach(() => {
 	getFiles.mockReset();
 	deleteObject.mockReset();
 	getSignedUrl.mockClear();
+	getMetadata.mockClear();
 });
 
 describe("listObjects", () => {
@@ -119,5 +122,44 @@ describe("getPresignedUrl", () => {
 				responseDisposition: 'attachment; filename="factura.pdf"',
 			}),
 		);
+	});
+});
+
+describe("getUploadUrl", () => {
+	test("firma una escritura v4 con el tipo declarado", async () => {
+		await provider().getUploadUrl("b", "documentos/lecciones/m.pdf", {
+			contentType: "application/pdf",
+			expiresInSeconds: 900,
+		});
+
+		const [options] = getSignedUrl.mock.calls.at(-1) as unknown as [
+			{ version: string; action: string; contentType: string },
+		];
+
+		expect(options).toMatchObject({
+			version: "v4",
+			action: "write",
+			contentType: "application/pdf",
+		});
+	});
+});
+
+describe("statObject", () => {
+	test("el tamaño llega como número aunque el SDK lo dé en texto", async () => {
+		expect(
+			await provider().statObject("b", "documentos/lecciones/m.pdf"),
+		).toEqual({
+			key: "documentos/lecciones/m.pdf",
+			size: 2048,
+			lastModified: null,
+		});
+	});
+
+	test("un objeto que no está devuelve null, no lanza", async () => {
+		getMetadata.mockRejectedValueOnce({ code: 404 });
+
+		expect(
+			await provider().statObject("b", "documentos/lecciones/no.pdf"),
+		).toBe(null);
 	});
 });

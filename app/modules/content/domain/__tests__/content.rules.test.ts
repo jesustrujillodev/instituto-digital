@@ -1,25 +1,42 @@
+import * as v from "valibot";
 import { describe, expect, test } from "vitest";
 import { isDomainError } from "@/shared/errors/domain-error";
 import {
 	CONTENT_MAX_LESSONS_PER_MODULE,
 	CONTENT_MAX_MODULES_PER_COURSE,
 	CONTENT_TITLE_MAX_LENGTH,
+	LESSON_FILE,
+	LESSON_MATERIAL_PREFIX,
 	LESSON_MAX_ESTIMATED_MINUTES,
+	LESSON_VIDEO,
 } from "../content.config";
-import { CONTENT_ERROR_CODES } from "../content.errors";
+import {
+	CONTENT_ERROR_CODES,
+	type ContentMaterialMismatchError,
+	ContentUploadInvalidError,
+	type ContentUploadNotFoundError,
+	type ContentUploadTooLargeError,
+} from "../content.errors";
 import {
 	assertLessonLimit,
+	assertMaterialMatchesLesson,
 	assertModuleArchivable,
 	assertModuleLimit,
+	assertUploadAllowed,
+	lessonBodyRule,
 	nextOrderOf,
+	requireUploadedObject,
 	resolveArchiveOrder,
 	resolveContentOrder,
+	resolveEmbed,
+	toPlainText,
 } from "../content.rules";
 import type { ReorderContentDto } from "../content.types";
 import {
 	validateCreateLesson,
 	validateCreateModule,
 	validateReorderContent,
+	validateSaveMaterial,
 } from "../content.validators";
 import {
 	LESSON_1,
@@ -250,8 +267,8 @@ describe("validadores", () => {
 		expect(() =>
 			validateCreateLesson({
 				moduleDocumentId: MODULE_A,
-				title: "Video",
-				type: "VIDEO",
+				title: "Cuestionario",
+				type: "QUIZ",
 			}),
 		).toThrow();
 	});
@@ -275,5 +292,278 @@ describe("validadores", () => {
 		expect(() =>
 			validateReorderContent({ modules: ["no-es-uuid"], lessons: [] }),
 		).toThrow();
+	});
+});
+
+describe("el cuerpo de una lección de texto", () => {
+	const doc = (content: unknown[]) => ({ type: "doc", content });
+
+	test("un documento con lo que el editor produce se acepta", () => {
+		const body = doc([
+			{
+				type: "heading",
+				attrs: { level: 2 },
+				content: [{ type: "text", text: "Objetivo" }],
+			},
+			{
+				type: "paragraph",
+				content: [
+					{ type: "text", text: "Al terminar " },
+					{ type: "text", marks: [{ type: "bold" }], text: "sabrás" },
+					{ type: "hardBreak" },
+					{
+						type: "text",
+						marks: [{ type: "link", attrs: { href: "https://gob.mx" } }],
+						text: "el reglamento",
+					},
+				],
+			},
+			{
+				type: "bulletList",
+				content: [
+					{
+						type: "listItem",
+						content: [
+							{ type: "paragraph", content: [{ type: "text", text: "Uno" }] },
+						],
+					},
+				],
+			},
+		]);
+
+		expect(v.parse(lessonBodyRule, body)).toEqual(body);
+	});
+
+	test("un nodo desconocido se rechaza, no se ignora", () => {
+		expect(() =>
+			v.parse(lessonBodyRule, doc([{ type: "iframe", src: "https://x.mx" }])),
+		).toThrow();
+	});
+
+	test("un enlace javascript: no se puede guardar", () => {
+		const body = doc([
+			{
+				type: "paragraph",
+				content: [
+					{
+						type: "text",
+						marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }],
+						text: "pulsa",
+					},
+				],
+			},
+		]);
+
+		expect(() => v.parse(lessonBodyRule, body)).toThrow();
+	});
+
+	test("un atributo que el editor añade y el renderizador ignora se descarta", () => {
+		const body = doc([
+			{
+				type: "paragraph",
+				content: [
+					{
+						type: "text",
+						marks: [
+							{
+								type: "link",
+								attrs: {
+									href: "https://gob.mx",
+									target: "_blank",
+									class: "x",
+								},
+							},
+						],
+						text: "enlace",
+					},
+				],
+			},
+		]);
+
+		const parsed = v.parse(lessonBodyRule, body);
+		const [paragraph] = parsed.content;
+		const mark =
+			paragraph.type === "paragraph" && paragraph.content?.[0].type === "text"
+				? paragraph.content[0].marks?.[0]
+				: null;
+
+		expect(mark).toEqual({ type: "link", attrs: { href: "https://gob.mx" } });
+	});
+
+	test("un documento con demasiados niveles se rechaza sin agotar la pila", () => {
+		let node: unknown = {
+			type: "paragraph",
+			content: [{ type: "text", text: "hondo" }],
+		};
+		for (let level = 0; level < 12; level += 1) {
+			node = { type: "blockquote", content: [node] };
+		}
+
+		expect(() => v.parse(lessonBodyRule, doc([node]))).toThrow();
+	});
+
+	test("toPlainText devuelve el texto desnudo", () => {
+		const body = v.parse(
+			lessonBodyRule,
+			doc([
+				{
+					type: "heading",
+					attrs: { level: 2 },
+					content: [{ type: "text", text: "Objetivo" }],
+				},
+				{
+					type: "bulletList",
+					content: [
+						{
+							type: "listItem",
+							content: [
+								{
+									type: "paragraph",
+									content: [{ type: "text", text: "Uno" }],
+								},
+							],
+						},
+					],
+				},
+				{ type: "horizontalRule" },
+			]),
+		);
+
+		expect(toPlainText(body)).toBe("Objetivo\nUno");
+	});
+});
+
+describe("el material subido", () => {
+	const KEY = `${LESSON_MATERIAL_PREFIX}/manual-1700000000.pdf`;
+
+	test("cada clase de material exige lo suyo", () => {
+		expect(
+			validateSaveMaterial({
+				lessonDocumentId: LESSON_1,
+				type: "FILE",
+				key: KEY,
+				fileName: "manual.pdf",
+				mimeType: "application/pdf",
+			}),
+		).toMatchObject({ type: "FILE", key: KEY });
+
+		expect(
+			validateSaveMaterial({
+				lessonDocumentId: LESSON_1,
+				type: "LINK",
+				externalUrl: "https://gob.mx/manual",
+			}),
+		).toMatchObject({ type: "LINK" });
+	});
+
+	test("un material incoherente con su clase no llega a ser DTO", () => {
+		expect(() =>
+			validateSaveMaterial({ lessonDocumentId: LESSON_1, type: "FILE" }),
+		).toThrow();
+
+		expect(() =>
+			validateSaveMaterial({
+				lessonDocumentId: LESSON_1,
+				type: "LINK",
+				externalUrl: "javascript:alert(1)",
+			}),
+		).toThrow();
+	});
+
+	test("una key de fuera del prefijo del módulo se rechaza", () => {
+		expect(() =>
+			validateSaveMaterial({
+				lessonDocumentId: LESSON_1,
+				type: "FILE",
+				key: "documentos/nominas/secreto-1700000000.pdf",
+				fileName: "secreto.pdf",
+				mimeType: "application/pdf",
+			}),
+		).toThrow();
+	});
+
+	test("el tipo y el tamaño se comprueban antes de firmar", () => {
+		const video = { name: "clase.mp4", type: "video/mp4", size: 10 };
+
+		expect(() => assertUploadAllowed("VIDEO", video)).not.toThrow();
+		expect(() =>
+			assertUploadAllowed("FILE", { ...video, name: "clase.mp4" }),
+		).toThrow(ContentUploadInvalidError);
+		expect(() =>
+			assertUploadAllowed("VIDEO", {
+				...video,
+				size: LESSON_VIDEO.maxBytes + 1,
+			}),
+		).toThrow(ContentUploadInvalidError);
+	});
+
+	test("un objeto que nunca llegó al bucket se rechaza por su código", () => {
+		try {
+			requireUploadedObject("FILE", null);
+			expect.unreachable("debió lanzar");
+		} catch (error) {
+			expect((error as ContentUploadNotFoundError).code).toBe(
+				CONTENT_ERROR_CODES.UPLOAD_NOT_FOUND,
+			);
+		}
+	});
+
+	test("el tope que la firma no impone se impone al confirmar", () => {
+		try {
+			requireUploadedObject("FILE", { size: LESSON_FILE.maxBytes + 1 });
+			expect.unreachable("debió lanzar");
+		} catch (error) {
+			const typed = error as ContentUploadTooLargeError;
+			expect(typed.code).toBe(CONTENT_ERROR_CODES.UPLOAD_TOO_LARGE);
+			expect(typed.details.limit).toBe(LESSON_FILE.maxBytes);
+		}
+	});
+
+	test("el material tiene que ser de la clase de su lección", () => {
+		expect(() => assertMaterialMatchesLesson("TEXT", "TEXT")).not.toThrow();
+		try {
+			assertMaterialMatchesLesson("TEXT", "VIDEO");
+			expect.unreachable("debió lanzar");
+		} catch (error) {
+			expect((error as ContentMaterialMismatchError).code).toBe(
+				CONTENT_ERROR_CODES.MATERIAL_MISMATCH,
+			);
+		}
+	});
+});
+
+describe("resolveEmbed", () => {
+	test("reconoce los tres proveedores", () => {
+		expect(resolveEmbed("https://www.youtube.com/watch?v=abc123")).toEqual({
+			kind: "embed",
+			src: "https://www.youtube-nocookie.com/embed/abc123",
+		});
+		expect(resolveEmbed("https://youtu.be/abc123")).toEqual({
+			kind: "embed",
+			src: "https://www.youtube-nocookie.com/embed/abc123",
+		});
+		expect(resolveEmbed("https://vimeo.com/76979871")).toEqual({
+			kind: "embed",
+			src: "https://player.vimeo.com/video/76979871",
+		});
+		expect(resolveEmbed("https://drive.google.com/file/d/XYZ/view")).toEqual({
+			kind: "embed",
+			src: "https://drive.google.com/file/d/XYZ/preview",
+		});
+	});
+
+	test("un proveedor desconocido se enseña como enlace, no rompe", () => {
+		expect(resolveEmbed("https://transparencia.gob.mx/manual")).toEqual({
+			kind: "link",
+			href: "https://transparencia.gob.mx/manual",
+		});
+	});
+
+	test("lo que no es http(s) tampoco se incrusta", () => {
+		expect(resolveEmbed("javascript:alert(1)")).toEqual({
+			kind: "link",
+			href: "javascript:alert(1)",
+		});
+		expect(resolveEmbed("no es una url")).toMatchObject({ kind: "link" });
 	});
 });

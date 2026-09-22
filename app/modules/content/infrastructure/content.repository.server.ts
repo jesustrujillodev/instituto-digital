@@ -1,8 +1,9 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { CourseScopeWriteWhere } from "@/modules/courses/domain/course.access";
 import type { ICradle } from "@/shared/di/container.types";
 import type { ContentModuleRaw } from "../domain/content.mapper";
 import type { IContentRepository } from "../domain/content.repository";
+import type { LessonBody } from "../domain/content.types";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
@@ -12,6 +13,15 @@ const asCourseWhere = (where: CourseScopeWriteWhere) =>
 	where as unknown as Prisma.CourseWhereInput;
 
 const ACTIVE = { archivedAt: null } as const;
+
+/**
+ * El árbol del cuerpo, listo para la columna `Json`.
+ *
+ * Nulo significa "sin cuerpo", no "JSON null": va con el centinela de Prisma
+ * para que la columna quede NULL de verdad.
+ */
+const asJson = (body: LessonBody | null) =>
+	body ? (body as unknown as Prisma.InputJsonObject) : Prisma.DbNull;
 
 const MODULE_SELECT = {
 	documentId: true,
@@ -28,9 +38,26 @@ const MODULE_SELECT = {
 			order: true,
 			isRequired: true,
 			estimatedMinutes: true,
+			content: { select: { fileUrl: true, externalUrl: true } },
 		},
 	},
 } satisfies Prisma.CourseModuleSelect;
+
+const MATERIAL_SELECT = {
+	documentId: true,
+	title: true,
+	type: true,
+	content: {
+		select: {
+			body: true,
+			fileUrl: true,
+			fileName: true,
+			fileSize: true,
+			mimeType: true,
+			externalUrl: true,
+		},
+	},
+} satisfies Prisma.LessonSelect;
 
 const ORDERED_SELECT = {
 	documentId: true,
@@ -139,7 +166,7 @@ export const createContentRepository = ({
 					...ACTIVE,
 					module: { courseId, ...ACTIVE },
 				},
-				select: { id: true, moduleId: true },
+				select: { id: true, moduleId: true, type: true },
 			});
 		},
 
@@ -157,6 +184,36 @@ export const createContentRepository = ({
 				data: { archivedAt: at },
 			});
 			await writeLessonOrder(reorder);
+		},
+
+		async findMaterial(courseId, lessonDocumentId) {
+			return prisma.lesson.findFirst({
+				where: {
+					documentId: lessonDocumentId,
+					...ACTIVE,
+					module: { courseId, ...ACTIVE },
+				},
+				select: MATERIAL_SELECT,
+			});
+		},
+
+		async saveMaterial(lessonId, data) {
+			await prisma.lessonContent.upsert({
+				where: { lessonId },
+				// `body` es JSON y nulo significa "sin cuerpo", no "JSON null": se
+				// escribe con el centinela de Prisma para que la columna quede NULL.
+				create: { lessonId, ...data, body: asJson(data.body) },
+				update: { ...data, body: asJson(data.body) },
+			});
+		},
+
+		async findMaterialFileUrl(lessonId) {
+			const content = await prisma.lessonContent.findUnique({
+				where: { lessonId },
+				select: { fileUrl: true },
+			});
+
+			return content?.fileUrl ?? null;
 		},
 
 		async saveOrder(writes) {

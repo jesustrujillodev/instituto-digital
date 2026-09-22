@@ -26,6 +26,8 @@ loaders) **nunca conoce el proveedor concreto** — solo depende del puerto.
 | Comprobar existencia | `fileExists(bucket, key)` |
 | Referencia pública/estable (proxy interno) | `getPublicUrl(bucket, key)` |
 | URL firmada temporal (`inline` o `attachment`) | `getPresignedUrl(bucket, key, expiresInSeconds?, { disposition })` |
+| URL firmada de **subida** (`PUT` directo al bucket) | `getUploadUrl(bucket, key, { contentType, expiresInSeconds? })` |
+| Metadatos de un objeto, o `null` si no existe | `statObject(bucket, key)` |
 
 Principios:
 
@@ -265,6 +267,47 @@ Devuelve `StorageRef[]` (`{ key, url, originalName }`); se persiste `url` (la
 referencia proxy). El caso canónico es: si la escritura en base de datos que
 referencia el archivo falla, la subida se revierte y no quedan huérfanos.
 
+### 5.5 Subida firmada: el archivo no pasa por el servidor
+
+`withStorageTransaction` (§5.4) lee el archivo entero en memoria
+(`Buffer.from(await file.arrayBuffer())`). Con una portada de 5 MB da igual; con
+el video de una lección, no: el proceso cargaría cientos de megas por subida.
+
+El material de lecciones (`app/modules/content`) usa la otra vía, que es el
+estándar para archivos grandes: **el navegador escribe directo en el bucket**.
+
+```
+1. navegador → POST .../contenido/:leccion  intent=upload-url
+                 {nombre, tipo, tamaño}
+   servidor:  valida tipo y tamaño ANTES de firmar
+              genera la key con buildObjectKey (§3)
+              getUploadUrl(bucket, key, { contentType })
+            ← { key, uploadUrl, expiresInSeconds }
+
+2. navegador → PUT <uploadUrl>              ← al PROVEEDOR, con progreso real
+            ← 200
+
+3. navegador → POST .../contenido/:leccion  intent=save-material { key, … }
+   servidor:  statObject(bucket, key) → ¿llegó? ¿cabe?
+              persiste toProxyRef(key)
+```
+
+Tres cosas que no son opcionales:
+
+1. **La key la genera el servidor.** Si la mandara el cliente, elegiría dónde cae
+   el objeto; y al confirmar se comprueba además que está bajo el prefijo del
+   módulo, para que nadie cuelgue de su lección un objeto privado de otro.
+2. **La validación corre antes de firmar.** Una URL firmada que no debió emitirse
+   ya es el fallo: el objeto se escribe igual aunque después se rechace la fila.
+3. **El tamaño se comprueba al confirmar.** Una firma de `PUT` fija el
+   `Content-Type` pero **no** el tamaño. Sin `statObject`, el tope no existe.
+
+Un objeto subido que nunca se confirma queda huérfano en el bucket; es
+exactamente lo que el escaneo de huérfanos del gestor de nube sabe detectar, con
+su periodo de gracia.
+
+Exige CORS con `PUT` en el bucket (§7.3).
+
 ## 6. El proxy (resource route de React Router)
 
 `app/shared/storage/routes/storage.route.ts` es la contraparte de `getPublicUrl` y
@@ -431,7 +474,7 @@ CORS no hace falta: las imágenes se cargan con `<img>`, no con `fetch`.
 > prefijo entre buckets es una **migración manual** (copiar objetos + verificar),
 > no un cambio de constante.
 
-### 7.3 CORS para el ZIP del gestor de nube
+### 7.3 CORS para el ZIP del gestor de nube y para la subida directa
 
 El gestor de nube ([cloud/00-gestor-nube.md](../cloud/00-gestor-nube.md)) arma los
 ZIP **en el navegador**: pide URLs firmadas y hace `fetch` directo al bucket. Un
@@ -448,6 +491,38 @@ credenciales:
 Sin CORS todo lo demás sigue funcionando (listar, descargar un archivo suelto,
 borrar); solo el ZIP falla, y la pantalla lo explica. CORS de solo lectura no
 expone nada: sin una URL firmada, el bucket privado sigue respondiendo 403.
+
+**El material de lecciones (§5.5) añade una segunda exigencia**: el navegador
+hace `PUT` contra el bucket, así que la regla necesita también `PUT` y la cabecera
+`Content-Type`. Con la regla de solo lectura de arriba, la subida falla en el
+navegador con un error de CORS opaco —el `PUT` ni siquiera sale— mientras el resto
+de la pantalla parece correcto:
+
+| Proveedor | Qué añadir a la regla |
+|---|---|
+| MinIO (local) | Nada: permite todos los orígenes por defecto |
+| Cloudflare R2 / AWS S3 | `"AllowedMethods":["GET","HEAD","PUT"]` y `"AllowedHeaders":["content-type"]` |
+| GCS | `"method":["GET","HEAD","PUT"]` y `"responseHeader":["content-type"]` |
+
+Sigue sin exponer nada: un `PUT` sin URL firmada responde 403, y la firma la emite
+el servidor tras validar tipo y tamaño.
+
+Hay un script para no hacerlo a mano:
+
+```
+bun run storage:cors --dry-run   # enseña lo que haría
+bun run storage:cors             # lo aplica
+```
+
+Lee el CORS que ya hay y **conserva las reglas ajenas**, porque `PutBucketCors`
+reemplaza la configuración entera; solo sustituye la suya, que se reconoce por su
+`ID`. Antes de escribir deja un respaldo de lo anterior en un `.json`.
+
+El CORS es una operación de **bucket**, no de objeto: las credenciales de la
+aplicación suelen responder 403. El script admite
+`STORAGE_ADMIN_ACCESS_KEY_ID` y `STORAGE_ADMIN_SECRET_ACCESS_KEY` para usar un
+token de administración solo aquí, y si falla imprime la política lista para
+pegar en el panel del proveedor.
 
 ## 8. Adaptadores y factory
 

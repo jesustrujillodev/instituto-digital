@@ -543,6 +543,7 @@ model CourseModule {
 enum LessonType {
   TEXT
   FILE
+  VIDEO
   LINK
 
   @@schema("org")
@@ -570,8 +571,39 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  content LessonContent?
+
   @@index([moduleId, order])
   @@map("lessons")
+  @@schema("org")
+}
+
+/// El material de una lección: uno por lección, de la clase que diga su `type`.
+model LessonContent {
+  id       Int    @id @default(autoincrement())
+  lessonId Int    @unique @map("lesson_id")
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  /// TEXT: el árbol del documento. No se confía al leer —se valida contra la
+  /// lista blanca de nodos y cae al documento vacío si la fila quedó vieja—,
+  /// que es lo que permite añadir un bloque nuevo sin migrar.
+  body Json?
+
+  /// FILE y VIDEO. `fileUrl` guarda la REFERENCIA DEL PROXY, no la key cruda ni
+  /// la URL del proveedor: es lo mismo que `Course.coverImageUrl` y es contra lo
+  /// que compara la fuente de referencias de storage.
+  fileUrl  String? @map("file_url")
+  fileName String? @map("file_name")
+  fileSize Int?    @map("file_size")
+  mimeType String? @map("mime_type")
+
+  /// LINK: el enlace externo, ya validado como http(s).
+  externalUrl String? @map("external_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("lesson_contents")
   @@schema("org")
 }
 

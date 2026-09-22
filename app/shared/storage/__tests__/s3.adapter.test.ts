@@ -161,3 +161,48 @@ describe("getPresignedUrl", () => {
 		expect(dispositionSent()).toBe('attachment; filename="fac_tura.pdf"');
 	});
 });
+
+describe("getUploadUrl", () => {
+	test("firma un PutObject con el tipo, y NADA más", async () => {
+		await provider().getUploadUrl("b", "media/lecciones/clase-1.mp4", {
+			contentType: "video/mp4",
+			expiresInSeconds: 900,
+		});
+
+		const [, command, options] = getSignedUrl.mock.calls[0] as unknown as [
+			unknown,
+			SentCommand,
+			{ expiresIn: number },
+		];
+
+		expect(command.__name).toBe("PutObject");
+		expect(command.input).toEqual({
+			Bucket: "b",
+			Key: "media/lecciones/clase-1.mp4",
+			ContentType: "video/mp4",
+		});
+		// Cada cabecera firmada es una que el navegador está OBLIGADO a mandar:
+		// firmar `Cache-Control` rompería la subida con un 403 por firma.
+		expect(options.expiresIn).toBe(900);
+	});
+});
+
+describe("statObject", () => {
+	test("devuelve el tamaño que confirma la subida", async () => {
+		const lastModified = new Date("2026-09-22T12:00:00.000Z");
+		send.mockResolvedValue({ ContentLength: 2048, LastModified: lastModified });
+
+		expect(
+			await provider().statObject("b", "documentos/lecciones/m.pdf"),
+		).toEqual({ key: "documentos/lecciones/m.pdf", size: 2048, lastModified });
+		expect(sentAt(0).__name).toBe("HeadObject");
+	});
+
+	test("un objeto que no está devuelve null, no lanza", async () => {
+		send.mockRejectedValue({ name: "NotFound" });
+
+		expect(
+			await provider().statObject("b", "documentos/lecciones/no.pdf"),
+		).toBe(null);
+	});
+});

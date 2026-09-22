@@ -5,10 +5,15 @@ import {
 	ContentCourseNotFoundError,
 	ContentInvalidOrderError,
 	ContentLessonNotFoundError,
+	ContentLinkInvalidError,
+	ContentMaterialMismatchError,
 	ContentModuleNotEmptyError,
 	ContentModuleNotFoundError,
 	ContentTooManyLessonsError,
 	ContentTooManyModulesError,
+	ContentUploadInvalidError,
+	ContentUploadNotFoundError,
+	ContentUploadTooLargeError,
 } from "../content.errors";
 
 describe("errores de contenido", () => {
@@ -48,5 +53,28 @@ describe("errores de contenido", () => {
 		expect(new ContentCourseNotEditableError("CANCELLED").details).toEqual({
 			status: "CANCELLED",
 		});
+	});
+});
+
+describe("errores del material", () => {
+	test("cada uno lleva su código estable y sus detalles", () => {
+		expect(new ContentMaterialMismatchError("TEXT", "VIDEO")).toMatchObject({
+			code: CONTENT_ERROR_CODES.MATERIAL_MISMATCH,
+			details: { expected: "TEXT", received: "VIDEO" },
+		});
+		expect(new ContentUploadInvalidError("tipo no permitido")).toMatchObject({
+			code: CONTENT_ERROR_CODES.UPLOAD_INVALID,
+			details: { reason: "tipo no permitido" },
+		});
+		expect(new ContentUploadNotFoundError().code).toBe(
+			CONTENT_ERROR_CODES.UPLOAD_NOT_FOUND,
+		);
+		expect(new ContentUploadTooLargeError(1024, 2048)).toMatchObject({
+			code: CONTENT_ERROR_CODES.UPLOAD_TOO_LARGE,
+			details: { limit: 1024, size: 2048 },
+		});
+		expect(new ContentLinkInvalidError().code).toBe(
+			CONTENT_ERROR_CODES.LINK_INVALID,
+		);
 	});
 });

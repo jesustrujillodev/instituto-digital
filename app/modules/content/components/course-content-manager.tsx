@@ -4,6 +4,7 @@ import {
 	ChevronUp,
 	FilePlus2,
 	LayoutList,
+	Paperclip,
 	Pencil,
 	Plus,
 } from "lucide-react";
@@ -39,6 +40,7 @@ import {
 import { LESSON_TYPE_LABELS } from "../utils/content-labels";
 import { ContentLessonDialog } from "./content-lesson-dialog";
 import { ContentModuleDialog } from "./content-module-dialog";
+import { LessonMaterialSheet } from "./lesson-material-sheet";
 
 /** Intercambia dos posiciones de un arreglo sin tocar el original. */
 const swapped = <T,>(values: readonly T[], from: number, to: number): T[] => {
@@ -88,6 +90,9 @@ export function CourseContentManager({
 		moduleDocumentId: string;
 		lesson: ContentLesson | null;
 	} | null>(null);
+	const [materialTarget, setMaterialTarget] = useState<ContentLesson | null>(
+		null,
+	);
 
 	const busy = fetcher.state !== "idle";
 	const canAddModule = tree.length < CONTENT_MAX_MODULES_PER_COURSE;
@@ -241,6 +246,9 @@ export function CourseContentManager({
 												<Badge variant="outline">
 													{LESSON_TYPE_LABELS[lesson.type]}
 												</Badge>
+												{!lesson.hasMaterial && (
+													<Badge variant="secondary">Sin material</Badge>
+												)}
 												{!lesson.isRequired && (
 													<span className="text-muted-foreground text-xs">
 														Opcional
@@ -251,6 +259,18 @@ export function CourseContentManager({
 														{lesson.estimatedMinutes} min
 													</span>
 												)}
+											</div>
+
+											<div className="flex items-center gap-1">
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon"
+													aria-label={`Material de la lección ${lesson.title}`}
+													onClick={() => setMaterialTarget(lesson)}
+												>
+													<Paperclip aria-hidden="true" />
+												</Button>
 											</div>
 
 											{canWrite && (
@@ -362,6 +382,16 @@ export function CourseContentManager({
 				courseDocumentId={courseDocumentId}
 				moduleDocumentId={lessonTarget?.moduleDocumentId ?? null}
 				lesson={lessonTarget?.lesson ?? null}
+			/>
+
+			<LessonMaterialSheet
+				open={materialTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setMaterialTarget(null);
+				}}
+				courseDocumentId={courseDocumentId}
+				lesson={materialTarget}
+				canWrite={canWrite}
 			/>
 		</div>
 	);

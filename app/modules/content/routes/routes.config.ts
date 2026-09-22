@@ -11,4 +11,9 @@ export const contentRoutes = [
 		"cursos/:documentId/contenido",
 		"modules/content/routes/cursos/$documentId.contenido/index.tsx",
 	),
+	// Sin componente: el panel del material la lee y le escribe con `useFetcher`.
+	route(
+		"cursos/:documentId/contenido/:lessonDocumentId",
+		"modules/content/routes/cursos/$documentId.contenido.$lessonDocumentId/index.ts",
+	),
 ] satisfies RouteConfigEntry[];

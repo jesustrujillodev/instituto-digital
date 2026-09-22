@@ -22,6 +22,7 @@ export const lessonOf = (
 	order: 1,
 	isRequired: true,
 	estimatedMinutes: null,
+	hasMaterial: false,
 	...overrides,
 });
 

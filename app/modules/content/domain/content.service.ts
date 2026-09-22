@@ -5,9 +5,13 @@ import type {
 	ContentTreeResponse,
 	CreateLessonDto,
 	CreateModuleDto,
+	MaterialResponse,
 	ReorderContentDto,
+	SaveMaterialDto,
 	UpdateLessonDto,
 	UpdateModuleDto,
+	UploadTicketResponse,
+	UploadUrlDto,
 } from "./content.types";
 
 export interface IContentService {
@@ -59,6 +63,30 @@ export interface IContentService {
 	reorder(
 		courseDocumentId: string,
 		dto: ReorderContentDto,
+		actor: AuthContext,
+	): Promise<ContentMutationResponse>;
+
+	/** El material de una lección, con su URL de lectura ya firmada. */
+	findMaterial(
+		courseDocumentId: string,
+		lessonDocumentId: string,
+		actor: AuthContext,
+	): Promise<MaterialResponse>;
+	/**
+	 * El permiso para que el navegador escriba en el bucket.
+	 *
+	 * Valida y genera la key aquí: nada de lo que mande el cliente decide dónde
+	 * cae el objeto.
+	 */
+	createUploadUrl(
+		courseDocumentId: string,
+		dto: UploadUrlDto,
+		actor: AuthContext,
+	): Promise<UploadTicketResponse>;
+	/** Guarda el material y confirma la subida, si la hubo. */
+	saveMaterial(
+		courseDocumentId: string,
+		dto: SaveMaterialDto,
 		actor: AuthContext,
 	): Promise<ContentMutationResponse>;
 }

@@ -52,6 +52,12 @@ export interface DeleteFilesResult {
 	failed: { key: string; error: string }[];
 }
 
+export interface UploadUrlOptions {
+	/** Se firma con el tipo: el navegador tiene que mandar exactamente este. */
+	contentType: string;
+	expiresInSeconds?: number;
+}
+
 export interface PresignedUrlOptions {
 	/**
 	 * `inline` (por defecto) deja que el navegador lo muestre; `attachment` fuerza
@@ -95,4 +101,19 @@ export interface IStorageProvider {
 		expiresInSeconds?: number,
 		options?: PresignedUrlOptions,
 	): Promise<string>;
+	/**
+	 * URL firmada de SUBIDA: el navegador escribe directo en el bucket y el
+	 * archivo no pasa por el servidor.
+	 *
+	 * Fija el `Content-Type` pero no el tamaño —la firma no puede—, así que quien
+	 * la emite tiene que comprobar el objeto con `statObject` antes de darlo por
+	 * bueno.
+	 */
+	getUploadUrl(
+		bucketName: string,
+		key: string,
+		options: UploadUrlOptions,
+	): Promise<string>;
+	/** Metadatos del objeto, o `null` si no existe. */
+	statObject(bucketName: string, key: string): Promise<StorageObject | null>;
 }

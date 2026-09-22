@@ -16,6 +16,8 @@ import type {
 	DeleteFilesResult,
 	IStorageProvider,
 	StorageConfig,
+	StorageObject,
+	UploadUrlOptions,
 } from "./storage.port";
 
 // Sanea un nombre para incrustarlo en un header Content-Disposition sin permitir
@@ -297,6 +299,63 @@ export const createS3StorageProvider = (
 				});
 			} catch (error) {
 				logger.error("[S3] fallo al generar presigned URL", {
+					bucket: bucketName,
+					key,
+					error: String(error),
+				});
+				throw error;
+			}
+		},
+
+		async getUploadUrl(
+			bucketName: string,
+			key: string,
+			options: UploadUrlOptions,
+		): Promise<string> {
+			try {
+				// Solo `ContentType`: todo lo que se firma se convierte en cabecera
+				// OBLIGATORIA para quien sube, y el navegador manda `Content-Type`
+				// pero no `Cache-Control`. Firmarla daría 403 por firma inválida.
+				const command = new PutObjectCommand({
+					Bucket: bucketName,
+					Key: key,
+					ContentType: options.contentType,
+				});
+				return await getSignedUrl(client as any, command as any, {
+					expiresIn: options.expiresInSeconds ?? 900,
+				});
+			} catch (error) {
+				logger.error("[S3] fallo al generar URL de subida", {
+					bucket: bucketName,
+					key,
+					error: String(error),
+				});
+				throw error;
+			}
+		},
+
+		async statObject(
+			bucketName: string,
+			key: string,
+		): Promise<StorageObject | null> {
+			try {
+				const head = await client.send(
+					new HeadObjectCommand({ Bucket: bucketName, Key: key }),
+				);
+				return {
+					key,
+					size: head.ContentLength ?? 0,
+					lastModified: head.LastModified ?? null,
+				};
+			} catch (error: unknown) {
+				const err = error as {
+					name?: string;
+					$metadata?: { httpStatusCode?: number };
+				};
+				if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
+					return null;
+				}
+				logger.error("[S3] fallo al leer metadatos", {
 					bucket: bucketName,
 					key,
 					error: String(error),

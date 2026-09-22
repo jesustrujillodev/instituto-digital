@@ -16,7 +16,8 @@
 		"verify:push": "bun run test",
 		"seed": "bun prisma/seed.ts",
 		"lockdown": "bun scripts/lockdown.ts",
-		"prepare": "husky"
+		"prepare": "husky",
+		"storage:cors": "bun scripts/setup-storage-cors.ts"
 	},
 	"lint-staged": {
 		"*.{js,jsx,ts,tsx,mjs,cjs,json,jsonc,css}": [
@@ -32,6 +33,10 @@
 		"@prisma/client": "^7.9.0",
 		"@react-router/node": "7.12.0",
 		"@react-router/serve": "7.12.0",
+		"@tiptap/pm": "^3.31.3",
+		"@tiptap/react": "^3.31.3",
+		"@tiptap/starter-kit": "^3.31.3",
+		"@vidstack/react": "1.15.6",
 		"awilix": "^12.1.1",
 		"bcryptjs": "^3.0.3",
 		"class-variance-authority": "^0.7.1",

@@ -17,3 +17,9 @@ export const validateArchiveLesson = (data: unknown) =>
 	v.parse(contentRules.archiveLesson, data);
 export const validateReorderContent = (data: unknown) =>
 	v.parse(contentRules.reorder, data);
+export const validateFindMaterial = (data: unknown) =>
+	v.parse(contentRules.findMaterial, data);
+export const validateUploadUrl = (data: unknown) =>
+	v.parse(contentRules.uploadUrl, data);
+export const validateSaveMaterial = (data: unknown) =>
+	v.parse(contentRules.saveMaterial, data);

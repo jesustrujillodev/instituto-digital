@@ -9,6 +9,14 @@ export type UploadInput = {
 	arrayBuffer(): Promise<ArrayBuffer>;
 };
 
+/**
+ * Lo que basta para decidir si un archivo se acepta.
+ *
+ * El contenido no hace falta, y por eso la subida firmada —donde el servidor
+ * nunca ve los bytes— puede validar con la misma función que el navegador.
+ */
+export type UploadCandidate = Pick<UploadInput, "name" | "type" | "size">;
+
 export interface UploadValidationOptions {
 	/** Content-types permitidos (allowlist). Si se omite, no se restringe el tipo. */
 	allowedTypes?: readonly string[];
@@ -21,7 +29,7 @@ export interface UploadValidationOptions {
  * @returns `null` si es válido, o un motivo legible del rechazo.
  */
 export const validateUploadInput = (
-	file: UploadInput,
+	file: UploadCandidate,
 	opts: UploadValidationOptions = {},
 ): string | null => {
 	if (file.size === 0) return "archivo vacío";

@@ -1,8 +1,10 @@
 import type { CourseScopeWriteWhere } from "@/modules/courses/domain/course.access";
-import type { ContentModuleRaw } from "./content.mapper";
+import type { ContentModuleRaw, LessonMaterialRaw } from "./content.mapper";
+import type { LessonType } from "./content.rules";
 import type {
 	ContentCourseRef,
 	ContentOrderWrites,
+	LessonMaterialWrite,
 	LessonWrite,
 	ModuleOrderWrite,
 	ModuleWrite,
@@ -15,10 +17,11 @@ export interface ContentModuleRef {
 	activeLessons: number;
 }
 
-/** La lección con su padre: archivarla re-empaqueta a sus hermanas. */
+/** La lección con su padre y su clase: archivarla re-empaqueta a sus hermanas. */
 export interface ContentLessonRef {
 	id: number;
 	moduleId: number;
+	type: LessonType;
 }
 
 export interface IContentRepository {
@@ -76,4 +79,16 @@ export interface IContentRepository {
 	 * deja el temario con posiciones repetidas.
 	 */
 	saveOrder(writes: ContentOrderWrites): Promise<void>;
+
+	/** La lección con su material, o `null` si la lección no existe. */
+	findMaterial(
+		courseId: number,
+		lessonDocumentId: string,
+	): Promise<LessonMaterialRaw | null>;
+	saveMaterial(lessonId: number, data: LessonMaterialWrite): Promise<void>;
+	/**
+	 * La referencia del objeto que cuelga de la lección, para descartarlo al
+	 * reemplazarlo o al archivarla.
+	 */
+	findMaterialFileUrl(lessonId: number): Promise<string | null>;
 }
