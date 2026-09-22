@@ -15,6 +15,8 @@ import { endOfZonedDay, zonedInputToUtc } from "@/lib/date-utils";
  * - Un curso creado por un capacitador con rol USER: su alcance de autor.
  * - Los cuatro estados en el listado, incluido uno cancelado con audiencia de
  *   grupo que conserva sus registros.
+ * - Un curso AUTOGESTIVO publicado y sin sesiones, para probar el cierre sin
+ *   asistencia y el crédito con el ejercicio de la fecha de cierre.
  *
  * Las horas se escriben como hora de Tijuana y se convierten con el mismo
  * helper que usa la aplicación.
@@ -150,6 +152,25 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 		},
 	});
 
+	// Autogestivo publicado: sin sesiones, se completa al aprobar la evaluación.
+	await prisma.course.create({
+		data: {
+			dependencyId: sds,
+			createdById: headSds.id,
+			title: "Marco normativo municipal en línea",
+			description:
+				"Curso a ritmo propio. Se acredita al aprobar la evaluación final.",
+			modality: "ONLINE",
+			format: "SELF_PACED",
+			completionRule: "CONTENT",
+			access: "PUBLIC",
+			status: "PUBLISHED",
+			publishedAt: new Date(),
+			requiresEvaluation: true,
+			trainers: { create: [{ userId: trainerSds.id }] },
+		},
+	});
+
 	// Cancelado con audiencia de grupo: cancelar no borra nada.
 	await prisma.course.create({
 		data: {
@@ -168,5 +189,5 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 		},
 	});
 
-	return { courses: 5 };
+	return { courses: 6 };
 }

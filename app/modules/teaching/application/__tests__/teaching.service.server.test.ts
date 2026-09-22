@@ -338,6 +338,33 @@ describe("teachingService.finish", () => {
 		]);
 	});
 
+	// Sin sesiones no hay última fecha que esperar, y el ejercicio del crédito
+	// sale de la propia fecha de cierre (docs/adr/0011).
+	test("un autogestivo cierra el mismo día y su crédito toma el año del cierre", async () => {
+		const { service, log, course, credits } = createHarness(
+			courseOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+				sessions: [],
+				participants: [participantOf({ result: "PASSED" })],
+			}),
+			{ now: zonedInputToUtc("2027-03-18", "10:00") },
+		);
+
+		const result = await service.finish(COURSE_DOC, actorOf());
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { completed: 1, credits: 1 },
+		});
+		expect(course().status).toBe("FINISHED");
+		expect(log.grants[0]?.context).toMatchObject({ fiscalYear: 2027 });
+		expect(credits()).toEqual([
+			{ userId: 50, dependencyId: 3, revokedAt: null },
+		]);
+	});
+
 	test("con resultados pendientes no finaliza ni otorga nada", async () => {
 		const { service, log } = createHarness(
 			courseOf({ requiresEvaluation: true }),

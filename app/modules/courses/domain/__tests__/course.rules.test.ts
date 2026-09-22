@@ -5,10 +5,13 @@ import { COURSE_MAX_SESSIONS } from "../course.config";
 import { COURSE_ERROR_CODES } from "../course.errors";
 import {
 	assertCapacityCovers,
+	assertCompletionRuleCoherent,
 	assertDeadlineBeforeStart,
+	assertFormatEditable,
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
+	type CourseContentFacts,
 	type CourseStatus,
 	canCancel,
 	canEdit,
@@ -16,6 +19,7 @@ import {
 	createCourseRule,
 	publishChecklist,
 	requiresLink,
+	requiresSessions,
 	requiresVenue,
 } from "../course.rules";
 
@@ -34,6 +38,7 @@ const courseOf = (
 ): PublishableCourse => ({
 	status: "DRAFT",
 	modality: "IN_PERSON",
+	format: "SCHEDULED",
 	access: "PUBLIC",
 	sessions: [sessionOf()],
 	trainers: [{ isActive: true }],
@@ -146,14 +151,18 @@ describe("assertDeadlineBeforeStart", () => {
 	});
 });
 
+/** Con temario: el caso sin lecciones se pide explícito, nunca por descuido. */
+const CONTENT: CourseContentFacts = { lessonCount: 2 };
+const NO_CONTENT: CourseContentFacts = { lessonCount: 0 };
+
 describe("assertPublishable", () => {
 	test("un borrador completo se publica", () => {
-		expect(() => assertPublishable(courseOf())).not.toThrow();
+		expect(() => assertPublishable(courseOf(), CONTENT)).not.toThrow();
 	});
 
 	test("un curso ya publicado no se vuelve a publicar", () => {
 		expect(() =>
-			assertPublishable(courseOf({ status: "PUBLISHED" })),
+			assertPublishable(courseOf({ status: "PUBLISHED" }), CONTENT),
 		).toThrowError(
 			expect.objectContaining({
 				code: COURSE_ERROR_CODES.INVALID_TRANSITION,
@@ -163,16 +172,38 @@ describe("assertPublishable", () => {
 	});
 
 	test("sin sesiones no hay nada que impartir", () => {
-		expect(() => assertPublishable(courseOf({ sessions: [] }))).toThrowError(
-			codeOf(COURSE_ERROR_CODES.WITHOUT_SESSIONS),
-		);
+		expect(() =>
+			assertPublishable(courseOf({ sessions: [] }), CONTENT),
+		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_SESSIONS));
+	});
+
+	test("un autogestivo se publica sin una sola sesión", () => {
+		expect(() =>
+			assertPublishable(
+				courseOf({ format: "SELF_PACED", sessions: [] }),
+				CONTENT,
+			),
+		).not.toThrow();
+	});
+
+	test("un autogestivo sin lecciones no tiene qué dar a recorrer", () => {
+		expect(() =>
+			assertPublishable(
+				courseOf({ format: "SELF_PACED", sessions: [] }),
+				NO_CONTENT,
+			),
+		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_LESSONS));
+	});
+
+	test("un calendarizado sin lecciones se publica igual que siempre", () => {
+		expect(() => assertPublishable(courseOf(), NO_CONTENT)).not.toThrow();
 	});
 
 	// Se comprueba al publicar y no al asignar: desactivar un perfil no puede
 	// deshacer una asignación ya hecha.
 	test("un capacitador con el perfil desactivado no sostiene el curso", () => {
 		expect(() =>
-			assertPublishable(courseOf({ trainers: [{ isActive: false }] })),
+			assertPublishable(courseOf({ trainers: [{ isActive: false }] }), CONTENT),
 		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER));
 	});
 
@@ -180,6 +211,7 @@ describe("assertPublishable", () => {
 		expect(() =>
 			assertPublishable(
 				courseOf({ trainers: [{ isActive: false }, { isActive: true }] }),
+				CONTENT,
 			),
 		).not.toThrow();
 	});
@@ -192,6 +224,7 @@ describe("assertPublishable", () => {
 				courseOf({
 					sessions: [sessionOf(), sessionOf({ venue: null }), sessionOf()],
 				}),
+				CONTENT,
 			),
 		).toThrowError(
 			expect.objectContaining({
@@ -208,6 +241,7 @@ describe("assertPublishable", () => {
 					modality: "ONLINE",
 					sessions: [sessionOf({ venue: null })],
 				}),
+				CONTENT,
 			),
 		).toThrowError(codeOf(COURSE_ERROR_CODES.SESSION_MISSING_LINK));
 
@@ -219,19 +253,20 @@ describe("assertPublishable", () => {
 						sessionOf({ venue: null, link: "https://meet.example/x" }),
 					],
 				}),
+				CONTENT,
 			),
 		).not.toThrow();
 	});
 
 	test("uno híbrido exige las dos", () => {
 		expect(() =>
-			assertPublishable(courseOf({ modality: "HYBRID" })),
+			assertPublishable(courseOf({ modality: "HYBRID" }), CONTENT),
 		).toThrowError(codeOf(COURSE_ERROR_CODES.SESSION_MISSING_LINK));
 	});
 
 	test("un curso restringido sin audiencia no se publica", () => {
 		expect(() =>
-			assertPublishable(courseOf({ access: "RESTRICTED" })),
+			assertPublishable(courseOf({ access: "RESTRICTED" }), CONTENT),
 		).toThrowError(codeOf(COURSE_ERROR_CODES.AUDIENCE_REQUIRED));
 	});
 
@@ -242,20 +277,24 @@ describe("assertPublishable", () => {
 					access: "RESTRICTED",
 					audience: { dependencies: [], groups: [{}] },
 				}),
+				CONTENT,
 			),
 		).not.toThrow();
 	});
 
 	test("un curso por invitación no necesita audiencia declarada", () => {
 		expect(() =>
-			assertPublishable(courseOf({ access: "INVITATION" })),
+			assertPublishable(courseOf({ access: "INVITATION" }), CONTENT),
 		).not.toThrow();
 	});
 });
 
 describe("publishChecklist", () => {
-	const pending = (course: PublishableCourse) =>
-		publishChecklist(course)
+	const pending = (
+		course: PublishableCourse,
+		content: CourseContentFacts = CONTENT,
+	) =>
+		publishChecklist(course, content)
 			.filter((entry) => !entry.done)
 			.map((entry) => entry.check);
 
@@ -284,37 +323,141 @@ describe("publishChecklist", () => {
 		]);
 	});
 
+	test("un autogestivo no enseña pendientes de sesión, sí el de contenido", () => {
+		const checks = publishChecklist(
+			courseOf({ format: "SELF_PACED", sessions: [] }),
+			CONTENT,
+		).map((entry) => entry.check);
+
+		expect(checks).not.toContain("sessions");
+		expect(checks).not.toContain("places");
+		expect(checks).toContain("trainer");
+		expect(checks).toContain("content");
+	});
+
+	test("un autogestivo sin lecciones deja el contenido pendiente", () => {
+		expect(
+			pending(courseOf({ format: "SELF_PACED", sessions: [] }), NO_CONTENT),
+		).toEqual(["content"]);
+	});
+
+	test("un calendarizado no enseña el pendiente de contenido", () => {
+		expect(
+			publishChecklist(courseOf(), NO_CONTENT).map((entry) => entry.check),
+		).not.toContain("content");
+	});
+
 	test("la audiencia solo se exige al acceso restringido", () => {
 		expect(
-			publishChecklist(courseOf()).map((entry) => entry.check),
+			publishChecklist(courseOf(), CONTENT).map((entry) => entry.check),
 		).not.toContain("audience");
 		expect(pending(courseOf({ access: "RESTRICTED" }))).toEqual(["audience"]);
 	});
 
 	// La lista y la aserción describen la misma regla: si divergen, la ficha
 	// promete una publicación que el servicio rechaza.
-	test.each<[string, Partial<PublishableCourse>]>([
-		["completo", {}],
-		["sin sesiones", { sessions: [] }],
-		["sin sede", { sessions: [sessionOf({ venue: null })] }],
-		["sin capacitador activo", { trainers: [{ isActive: false }] }],
-		["restringido sin audiencia", { access: "RESTRICTED" }],
+	test.each<[string, Partial<PublishableCourse>, CourseContentFacts]>([
+		["completo", {}, CONTENT],
+		["completo sin lecciones", {}, NO_CONTENT],
+		["sin sesiones", { sessions: [] }, CONTENT],
+		["sin sede", { sessions: [sessionOf({ venue: null })] }, CONTENT],
+		["sin capacitador activo", { trainers: [{ isActive: false }] }, CONTENT],
+		["restringido sin audiencia", { access: "RESTRICTED" }, CONTENT],
 		[
 			"en línea sin enlace",
 			{ modality: "ONLINE", sessions: [sessionOf({ link: null })] },
+			CONTENT,
 		],
-	])("coincide con assertPublishable: %s", (_, overrides) => {
+		[
+			"autogestivo sin sesiones",
+			{ format: "SELF_PACED", sessions: [] },
+			CONTENT,
+		],
+		[
+			"autogestivo sin lecciones",
+			{ format: "SELF_PACED", sessions: [] },
+			NO_CONTENT,
+		],
+		[
+			"autogestivo sin capacitador",
+			{
+				format: "SELF_PACED",
+				sessions: [],
+				trainers: [{ isActive: false }],
+			} as Partial<PublishableCourse>,
+			CONTENT,
+		],
+	])("coincide con assertPublishable: %s", (_, overrides, content) => {
 		const course = courseOf(overrides);
 		const publishable = (() => {
 			try {
-				assertPublishable(course);
+				assertPublishable(course, content);
 				return true;
 			} catch {
 				return false;
 			}
 		})();
 
-		expect(pending(course).length === 0).toBe(publishable);
+		expect(pending(course, content).length === 0).toBe(publishable);
+	});
+});
+
+describe("formato y regla de completado", () => {
+	test("solo el calendarizado pide sesiones", () => {
+		expect(requiresSessions("SCHEDULED")).toBe(true);
+		expect(requiresSessions("SELF_PACED")).toBe(false);
+	});
+
+	test("un autogestivo no se puede completar por asistencia", () => {
+		expect(() =>
+			assertCompletionRuleCoherent({
+				format: "SELF_PACED",
+				completionRule: "ATTENDANCE",
+				requiresEvaluation: true,
+			}),
+		).toThrowError(codeOf(COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE));
+	});
+
+	// Sin evaluación ni contenido, completar por contenido daría el crédito a
+	// todo inscrito.
+	test("completar por contenido exige evaluación", () => {
+		expect(() =>
+			assertCompletionRuleCoherent({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: false,
+			}),
+		).toThrowError(
+			codeOf(COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION),
+		);
+	});
+
+	test("la combinación válida del autogestivo pasa", () => {
+		expect(() =>
+			assertCompletionRuleCoherent({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+			}),
+		).not.toThrow();
+	});
+
+	test("el calendarizado por asistencia no exige evaluación", () => {
+		expect(() =>
+			assertCompletionRuleCoherent({
+				format: "SCHEDULED",
+				completionRule: "ATTENDANCE",
+				requiresEvaluation: false,
+			}),
+		).not.toThrow();
+	});
+
+	test("el formato solo cambia en borrador", () => {
+		expect(() => assertFormatEditable("DRAFT", true)).not.toThrow();
+		expect(() => assertFormatEditable("PUBLISHED", false)).not.toThrow();
+		expect(() => assertFormatEditable("PUBLISHED", true)).toThrowError(
+			codeOf(COURSE_ERROR_CODES.FORMAT_LOCKED),
+		);
 	});
 });
 
@@ -346,6 +489,18 @@ describe("mensajes de la regla de alta", () => {
 		const { title: _omitted, ...withoutTitle } = draft;
 
 		expect(fieldErrorsOf(withoutTitle).title).toBe("Este dato es obligatorio.");
+	});
+
+	test("un formato inventado se rechaza en español", () => {
+		expect(fieldErrorsOf({ ...draft, format: "MAGIC" }).format).toBe(
+			"Elige un formato válido.",
+		);
+	});
+
+	test("una regla de completado inventada se rechaza en español", () => {
+		expect(
+			fieldErrorsOf({ ...draft, completionRule: "VIBES" }).completionRule,
+		).toBe("Elige una regla de completado válida.");
 	});
 
 	test("el cupo fuera de rango explica el límite", () => {

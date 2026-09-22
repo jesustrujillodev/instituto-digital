@@ -1,30 +1,50 @@
 import { Pencil } from "lucide-react";
 import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import type { ContentSummary } from "@/modules/content/domain/content.types";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
+import { requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
+import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
 import {
-	COURSE_WIZARD_STEPS,
 	type PublishChecklist,
+	stepOfKey,
 	stepPath,
 } from "../utils/course-wizard-steps";
 import { CourseAudience } from "./course-audience";
-import { CourseAccessBadge, CourseModalityBadge } from "./course-badges";
+import {
+	CourseAccessBadge,
+	CourseFormatBadge,
+	CourseModalityBadge,
+} from "./course-badges";
 import { CourseProgram } from "./course-program";
 import { CoursePublishChecklist } from "./course-publish-checklist";
 import { CourseTrainers } from "./course-trainers";
 
-const [IDENTITY, PROGRAM, ACCESS, RULES] = COURSE_WIZARD_STEPS;
+// Por clave y no por posición: insertar un paso no puede reasignar en silencio
+// a qué bloque apunta cada botón de editar.
+const IDENTITY = stepOfKey("identity");
+const PROGRAM = stepOfKey("program");
+const ACCESS = stepOfKey("access");
+const RULES = stepOfKey("rules");
+const CONTENT = stepOfKey("content");
 
 interface CourseReviewStepProps {
 	course: CourseDetail;
 	checklist: PublishChecklist;
+	/** El temario, solo cuando el curso lo pide. */
+	content: ContentSummary | null;
 }
 
 /** Último paso: lo capturado, lo que falta y la puerta a publicar. */
-export function CourseReviewStep({ course, checklist }: CourseReviewStepProps) {
+export function CourseReviewStep({
+	course,
+	checklist,
+	content,
+}: CourseReviewStepProps) {
 	const { documentId } = course;
+	const scheduled = requiresSessions(course.format);
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -73,12 +93,24 @@ export function CourseReviewStep({ course, checklist }: CourseReviewStepProps) {
 					documentId={documentId}
 					step={PROGRAM.number}
 					title={PROGRAM.title}
-					aside={<CourseModalityBadge modality={course.modality} />}
+					aside={
+						scheduled ? (
+							<CourseModalityBadge modality={course.modality} />
+						) : (
+							<CourseFormatBadge format={course.format} />
+						)
+					}
 				>
-					<CourseProgram
-						sessions={course.sessions}
-						modality={course.modality}
-					/>
+					{scheduled ? (
+						<CourseProgram
+							sessions={course.sessions}
+							modality={course.modality}
+						/>
+					) : (
+						<p className="text-muted-foreground text-sm">
+							Sin sesiones: quien se inscribe recorre el curso a su ritmo.
+						</p>
+					)}
 				</ReviewBlock>
 
 				<ReviewBlock
@@ -118,22 +150,58 @@ export function CourseReviewStep({ course, checklist }: CourseReviewStepProps) {
 					<ReviewFacts
 						facts={[
 							{
-								term: "Asistencia mínima",
-								value: `${course.minAttendance} %`,
+								term: "Se completa con",
+								value: COMPLETION_RULE_LABELS[course.completionRule],
 							},
+							...(course.completionRule === "ATTENDANCE"
+								? [
+										{
+											term: "Asistencia mínima",
+											value: `${course.minAttendance} %`,
+										},
+									]
+								: []),
 							{
 								term: "Evaluación",
 								value: course.requiresEvaluation
 									? "Aprobado / no aprobado"
 									: "Sin evaluación",
 							},
-							{
-								term: "Ventana del QR",
-								value: `Se activa ${course.qrOpensBeforeMinutes} min antes y se cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,
-							},
+							...(scheduled
+								? [
+										{
+											term: "Ventana del QR",
+											value: `Se activa ${course.qrOpensBeforeMinutes} min antes y se cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,
+										},
+									]
+								: []),
 						]}
 					/>
 				</ReviewBlock>
+
+				{content ? (
+					<ReviewBlock
+						documentId={documentId}
+						step={CONTENT.number}
+						title={CONTENT.title}
+					>
+						{content.lessonCount === 0 ? (
+							<p className="text-muted-foreground text-sm">
+								Sin temario todavía. Es lo único que este curso da a recorrer.
+							</p>
+						) : (
+							<ReviewFacts
+								facts={[
+									{ term: "Módulos", value: `${content.moduleCount}` },
+									{
+										term: "Lecciones",
+										value: `${content.lessonCount}, ${content.requiredLessonCount} obligatorias`,
+									},
+								]}
+							/>
+						)}
+					</ReviewBlock>
+				) : null}
 			</div>
 		</div>
 	);

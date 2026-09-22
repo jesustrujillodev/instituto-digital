@@ -61,10 +61,10 @@ POST /dashboard/imparticion/:id  intent=finish
   ▼ runInTransaction
   │ lockCourseSeats(course)          FOR UPDATE sobre la fila del curso
   │ findCourseById                   relectura con el bloqueo tomado
-  │ assertFinishable                 publicado · con sesiones · día de la última · sin pendientes
+  │ assertFinishable                 publicado · (si se reúne) con sesiones y en su día · sin pendientes
   │ courseRepository.finish          UPDATE ... WHERE status = 'PUBLISHED'
   │ syncCompletion
-  │   completedParticipantsOf        % asistencia ≥ mínimo Y (aprobado O sin evaluación)
+  │   completedParticipantsOf        según completion_rule (§4.1)
   │   enrollmentRepository.setCompletion
   │   diffCredits(existentes, candidatos)
   │   creditRepository.grant / restore / revoke
@@ -75,8 +75,8 @@ ok({ completed, credits })
 | Impedimento | Código |
 | --- | --- |
 | No está publicado | `TEACHING_NOT_PUBLISHED` |
-| Sin sesiones | `TEACHING_WITHOUT_SESSIONS` |
-| Antes del día de la última sesión | `TEACHING_FINISH_TOO_EARLY` + `opensAt` |
+| Sin sesiones (solo un curso calendarizado) | `TEACHING_WITHOUT_SESSIONS` |
+| Antes del día de la última sesión (ídem) | `TEACHING_FINISH_TOO_EARLY` + `opensAt` |
 | Resultados pendientes | `TEACHING_PENDING_RESULTS` + `pending` |
 | Otra petición lo finalizó antes | `TEACHING_STATE_CHANGED` |
 
@@ -87,6 +87,26 @@ botón con el motivo. El servidor lo vuelve a comprobar con la fila bloqueada.
 `asistidas × 100 ≥ mínimo × total`: 2 de 3 sesiones no alcanzan un mínimo de 67 %
 y sí uno de 66 %, sin depender del redondeo. Con una sola sesión, el mínimo es
 de hecho 100 %.
+
+### 4.1 · Qué cuenta como completar
+
+`isCompleted` ramifica por `courses.completion_rule`
+([ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md)):
+
+| Regla | Completa quien |
+| --- | --- |
+| `ATTENDANCE` | Alcanza la asistencia mínima **y**, si hay evaluación, aprueba |
+| `CONTENT` | Aprueba la evaluación. No hay asistencia que medir |
+
+La rama `ATTENDANCE` es idéntica al comportamiento anterior a la regla, bit a
+bit: gobierna todo el histórico y una prueba la fija. `CONTENT` solo se admite
+con `requires_evaluation`, y el alta del curso lo garantiza.
+
+**El curso autogestivo.** Sin sesiones no hay última fecha que esperar, así que
+`finishBlockerOf` se salta `WITHOUT_SESSIONS` y `TOO_EARLY`: el curso se cierra
+cuando quien lo imparte decide. Los resultados pendientes sí lo siguen
+bloqueando. El ejercicio del crédito sale entonces del `fallback` de
+`fiscalYearOf`, que es la propia fecha de cierre.
 
 ## 5. Corrección posterior
 

@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { startOfZonedDay, zonedYearOf } from "@/lib/date-utils";
+import { requiresSessions } from "@/modules/courses/domain/course.rules";
 import type { CreditCandidate } from "@/modules/credits/domain/credit.types";
 import { ENROLLMENT_RESULTS } from "@/modules/enrollments/domain/enrollment.config";
 import type { ResultWrite } from "@/modules/enrollments/domain/enrollment.types";
@@ -134,22 +135,37 @@ export const meetsAttendance = (
 ): boolean => total > 0 && attended * 100 >= minAttendance * total;
 
 /**
- * `completado = % asistencia ≥ mínimo Y (aprobado O sin evaluación)`.
+ * Qué cuenta como completado, según la regla del curso (docs/adr/0011).
  *
- * Con una sola sesión el mínimo es de hecho 100 %, sin caso especial.
+ * `ATTENDANCE` es la de siempre: `% asistencia ≥ mínimo Y (aprobado O sin
+ * evaluación)`, y con una sola sesión el mínimo es de hecho 100 %, sin caso
+ * especial. `CONTENT` es la de un autogestivo, que no tiene asistencia que
+ * medir y se apoya en el resultado capturado; `assertCompletionRuleCoherent`
+ * garantiza que ese curso exige evaluación.
  */
 export const isCompleted = (
-	course: Pick<TeachingCourse, "minAttendance" | "requiresEvaluation"> & {
+	course: Pick<
+		TeachingCourse,
+		"minAttendance" | "requiresEvaluation" | "completionRule"
+	> & {
 		sessionCount: number;
 	},
 	participant: TeachingParticipant,
-): boolean =>
-	meetsAttendance(
-		attendedSessionsOf(participant),
-		course.sessionCount,
-		course.minAttendance,
-	) &&
-	(!course.requiresEvaluation || participant.result === "PASSED");
+): boolean => {
+	switch (course.completionRule) {
+		case "ATTENDANCE":
+			return (
+				meetsAttendance(
+					attendedSessionsOf(participant),
+					course.sessionCount,
+					course.minAttendance,
+				) &&
+				(!course.requiresEvaluation || participant.result === "PASSED")
+			);
+		case "CONTENT":
+			return participant.result === "PASSED";
+	}
+};
 
 export const completedParticipantsOf = (
 	course: TeachingCourse,
@@ -220,9 +236,14 @@ export const finishBlockerOf = (
 ): FinishBlocker | null => {
 	if (course.status !== "PUBLISHED") return "NOT_PUBLISHED";
 
-	const opensAt = finishOpensAt(course);
-	if (!opensAt) return "WITHOUT_SESSIONS";
-	if (now < opensAt) return "TOO_EARLY";
+	// Un autogestivo no espera a ninguna fecha: no hay última sesión que aguardar
+	// y su ejercicio sale de la propia fecha de cierre (`fiscalYearOf`).
+	if (requiresSessions(course.format)) {
+		const opensAt = finishOpensAt(course);
+		if (!opensAt) return "WITHOUT_SESSIONS";
+		if (now < opensAt) return "TOO_EARLY";
+	}
+
 	if (pendingResultsOf(course) > 0) return "PENDING_RESULTS";
 
 	return null;

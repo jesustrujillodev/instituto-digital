@@ -21,6 +21,8 @@ export const COURSE_PAGE_SIZES = [12, 24, 48] as const;
  * la columna conserva su propio default para las escrituras que no lo manden.
  */
 export const COURSE_DEFAULTS = {
+	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
 	minAttendance: 80,
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,

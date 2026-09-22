@@ -1,6 +1,7 @@
 import type * as v from "valibot";
 import type {
 	CourseAccessType,
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
@@ -48,6 +49,7 @@ export interface EnrollmentCourse {
 	/** Ya resuelta a la URL con la que se pinta (CDN o proxy), o null. */
 	coverUrl: string | null;
 	modality: CourseModality;
+	format: CourseFormat;
 	access: CourseAccessType;
 	status: CourseStatus;
 	capacity: number | null;
@@ -76,6 +78,7 @@ export interface AvailableCourse {
 	coverUrl: string | null;
 	dependencyName: string;
 	modality: CourseModality;
+	format: CourseFormat;
 	access: CourseAccessType;
 	capacity: number | null;
 	seatsLeft: number | null;

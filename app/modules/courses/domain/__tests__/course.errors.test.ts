@@ -4,11 +4,14 @@ import {
 	COURSE_ERROR_CODES,
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
+	CourseCompletionRuleWithoutEvaluationError,
 	CourseCoverInvalidError,
 	CourseDeadlineAfterStartError,
 	CourseDependencyInactiveError,
 	CourseError,
 	CourseForbiddenScopeError,
+	CourseFormatLockedError,
+	CourseIncompatibleCompletionRuleError,
 	CourseInvalidTransitionError,
 	CourseNotEditableError,
 	CourseNotFoundError,
@@ -44,6 +47,15 @@ describe("códigos estables", () => {
 			COURSE_ERROR_CODES.INVALID_TRANSITION,
 		],
 		[new CourseWithoutSessionsError(), COURSE_ERROR_CODES.WITHOUT_SESSIONS],
+		[new CourseFormatLockedError(), COURSE_ERROR_CODES.FORMAT_LOCKED],
+		[
+			new CourseIncompatibleCompletionRuleError("SELF_PACED", "ATTENDANCE"),
+			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,
+		],
+		[
+			new CourseCompletionRuleWithoutEvaluationError(),
+			COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION,
+		],
 		[
 			new CourseWithoutActiveTrainerError(),
 			COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER,
@@ -111,6 +123,13 @@ describe("details", () => {
 		expect(new CourseNotEditableError("FINISHED").details).toEqual({
 			status: "FINISHED",
 		});
+	});
+
+	test("la combinación incompatible dice cuáles son las dos partes", () => {
+		expect(
+			new CourseIncompatibleCompletionRuleError("SELF_PACED", "ATTENDANCE")
+				.details,
+		).toEqual({ format: "SELF_PACED", completionRule: "ATTENDANCE" });
 	});
 
 	test("el tope de sesiones viaja para poder nombrarlo", () => {

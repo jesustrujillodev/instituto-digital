@@ -54,8 +54,10 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Regla | Dónde |
 | --- | --- |
 | La inscripción cierra en la fecha límite o, sin ella, al empezar la primera sesión | `enrollmentClosesAt`, `isEnrollmentOpen` |
+| Un curso autogestivo sin fecha límite **no cierra**: no hay primera sesión que lo alcance | `enrollmentClosesAt` ramifica por `requiresSessions` ([ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md)) |
 | Solo cursos `PUBLISHED` admiten inscribirse, aceptar, asignar o invitar | `isEnrollmentOpen` |
-| La baja se permite hasta que empiece la primera sesión | `canWithdraw` |
+| La baja se permite hasta que empiece la primera sesión; en un autogestivo, siempre | `canWithdraw` |
+| Un autogestivo cae en **En curso**, no en Próximos: se recorre desde el día uno | `classifyMyCourse` |
 | Inscribirse, aceptar y asignar ocupan lugar; invitar no | `assertSeatsFor` en `enroll`, `accept` y `assign` |
 | Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos y `SUPERADMIN` quedan fuera) |
 | Asignar es todo o nada: si no hay cupo para el lote, nadie entra | `assign` |

@@ -5,6 +5,8 @@ const FIELD_KEYS = [
 	"description",
 	"cover",
 	"modality",
+	"format",
+	"completionRule",
 	"access",
 	"dependency",
 	"capacity",

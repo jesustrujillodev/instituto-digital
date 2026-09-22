@@ -17,6 +17,8 @@ interface CourseSelectFieldProps {
 	placeholder?: string;
 	helperText?: string;
 	required?: boolean;
+	/** Se llama después de guardar el valor, para los campos que arrastran otros. */
+	onChanged?: (value: string) => void;
 }
 
 /**
@@ -33,6 +35,7 @@ export function CourseSelectField({
 	placeholder,
 	helperText,
 	required,
+	onChanged,
 }: CourseSelectFieldProps) {
 	const { control } = useFormContext<CourseFormValues>();
 
@@ -48,7 +51,10 @@ export function CourseSelectField({
 					</Label>
 					<Select
 						value={typeof field.value === "string" ? field.value : ""}
-						onValueChange={field.onChange}
+						onValueChange={(value) => {
+							field.onChange(value);
+							onChanged?.(value);
+						}}
 					>
 						<SelectTrigger
 							id={id}

@@ -17,6 +17,8 @@ import type { ICalendarRepository } from "@/modules/calendar/domain/calendar.rep
 import type { ICalendarService } from "@/modules/calendar/domain/calendar.service";
 import type { ICheckInService } from "@/modules/check-in/domain/check-in.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
+import type { IContentRepository } from "@/modules/content/domain/content.repository";
+import type { IContentService } from "@/modules/content/domain/content.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
 import type { ICreditRepository } from "@/modules/credits/domain/credit.repository";
@@ -100,6 +102,8 @@ export interface ICradle {
 	groupService: IGroupService;
 	courseRepository: ICourseRepository;
 	courseService: ICourseService;
+	contentRepository: IContentRepository;
+	contentService: IContentService;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
 	calendarRepository: ICalendarRepository;

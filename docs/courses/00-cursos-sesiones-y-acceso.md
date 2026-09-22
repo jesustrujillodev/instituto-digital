@@ -23,7 +23,7 @@ visibilidad de §5.
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `org.courses` | El curso. Organizadora, modalidad, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor, `plan_line_id` y `cover_image_url` |
+| `org.courses` | El curso. Organizadora, modalidad, formato, regla de completado, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor, `plan_line_id` y `cover_image_url` |
 | `org.course_sessions` | Fecha y horario concretos: `starts_at`, `ends_at`, sede y enlace |
 | `org.course_trainers` | Quién imparte. PK `(course_id, user_id)` |
 | `org.course_dependency_audience` | Audiencia por dependencia completa. PK `(course_id, dependency_id)` |
@@ -31,6 +31,21 @@ visibilidad de §5.
 
 Decisiones que el schema no dice por sí solo:
 
+- **`modality` y `format` son dos ejes, no uno.** La modalidad dice DÓNDE se
+  reúne (`IN_PERSON`, `ONLINE`, `HYBRID`) y el formato dice SI se reúne
+  (`SCHEDULED`, `SELF_PACED`). Meter el autogestivo en la modalidad habría
+  degradado `requiresVenue`/`requiresLink`, que necesitan saber si la sesión pide
+  sede, enlace o las dos. Ver
+  [ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md).
+- **`completion_rule` decide qué cuenta como completar.** `ATTENDANCE` es la de
+  siempre; `CONTENT` es la del autogestivo, que no tiene asistencia que medir. Un
+  `SELF_PACED` con `ATTENDANCE` se rechaza en el alta con
+  `COURSE_INCOMPATIBLE_COMPLETION_RULE`, y `CONTENT` exige `requires_evaluation`
+  porque hoy la evaluación es lo único que distingue a quien terminó.
+- **El formato se congela al publicar.** `canEdit` admite tocar un curso
+  `PUBLISHED`, pero pasarlo a autogestivo borraría sus sesiones y, con ellas, las
+  filas de `course_attendance`, que cuelgan de `session_id`. Lo impide
+  `assertFormatEditable` con `COURSE_FORMAT_LOCKED`.
 - **No hay `archived_at`.** La baja de un curso es `status = CANCELLED`, que
   conserva sus sesiones, capacitadores y audiencia (§6.5). Dos mecanismos de baja
   sobre la misma fila se contradirían.
@@ -164,11 +179,24 @@ capacitador o sin sede. Lo que §6.5 exige se comprueba al **publicar**
 
 | Falta | Código |
 | --- | --- |
-| Al menos una sesión | `COURSE_WITHOUT_SESSIONS` |
+| Al menos una sesión (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_SESSIONS` |
+| Al menos una lección (solo si el formato es `SELF_PACED`) | `COURSE_WITHOUT_LESSONS` |
 | Al menos un capacitador con perfil activo | `COURSE_WITHOUT_ACTIVE_TRAINER` |
 | Sede en cada sesión (presencial, híbrida) | `COURSE_SESSION_MISSING_VENUE` + `sessionNumber` |
 | Enlace en cada sesión (en línea, híbrida) | `COURSE_SESSION_MISSING_LINK` + `sessionNumber` |
 | Audiencia si es restringido | `COURSE_AUDIENCE_REQUIRED` |
+
+Un curso `SELF_PACED` se publica sin una sola sesión, y `publishChecklist` omite
+de la lista los pendientes `sessions` y `places` en vez de marcarlos cumplidos
+—el mismo criterio que `audience` cuando el acceso no es restringido—. A cambio
+enseña `content`, que un curso con sesiones no ve. Las dos funciones describen la
+misma regla y una prueba cruzada las obliga a coincidir.
+
+El conteo de lecciones no vive en este módulo: `assertPublishable` y
+`publishChecklist` lo reciben como segundo argumento obligatorio
+(`CourseContentFacts`), y el caso de uso lo pide al puerto `contentRepository`
+solo cuando el formato lo exige
+([ADR 0012](../adr/0012-estructura-de-contenido-y-modulo-propio.md)).
 
 El número de sesión viaja en `details` porque es lo único accionable del
 mensaje. Al guardar sí se comprueban el rango de cada sesión, el tope de sesiones

@@ -91,6 +91,39 @@ describe("isCompleted", () => {
 
 		expect(isCompleted(course, withAttendance([0, 1]))).toBe(false);
 	});
+
+	// docs/adr/0011: el autogestivo no tiene asistencia que medir.
+	test("por contenido completa quien aprueba, sin pisar un aula", () => {
+		const course = {
+			...base,
+			format: "SELF_PACED" as const,
+			completionRule: "CONTENT" as const,
+			requiresEvaluation: true,
+			sessionCount: 0,
+		};
+
+		expect(isCompleted(course, participantOf({ result: "PASSED" }))).toBe(true);
+		expect(isCompleted(course, participantOf({ result: "PENDING" }))).toBe(
+			false,
+		);
+		expect(isCompleted(course, participantOf({ result: "FAILED" }))).toBe(
+			false,
+		);
+	});
+
+	test("por contenido la asistencia mínima deja de contar", () => {
+		const course = {
+			...base,
+			completionRule: "CONTENT" as const,
+			requiresEvaluation: true,
+			minAttendance: 100,
+			sessionCount: 3,
+		};
+
+		expect(
+			isCompleted(course, participantOf({ result: "PASSED", attendance: [] })),
+		).toBe(true);
+	});
 });
 
 describe("creditCandidatesOf", () => {
@@ -145,6 +178,15 @@ describe("ventanas de cierre", () => {
 
 		expect(fiscalYearOf(course, new Date("2030-01-01"))).toBe(2026);
 	});
+
+	// Sin última sesión, el ejercicio sale de la fecha de cierre.
+	test("el ejercicio de un autogestivo es el año en que se cierra", () => {
+		const course = courseOf({ format: "SELF_PACED", sessions: [] });
+
+		expect(fiscalYearOf(course, zonedInputToUtc("2027-03-18", "10:00"))).toBe(
+			2027,
+		);
+	});
 });
 
 describe("finishBlockerOf / assertFinishable", () => {
@@ -172,6 +214,35 @@ describe("finishBlockerOf / assertFinishable", () => {
 		expect(
 			codeOf(() =>
 				assertFinishable(courseOf({ requiresEvaluation: true }), onLastDay),
+			),
+		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
+	});
+
+	test("un autogestivo se finaliza sin esperar a ninguna sesión", () => {
+		const course = courseOf({
+			format: "SELF_PACED",
+			completionRule: "CONTENT",
+			requiresEvaluation: true,
+			sessions: [],
+			participants: [participantOf({ result: "PASSED" })],
+		});
+
+		expect(finishBlockerOf(course, onLastDay)).toBeNull();
+		expect(() => assertFinishable(course, onLastDay)).not.toThrow();
+	});
+
+	test("un autogestivo con resultados sin capturar sigue bloqueado", () => {
+		expect(
+			codeOf(() =>
+				assertFinishable(
+					courseOf({
+						format: "SELF_PACED",
+						completionRule: "CONTENT",
+						requiresEvaluation: true,
+						sessions: [],
+					}),
+					onLastDay,
+				),
 			),
 		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
 	});

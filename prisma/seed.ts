@@ -168,7 +168,7 @@ async function main() {
 	);
 	console.log("✅ Cursos:");
 	console.log(
-		`   • ${courses.courses} cursos (2 borradores en Obras Públicas, 1 publicado, 1 por invitación, 1 cancelado)`,
+		`   • ${courses.courses} cursos (2 borradores en Obras Públicas, 1 publicado, 1 autogestivo, 1 por invitación, 1 cancelado)`,
 	);
 	console.log(
 		"     diana.sds@instituto.gob.mx (USER + capacitadora) solo administra el que creó",

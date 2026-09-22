@@ -1,6 +1,11 @@
 import { utcToZonedInput } from "@/lib/date-utils";
 import { COURSE_DEFAULTS } from "../domain/course.config";
-import type { CourseAccessType, CourseModality } from "../domain/course.rules";
+import type {
+	CourseAccessType,
+	CourseCompletionRule,
+	CourseFormat,
+	CourseModality,
+} from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 
 /**
@@ -20,6 +25,8 @@ export interface CourseFormValues {
 	title: string;
 	description: string;
 	modality: CourseModality;
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	access: CourseAccessType;
 	/** Solo lo usa el superadministrador; los demás heredan la suya. */
 	dependency: string;
@@ -93,6 +100,8 @@ export function buildCourseFormDefaults(
 		title: course?.title ?? prefill?.title ?? "",
 		description: course?.description ?? "",
 		modality: course?.modality ?? prefill?.plannedModality ?? "IN_PERSON",
+		format: course?.format ?? COURSE_DEFAULTS.format,
+		completionRule: course?.completionRule ?? COURSE_DEFAULTS.completionRule,
 		access: course?.access ?? "PUBLIC",
 		dependency: "",
 		planLine: prefill?.lineDocumentId ?? "",

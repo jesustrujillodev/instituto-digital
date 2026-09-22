@@ -29,6 +29,8 @@ import { createCalendarService } from "@/modules/calendar/application/calendar.s
 import { createCalendarRepository } from "@/modules/calendar/infrastructure/calendar.repository.server";
 import { createCheckInService } from "@/modules/check-in/application/check-in.service.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
+import { createContentService } from "@/modules/content/application/content.service.server";
+import { createContentRepository } from "@/modules/content/infrastructure/content.repository.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
 import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
@@ -230,6 +232,8 @@ export const configureContainer = async (
 		groupService: asSingleton(createGroupService),
 		courseRepository: asSingleton(createCourseRepository),
 		courseService: asSingleton(createCourseService),
+		contentRepository: asSingleton(createContentRepository),
+		contentService: asSingleton(createContentService),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
 		calendarRepository: asSingleton(createCalendarRepository),

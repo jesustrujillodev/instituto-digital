@@ -1,3 +1,4 @@
+import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { ENROLLMENT_ERROR_MESSAGES } from "@/modules/enrollments/utils/enrollment-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
@@ -7,6 +8,7 @@ import {
 	canEdit,
 	canPublish,
 	publishChecklist,
+	requiresContent,
 } from "../../../domain/course.rules";
 import { validateFindCourse } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
@@ -40,11 +42,23 @@ export const loader = async ({
 
 	const { status } = course.data;
 
+	// El temario solo se consulta cuando el formato lo pide: un curso con
+	// sesiones no mira sus lecciones.
+	const content = requiresContent(course.data.format)
+		? await context.contentService.summarize(documentId, auth)
+		: null;
+	if (content && !content.success)
+		throw toRouteError(content.error, CONTENT_ERROR_MESSAGES);
+
+	const facts = { lessonCount: content?.data.lessonCount ?? 0 };
+
 	return ok({
 		course: course.data,
 		coverUrl: roster.data.course.coverUrl,
 		enrollment: toEnrollmentSummary(roster.data),
-		publishChecklist: canPublish(status) ? publishChecklist(course.data) : null,
+		publishChecklist: canPublish(status)
+			? publishChecklist(course.data, facts)
+			: null,
 		can: {
 			edit: canEdit(status),
 			publish: canPublish(status),

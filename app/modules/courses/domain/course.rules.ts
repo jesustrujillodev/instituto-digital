@@ -9,19 +9,23 @@ import { COURSE_MAX_SESSIONS, COURSE_QR_WINDOW_LIMITS } from "./course.config";
 import {
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
+	CourseCompletionRuleWithoutEvaluationError,
 	CourseDeadlineAfterStartError,
+	CourseFormatLockedError,
+	CourseIncompatibleCompletionRuleError,
 	CourseInvalidTransitionError,
 	CourseSessionInvalidRangeError,
 	CourseSessionMissingLinkError,
 	CourseSessionMissingVenueError,
 	CourseTooManySessionsError,
 	CourseWithoutActiveTrainerError,
+	CourseWithoutLessonsError,
 	CourseWithoutSessionsError,
 } from "./course.errors";
 
 // ── Vocabulario del módulo ────────────────────────────────────────────────────
 //
-// Las tres tuplas se declaran aquí y no se importan del cliente de Prisma: el
+// Las tuplas se declaran aquí y no se importan del cliente de Prisma: el
 // dominio no conoce el ORM (reglas §4), y son además la allowlist que valida lo
 // que llega del formulario y del query string.
 
@@ -42,6 +46,13 @@ export const COURSE_STATUSES = [
 	"CANCELLED",
 ] as const;
 export type CourseStatus = (typeof COURSE_STATUSES)[number];
+
+/** El eje que `modality` no responde: si el curso se reúne o no. */
+export const COURSE_FORMATS = ["SCHEDULED", "SELF_PACED"] as const;
+export type CourseFormat = (typeof COURSE_FORMATS)[number];
+
+export const COURSE_COMPLETION_RULES = ["ATTENDANCE", "CONTENT"] as const;
+export type CourseCompletionRule = (typeof COURSE_COMPLETION_RULES)[number];
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
@@ -162,6 +173,7 @@ export const courseSummarySchema = v.object({
 	/** Referencia del proxy de storage, o null. La resuelve quien la pinta. */
 	coverImageUrl: v.nullable(v.string()),
 	modality: v.picklist(COURSE_MODALITIES),
+	format: v.picklist(COURSE_FORMATS),
 	access: v.picklist(COURSE_ACCESS_TYPES),
 	status: v.picklist(COURSE_STATUSES),
 	capacity: v.nullable(v.number()),
@@ -181,6 +193,7 @@ export const courseDetailSchema = v.object({
 	enrollmentDeadline: v.nullable(v.date()),
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
+	completionRule: v.picklist(COURSE_COMPLETION_RULES),
 	qrOpensBeforeMinutes: v.number(),
 	qrClosesAfterMinutes: v.number(),
 	/** Línea del plan anual que lo originó, si la hay (§6.11). */
@@ -234,6 +247,7 @@ const courseFormShape = {
 	title,
 	description: v.optional(description),
 	modality: v.picklist(COURSE_MODALITIES, "Elige una modalidad válida."),
+	format: v.optional(v.picklist(COURSE_FORMATS, "Elige un formato válido.")),
 	access: v.picklist(COURSE_ACCESS_TYPES, "Elige un tipo de acceso válido."),
 	capacity: v.optional(capacity),
 	/** Día completo: se resuelve al último minuto de esa fecha (§6.6). */
@@ -241,6 +255,12 @@ const courseFormShape = {
 	minAttendance: v.optional(minAttendance),
 	requiresEvaluation: v.optional(
 		v.boolean("Indica si el curso exige evaluación."),
+	),
+	completionRule: v.optional(
+		v.picklist(
+			COURSE_COMPLETION_RULES,
+			"Elige una regla de completado válida.",
+		),
 	),
 	qrOpensBeforeMinutes: v.optional(qrWindowMinutes),
 	qrClosesAfterMinutes: v.optional(qrWindowMinutes),
@@ -334,6 +354,26 @@ export const canPublish = (status: CourseStatus): boolean => status === "DRAFT";
 export const canCancel = (status: CourseStatus): boolean =>
 	EDITABLE_STATUSES.includes(status);
 
+/** La única pregunta que responde el formato: ¿este curso se reúne? */
+export const requiresSessions = (format: CourseFormat): boolean =>
+	format === "SCHEDULED";
+
+/** El otro lado de la misma pregunta: lo que el autogestivo sí necesita. */
+export const requiresContent = (format: CourseFormat): boolean =>
+	format === "SELF_PACED";
+
+/**
+ * Lo que el módulo de contenido aporta a la publicación: un entero y nada más.
+ *
+ * Viaja como argumento y no como campo del curso porque sus tablas son de otro
+ * módulo; el compilador obliga a cada llamador a decidir de dónde lo saca, y
+ * cero lecciones marca pendiente, nunca publicable.
+ */
+export interface CourseContentFacts {
+	/** Lecciones activas, en módulos activos. */
+	lessonCount: number;
+}
+
 export const requiresVenue = (modality: CourseModality): boolean =>
 	modality === "IN_PERSON" || modality === "HYBRID";
 
@@ -370,6 +410,46 @@ export const assertDeadlineBeforeStart = (
 	}
 };
 
+/**
+ * El formato y la regla de completado tienen que poder convivir.
+ *
+ * Un autogestivo no tiene sesiones, así que no puede completarse por
+ * asistencia. Y mientras no exista el avance por lección, `CONTENT` se apoya en
+ * el resultado capturado a mano: sin evaluación, todo inscrito completaría.
+ */
+export const assertCompletionRuleCoherent = (course: {
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
+	requiresEvaluation: boolean;
+}): void => {
+	if (
+		!requiresSessions(course.format) &&
+		course.completionRule === "ATTENDANCE"
+	) {
+		throw new CourseIncompatibleCompletionRuleError(
+			course.format,
+			course.completionRule,
+		);
+	}
+
+	if (course.completionRule === "CONTENT" && !course.requiresEvaluation) {
+		throw new CourseCompletionRuleWithoutEvaluationError();
+	}
+};
+
+/**
+ * El formato se congela al publicar.
+ *
+ * Pasar a autogestivo borra las sesiones, y con ellas las marcas de asistencia
+ * que cuelgan de cada una. Un curso ya publicado no puede perder eso.
+ */
+export const assertFormatEditable = (
+	status: CourseStatus,
+	changesFormat: boolean,
+): void => {
+	if (changesFormat && status !== "DRAFT") throw new CourseFormatLockedError();
+};
+
 export const assertCapacityCovers = (
 	capacity: number | null,
 	enrolled: number,
@@ -386,19 +466,29 @@ export const assertCapacityCovers = (
  * `course.types.ts`, que a su vez depende de este archivo. Cualquier curso de
  * dominio la satisface.
  */
-export const assertPublishable = (course: {
-	status: CourseStatus;
-	modality: CourseModality;
-	access: CourseAccessType;
-	sessions: readonly { venue: string | null; link: string | null }[];
-	trainers: readonly { isActive: boolean }[];
-	audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
-}): void => {
+export const assertPublishable = (
+	course: {
+		status: CourseStatus;
+		modality: CourseModality;
+		format: CourseFormat;
+		access: CourseAccessType;
+		sessions: readonly { venue: string | null; link: string | null }[];
+		trainers: readonly { isActive: boolean }[];
+		audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
+	},
+	content: CourseContentFacts,
+): void => {
 	if (!canPublish(course.status)) {
 		throw new CourseInvalidTransitionError(course.status, "PUBLISHED");
 	}
 
-	if (course.sessions.length === 0) throw new CourseWithoutSessionsError();
+	if (requiresSessions(course.format) && course.sessions.length === 0) {
+		throw new CourseWithoutSessionsError();
+	}
+
+	if (requiresContent(course.format) && content.lessonCount === 0) {
+		throw new CourseWithoutLessonsError();
+	}
 
 	if (!course.trainers.some((trainer) => trainer.isActive)) {
 		throw new CourseWithoutActiveTrainerError();
@@ -423,36 +513,55 @@ export const assertPublishable = (course: {
 	}
 };
 
-export type PublishCheck = "sessions" | "trainer" | "places" | "audience";
+export type PublishCheck =
+	| "sessions"
+	| "trainer"
+	| "places"
+	| "audience"
+	| "content";
 
 /**
  * Las mismas condiciones de `assertPublishable`, pero todas a la vez y sin
  * lanzar: es lo que la ficha de un borrador enseña como lista de pendientes.
  *
- * La audiencia solo aparece si el acceso es restringido; en los demás no hay
- * nada que cumplir.
+ * La audiencia solo aparece si el acceso es restringido, las sesiones si el
+ * formato las pide y el temario si no; en los demás casos no hay nada que
+ * cumplir.
  */
-export const publishChecklist = (course: {
-	modality: CourseModality;
-	access: CourseAccessType;
-	sessions: readonly { venue: string | null; link: string | null }[];
-	trainers: readonly { isActive: boolean }[];
-	audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
-}): { check: PublishCheck; done: boolean }[] => {
+export const publishChecklist = (
+	course: {
+		modality: CourseModality;
+		format: CourseFormat;
+		access: CourseAccessType;
+		sessions: readonly { venue: string | null; link: string | null }[];
+		trainers: readonly { isActive: boolean }[];
+		audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
+	},
+	content: CourseContentFacts,
+): { check: PublishCheck; done: boolean }[] => {
 	const placed = course.sessions.every(
 		(session) =>
 			(!requiresVenue(course.modality) || Boolean(session.venue)) &&
 			(!requiresLink(course.modality) || Boolean(session.link)),
 	);
 
-	const checks: { check: PublishCheck; done: boolean }[] = [
-		{ check: "sessions", done: course.sessions.length > 0 },
-		{ check: "places", done: course.sessions.length > 0 && placed },
-		{
-			check: "trainer",
-			done: course.trainers.some((trainer) => trainer.isActive),
-		},
-	];
+	const checks: { check: PublishCheck; done: boolean }[] = [];
+
+	if (requiresSessions(course.format)) {
+		checks.push(
+			{ check: "sessions", done: course.sessions.length > 0 },
+			{ check: "places", done: course.sessions.length > 0 && placed },
+		);
+	}
+
+	if (requiresContent(course.format)) {
+		checks.push({ check: "content", done: content.lessonCount > 0 });
+	}
+
+	checks.push({
+		check: "trainer",
+		done: course.trainers.some((trainer) => trainer.isActive),
+	});
 
 	if (course.access === "RESTRICTED") {
 		checks.push({

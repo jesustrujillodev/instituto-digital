@@ -41,6 +41,7 @@ const courseOf = (
 	description: null,
 	coverUrl: null,
 	modality: "IN_PERSON",
+	format: "SCHEDULED",
 	access: "PUBLIC",
 	status: "PUBLISHED",
 	capacity: null,

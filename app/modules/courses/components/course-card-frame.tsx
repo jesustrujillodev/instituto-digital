@@ -6,8 +6,9 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import type { ViewMode } from "@/shared/view-mode/view-mode";
-import type { CourseModality } from "../domain/course.rules";
-import { MODALITY_LABELS } from "../utils/course-labels";
+import type { CourseFormat, CourseModality } from "../domain/course.rules";
+import { requiresSessions } from "../domain/course.rules";
+import { FORMAT_LABELS, MODALITY_LABELS } from "../utils/course-labels";
 
 export interface CourseMetaItem {
 	icon: LucideIcon;
@@ -23,6 +24,8 @@ interface CourseCardFrameProps {
 		documentId: string;
 		title: string;
 		modality: CourseModality;
+		/** Solo lo traen los listados que administran cursos. */
+		format?: CourseFormat;
 		coverUrl: string | null;
 	};
 	/** Estado propio de quien mira. Es lo único que se pinta en guinda. */
@@ -152,6 +155,9 @@ function GridCard({
 				<div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
 					<div className="flex flex-wrap gap-1.5">
 						<CoverBadge>{MODALITY_LABELS[course.modality]}</CoverBadge>
+						{course.format && !requiresSessions(course.format) && (
+							<CoverBadge>{FORMAT_LABELS[course.format]}</CoverBadge>
+						)}
 						{menu && highlight && (
 							<CoverBadge tone="brand">{highlight}</CoverBadge>
 						)}
@@ -238,6 +244,9 @@ function ListCard({
 
 				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 					<Badge variant="outline">{MODALITY_LABELS[course.modality]}</Badge>
+					{course.format && !requiresSessions(course.format) && (
+						<Badge variant="secondary">{FORMAT_LABELS[course.format]}</Badge>
+					)}
 					{highlight && <Badge>{highlight}</Badge>}
 					{meta.map((item) => (
 						<Meta key={item.label} item={item} layout="list" />

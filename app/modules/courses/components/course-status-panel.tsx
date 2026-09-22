@@ -1,13 +1,22 @@
-import { ArrowRight, Ban, ClipboardCheck, Send, Users } from "lucide-react";
+import {
+	ArrowRight,
+	Ban,
+	ClipboardCheck,
+	LayoutList,
+	Send,
+	Users,
+} from "lucide-react";
 import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import type {
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 	PublishCheck,
 } from "../domain/course.rules";
+import { requiresContent } from "../domain/course.rules";
 import {
 	firstPendingStep,
 	LAST_STEP_NUMBER,
@@ -20,6 +29,7 @@ interface CourseStatusPanelProps {
 	documentId: string;
 	status: CourseStatus;
 	modality: CourseModality;
+	format: CourseFormat;
 	cancelledAt: Date | string | null;
 	checklist: readonly { check: PublishCheck; done: boolean }[] | null;
 	enrollment: CourseEnrollmentSummary;
@@ -39,6 +49,7 @@ export function CourseStatusPanel({
 	documentId,
 	status,
 	modality,
+	format,
 	cancelledAt,
 	checklist,
 	enrollment,
@@ -51,6 +62,7 @@ export function CourseStatusPanel({
 }: CourseStatusPanelProps) {
 	const rosterPath = `/dashboard/cursos/${documentId}/inscripciones`;
 	const teachingPath = `/dashboard/imparticion/${documentId}`;
+	const contentPath = `/dashboard/cursos/${documentId}/contenido`;
 
 	return (
 		<Card size="sm">
@@ -83,7 +95,9 @@ export function CourseStatusPanel({
 							</div>
 						) : (
 							<Button asChild>
-								<Link to={stepPath(documentId, firstPendingStep(checklist))}>
+								<Link
+									to={stepPath(documentId, firstPendingStep(checklist, format))}
+								>
 									Continuar el alta
 									<ArrowRight className="ml-auto" aria-hidden="true" />
 								</Link>
@@ -125,6 +139,17 @@ export function CourseStatusPanel({
 								<ArrowRight className="ml-auto" aria-hidden="true" />
 							</Link>
 						</Button>
+						{/* El borrador edita su temario desde el paso del alta; el
+						    publicado ya no pasa por ahí y necesita su propia puerta. */}
+						{requiresContent(format) && (
+							<Button asChild variant="outline">
+								<Link to={contentPath}>
+									<LayoutList aria-hidden="true" />
+									Contenido del curso
+									<ArrowRight className="ml-auto" aria-hidden="true" />
+								</Link>
+							</Button>
+						)}
 					</div>
 				)}
 

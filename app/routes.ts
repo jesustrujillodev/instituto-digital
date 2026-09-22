@@ -7,6 +7,7 @@ import {
 import { calendarRoutes } from "./modules/calendar/routes/routes.config";
 import { checkInRoutes } from "./modules/check-in/routes/routes.config";
 import { cloudAdminRoutes } from "./modules/cloud/routes/routes.config";
+import { contentRoutes } from "./modules/content/routes/routes.config";
 import { coursesRoutes } from "./modules/courses/routes/routes.config";
 import { creditsRoutes } from "./modules/credits/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
@@ -57,6 +58,7 @@ export default [
 					...trainersRoutes, // /dashboard/capacitadores  (catálogo global)
 					...groupsRoutes, // /dashboard/grupos  (alcance por dependencia)
 					...coursesRoutes, // /dashboard/cursos  (alcance propio: incluye al capacitador interno)
+					...contentRoutes, // /dashboard/cursos/:id/contenido  (temario del autogestivo)
 					...enrollmentsRoutes, // /dashboard/cursos-disponibles, /dashboard/mis-cursos, /dashboard/cursos/:id/inscripciones
 					...calendarRoutes, // /dashboard/calendario  (cualquier sesión: cada quien ve lo suyo)
 					...teachingRoutes, // /dashboard/imparticion  (quien imparte u organiza)

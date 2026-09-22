@@ -2,7 +2,9 @@ import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/shared/components/ui/card";
+import { requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
+import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
 
 const dateOf = (value: Date | string) => formatZonedDate(new Date(value));
 
@@ -20,6 +22,7 @@ export function CourseFacts({
 	className?: string;
 }) {
 	const facts: { term: string; value: React.ReactNode }[] = [];
+	const scheduled = requiresSessions(course.format);
 
 	if (course.status === "DRAFT") {
 		facts.push(
@@ -39,19 +42,31 @@ export function CourseFacts({
 		);
 	}
 
-	facts.push(
-		{ term: "Asistencia mínima", value: `${course.minAttendance} %` },
-		{
-			term: "Evaluación",
-			value: course.requiresEvaluation
-				? "Aprobado / no aprobado"
-				: "Sin evaluación",
-		},
-		{
+	facts.push({
+		term: "Se completa con",
+		value: COMPLETION_RULE_LABELS[course.completionRule],
+	});
+
+	if (course.completionRule === "ATTENDANCE") {
+		facts.push({
+			term: "Asistencia mínima",
+			value: `${course.minAttendance} %`,
+		});
+	}
+
+	facts.push({
+		term: "Evaluación",
+		value: course.requiresEvaluation
+			? "Aprobado / no aprobado"
+			: "Sin evaluación",
+	});
+
+	if (scheduled) {
+		facts.push({
 			term: "QR de asistencia",
 			value: `Abre ${course.qrOpensBeforeMinutes} min antes y cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,
-		},
-	);
+		});
+	}
 
 	if (course.planLine) {
 		facts.push({

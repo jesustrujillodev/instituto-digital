@@ -16,6 +16,7 @@ const rawOf = (
 	description: null,
 	coverImageUrl: null,
 	modality: "IN_PERSON",
+	format: "SCHEDULED",
 	access: "INVITATION",
 	status: "PUBLISHED",
 	capacity: 2,

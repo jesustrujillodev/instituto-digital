@@ -10,27 +10,64 @@ import { loader } from "../index.loader";
 
 type LoaderArgs = Parameters<typeof loader>[0];
 
-const courseOf = (status: string) => ({
+const courseOf = (status: string, format = "SCHEDULED") => ({
 	documentId: COURSE_ID,
 	status,
 	title: "Ofimática básica",
 	modality: "IN_PERSON",
+	format,
+	completionRule: format === "SELF_PACED" ? "CONTENT" : "ATTENDANCE",
 	access: "PUBLIC",
 	sessions: [],
 	trainers: [],
 	audience: { dependencies: [], groups: [] },
 });
 
+const moduleOf = () => ({
+	documentId: "11111111-1111-4111-8111-111111111111",
+	title: "Fundamentos",
+	description: null,
+	order: 1,
+	lessons: [
+		{
+			documentId: "33333333-3333-4333-8333-333333333333",
+			title: "Qué es la transparencia",
+			type: "TEXT",
+			order: 1,
+			isRequired: true,
+			estimatedMinutes: null,
+		},
+	],
+});
+
 const createHarness = (
-	options: ActorOptions & { status?: string; findFails?: string } = {},
+	options: ActorOptions & {
+		status?: string;
+		format?: string;
+		findFails?: string;
+		lessons?: boolean;
+	} = {},
 ) => {
+	const calls = { trees: 0 };
+
 	const context = {
 		authPayload: authPayloadOf(options),
+		contentService: {
+			findTree: async () => {
+				calls.trees += 1;
+				return okReply(options.lessons === false ? [] : [moduleOf()]);
+			},
+		},
 		courseService: {
 			findById: async () =>
 				options.findFails
 					? failReply(options.findFails)
-					: okReply(courseOf(options.status ?? "DRAFT")),
+					: okReply(
+							courseOf(
+								options.status ?? "DRAFT",
+								options.format ?? "SCHEDULED",
+							),
+						),
 			listFormOptions: async () =>
 				okReply({
 					trainers: [],
@@ -42,7 +79,7 @@ const createHarness = (
 		},
 	} as unknown as LoaderArgs["context"];
 
-	return { context };
+	return { context, calls };
 };
 
 const run = (
@@ -68,7 +105,7 @@ describe("cursos/alta loader", () => {
 		expect(data.checklist).toContainEqual({ check: "sessions", done: false });
 	});
 
-	test.each(["0", "6", "dos"])("el paso %s vuelve al primero", async (paso) => {
+	test.each(["0", "7", "dos"])("el paso %s vuelve al primero", async (paso) => {
 		const { context } = createHarness();
 
 		const thrown = await run(context, { paso }).catch((e) => e);
@@ -77,6 +114,41 @@ describe("cursos/alta loader", () => {
 		expect(thrown.headers.get("Location")).toBe(
 			`/dashboard/cursos/${COURSE_ID}/nuevo/1`,
 		);
+	});
+
+	// El 5 existe, pero un curso con sesiones no lo recorre: va a lo que falta.
+	test("el paso de contenido no es alcanzable en un calendarizado", async () => {
+		const { context, calls } = createHarness();
+
+		const thrown = await run(context, { paso: "5" }).catch((e) => e);
+
+		expect(thrown).toBeInstanceOf(Response);
+		expect(thrown.headers.get("Location")).toBe(
+			`/dashboard/cursos/${COURSE_ID}/nuevo/2`,
+		);
+		expect(calls.trees).toBe(0);
+	});
+
+	test("un autogestivo abre el paso de contenido con su temario", async () => {
+		const { context, calls } = createHarness({ format: "SELF_PACED" });
+
+		const { data } = await run(context, { paso: "5" });
+
+		expect(data.stepNumber).toBe(5);
+		expect(data.content).toHaveLength(1);
+		expect(calls.trees).toBe(1);
+		expect(data.checklist).toContainEqual({ check: "content", done: true });
+	});
+
+	test("un autogestivo sin lecciones deja el contenido pendiente", async () => {
+		const { context } = createHarness({
+			format: "SELF_PACED",
+			lessons: false,
+		});
+
+		const { data } = await run(context, { paso: "5" });
+
+		expect(data.checklist).toContainEqual({ check: "content", done: false });
 	});
 
 	// El alta es para capturar de cero. Un curso que ya salió de borrador se

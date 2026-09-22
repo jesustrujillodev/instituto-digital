@@ -13,12 +13,26 @@ type LoaderArgs = Parameters<typeof loader>[0];
 const createHarness = (
 	options: ActorOptions & {
 		status?: string;
+		format?: string;
 		findFails?: string;
 		rosterFails?: string;
+		lessonCount?: number;
 	} = {},
 ) => {
+	const calls = { summaries: 0 };
+
 	const context = {
 		authPayload: authPayloadOf(options),
+		contentService: {
+			summarize: async () => {
+				calls.summaries += 1;
+				return okReply({
+					moduleCount: 1,
+					lessonCount: options.lessonCount ?? 2,
+					requiredLessonCount: options.lessonCount ?? 2,
+				});
+			},
+		},
 		courseService: {
 			findById: async () =>
 				options.findFails
@@ -27,6 +41,9 @@ const createHarness = (
 							documentId: COURSE_ID,
 							status: options.status ?? "DRAFT",
 							modality: "IN_PERSON",
+							format: options.format ?? "SCHEDULED",
+							completionRule:
+								options.format === "SELF_PACED" ? "CONTENT" : "ATTENDANCE",
 							access: "PUBLIC",
 							sessions: [],
 							trainers: [],
@@ -51,7 +68,7 @@ const createHarness = (
 		},
 	} as unknown as LoaderArgs["context"];
 
-	return { context };
+	return { context, calls };
 };
 
 const run = (context: LoaderArgs["context"], documentId = COURSE_ID) =>
@@ -80,6 +97,40 @@ describe("cursos/:documentId loader", () => {
 			"places",
 			"trainer",
 		]);
+	});
+
+	test("un curso con sesiones no pregunta por el temario", async () => {
+		const { context, calls } = createHarness();
+
+		await run(context);
+
+		expect(calls.summaries).toBe(0);
+	});
+
+	test("un autogestivo trae el pendiente de contenido resuelto", async () => {
+		const { context, calls } = createHarness({ format: "SELF_PACED" });
+
+		const { data } = await run(context);
+
+		expect(calls.summaries).toBe(1);
+		expect(data.publishChecklist).toContainEqual({
+			check: "content",
+			done: true,
+		});
+	});
+
+	test("un autogestivo sin lecciones no se puede publicar todavía", async () => {
+		const { context } = createHarness({
+			format: "SELF_PACED",
+			lessonCount: 0,
+		});
+
+		const { data } = await run(context);
+
+		expect(data.publishChecklist).toContainEqual({
+			check: "content",
+			done: false,
+		});
 	});
 
 	test("un publicado resume la inscripción y abre la impartición", async () => {

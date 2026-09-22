@@ -20,7 +20,11 @@ export const COURSE_FORM_SECTIONS: readonly {
 		title: "Identidad",
 		fields: ["dependency", "planLine", "title", "description"],
 	},
-	{ key: "program", title: "Programa", fields: ["modality", "sessions"] },
+	{
+		key: "program",
+		title: "Programa",
+		fields: ["format", "modality", "sessions"],
+	},
 	{
 		key: "people",
 		title: "Acceso",
@@ -38,6 +42,7 @@ export const COURSE_FORM_SECTIONS: readonly {
 		key: "attendance",
 		title: "Reglas",
 		fields: [
+			"completionRule",
 			"minAttendance",
 			"qrOpensBeforeMinutes",
 			"qrClosesAfterMinutes",

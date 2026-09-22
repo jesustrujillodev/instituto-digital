@@ -1,5 +1,7 @@
 import type * as v from "valibot";
 import type {
+	CourseCompletionRule,
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
@@ -56,6 +58,8 @@ export interface TeachingCourse {
 	dependencyId: number;
 	dependencyName: string;
 	modality: CourseModality;
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	status: CourseStatus;
 	minAttendance: number;
 	requiresEvaluation: boolean;
@@ -127,6 +131,8 @@ export interface TeachingDetail {
 		title: string;
 		dependencyName: string;
 		modality: CourseModality;
+		format: CourseFormat;
+		completionRule: CourseCompletionRule;
 		status: CourseStatus;
 		minAttendance: number;
 		requiresEvaluation: boolean;

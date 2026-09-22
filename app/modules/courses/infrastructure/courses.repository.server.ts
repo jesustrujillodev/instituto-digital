@@ -29,6 +29,7 @@ const SUMMARY_SELECT = {
 	title: true,
 	coverImageUrl: true,
 	modality: true,
+	format: true,
 	access: true,
 	status: true,
 	capacity: true,
@@ -45,6 +46,7 @@ const SUMMARY_SELECT = {
 
 const DETAIL_SELECT = {
 	...SUMMARY_SELECT,
+	completionRule: true,
 	description: true,
 	enrollmentDeadline: true,
 	minAttendance: true,
@@ -174,6 +176,8 @@ const scalarsOf = (data: CourseWriteData) => ({
 	title: data.title,
 	description: data.description,
 	modality: data.modality,
+	format: data.format,
+	completionRule: data.completionRule,
 	access: data.access,
 	capacity: data.capacity,
 	enrollmentDeadline: data.enrollmentDeadline,

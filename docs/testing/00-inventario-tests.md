@@ -1,7 +1,9 @@
 # Inventario de tests
 
-Estado de la suite al 16 de septiembre de 2026, tras PRD-08. **227 archivos, 2513
-tests, todos en verde.** El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
+Estado de la suite al 21 de septiembre de 2026, tras F-03 del MVP-02.
+**262 archivos, 2967 tests, todos en verde.** Las secciones de Content, Courses y
+Teaching llevan los conteos de esa fecha; las demás vienen de PRD-08 y pueden ir
+por detrás. El runner es [Vitest](https://vitest.dev) (`vitest run`), configurado en
 `vitest.config.ts` con entorno `node`, resolución de alias vía
 `vite-tsconfig-paths` y descubrimiento sobre `app/**/__tests__/**/*.test.{ts,tsx}`.
 
@@ -65,9 +67,10 @@ que queda fuera está listado como hueco al final de este documento.
 | [Dependencies](#dependencies) | 17 | 159 | dominio, aplicación, infraestructura, rutas, utilidades |
 | [Trainers](#trainers) | 16 | 100 | dominio, aplicación, rutas, utilidades |
 | [Groups](#groups) | 14 | 74 | dominio, aplicación, rutas, utilidades |
-| [Courses](#courses) | 16 | 186 | dominio, aplicación, rutas, utilidades |
+| [Courses](#courses) | 28 | 357 | dominio, aplicación, infraestructura, rutas, utilidades |
+| [Content](#content) | 6 | 60 | dominio, aplicación, infraestructura, rutas |
 | [Enrollments](#enrollments) | 11 | 124 | dominio, aplicación, rutas, utilidades |
-| [Teaching](#teaching) | 9 | 67 | dominio, aplicación, infraestructura, rutas |
+| [Teaching](#teaching) | 9 | 85 | dominio, aplicación, infraestructura, rutas |
 | [Credits](#credits) | 5 | 24 | dominio, aplicación, infraestructura, rutas |
 | [Ratings](#ratings) | 4 | 20 | dominio, aplicación, infraestructura, rutas |
 | [Annual plan](#annual-plan) | 5 | 47 | dominio, aplicación, infraestructura, rutas |
@@ -76,7 +79,7 @@ que queda fuera está listado como hueco al final de este documento.
 | [Shared](#shared) | 42 | 486 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
 | [Core](#core) | 2 | 35 | entorno y cookies |
 | [Lib](#lib) | 6 | 61 | utilidades puras y zona horaria |
-| **Total** | **227** | **2513** | |
+| **Total** | **262** | **2967** | |
 
 > Las filas por área suman menos que el total: el inventario ya iba por detrás de
 > la suite y solo se han recontado las áreas que tocaron PRD-03, PRD-04, PRD-06, PRD-07 y PRD-08.
@@ -408,42 +411,79 @@ Cursos, sesiones y acceso (PRD-03). Lo que estas pruebas protegen es que **el
 alcance de autor del capacitador interno no se convierta en nada ni en todo**, y
 que un curso no se publique sin lo que §6.5 exige.
 
-### `domain/__tests__/` — 116 tests
+### `domain/__tests__/` — 164 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `course.access.test.ts` | 36 | Que un capacitador interno con rol `USER` resuelva a `creator` y el externo a `none`; que `none` dé un predicado imposible al leer y `null` al escribir, jamás `{}`; que fuera del alcance global la organizadora **ignore la del formulario**; que un curso por invitación solo se abra por invitación o inscripción propia; y qué ve una dependencia completa al asignar. |
-| `course.rules.test.ts` | 27 | Las cuatro condiciones de publicación, que el error diga **qué sesión** falló, las transiciones de estado, que un borrador sin sesiones sea válido y que el cupo no baje de los inscritos. |
-| `course.errors.test.ts` | 22 | El `code` estable de cada error, su herencia de `DomainError` y los `details` que el adaptador interpola. |
+| `course.access.test.ts` | 38 | Que un capacitador interno con rol `USER` resuelva a `creator` y el externo a `none`; que `none` dé un predicado imposible al leer y `null` al escribir, jamás `{}`; que fuera del alcance global la organizadora **ignore la del formulario**; que un curso por invitación solo se abra por invitación o inscripción propia; y qué ve una dependencia completa al asignar. |
+| `course.rules.test.ts` | 60 | Las condiciones de publicación, que el error diga **qué sesión** falló, las transiciones de estado, que un borrador sin sesiones sea válido y que el cupo no baje de los inscritos. Desde F-01: que un autogestivo se publique sin sesiones, que su checklist omita esos pendientes en vez de marcarlos, que la lista y la aserción no puedan divergir, y las combinaciones de formato y regla que se rechazan. Desde F-03: que un autogestivo sin lecciones no se publique, que un calendarizado ni enseñe ese pendiente, y que la prueba cruzada cubra también el par nuevo. |
+| `course.errors.test.ts` | 28 | El `code` estable de cada error, su herencia de `DomainError` y los `details` que el adaptador interpola. |
 | `course.validators.test.ts` | 21 | Contratos de frontera: horas `HH:mm`, uuid en la URL, allowlist de ordenación, y que la edición descarte la organizadora. |
-| `course.mapper.test.ts` | 7 | Que el rango de fechas y los conteos se aplanen sin inventar fechas, y que `isActive` del capacitador se derive de cuenta y perfil. |
-| `course.config.test.ts` | 3 | Defaults de paginación, asistencia mínima y tope de sesiones. |
+| `course.mapper.test.ts` | 8 | Que el rango de fechas y los conteos se aplanen sin inventar fechas, y que `isActive` del capacitador se derive de cuenta y perfil. |
+| `course.config.test.ts` | 9 | Defaults de paginación, asistencia mínima, formato y regla de completado, y tope de sesiones. |
 
-### `application/__tests__/` — 28 tests
-
-| Archivo | Tests | Qué protege |
-|---|---:|---|
-| `courses.service.server.test.ts` | 28 | Envelope en éxito y fallo de `create`, `update`, `publish` y `cancel`; que `create` y `update` corran en `runInTransaction`; que la hora de Tijuana llegue a UTC; que un lote con un capacitador o audiencia no disponible **se rechace entero**; que un curso no restringido descarte su audiencia; que un finalizado o cancelado no se edite; y que editar el cupo bloquee el curso y no baje de los inscritos. |
-
-### `routes/**/__tests__/` — 24 tests
+### `application/__tests__/` — 58 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
+| `courses.service.server.test.ts` | 58 | Envelope en éxito y fallo de `create`, `update`, `publish` y `cancel`; que `create` y `update` corran en `runInTransaction`; que la hora de Tijuana llegue a UTC; que un lote con un capacitador o audiencia no disponible **se rechace entero**; que un curso no restringido descarte su audiencia; que un finalizado o cancelado no se edite; y que editar el cupo bloquee el curso y no baje de los inscritos. Desde F-01: que un autogestivo se guarde sin sesiones y se publique, que una combinación incompatible de formato y regla no cree nada, y que un curso publicado no cambie de formato. Desde F-03: que un autogestivo sin lecciones no se publique y que un curso con sesiones ni consulte el temario. |
+
+### `routes/**/__tests__/` — 60 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `$documentId/index.loader.test.ts` | 8 | Permisos derivados del estado, 404 fuera de alcance, y que el pendiente de contenido solo se pida —y solo se enseñe— en un autogestivo. |
+| `$documentId.nuevo.$paso/index.loader.test.ts` | 11 | Que un segmento que no nombra ningún paso vuelva al primero, que el alta sirva solo borradores, que el paso de contenido no sea alcanzable en un curso con sesiones, y que un autogestivo lo abra con su temario ya cargado. |
 | `cursos/index.loader.test.ts` | 6 | 403 al participante y al externo; alcance de autor al capacitador interno; que un titular no pueda pedir otra dependencia por la URL. |
 | `cursos/index.action.test.ts` | 5 | Publicar y cancelar por `documentId`, uuid validado antes del servicio, y copia del módulo en vez de un status. |
 | `cursos/nuevo/index.action.test.ts` | 5 | Que el JSON del curso conserve sus tipos, que un JSON roto se rechace como validación y que los errores vuelvan por campo. |
 | `$documentId.editar/index.loader.test.ts` | 4 | Permisos derivados del estado y **404 fuera de alcance**: ni por URL directa. |
 | `$documentId.editar/index.action.test.ts` | 4 | Guardar con el `documentId` de la URL y publicar desde la ficha. |
 
-### `utils/__tests__/` — 18 tests
+### `utils/__tests__/` — 66 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `build-course-payload.test.ts` | 5 | Que la regla del formulario sea la del servidor y que sus errores conserven el nombre del campo (`sessions.0.startTime`). |
+| `course-wizard-steps.test.ts` | 28 | Que los números del alta no tengan saltos y ningún campo viva en dos pasos; que `stepsForFormat` deje fuera el contenido en un curso con sesiones sin renumerar a los demás; que la posición visible no sea el número del paso; y que el siguiente y el anterior salten el paso que no aplica. |
+| `build-course-payload.test.ts` | 7 | Que la regla del formulario sea la del servidor, que sus errores conserven el nombre del campo (`sessions.0.startTime`) y que un autogestivo no mande las sesiones que quedaron en el formulario. |
 | `build-course-form-defaults.test.ts` | 4 | Ningún campo `undefined` y que las horas precargadas vuelvan a la zona del instituto. |
 | `parse-course-form-data.test.ts` | 4 | Que el payload JSON se decodifique con sus tipos y que uno roto llegue como `null`. |
 | `course-error-messages.test.ts` | 4 | Cobertura de códigos, reserva, y que la copia nombre la sesión. |
 | `to-course-cards.test.ts` | 2 | Que la PK interna no llegue a la tarjeta y que la portada se pinte con la URL resuelta. |
+
+---
+
+## Content
+
+El temario del curso autogestivo (F-03). Lo que estas pruebas protegen es que
+**el orden no se corrompa** —ni al reordenar, ni al archivar— y que nadie toque
+el temario de un curso que no administra.
+
+### `domain/__tests__/` — 30 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `content.rules.test.ts` | 24 | Que reordenar solo acepte una permutación exacta —falta uno, sobra uno, repetido o ajeno se rechazan—, que escriba **solo lo que se mueve**, que normalice huecos a 1..n y que mover una lección de módulo sea el mismo reordenamiento; que archivar re-empaquete a los hermanos de atrás y a nadie más; los topes por curso y por módulo; y los contratos de entrada, incluido el tipo de lección fuera de la picklist. |
+| `content.mapper.test.ts` | 4 | Que el árbol conserve el orden y los campos de cada lección, y que el resumen cuente módulos, lecciones y cuáles son obligatorias. |
+| `content.errors.test.ts` | 2 | El `code` estable de cada error y los `details` que el adaptador interpola (`limit`, `activeLessons`, `status`). |
+
+### `application/__tests__/` — 15 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `content.service.server.test.ts` | 15 | Envelope en éxito y fallo de las siete mutaciones; que un curso fuera de alcance responda igual que inexistente y que sin alcance de administración ni se consulte; que un finalizado ya no cambie de temario; que la fila nueva nazca al final; que un módulo con lecciones activas no se archive; que archivar escriba la fecha del reloj inyectado y el re-empaque **dentro** de una transacción; y que un orden inválido no escriba nada. |
+
+### `infrastructure/__tests__/` — 7 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `content.repository.server.test.ts` | 7 | Que el filtro de alcance viaje junto al `documentId`; que el árbol y el conteo excluyan lo archivado **en los dos niveles**; que una lección se busque por su curso y no por su módulo; y que archivar escriba la baja antes que el orden. |
+
+### `routes/**/__tests__/` — 8 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `$documentId.contenido/index.action.test.ts` | 8 | Que cada intent despache a su método con el curso de la URL; que reordenar mande el árbol completo; que un intent desconocido y un payload que no es JSON no lleguen al servicio; y que el fallo vuelva traducido conservando su código. |
 
 ---
 
@@ -532,29 +572,29 @@ Impartición (PRD-06). Lo que estas pruebas protegen es que **el crédito siempr
 coincida con la fórmula de §6.8**, también después de corregir, y que quien
 imparte no corrija lo que ya se finalizó.
 
-### `domain/__tests__/` — 39 tests
+### `domain/__tests__/` — 48 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `teaching.rules.test.ts` | 22 | Asistencia comparada en enteros (2 de 3 contra 66 % y 67 %), el 100 % de hecho de un curso de una sesión, aprobado exigido solo con evaluación, que un externo complete sin sumar crédito, las ventanas de lista y cierre en la zona del instituto, el ejercicio de una clase nocturna del 31 de diciembre, el código de cada impedimento para finalizar, que un capacitador no corrija y que un envío solo escriba lo que cambia. |
+| `teaching.rules.test.ts` | 27 | Asistencia comparada en enteros (2 de 3 contra 66 % y 67 %), el 100 % de hecho de un curso de una sesión, aprobado exigido solo con evaluación, que un externo complete sin sumar crédito, las ventanas de lista y cierre en la zona del instituto, el ejercicio de una clase nocturna del 31 de diciembre, el código de cada impedimento para finalizar, que un capacitador no corrija y que un envío solo escriba lo que cambia. Desde F-01: la rama `CONTENT` del completado, que un autogestivo se finalice sin esperar a ninguna sesión pero siga bloqueado por resultados pendientes, y que su ejercicio salga de la fecha de cierre. |
 | `teaching.access.test.ts` | 6 | Que las ramas se sumen para el auxiliar capacitador, que el capacitador interno no pase lista en lo que solo creó, que el externo sí imparta y que sin ramas el filtro sea imposible y nunca `{}`. |
-| `teaching.validators.test.ts` | 5 | Lista no vacía y booleana; nota entera de 0 a 100; nota prohibida en un pendiente. |
-| `teaching.mapper.test.ts` | 4 | Que la ficha no exponga ids internos, que una sesión sin lista se vea como `null` y los permisos de solo lectura de un finalizado. |
+| `teaching.validators.test.ts` | 7 | Lista no vacía y booleana; nota entera de 0 a 100; nota prohibida en un pendiente. |
+| `teaching.mapper.test.ts` | 6 | Que la ficha no exponga ids internos, que una sesión sin lista se vea como `null` y los permisos de solo lectura de un finalizado. |
 | `teaching.errors.test.ts` | 2 | `code` estable y `details` serializables. |
 
-### `application/__tests__/` — 16 tests
+### `application/__tests__/` — 17 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `teaching.service.server.test.ts` | 16 | Con dobles en memoria que reflejan cada escritura: el bloqueo **dentro** de la transacción, que finalizar otorgue el crédito con la dependencia y el ejercicio correctos, que con pendientes o antes de tiempo no escriba nada, `STATE_CHANGED` si otra petición finalizó antes, y que corregir retire, restaure (sin crear otra fila) o retire por un no aprobado. |
+| `teaching.service.server.test.ts` | 17 | Con dobles en memoria que reflejan cada escritura: el bloqueo **dentro** de la transacción, que finalizar otorgue el crédito con la dependencia y el ejercicio correctos, que con pendientes o antes de tiempo no escriba nada, `STATE_CHANGED` si otra petición finalizó antes, que corregir retire, restaure (sin crear otra fila) o retire por un no aprobado, y que un autogestivo cierre el mismo día con el ejercicio de esa fecha. |
 
-### `infrastructure/__tests__/` y `routes/**/__tests__/` — 12 tests
+### `infrastructure/__tests__/` y `routes/**/__tests__/` — 20 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `teaching.repository.server.test.ts` | 4 | Filtro de alcance fundido con los estados que se imparten, asistencia acotada a las sesiones del curso, y quién y cuándo en cada marca. |
+| `teaching.repository.server.test.ts` | 10 | Filtro de alcance fundido con los estados que se imparten, asistencia acotada a las sesiones del curso, y quién y cuándo en cada marca. |
 | `imparticion/$documentId/…/index.action.test.ts` | 5 | JSON validado antes del servicio, error localizado con su código, 403 para quien no imparte, intent desconocido. |
-| `imparticion/$documentId/…/index.loader.test.ts` | 3 | Valoraciones solo en un finalizado y 400 con un `documentId` mal formado. |
+| `imparticion/$documentId/…/index.loader.test.ts` | 5 | Valoraciones solo en un finalizado y 400 con un `documentId` mal formado. |
 
 ## Credits
 

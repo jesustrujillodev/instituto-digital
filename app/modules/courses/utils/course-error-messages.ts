@@ -36,10 +36,26 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 		"La dependencia organizadora está desactivada y no admite cursos nuevos.",
 	[COURSE_ERROR_CODES.NOT_EDITABLE]:
 		"Un curso finalizado o cancelado ya no se puede modificar.",
+	[COURSE_ERROR_CODES.FORMAT_LOCKED]: {
+		message: "El formato solo se puede cambiar mientras el curso es borrador.",
+		fieldErrors: { format: "No se puede cambiar" },
+	},
+	[COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE]: {
+		message:
+			"Un curso autogestivo no tiene sesiones, así que no puede completarse por asistencia.",
+		fieldErrors: { completionRule: "Elige otra regla" },
+	},
+	[COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION]: {
+		message:
+			"Completar por contenido exige evaluación: es lo que distingue a quien terminó el curso.",
+		fieldErrors: { requiresEvaluation: "Actívala para esta regla" },
+	},
 	[COURSE_ERROR_CODES.INVALID_TRANSITION]:
 		"El curso ya no está en un estado que permita esta acción.",
 	[COURSE_ERROR_CODES.WITHOUT_SESSIONS]:
 		"Para publicar, el curso necesita al menos una sesión.",
+	[COURSE_ERROR_CODES.WITHOUT_LESSONS]:
+		"Para publicar, un curso autogestivo necesita al menos una lección.",
 	[COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER]:
 		"Para publicar, el curso necesita al menos un capacitador con el perfil activo.",
 	[COURSE_ERROR_CODES.SESSION_MISSING_VENUE]: {

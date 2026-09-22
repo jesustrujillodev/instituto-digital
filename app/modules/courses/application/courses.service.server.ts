@@ -46,13 +46,19 @@ import {
 } from "../domain/course.errors";
 import {
 	assertCapacityCovers,
+	assertCompletionRuleCoherent,
 	assertDeadlineBeforeStart,
+	assertFormatEditable,
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
+	type CourseContentFacts,
+	type CourseFormat,
 	canCancel,
 	canEdit,
 	hasScheduleChanges,
+	requiresContent,
+	requiresSessions,
 } from "../domain/course.rules";
 import type { ICourseService } from "../domain/course.service";
 import type {
@@ -66,6 +72,9 @@ import type {
 
 type Dependencies = {
 	courseRepository: ICradle["courseRepository"];
+	// El conteo de lecciones vive en `content` y este caso de uso solo lo LEE:
+	// entra el repositorio y no el servicio, que crearía un ciclo entre módulos.
+	contentRepository: ICradle["contentRepository"];
 	dependencyRepository: ICradle["dependencyRepository"];
 	trainerRepository: ICradle["trainerRepository"];
 	groupRepository: ICradle["groupRepository"];
@@ -87,6 +96,7 @@ const unique = (values: readonly string[]): string[] => [...new Set(values)];
 
 export const createCourseService = ({
 	courseRepository,
+	contentRepository,
 	dependencyRepository,
 	trainerRepository,
 	groupRepository,
@@ -111,6 +121,20 @@ export const createCourseService = ({
 
 		return scope;
 	};
+
+	/**
+	 * Lo que el temario aporta a la publicación.
+	 *
+	 * Solo se consulta cuando el formato lo exige: un curso con sesiones no mira
+	 * sus lecciones, y una consulta de más por publicación no se paga por nada.
+	 */
+	const contentFactsOf = async (course: {
+		id: number;
+		format: CourseFormat;
+	}): Promise<CourseContentFacts> =>
+		requiresContent(course.format)
+			? { lessonCount: await contentRepository.countActiveLessons(course.id) }
+			: { lessonCount: 0 };
 
 	/** El curso, ya comprobado contra el alcance de quien lo pide. */
 	const requireCourse = async (
@@ -191,9 +215,24 @@ export const createCourseService = ({
 		dto: CreateCourseDto | UpdateCourseDto,
 		scope: CourseScope,
 	): Promise<CourseWriteData> => {
-		assertSessionLimit(dto.sessions.length);
+		const format = dto.format ?? COURSE_DEFAULTS.format;
+		const completionRule = dto.completionRule ?? COURSE_DEFAULTS.completionRule;
+		const requiresEvaluation = dto.requiresEvaluation ?? false;
 
-		const sessions: CourseSessionData[] = dto.sessions
+		assertCompletionRuleCoherent({
+			format,
+			completionRule,
+			requiresEvaluation,
+		});
+
+		// Un autogestivo no se reúne: las sesiones que el formulario haya dejado
+		// atrás se descartan aquí, y su modalidad deja de tener a qué referirse.
+		const scheduled = requiresSessions(format);
+		const inputSessions = scheduled ? dto.sessions : [];
+
+		assertSessionLimit(inputSessions.length);
+
+		const sessions: CourseSessionData[] = inputSessions
 			.map((session, index) => {
 				assertSessionRange(session, index + 1);
 
@@ -249,12 +288,14 @@ export const createCourseService = ({
 		return {
 			title: dto.title,
 			description: dto.description ?? null,
-			modality: dto.modality,
+			modality: scheduled ? dto.modality : "ONLINE",
+			format,
+			completionRule,
 			access: dto.access,
 			capacity: dto.capacity ?? null,
 			enrollmentDeadline,
 			minAttendance: dto.minAttendance ?? COURSE_DEFAULTS.minAttendance,
-			requiresEvaluation: dto.requiresEvaluation ?? false,
+			requiresEvaluation,
 			qrOpensBeforeMinutes:
 				dto.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
 			qrClosesAfterMinutes:
@@ -464,6 +505,11 @@ export const createCourseService = ({
 					throw new CourseNotEditableError(course.status);
 				}
 
+				assertFormatEditable(
+					course.status,
+					(dto.format ?? course.format) !== course.format,
+				);
+
 				const data = await buildWriteData(dto, scope);
 				// Tres estados, no dos: archivo nuevo sustituye, `removeCover` quita,
 				// y no mandar nada conserva la que ya tenía.
@@ -511,7 +557,7 @@ export const createCourseService = ({
 
 				// Falla con el código de la condición que faltó, no con uno genérico:
 				// es lo que permite decir QUÉ sesión se quedó sin sede.
-				assertPublishable(course);
+				assertPublishable(course, await contentFactsOf(course));
 
 				return ok(await courseRepository.publish(documentId, scope));
 			});

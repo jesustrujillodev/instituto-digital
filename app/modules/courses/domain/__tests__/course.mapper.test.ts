@@ -8,6 +8,8 @@ const baseRow = {
 	title: "Ofimática básica",
 	coverImageUrl: null,
 	modality: "IN_PERSON" as const,
+	format: "SCHEDULED" as const,
+	completionRule: "ATTENDANCE" as const,
 	access: "PUBLIC" as const,
 	status: "DRAFT" as const,
 	capacity: 20,

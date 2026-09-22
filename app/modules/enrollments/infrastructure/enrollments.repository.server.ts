@@ -37,6 +37,7 @@ const COURSE_SELECT = {
 	description: true,
 	coverImageUrl: true,
 	modality: true,
+	format: true,
 	access: true,
 	status: true,
 	capacity: true,
@@ -95,7 +96,14 @@ const availableWhere = (
 	AND: [
 		asWhere(filter),
 		{ status: "PUBLISHED" },
-		{ sessions: { some: {}, none: { startsAt: { lte: now } } } },
+		// Un calendarizado entra al catálogo mientras tenga sesiones y ninguna haya
+		// empezado; un autogestivo no tiene ninguna que mirar (docs/adr/0011).
+		{
+			OR: [
+				{ format: "SELF_PACED" as const },
+				{ sessions: { some: {}, none: { startsAt: { lte: now } } } },
+			],
+		},
 		{ OR: [{ enrollmentDeadline: null }, { enrollmentDeadline: { gt: now } }] },
 		...(filters.dependency
 			? [{ dependency: { documentId: filters.dependency } }]

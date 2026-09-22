@@ -20,6 +20,13 @@ describe("COURSE_DEFAULTS", () => {
 	test("la asistencia mínima por defecto es la de §6.8", () => {
 		expect(COURSE_DEFAULTS.minAttendance).toBe(80);
 	});
+
+	// Todo curso anterior a docs/adr/0011 se comporta como siempre: con
+	// sesiones y completado por asistencia.
+	test("el curso nace calendarizado y por asistencia", () => {
+		expect(COURSE_DEFAULTS.format).toBe("SCHEDULED");
+		expect(COURSE_DEFAULTS.completionRule).toBe("ATTENDANCE");
+	});
 });
 
 describe("COURSE_MAX_SESSIONS", () => {

@@ -1,4 +1,6 @@
 import type {
+	CourseCompletionRule,
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
@@ -30,6 +32,8 @@ export interface TeachingCourseRaw {
 	dependencyId: number;
 	dependency: { name: string };
 	modality: CourseModality;
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	status: CourseStatus;
 	minAttendance: number;
 	requiresEvaluation: boolean;
@@ -76,6 +80,8 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	dependencyId: raw.dependencyId,
 	dependencyName: raw.dependency.name,
 	modality: raw.modality,
+	format: raw.format,
+	completionRule: raw.completionRule,
 	status: raw.status,
 	minAttendance: raw.minAttendance,
 	requiresEvaluation: raw.requiresEvaluation,
@@ -150,6 +156,8 @@ export const toTeachingDetail = (
 			title: course.title,
 			dependencyName: course.dependencyName,
 			modality: course.modality,
+			format: course.format,
+			completionRule: course.completionRule,
 			status: course.status,
 			minAttendance: course.minAttendance,
 			requiresEvaluation: course.requiresEvaluation,

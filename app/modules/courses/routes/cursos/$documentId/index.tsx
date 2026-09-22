@@ -14,6 +14,7 @@ import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseAudience } from "../../../components/course-audience";
 import {
 	CourseAccessBadge,
+	CourseFormatBadge,
 	CourseModalityBadge,
 	CourseStatusBadge,
 } from "../../../components/course-badges";
@@ -80,6 +81,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 			<div className="mb-6 flex flex-wrap items-center gap-2">
 				<CourseStatusBadge status={course.status} />
 				<CourseModalityBadge modality={course.modality} />
+				<CourseFormatBadge format={course.format} />
 				<CourseAccessBadge access={course.access} />
 			</div>
 
@@ -101,6 +103,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						documentId={course.documentId}
 						status={course.status}
 						modality={course.modality}
+						format={course.format}
 						cancelledAt={course.cancelledAt}
 						checklist={publishChecklist}
 						enrollment={enrollment}

@@ -3,7 +3,9 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import {
 	COURSE_MODALITIES,
 	type CourseAccessType,
+	type CourseFormat,
 	type CourseStatus,
+	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
 import type { Role } from "@/shared/rules/atoms.rules";
 import { createListRule } from "@/shared/rules/list.rules";
@@ -99,21 +101,33 @@ export const canParticipate = (
 
 interface EnrollmentWindow {
 	status: CourseStatus;
+	format: CourseFormat;
 	enrollmentDeadline: Date | null;
 	firstSessionAt: Date | null;
 }
 
-/** La fecha límite o, si no hay, el inicio de la primera sesión (§6.6). */
+/**
+ * La fecha límite o, si no hay, el inicio de la primera sesión (§6.6).
+ *
+ * Un autogestivo sin fecha límite no tiene cierre: no hay primera sesión que lo
+ * alcance y nada obliga a entrar antes de una fecha (docs/adr/0011).
+ */
 export const enrollmentClosesAt = (course: EnrollmentWindow): Date | null =>
-	course.enrollmentDeadline ?? course.firstSessionAt;
+	course.enrollmentDeadline ??
+	(requiresSessions(course.format) ? course.firstSessionAt : null);
 
 export const isEnrollmentOpen = (
 	course: EnrollmentWindow,
 	now: Date,
 ): boolean => {
-	const closesAt = enrollmentClosesAt(course);
+	if (course.status !== "PUBLISHED") return false;
 
-	return course.status === "PUBLISHED" && closesAt !== null && now < closesAt;
+	const closesAt = enrollmentClosesAt(course);
+	// Sin cierre, un calendarizado está incompleto —le faltan sesiones— y un
+	// autogestivo está abierto mientras siga publicado.
+	if (closesAt === null) return !requiresSessions(course.format);
+
+	return now < closesAt;
 };
 
 /**
@@ -124,13 +138,16 @@ export const acceptsInvitations = (course: {
 	access: CourseAccessType;
 }): boolean => course.access === "INVITATION";
 
+/** Hasta que el curso arranca. Un autogestivo no arranca: se deja cuando sea. */
 export const canWithdraw = (
-	course: Pick<EnrollmentWindow, "status" | "firstSessionAt">,
+	course: Pick<EnrollmentWindow, "status" | "format" | "firstSessionAt">,
 	now: Date,
-): boolean =>
-	course.status === "PUBLISHED" &&
-	course.firstSessionAt !== null &&
-	now < course.firstSessionAt;
+): boolean => {
+	if (course.status !== "PUBLISHED") return false;
+	if (!requiresSessions(course.format)) return true;
+
+	return course.firstSessionAt !== null && now < course.firstSessionAt;
+};
 
 /** `null` cuando el curso no tiene cupo. */
 export const seatsLeftOf = (
@@ -170,6 +187,7 @@ export type MyCourseBucket = "upcoming" | "inProgress" | "finished";
 export const classifyMyCourse = (
 	course: {
 		status: CourseStatus;
+		format: CourseFormat;
 		firstSessionAt: Date | null;
 		lastSessionEndsAt: Date | null;
 	},
@@ -178,6 +196,9 @@ export const classifyMyCourse = (
 	if (course.status === "FINISHED" || course.status === "CANCELLED") {
 		return "finished";
 	}
+	// Un autogestivo publicado se recorre desde ya: nada está por venir.
+	if (!requiresSessions(course.format)) return "inProgress";
+
 	if (course.lastSessionEndsAt && course.lastSessionEndsAt < now) {
 		return "finished";
 	}

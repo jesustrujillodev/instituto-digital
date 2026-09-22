@@ -58,6 +58,8 @@ export const courseOf = (
 	dependencyId: 3,
 	dependencyName: "Obras Públicas",
 	modality: "HYBRID",
+	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
 	status: "PUBLISHED",
 	minAttendance: 80,
 	requiresEvaluation: false,

@@ -1,4 +1,5 @@
 import type { PublishCheck } from "../domain/course.rules";
+import { type CourseFormat, requiresContent } from "../domain/course.rules";
 import type { CourseFormValues } from "./build-course-form-defaults";
 
 export type CourseStepKey =
@@ -6,6 +7,7 @@ export type CourseStepKey =
 	| "program"
 	| "access"
 	| "rules"
+	| "content"
 	| "review";
 
 export interface CourseStep {
@@ -38,7 +40,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		number: 2,
 		title: "Programa",
 		summary: "Cuándo y dónde se imparte",
-		fields: ["modality", "sessions"],
+		fields: ["format", "modality", "sessions"],
 	},
 	{
 		key: "access",
@@ -60,6 +62,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		title: "Reglas",
 		summary: "Qué hace falta para completarlo",
 		fields: [
+			"completionRule",
 			"minAttendance",
 			"requiresEvaluation",
 			"qrOpensBeforeMinutes",
@@ -67,8 +70,17 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		],
 	},
 	{
-		key: "review",
+		key: "content",
 		number: 5,
+		title: "Contenido",
+		summary: "El temario que se recorre",
+		// Vacío a propósito: el temario NO viaja en el payload del curso. Se
+		// guarda solo, por intents, contra la ruta del módulo de contenido.
+		fields: [],
+	},
+	{
+		key: "review",
+		number: 6,
 		title: "Revisión",
 		summary: "Repasar y publicar",
 		fields: [],
@@ -77,6 +89,44 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 
 export const REVIEW_STEP = COURSE_WIZARD_STEPS[COURSE_WIZARD_STEPS.length - 1];
 export const LAST_STEP_NUMBER = REVIEW_STEP.number;
+
+const STEP_BY_KEY = Object.fromEntries(
+	COURSE_WIZARD_STEPS.map((step) => [step.key, step]),
+) as Record<CourseStepKey, CourseStep>;
+
+export const stepOfKey = (key: CourseStepKey): CourseStep => STEP_BY_KEY[key];
+
+/**
+ * Los pasos que ESTE curso recorre.
+ *
+ * Los números no se recalculan: el 5 es Contenido para todo el mundo y un curso
+ * con sesiones salta del 4 al 6. Así ninguna URL guardada cambia de destino al
+ * cambiar el formato, y `parseStepNumber` sigue siendo función de la URL sola.
+ */
+export const stepsForFormat = (format: CourseFormat): readonly CourseStep[] =>
+	COURSE_WIZARD_STEPS.filter(
+		(step) => step.key !== "content" || requiresContent(format),
+	);
+
+/** Posición visible del paso: lo que el índice numera y la barra mide. */
+export const stepPosition = (
+	steps: readonly CourseStep[],
+	step: CourseStep,
+): { position: number; total: number } => ({
+	position: steps.indexOf(step) + 1,
+	total: steps.length,
+});
+
+/** El siguiente paso VISIBLE, o `null` si es el último. */
+export const nextStep = (
+	steps: readonly CourseStep[],
+	step: CourseStep,
+): CourseStep | null => steps[steps.indexOf(step) + 1] ?? null;
+
+export const previousStep = (
+	steps: readonly CourseStep[],
+	step: CourseStep,
+): CourseStep | null => steps[steps.indexOf(step) - 1] ?? null;
 
 /**
  * En qué paso se resuelve cada pendiente de publicación.
@@ -89,6 +139,7 @@ const STEP_OF_CHECK: Record<PublishCheck, CourseStepKey> = {
 	places: "program",
 	trainer: "access",
 	audience: "access",
+	content: "content",
 };
 
 export type PublishChecklist = readonly {
@@ -113,19 +164,25 @@ export const stepsWithPending = (
  * El paso al que lleva "Continuar el alta": el primero con algo pendiente o,
  * si no falta nada, la revisión.
  */
-export const firstPendingStep = (checklist: PublishChecklist): number => {
+export const firstPendingStep = (
+	checklist: PublishChecklist,
+	format: CourseFormat,
+): number => {
 	const pending = stepsWithPending(checklist);
-	const step = COURSE_WIZARD_STEPS.find((entry) => pending.has(entry.key));
+	const step = stepsForFormat(format).find((entry) => pending.has(entry.key));
 
 	return step?.number ?? LAST_STEP_NUMBER;
 };
+
+export const stepOfNumber = (number: number): CourseStep | null =>
+	COURSE_WIZARD_STEPS.find((step) => step.number === number) ?? null;
 
 /** El paso que pide la URL, o `null` si el segmento no nombra ninguno. */
 export const parseStepNumber = (raw: string | undefined): CourseStep | null => {
 	const number = Number(raw);
 	if (!Number.isInteger(number)) return null;
 
-	return COURSE_WIZARD_STEPS.find((step) => step.number === number) ?? null;
+	return stepOfNumber(number);
 };
 
 export const stepPath = (documentId: string, step: number) =>

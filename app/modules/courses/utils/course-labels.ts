@@ -1,5 +1,7 @@
 import type {
 	CourseAccessType,
+	CourseCompletionRule,
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 	PublishCheck,
@@ -11,6 +13,16 @@ export const MODALITY_LABELS: Record<CourseModality, string> = {
 	IN_PERSON: "Presencial",
 	ONLINE: "En línea",
 	HYBRID: "Híbrida",
+};
+
+export const FORMAT_LABELS: Record<CourseFormat, string> = {
+	SCHEDULED: "Calendarizado",
+	SELF_PACED: "Autogestivo",
+};
+
+export const COMPLETION_RULE_LABELS: Record<CourseCompletionRule, string> = {
+	ATTENDANCE: "Asistencia y evaluación",
+	CONTENT: "Evaluación",
 };
 
 export const ACCESS_LABELS: Record<CourseAccessType, string> = {
@@ -45,5 +57,7 @@ export const publishCheckLabel = (
 			return "Un capacitador activo";
 		case "audience":
 			return "Dependencias o grupos que lo verán";
+		case "content":
+			return "Al menos una lección";
 	}
 };

@@ -10,6 +10,8 @@ import type {
 } from "./course.rules";
 import {
 	type CourseAccessType,
+	type CourseCompletionRule,
+	type CourseFormat,
 	type CourseModality,
 	type CourseStatus,
 	courseAudienceSchema,
@@ -57,6 +59,8 @@ export interface CourseWriteData {
 	title: string;
 	description: string | null;
 	modality: CourseModality;
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	access: CourseAccessType;
 	capacity: number | null;
 	enrollmentDeadline: Date | null;

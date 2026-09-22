@@ -7,9 +7,11 @@ import { useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
 import {
+	CourseFormatBadge,
 	CourseModalityBadge,
 	CourseStatusBadge,
 } from "@/modules/courses/components/course-badges";
+import { requiresSessions } from "@/modules/courses/domain/course.rules";
 import {
 	ENROLLMENT_RESULT_LABELS,
 	personNameOf,
@@ -128,8 +130,9 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 										{personNameOf(participant)}
 									</p>
 									<p className="truncate text-muted-foreground text-xs">
-										{participant.dependencyName ?? "Sin dependencia"} ·
-										asistencia {participant.attendancePercent} %
+										{participant.dependencyName ?? "Sin dependencia"}
+										{detail.course.completionRule === "ATTENDANCE" &&
+											` · asistencia ${participant.attendancePercent} %`}
 										{detail.course.requiresEvaluation &&
 											` · ${ENROLLMENT_RESULT_LABELS[participant.result]}`}
 										{participant.grade !== null && ` (${participant.grade})`}
@@ -159,18 +162,24 @@ export default function ImparticionDetallePage({
 	} = loaderData;
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
+	const scheduled = requiresSessions(course.format);
 
 	return (
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
-				description={`Organiza ${course.dependencyName}. Asistencia mínima ${course.minAttendance} %${course.requiresEvaluation ? ", con evaluación" : ""}.`}
+				description={
+					course.completionRule === "ATTENDANCE"
+						? `Organiza ${course.dependencyName}. Asistencia mínima ${course.minAttendance} %${course.requiresEvaluation ? ", con evaluación" : ""}.`
+						: `Organiza ${course.dependencyName}. Se completa al aprobar la evaluación.`
+				}
 				goBack="/dashboard/imparticion"
 			/>
 
 			<div className="flex flex-wrap gap-2">
 				<CourseStatusBadge status={course.status} />
-				<CourseModalityBadge modality={course.modality} />
+				{scheduled && <CourseModalityBadge modality={course.modality} />}
+				<CourseFormatBadge format={course.format} />
 				<Badge variant="outline">{detail.participants.length} inscritos</Badge>
 			</div>
 
@@ -186,9 +195,11 @@ export default function ImparticionDetallePage({
 
 			{!finished && <FinishCard detail={detail} />}
 
-			<Tabs defaultValue="attendance">
+			<Tabs defaultValue={scheduled ? "attendance" : "completion"}>
 				<TabsList>
-					<TabsTrigger value="attendance">Asistencia</TabsTrigger>
+					{scheduled && (
+						<TabsTrigger value="attendance">Asistencia</TabsTrigger>
+					)}
 					{course.requiresEvaluation && (
 						<TabsTrigger value="results">
 							Resultados
@@ -199,12 +210,16 @@ export default function ImparticionDetallePage({
 						<TabsTrigger value="evaluations">Evaluaciones</TabsTrigger>
 					)}
 					<TabsTrigger value="completion">Completado</TabsTrigger>
-					{detail.qr && <TabsTrigger value="qr">Código QR</TabsTrigger>}
+					{scheduled && detail.qr && (
+						<TabsTrigger value="qr">Código QR</TabsTrigger>
+					)}
 					{ratings && <TabsTrigger value="ratings">Valoraciones</TabsTrigger>}
 				</TabsList>
-				<TabsContent value="attendance">
-					<AttendancePanel detail={detail} />
-				</TabsContent>
+				{scheduled && (
+					<TabsContent value="attendance">
+						<AttendancePanel detail={detail} />
+					</TabsContent>
+				)}
 				{course.requiresEvaluation && (
 					<TabsContent value="results">
 						<ResultsPanel detail={detail} />
@@ -223,7 +238,7 @@ export default function ImparticionDetallePage({
 				<TabsContent value="completion">
 					<CompletionList detail={detail} />
 				</TabsContent>
-				{detail.qr && (
+				{scheduled && detail.qr && (
 					<TabsContent value="qr">
 						<CourseQrPanel title={course.title} qr={detail.qr} />
 					</TabsContent>

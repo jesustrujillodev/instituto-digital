@@ -5,8 +5,9 @@ import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizard } from "../../../components/course-wizard";
 import { useCourseFormIds } from "../../../hooks/use-course-form-ids";
 import {
-	COURSE_WIZARD_STEPS,
-	LAST_STEP_NUMBER,
+	stepOfNumber,
+	stepPosition,
+	stepsForFormat,
 } from "../../../utils/course-wizard-steps";
 import type { Route } from "./+types/index";
 
@@ -26,25 +27,26 @@ export const handle = {
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta({ data }: Route.MetaArgs) {
-	const step = data?.data.stepNumber;
-	return [
-		{
-			title: step
-				? `Paso ${step} de ${LAST_STEP_NUMBER} · ${data?.data.course.title}`
-				: "Alta de curso",
-		},
-	];
+	const course = data?.data.course;
+	const step = course && stepOfNumber(data.data.stepNumber);
+
+	if (!course || !step) return [{ title: "Alta de curso" }];
+
+	const { position, total } = stepPosition(stepsForFormat(course.format), step);
+
+	return [{ title: `Paso ${position} de ${total} · ${course.title}` }];
 }
 
 export default function CursoAltaPasoPage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { course, options, stepNumber, checklist },
+		data: { course, options, stepNumber, checklist, content },
 	} = loaderData;
 	const ids = useCourseFormIds();
 
-	const step = COURSE_WIZARD_STEPS[stepNumber - 1];
+	const step = stepOfNumber(stepNumber);
+	if (!step) return null;
 
 	return (
 		<CourseWizard
@@ -54,6 +56,7 @@ export default function CursoAltaPasoPage({
 			options={options}
 			course={course}
 			checklist={checklist}
+			content={content}
 		/>
 	);
 }

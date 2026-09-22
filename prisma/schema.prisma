@@ -340,6 +340,15 @@ enum CourseModality {
   @@schema("org")
 }
 
+/// Si el curso se reúne o se recorre a ritmo propio (docs/adr/0011). Es un eje
+/// distinto de `CourseModality`, que dice dónde se reúne el que sí se reúne.
+enum CourseFormat {
+  SCHEDULED
+  SELF_PACED
+
+  @@schema("org")
+}
+
 enum CourseAccess {
   PUBLIC
   RESTRICTED
@@ -353,6 +362,15 @@ enum CourseStatus {
   PUBLISHED
   FINISHED
   CANCELLED
+
+  @@schema("org")
+}
+
+/// Con qué se da por completado el curso (docs/adr/0011). `CONTENT` se apoya hoy
+/// en el resultado capturado a mano; gana el avance por lección cuando exista.
+enum CourseCompletionRule {
+  ATTENDANCE
+  CONTENT
 
   @@schema("org")
 }
@@ -389,6 +407,12 @@ model Course {
 
   modality CourseModality
   access   CourseAccess
+
+  /// Formato y regla de completado: dos ejes que `modality` no responde
+  /// (docs/adr/0011). El default deja a todo curso anterior exactamente como
+  /// estaba: con sesiones y completado por asistencia.
+  format         CourseFormat         @default(SCHEDULED)
+  completionRule CourseCompletionRule @default(ATTENDANCE) @map("completion_rule")
 
   /// Opcionales por definición del alcance: un curso puede no tener tope de
   /// plazas ni fecha límite. Sin límite, la inscripción cierra al empezar la
@@ -429,6 +453,7 @@ model Course {
   updatedAt DateTime @updatedAt
 
   sessions           CourseSession[]
+  modules            CourseModule[]
   trainers           CourseTrainer[]
   dependencyAudience CourseDependencyAudience[]
   groupAudience      CourseGroupAudience[]
@@ -473,6 +498,80 @@ model CourseSession {
   @@index([courseId, startsAt])
   @@index([startsAt])
   @@map("course_sessions")
+  @@schema("org")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CONTENIDO — el temario que se recorre a ritmo propio (docs/adr/0012)
+//
+// Vive aparte del curso porque tiene su propio ciclo de vida y su propio público:
+// el participante inscrito lo lee sin tocar nada de la administración del curso.
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Un módulo del temario: el contenedor ordenado de lecciones de un curso.
+model CourseModule {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  /// Posición dentro del curso, contigua desde 1. Sin `@@unique([courseId, order])`
+  /// a propósito: reordenar reescribe varias filas y la restricción chocaría a
+  /// mitad de la permutación. La contigüidad la garantiza la regla de dominio,
+  /// que escribe el orden completo de una vez y dentro de una transacción.
+  order Int
+
+  /// Se archiva, no se borra: el avance por lección colgará de estas filas.
+  archivedAt DateTime? @map("archived_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons Lesson[]
+
+  @@index([courseId, order])
+  @@map("course_modules")
+  @@schema("org")
+}
+
+/// Qué clase de material colgará de la lección. Se elige al crearla porque decide
+/// el editor que se abre, no solo cómo se pinta.
+enum LessonType {
+  TEXT
+  FILE
+  LINK
+
+  @@schema("org")
+}
+
+/// Una lección: la unidad mínima que alguien recorre y marca como vista.
+model Lesson {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  moduleId Int          @map("module_id")
+  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  title String
+  type  LessonType
+
+  order Int
+
+  /// Solo las obligatorias entrarán en el porcentaje de avance.
+  isRequired       Boolean @default(true) @map("is_required")
+  estimatedMinutes Int?    @map("estimated_minutes")
+
+  archivedAt DateTime? @map("archived_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId, order])
+  @@map("lessons")
   @@schema("org")
 }
 

@@ -34,6 +34,36 @@ describe("buildCoursePayload", () => {
 		});
 	});
 
+	test("el curso nace calendarizado y por asistencia", () => {
+		expect(buildCoursePayload(valuesOf())).toMatchObject({
+			format: "SCHEDULED",
+			completionRule: "ATTENDANCE",
+		});
+	});
+
+	// Cambiar a autogestivo deja atrás las filas ya capturadas en el formulario.
+	test("un autogestivo no manda las sesiones que quedaron en el formulario", () => {
+		const payload = buildCoursePayload(
+			valuesOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+				sessions: [
+					{
+						documentId: "",
+						date: "2026-10-05",
+						startTime: "09:00",
+						endTime: "13:00",
+						venue: "Sala A",
+						link: "",
+					},
+				],
+			}),
+		);
+
+		expect(payload.sessions).toEqual([]);
+	});
+
 	test("una sesión nueva no manda documentId", () => {
 		const payload = buildCoursePayload(
 			valuesOf({

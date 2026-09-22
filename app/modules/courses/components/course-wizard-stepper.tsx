@@ -8,10 +8,8 @@ import {
 	PopoverTrigger,
 } from "@/shared/components/ui/popover";
 import {
-	COURSE_WIZARD_STEPS,
 	type CourseStep,
 	type CourseStepKey,
-	LAST_STEP_NUMBER,
 	stepPath,
 } from "../utils/course-wizard-steps";
 
@@ -20,6 +18,8 @@ type StepState = "done" | "pending" | "error";
 interface CourseWizardStepperProps {
 	/** `null` mientras el borrador no existe: no hay a dónde saltar todavía. */
 	documentId: string | null;
+	/** Los pasos que este curso recorre: un calendarizado no ve Contenido. */
+	steps: readonly CourseStep[];
 	current: number;
 	pending: ReadonlySet<CourseStepKey>;
 	errors: ReadonlySet<CourseStepKey>;
@@ -43,11 +43,14 @@ const stateOf = (
  * así que el índice y los pendientes de la ficha nunca se contradicen.
  */
 function StepMark({
-	step,
+	position,
+	isLast,
 	state,
 	isCurrent,
 }: {
-	step: CourseStep;
+	/** La posición VISIBLE, no `step.number`: el 5 puede no pintarse. */
+	position: number;
+	isLast: boolean;
 	state: StepState;
 	isCurrent: boolean;
 }) {
@@ -60,7 +63,7 @@ function StepMark({
 		);
 	}
 
-	if (state === "done" && step.number !== LAST_STEP_NUMBER) {
+	if (state === "done" && !isLast) {
 		return (
 			<CircleCheck
 				className="size-6 shrink-0 text-success-foreground"
@@ -79,25 +82,34 @@ function StepMark({
 					: "text-muted-foreground ring-1 ring-border ring-inset",
 			)}
 		>
-			{step.number}
+			{position}
 		</span>
 	);
 }
 
 function StepRow({
 	step,
+	position,
+	isLast,
 	state,
 	isCurrent,
 	to,
 }: {
 	step: CourseStep;
+	position: number;
+	isLast: boolean;
 	state: StepState;
 	isCurrent: boolean;
 	to: string | null;
 }) {
 	const body = (
 		<>
-			<StepMark step={step} state={state} isCurrent={isCurrent} />
+			<StepMark
+				position={position}
+				isLast={isLast}
+				state={state}
+				isCurrent={isCurrent}
+			/>
 			<span className="flex min-w-0 flex-col">
 				<span className={cn("text-sm", isCurrent && "font-medium")}>
 					{step.title}
@@ -143,16 +155,19 @@ function StepRow({
 
 function StepList({
 	documentId,
+	steps,
 	current,
 	pending,
 	errors,
 }: CourseWizardStepperProps) {
 	return (
 		<ol className="flex flex-col gap-1">
-			{COURSE_WIZARD_STEPS.map((step) => (
+			{steps.map((step, index) => (
 				<li key={step.key}>
 					<StepRow
 						step={step}
+						position={index + 1}
+						isLast={index === steps.length - 1}
 						state={stateOf(step, pending, errors)}
 						isCurrent={step.number === current}
 						to={documentId ? stepPath(documentId, step.number) : null}
@@ -165,9 +180,12 @@ function StepList({
 
 /** Índice del alta: dónde vas, qué falta y cómo volver a cualquier paso. */
 export function CourseWizardStepper(props: CourseWizardStepperProps) {
-	const { current } = props;
-	const step = COURSE_WIZARD_STEPS.find((entry) => entry.number === current);
-	const position = `Paso ${current} de ${LAST_STEP_NUMBER}`;
+	const { current, steps } = props;
+	const index = steps.findIndex((entry) => entry.number === current);
+	const step = steps[index];
+	const visible = index + 1;
+	const total = steps.length;
+	const position = `Paso ${visible} de ${total}`;
 
 	return (
 		<>
@@ -207,14 +225,14 @@ export function CourseWizardStepper(props: CourseWizardStepperProps) {
 				<div
 					className="h-0.5 overflow-hidden rounded-full bg-muted"
 					role="progressbar"
-					aria-valuenow={current}
+					aria-valuenow={visible}
 					aria-valuemin={1}
-					aria-valuemax={LAST_STEP_NUMBER}
+					aria-valuemax={total}
 					aria-label={position}
 				>
 					<div
 						className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
-						style={{ width: `${(current / LAST_STEP_NUMBER) * 100}%` }}
+						style={{ width: `${(visible / total) * 100}%` }}
 					/>
 				</div>
 			</nav>

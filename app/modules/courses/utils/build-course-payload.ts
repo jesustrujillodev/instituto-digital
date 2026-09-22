@@ -1,5 +1,9 @@
 import * as v from "valibot";
-import { createCourseRule, updateCourseRule } from "../domain/course.rules";
+import {
+	createCourseRule,
+	requiresSessions,
+	updateCourseRule,
+} from "../domain/course.rules";
 import type { CreateCourseDto, UpdateCourseDto } from "../domain/course.types";
 import type { CourseFormValues } from "./build-course-form-defaults";
 
@@ -26,6 +30,8 @@ export const buildCoursePayload = (
 	title: values.title,
 	description: optionalText(values.description),
 	modality: values.modality,
+	format: values.format,
+	completionRule: values.completionRule,
 	access: values.access,
 	dependency: optionalText(values.dependency),
 	planLine: optionalText(values.planLine),
@@ -38,14 +44,18 @@ export const buildCoursePayload = (
 	trainers: values.trainers,
 	audienceDependencies: values.audienceDependencies,
 	audienceGroups: values.audienceGroups,
-	sessions: values.sessions.map((session) => ({
-		documentId: optionalText(session.documentId),
-		date: session.date,
-		startTime: session.startTime,
-		endTime: session.endTime,
-		venue: optionalText(session.venue),
-		link: optionalText(session.link),
-	})),
+	// Un autogestivo no manda sesiones: las que quedaran en el formulario tras
+	// cambiar de formato se descartan aquí y en el servicio.
+	sessions: (requiresSessions(values.format) ? values.sessions : []).map(
+		(session) => ({
+			documentId: optionalText(session.documentId),
+			date: session.date,
+			startTime: session.startTime,
+			endTime: session.endTime,
+			venue: optionalText(session.venue),
+			link: optionalText(session.link),
+		}),
+	),
 });
 
 const formValues = v.custom<CourseFormValues>(() => true);

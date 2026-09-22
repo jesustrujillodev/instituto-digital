@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizard } from "../../../components/course-wizard";
 import { useCourseFormIds } from "../../../hooks/use-course-form-ids";
-import { COURSE_WIZARD_STEPS } from "../../../utils/course-wizard-steps";
+import { stepOfKey } from "../../../utils/course-wizard-steps";
 import type { Route } from "./+types/index";
 
 const LIST_PATH = "/dashboard/cursos";
@@ -30,7 +30,7 @@ export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<CourseWizard
-			step={COURSE_WIZARD_STEPS[0]}
+			step={stepOfKey("identity")}
 			ids={ids}
 			options={options}
 			prefill={prefill}

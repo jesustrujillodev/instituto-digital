@@ -46,6 +46,8 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	title: "Ofimática básica",
 	coverImageUrl: null,
 	modality: "IN_PERSON",
+	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
 	access: "PUBLIC",
 	status: "DRAFT",
 	capacity: null,
@@ -146,6 +148,8 @@ const createHarness = (
 		uploadFails?: boolean;
 		/** Sin bucket, subir una portada es un error de configuración. */
 		noBucket?: boolean;
+		/** Lecciones activas del temario; solo las mira un autogestivo. */
+		lessons?: number;
 	} = {},
 ) => {
 	let inTransaction = false;
@@ -163,6 +167,7 @@ const createHarness = (
 		groupScopes: [] as unknown[],
 		uploaded: [] as { bucket: string; key: string; contentType?: string }[],
 		deleted: [] as { bucket: string; key: string }[],
+		lessonCounts: [] as number[],
 	};
 
 	const refs = (count: number) =>
@@ -302,9 +307,18 @@ const createHarness = (
 			`/api/storage?key=${encodeURIComponent(key)}`,
 	} as unknown as ICradle["storageProvider"];
 
+	// Lo único que este módulo le pide al temario: cuántas lecciones vivas hay.
+	const contentRepository = {
+		countActiveLessons: async (courseId: number) => {
+			calls.lessonCounts.push(courseId);
+			return options.lessons ?? 0;
+		},
+	} as unknown as ICradle["contentRepository"];
+
 	const service = createCourseService({
 		notificationService,
 		storageProvider,
+		contentRepository,
 		storageBucket: options.noBucket ? null : "instituto-storage",
 		storagePublicBucket: null,
 		courseRepository,
@@ -439,6 +453,50 @@ describe("coursesService.create", () => {
 			minAttendance: 80,
 			trainerIds: [1],
 		});
+	});
+
+	// El formulario puede traer sesiones de antes de cambiar el formato: el
+	// servicio las descarta, y con ellas la modalidad, que deja de referirse a
+	// nada.
+	test("un autogestivo se guarda sin sesiones", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			dtoOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+			}),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.created[0]).toMatchObject({
+			format: "SELF_PACED",
+			completionRule: "CONTENT",
+			modality: "ONLINE",
+			sessions: [],
+		});
+	});
+
+	test.each([
+		[
+			"un autogestivo por asistencia",
+			{ format: "SELF_PACED", completionRule: "ATTENDANCE" },
+			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,
+		],
+		[
+			"completar por contenido sin evaluación",
+			{ completionRule: "CONTENT", requiresEvaluation: false },
+			COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION,
+		],
+	] as const)("no crea %s", async (_case, overrides, code) => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(dtoOf(overrides), actorOf());
+
+		expect(result).toMatchObject({ success: false, error: { code } });
+		expect(calls.created).toHaveLength(0);
 	});
 
 	test("convierte la hora de Tijuana a UTC antes de escribir", async () => {
@@ -622,6 +680,29 @@ describe("coursesService.update", () => {
 			expect(calls.updated).toHaveLength(0);
 		},
 	);
+
+	// Pasar a autogestivo borra las sesiones, y con ellas las marcas de
+	// asistencia que cuelgan de cada una.
+	test("un curso publicado no cambia de formato", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "PUBLISHED" }),
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+			}) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			error: { code: COURSE_ERROR_CODES.FORMAT_LOCKED },
+		});
+		expect(calls.updated).toHaveLength(0);
+	});
 
 	test("bloquea el curso y rechaza un cupo menor que los inscritos", async () => {
 		const { service, calls } = createHarness({ enrolled: 2 });
@@ -820,6 +901,14 @@ describe("la portada y la escritura son una sola unidad", () => {
 	});
 });
 
+const selfPacedCourse = () =>
+	courseOf({
+		format: "SELF_PACED",
+		completionRule: "CONTENT",
+		requiresEvaluation: true,
+		sessions: [],
+	});
+
 describe("coursesService.publish", () => {
 	test("publica un borrador completo", async () => {
 		const { service, calls } = createHarness();
@@ -831,6 +920,41 @@ describe("coursesService.publish", () => {
 			data: { status: "PUBLISHED" },
 		});
 		expect(calls.published).toHaveLength(1);
+	});
+
+	test("un curso con sesiones ni siquiera consulta el temario", async () => {
+		const { service, calls } = createHarness();
+
+		await service.publish(COURSE_ID, actorOf());
+
+		expect(calls.lessonCounts).toEqual([]);
+	});
+
+	test("publica un autogestivo sin una sola sesión", async () => {
+		const { service, calls } = createHarness({
+			course: selfPacedCourse(),
+			lessons: 2,
+		});
+
+		const result = await service.publish(COURSE_ID, actorOf());
+
+		expect(result.success).toBe(true);
+		expect(calls.published).toHaveLength(1);
+	});
+
+	test("no publica un autogestivo sin lecciones", async () => {
+		const { service, calls } = createHarness({
+			course: selfPacedCourse(),
+			lessons: 0,
+		});
+
+		const result = await service.publish(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.WITHOUT_LESSONS },
+		});
+		expect(calls.published).toHaveLength(0);
 	});
 
 	test.each([

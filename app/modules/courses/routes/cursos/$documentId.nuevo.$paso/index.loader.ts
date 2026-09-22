@@ -1,10 +1,21 @@
 import { redirect } from "react-router";
+import { toContentSummary } from "@/modules/content/domain/content.mapper";
+import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
-import { canEdit, publishChecklist } from "../../../domain/course.rules";
+import {
+	canEdit,
+	publishChecklist,
+	requiresContent,
+} from "../../../domain/course.rules";
 import { validateFindCourse } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
-import { parseStepNumber, stepPath } from "../../../utils/course-wizard-steps";
+import {
+	firstPendingStep,
+	parseStepNumber,
+	stepPath,
+	stepsForFormat,
+} from "../../../utils/course-wizard-steps";
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
@@ -23,7 +34,7 @@ export const loader = async ({
 	context,
 	params,
 }: Route.LoaderArgs) => {
-	const { scope } = await requireCourseScope(request, context);
+	const { auth, scope } = await requireCourseScope(request, context);
 
 	const { documentId } = validateFindCourse({ documentId: params.documentId });
 
@@ -39,16 +50,36 @@ export const loader = async ({
 	if (!options.success)
 		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 
-	const { status } = course.data;
+	const { status, format } = course.data;
 	if (status !== "DRAFT") {
 		const base = `/dashboard/cursos/${documentId}`;
 		throw redirect(canEdit(status) ? `${base}/editar` : base);
+	}
+
+	// El temario se lee una sola vez: alimenta el paso Contenido y el pendiente
+	// de publicación que la revisión enseña.
+	const tree = requiresContent(format)
+		? await context.contentService.findTree(documentId, auth)
+		: null;
+	if (tree && !tree.success)
+		throw toRouteError(tree.error, CONTENT_ERROR_MESSAGES);
+
+	const content = tree?.data ?? null;
+	const checklist = publishChecklist(course.data, {
+		lessonCount: content ? toContentSummary(content).lessonCount : 0,
+	});
+
+	// Un paso que este formato no recorre no tiene pantalla: se manda a lo que
+	// de verdad falta.
+	if (!stepsForFormat(format).some((entry) => entry.key === step.key)) {
+		throw redirect(stepPath(documentId, firstPendingStep(checklist, format)));
 	}
 
 	return ok({
 		course: course.data,
 		options: options.data,
 		stepNumber: step.number,
-		checklist: publishChecklist(course.data),
+		checklist,
+		content,
 	});
 };

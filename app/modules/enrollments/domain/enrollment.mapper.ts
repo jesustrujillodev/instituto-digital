@@ -1,5 +1,6 @@
 import type {
 	CourseAccessType,
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
@@ -36,6 +37,7 @@ export interface EnrollmentCourseRaw {
 	description: string | null;
 	coverImageUrl: string | null;
 	modality: CourseModality;
+	format: CourseFormat;
 	access: CourseAccessType;
 	status: CourseStatus;
 	capacity: number | null;
@@ -70,6 +72,7 @@ export const toEnrollmentCourse = (
 		description: raw.description,
 		coverUrl: resolveCover(raw.coverImageUrl),
 		modality: raw.modality,
+		format: raw.format,
 		access: raw.access,
 		status: raw.status,
 		capacity: raw.capacity,
@@ -118,6 +121,7 @@ export const toAvailableCourse = (
 		coverUrl: course.coverUrl,
 		dependencyName: course.dependencyName,
 		modality: course.modality,
+		format: course.format,
 		access: course.access,
 		capacity: course.capacity,
 		seatsLeft: seatsLeftOf(course.capacity, course.enrolledCount),

@@ -15,6 +15,7 @@ const courseOf = (
 	description: "Trato al público",
 	coverUrl: null,
 	modality: "HYBRID",
+	format: "SCHEDULED",
 	access: "INVITATION",
 	status: "FINISHED",
 	capacity: 20,

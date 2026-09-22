@@ -88,6 +88,8 @@ describe("toTeachingCourse", () => {
 			dependencyId: 3,
 			dependency: { name: "Obras Públicas" },
 			modality: "ONLINE",
+			format: "SCHEDULED",
+			completionRule: "ATTENDANCE",
 			status: "PUBLISHED",
 			minAttendance: 80,
 			requiresEvaluation: false,

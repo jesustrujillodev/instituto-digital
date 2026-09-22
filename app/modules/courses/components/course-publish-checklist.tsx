@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 import type { CourseModality, PublishCheck } from "../domain/course.rules";
 import { publishCheckLabel } from "../utils/course-labels";
 import {
-	COURSE_WIZARD_STEPS,
 	type PublishChecklist,
 	stepOfCheck,
+	stepOfKey,
 	stepPath,
 } from "../utils/course-wizard-steps";
 
@@ -18,10 +18,8 @@ const pendingCopy = (pending: number) =>
 			? "Falta una cosa. El pendiente lleva al paso que la resuelve."
 			: `Faltan ${pending} cosas. Cada pendiente lleva al paso que la resuelve.`;
 
-const stepNumberOf = (check: PublishCheck): number => {
-	const key = stepOfCheck(check);
-	return COURSE_WIZARD_STEPS.find((step) => step.key === key)?.number ?? 1;
-};
+const stepNumberOf = (check: PublishCheck): number =>
+	stepOfKey(stepOfCheck(check)).number;
 
 interface CoursePublishChecklistProps {
 	documentId: string;

@@ -1,7 +1,11 @@
 // Errores de dominio del módulo de cursos — agnósticos al framework.
 
 import { DomainError } from "@/shared/errors/domain-error";
-import type { CourseStatus } from "./course.rules";
+import type {
+	CourseCompletionRule,
+	CourseFormat,
+	CourseStatus,
+} from "./course.rules";
 
 export const COURSE_ERROR_CODES = {
 	NOT_FOUND: "COURSE_NOT_FOUND",
@@ -9,8 +13,13 @@ export const COURSE_ERROR_CODES = {
 	ORGANIZER_REQUIRED: "COURSE_ORGANIZER_REQUIRED",
 	DEPENDENCY_INACTIVE: "COURSE_DEPENDENCY_INACTIVE",
 	NOT_EDITABLE: "COURSE_NOT_EDITABLE",
+	FORMAT_LOCKED: "COURSE_FORMAT_LOCKED",
+	INCOMPATIBLE_COMPLETION_RULE: "COURSE_INCOMPATIBLE_COMPLETION_RULE",
+	COMPLETION_RULE_WITHOUT_EVALUATION:
+		"COURSE_COMPLETION_RULE_WITHOUT_EVALUATION",
 	INVALID_TRANSITION: "COURSE_INVALID_TRANSITION",
 	WITHOUT_SESSIONS: "COURSE_WITHOUT_SESSIONS",
+	WITHOUT_LESSONS: "COURSE_WITHOUT_LESSONS",
 	WITHOUT_ACTIVE_TRAINER: "COURSE_WITHOUT_ACTIVE_TRAINER",
 	SESSION_MISSING_VENUE: "COURSE_SESSION_MISSING_VENUE",
 	SESSION_MISSING_LINK: "COURSE_SESSION_MISSING_LINK",
@@ -87,10 +96,47 @@ export class CourseInvalidTransitionError extends CourseError {
 	}
 }
 
+/** El formato solo se elige en borrador (docs/adr/0011). */
+export class CourseFormatLockedError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.FORMAT_LOCKED;
+	constructor() {
+		super("The course format can only change while the course is a draft");
+	}
+}
+
+// Las dos partes de la combinación viajan en `details`: el adaptador necesita
+// decir cuál de las dos hay que cambiar.
+export class CourseIncompatibleCompletionRuleError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE;
+	readonly details: {
+		format: CourseFormat;
+		completionRule: CourseCompletionRule;
+	};
+	constructor(format: CourseFormat, completionRule: CourseCompletionRule) {
+		super(`Format ${format} cannot be completed by ${completionRule}`);
+		this.details = { format, completionRule };
+	}
+}
+
+export class CourseCompletionRuleWithoutEvaluationError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION;
+	constructor() {
+		super("Completing by content requires the course to be evaluated");
+	}
+}
+
 export class CourseWithoutSessionsError extends CourseError {
 	readonly code = COURSE_ERROR_CODES.WITHOUT_SESSIONS;
 	constructor() {
 		super("A published course needs at least one session");
+	}
+}
+
+/** El equivalente del autogestivo: sin temario nadie tendría qué recorrer. */
+export class CourseWithoutLessonsError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.WITHOUT_LESSONS;
+	constructor() {
+		super("A published self-paced course needs at least one lesson");
 	}
 }
 
