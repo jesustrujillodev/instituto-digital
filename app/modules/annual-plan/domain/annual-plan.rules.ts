@@ -21,20 +21,35 @@ import {
 } from "./annual-plan.errors";
 import type { PlanProgress, StoredPlanLine } from "./annual-plan.types";
 
-const documentId = v.pipe(v.string(), v.uuid());
-
-const fiscalYear = v.pipe(
-	v.number(),
-	v.integer(),
-	v.minValue(PLAN_YEAR_RANGE.min),
-	v.maxValue(PLAN_YEAR_RANGE.max),
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
 );
 
-const optionalText = (max: number) =>
+const fiscalYear = v.pipe(
+	v.number("El ejercicio debe ser un número."),
+	v.integer("El ejercicio debe ser un año entero."),
+	v.minValue(
+		PLAN_YEAR_RANGE.min,
+		`El ejercicio no puede ser anterior a ${PLAN_YEAR_RANGE.min}.`,
+	),
+	v.maxValue(
+		PLAN_YEAR_RANGE.max,
+		`El ejercicio no puede ser posterior a ${PLAN_YEAR_RANGE.max}.`,
+	),
+);
+
+/** `label` nombra el campo en el mensaje: los tres campos libres comparten forma. */
+const optionalText = (label: string, max: number) =>
 	v.pipe(
-		v.optional(v.nullable(v.string()), null),
+		v.optional(v.nullable(v.string(`${label} debe ser texto.`)), null),
 		v.transform((value) => value?.trim() || null),
-		v.nullable(v.pipe(v.string(), v.maxLength(max))),
+		v.nullable(
+			v.pipe(
+				v.string(`${label} debe ser texto.`),
+				v.maxLength(max, `${label} no puede superar los ${max} caracteres.`),
+			),
+		),
 	);
 
 // ── Contratos de entrada ──────────────────────────────────────────────────────
@@ -51,16 +66,33 @@ export const listPlansRule = v.object({
 
 export const planLineRule = v.object({
 	title: v.pipe(
-		v.string(),
+		v.string("El título es obligatorio."),
 		v.trim(),
-		v.minLength(1, "El título es obligatorio"),
-		v.maxLength(PLAN_TEXT_LIMITS.title),
+		v.minLength(1, "El título es obligatorio."),
+		v.maxLength(
+			PLAN_TEXT_LIMITS.title,
+			`El título no puede superar los ${PLAN_TEXT_LIMITS.title} caracteres.`,
+		),
 	),
-	plannedMonth: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(12)),
-	plannedModality: v.optional(v.nullable(v.picklist(COURSE_MODALITIES)), null),
-	estimatedDuration: optionalText(PLAN_TEXT_LIMITS.estimatedDuration),
-	targetAudience: optionalText(PLAN_TEXT_LIMITS.targetAudience),
-	notes: optionalText(PLAN_TEXT_LIMITS.notes),
+	plannedMonth: v.pipe(
+		v.number("Elige el mes en que se impartirá."),
+		v.integer("El mes debe ser un número entero."),
+		v.minValue(1, "Elige un mes entre enero y diciembre."),
+		v.maxValue(12, "Elige un mes entre enero y diciembre."),
+	),
+	plannedModality: v.optional(
+		v.nullable(v.picklist(COURSE_MODALITIES, "Elige una modalidad válida.")),
+		null,
+	),
+	estimatedDuration: optionalText(
+		"La duración estimada",
+		PLAN_TEXT_LIMITS.estimatedDuration,
+	),
+	targetAudience: optionalText(
+		"El público objetivo",
+		PLAN_TEXT_LIMITS.targetAudience,
+	),
+	notes: optionalText("Las notas", PLAN_TEXT_LIMITS.notes),
 });
 
 export const annualPlanRules = {

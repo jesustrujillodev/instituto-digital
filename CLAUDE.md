@@ -22,6 +22,7 @@ Para cada cambio, el agente debe validar y respetar:
     - domain/<modulo>.errors.ts: errores de dominio/aplicacion.
     - domain/<modulo>.rules.ts: reglas de negocio puras.
     - domain/<modulo>.validators.ts: contratos de validacion de entrada/salida en frontera (no existen `<modulo>.schema.ts` de ORM por modulo; el schema de base de datos es unico y vive en prisma/schema.prisma).
+        - Todo campo de entrada que un usuario escribe lleva su mensaje en espanol, en el segundo argumento de cada accion de valibot y nombrando el campo. `app/shared/rules/messages.rules.ts` traduce el mensaje por defecto y es solo la red de seguridad; los esquemas de salida (proyecciones, envelope, payload del token) se apoyan en ella.
     - domain/<modulo>.mapper.ts: conversion entre modelos externos, internos y DTO.
     - domain/<modulo>.service.ts y domain/<modulo>.repository.ts: puertos/contratos (interfaces), sin implementacion concreta.
     - domain/<modulo>.config.ts (opcional): configuracion propia del modulo.

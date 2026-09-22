@@ -963,17 +963,23 @@ export function assertThemePublished<T extends { publishedTokens: unknown }>(
 // Esquemas de entrada
 // ===============================================================
 
-export const themeModeRule = v.picklist(THEME_MODES);
+export const themeModeRule = v.picklist(
+	THEME_MODES,
+	"El modo de apariencia no es válido.",
+);
 
 /** Entrada del action del toggle. Un solo campo, pero se valida igual. */
 export const setThemeModeRule = v.object({
 	mode: themeModeRule,
 });
 
-export const themeDocumentIdRule = v.pipe(v.string(), v.uuid());
+export const themeDocumentIdRule = v.pipe(
+	v.string("Falta el identificador del tema."),
+	v.uuid("El identificador del tema no es válido."),
+);
 
 export const themeNameRule = v.pipe(
-	v.string(),
+	v.string("El nombre del tema es obligatorio."),
 	v.trim(),
 	v.minLength(1, "El nombre del tema no puede estar vacío."),
 	v.maxLength(60, "El nombre del tema no puede pasar de 60 caracteres."),
@@ -996,9 +1002,9 @@ export const themeNameRule = v.pipe(
  * persistir, venga del builder o de un CSS pegado.
  */
 const themeColorRule = v.pipe(
-	v.string(),
+	v.string("El color es obligatorio."),
 	v.trim(),
-	v.maxLength(64),
+	v.maxLength(64, "El color no puede superar los 64 caracteres."),
 	v.check(isThemeColor, "Ese valor no es un color que el navegador entienda."),
 	v.transform(normalizeThemeColor),
 );
@@ -1014,7 +1020,7 @@ const lengthRule = (token: LengthTokenName) => {
 	const { unit, min, max } = LENGTH_RANGES[token];
 
 	return v.pipe(
-		v.string(),
+		v.string(`Se espera una medida en ${unit}.`),
 		v.trim(),
 		v.regex(
 			new RegExp(`^-?\\d+(\\.\\d+)?${unit}$`),
@@ -1027,15 +1033,26 @@ const lengthRule = (token: LengthTokenName) => {
 	);
 };
 
-const fontFamilyRule = v.picklist(FONT_FAMILY_KEYS);
+const fontFamilyRule = v.picklist(
+	FONT_FAMILY_KEYS,
+	"Elige una tipografía de la lista.",
+);
+
+/** `label` nombra el campo: los cinco números de la sombra comparten forma. */
+const shadowNumber = (label: string, min: number, max: number) =>
+	v.pipe(
+		v.number(`${label} debe ser un número.`),
+		v.minValue(min, `${label} no puede ser menor que ${min}.`),
+		v.maxValue(max, `${label} no puede ser mayor que ${max}.`),
+	);
 
 export const themeShadowRule = v.object({
 	color: themeColorRule,
-	opacity: v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-	blur: v.pipe(v.number(), v.minValue(0), v.maxValue(64)),
-	spread: v.pipe(v.number(), v.minValue(-16), v.maxValue(16)),
-	offsetX: v.pipe(v.number(), v.minValue(-32), v.maxValue(32)),
-	offsetY: v.pipe(v.number(), v.minValue(-32), v.maxValue(32)),
+	opacity: shadowNumber("La opacidad de la sombra", 0, 1),
+	blur: shadowNumber("El desenfoque de la sombra", 0, 64),
+	spread: shadowNumber("La extensión de la sombra", -16, 16),
+	offsetX: shadowNumber("El desplazamiento horizontal", -32, 32),
+	offsetY: shadowNumber("El desplazamiento vertical", -32, 32),
 });
 
 export const themeSharedTokensRule = v.object({
@@ -1099,7 +1116,7 @@ export const themeTargetRule = v.object({
 export const importThemeCssRule = v.object({
 	documentId: themeDocumentIdRule,
 	css: v.pipe(
-		v.string(),
+		v.string("Pega el CSS del tema."),
 		v.trim(),
 		v.minLength(1, "Pega el CSS del tema."),
 		v.maxLength(20_000, "Ese bloque de CSS es demasiado grande."),

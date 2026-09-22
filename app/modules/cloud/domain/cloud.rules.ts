@@ -31,11 +31,17 @@ const isCanonicalPath = (path: string): boolean => {
 
 /** Key de un objeto: nunca acaba en `/`. */
 export const cloudKeyRule = v.pipe(
-	v.string(),
-	v.minLength(1, "Key vacía"),
-	v.maxLength(MAX_KEY_LENGTH, "Key demasiado larga"),
-	v.check((key) => !key.endsWith("/"), "Una key no puede acabar en /"),
-	v.check(isCanonicalPath, "Key inválida"),
+	v.string("Falta la ruta del archivo."),
+	v.minLength(1, "La ruta del archivo no puede estar vacía."),
+	v.maxLength(
+		MAX_KEY_LENGTH,
+		`La ruta del archivo no puede superar los ${MAX_KEY_LENGTH} caracteres.`,
+	),
+	v.check(
+		(key) => !key.endsWith("/"),
+		"La ruta de un archivo no puede terminar en /.",
+	),
+	v.check(isCanonicalPath, "La ruta del archivo no es válida."),
 );
 
 /**
@@ -43,35 +49,55 @@ export const cloudKeyRule = v.pipe(
  * descargar el bucket entero no es algo que deba estar a un clic.
  */
 export const cloudPrefixRule = v.pipe(
-	v.string(),
-	v.minLength(1, "Carpeta vacía"),
-	v.maxLength(MAX_KEY_LENGTH, "Carpeta demasiado larga"),
-	v.check((prefix) => prefix.endsWith("/"), "Una carpeta acaba en /"),
-	v.check(isCanonicalPath, "Carpeta inválida"),
+	v.string("Falta la ruta de la carpeta."),
+	v.minLength(1, "La ruta de la carpeta no puede estar vacía."),
+	v.maxLength(
+		MAX_KEY_LENGTH,
+		`La ruta de la carpeta no puede superar los ${MAX_KEY_LENGTH} caracteres.`,
+	),
+	v.check(
+		(prefix) => prefix.endsWith("/"),
+		"La ruta de una carpeta debe terminar en /.",
+	),
+	v.check(isCanonicalPath, "La ruta de la carpeta no es válida."),
 );
 
 /** Carpeta que se lista o escanea: aquí la raíz (`""`) sí vale. */
-export const cloudPathRule = v.union([v.literal(""), cloudPrefixRule]);
+export const cloudPathRule = v.union(
+	[v.literal(""), cloudPrefixRule],
+	"La ruta indicada no es válida.",
+);
 
 export const cloudListRule = v.object({
 	path: cloudPathRule,
-	cursor: v.nullish(v.pipe(v.string(), v.maxLength(4096))),
+	cursor: v.nullish(
+		v.pipe(
+			v.string("El cursor de paginación debe ser texto."),
+			v.maxLength(4096, "El cursor de paginación es demasiado largo."),
+		),
+	),
 });
 
 export const cloudSelectionRule = v.pipe(
 	v.object({
 		keys: v.pipe(
-			v.array(cloudKeyRule),
-			v.maxLength(CLOUD_LIMITS.maxSelection, "Demasiados archivos"),
+			v.array(cloudKeyRule, "Revisa los archivos seleccionados."),
+			v.maxLength(
+				CLOUD_LIMITS.maxSelection,
+				`No puedes seleccionar más de ${CLOUD_LIMITS.maxSelection} archivos a la vez.`,
+			),
 		),
 		prefixes: v.pipe(
-			v.array(cloudPrefixRule),
-			v.maxLength(CLOUD_LIMITS.maxSelection, "Demasiadas carpetas"),
+			v.array(cloudPrefixRule, "Revisa las carpetas seleccionadas."),
+			v.maxLength(
+				CLOUD_LIMITS.maxSelection,
+				`No puedes seleccionar más de ${CLOUD_LIMITS.maxSelection} carpetas a la vez.`,
+			),
 		),
 	}),
 	v.check(
 		(selection) => selection.keys.length + selection.prefixes.length > 0,
-		"Selecciona al menos un archivo o carpeta",
+		"Selecciona al menos un archivo o una carpeta.",
 	),
 );
 

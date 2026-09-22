@@ -16,22 +16,36 @@ import { EnrollmentFullError } from "./enrollment.errors";
 
 // ── Reglas de entrada ─────────────────────────────────────────────────────────
 
-const documentId = v.pipe(v.string(), v.uuid());
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 const documentIds = v.pipe(
-	v.array(documentId),
-	v.maxLength(ENROLLMENT_BATCH_LIMIT),
+	v.array(documentId, "Selecciona los registros del lote."),
+	v.maxLength(
+		ENROLLMENT_BATCH_LIMIT,
+		`No puedes procesar más de ${ENROLLMENT_BATCH_LIMIT} registros a la vez.`,
+	),
 );
 
 export const findEnrollmentCourseRule = v.object({ documentId });
 
 export const listAvailableCoursesRule = createListRule({
 	dependency: v.optional(documentId),
-	modality: v.optional(v.picklist(COURSE_MODALITIES)),
+	modality: v.optional(
+		v.picklist(COURSE_MODALITIES, "Elige una modalidad válida."),
+	),
 });
 
 export const searchParticipantsRule = v.object({
-	search: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
+	search: v.optional(
+		v.pipe(
+			v.string("El término de búsqueda debe ser texto."),
+			v.trim(),
+			v.maxLength(120, "La búsqueda no puede superar los 120 caracteres."),
+		),
+	),
 });
 
 /** Un lote de personas, de grupos o de ambos: lo mismo para inscribir que para invitar. */
@@ -42,7 +56,7 @@ const participantBatchRule = v.pipe(
 	}),
 	v.check(
 		(input) => input.userDocumentIds.length + input.groupDocumentIds.length > 0,
-		"Elige al menos una persona o un grupo",
+		"Elige al menos una persona o un grupo.",
 	),
 );
 

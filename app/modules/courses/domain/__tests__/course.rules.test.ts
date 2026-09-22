@@ -1,4 +1,6 @@
+import * as v from "valibot";
 import { describe, expect, test } from "vitest";
+import { toFieldErrors } from "@/shared/rules/format-vali-error";
 import { COURSE_MAX_SESSIONS } from "../course.config";
 import { COURSE_ERROR_CODES } from "../course.errors";
 import {
@@ -11,6 +13,7 @@ import {
 	canCancel,
 	canEdit,
 	canPublish,
+	createCourseRule,
 	publishChecklist,
 	requiresLink,
 	requiresVenue,
@@ -312,5 +315,53 @@ describe("publishChecklist", () => {
 		})();
 
 		expect(pending(course).length === 0).toBe(publishable);
+	});
+});
+
+// El formulario de alta enseñaba "Invalid length: Expected >=3 but received 0"
+// bajo el campo. Los mensajes del dominio son texto de UI y se comprueban aquí,
+// no en los errores tipados —donde lo estable es el `code`.
+describe("mensajes de la regla de alta", () => {
+	const fieldErrorsOf = (input: unknown) =>
+		toFieldErrors(v.safeParse(createCourseRule, input).issues ?? []);
+
+	const draft = {
+		title: "Ofimática básica",
+		modality: "IN_PERSON",
+		access: "PUBLIC",
+		trainers: [],
+		sessions: [],
+	};
+
+	test("el título corto nombra el campo y habla en español", () => {
+		expect(fieldErrorsOf({ ...draft, title: "Of" }).title).toBe(
+			"El título debe tener al menos 3 caracteres.",
+		);
+	});
+
+	// Una clave que no llega la reporta el esquema del OBJETO, no el del campo:
+	// ahi no hay etiqueta que nombrar y responde el respaldo compartido. El
+	// mensaje se pinta bajo el control, asi que se lee con su propia etiqueta.
+	test("un campo ausente se pide, no se describe su tipo", () => {
+		const { title: _omitted, ...withoutTitle } = draft;
+
+		expect(fieldErrorsOf(withoutTitle).title).toBe("Este dato es obligatorio.");
+	});
+
+	test("el cupo fuera de rango explica el límite", () => {
+		expect(fieldErrorsOf({ ...draft, capacity: 0 }).capacity).toBe(
+			"El cupo debe ser de al menos 1 persona.",
+		);
+	});
+
+	test("una sesión con fecha mal escrita explica el formato", () => {
+		const errors = fieldErrorsOf({
+			...draft,
+			sessions: [{ date: "12/06/2026", startTime: "09:00", endTime: "11:00" }],
+		});
+
+		expect(errors["sessions.0.date"]).toBe(
+			"Escribe la fecha con el formato AAAA-MM-DD.",
+		);
 	});
 });

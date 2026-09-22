@@ -111,7 +111,7 @@ Todos vienen de `@hookform/resolvers/<librería>`. **La elección casi nunca imp
 Lo que **no** es negociable, uses la que uses:
 
 - **Un solo contrato, importado por cliente y servidor.** La validación de cliente es UX; la de servidor es la que manda. Si divergen, tendrás formularios que pasan y APIs que fallan.
-- **Los mensajes se redactan para el usuario final.** Esa cadena se pinta tal cual bajo el input.
+- **Los mensajes se redactan para el usuario final, en español y nombrando el campo.** Esa cadena se pinta tal cual bajo el input, así que se escribe en el segundo argumento de cada acción de valibot (`v.minLength(3, 'El título debe tener al menos 3 caracteres.')`) dentro del `<modulo>.rules.ts` que declara el campo. `app/shared/rules/messages.rules.ts` traduce el mensaje por defecto de valibot y es solo la red de seguridad: si en pantalla se lee uno de sus mensajes genéricos, es que falta el mensaje del campo.
 - **Normaliza cadenas vacías antes de validar formatos.** Un `<select>` sin elegir manda `''`, y `''` no es un UUID ni un email:
   ```ts
   // Zod

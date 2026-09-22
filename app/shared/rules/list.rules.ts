@@ -1,9 +1,22 @@
 import * as v from "valibot";
 
 export const basePaginationSchema = {
-	page: v.optional(v.pipe(v.number(), v.minValue(1))),
-	pageSize: v.optional(v.pipe(v.number(), v.maxValue(100))),
-	search: v.optional(v.string()),
+	page: v.optional(
+		v.pipe(
+			v.number("El número de página debe ser numérico."),
+			v.minValue(1, "El número de página debe ser 1 o mayor."),
+		),
+	),
+	pageSize: v.optional(
+		v.pipe(
+			v.number("El tamaño de página debe ser numérico."),
+			v.maxValue(
+				100,
+				"El tamaño de página no puede superar los 100 registros.",
+			),
+		),
+	),
+	search: v.optional(v.string("El término de búsqueda debe ser texto.")),
 };
 
 /**

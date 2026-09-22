@@ -10,6 +10,7 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import "@/shared/rules/messages.rules";
 import { themeModeCookie, themePreviewCookie } from "@/core/cookies.server";
 import { ThemePreviewBar } from "@/modules/theme/components/theme-preview-bar";
 import { DEFAULT_THEME_TOKENS } from "@/modules/theme/domain/theme.config";

@@ -12,11 +12,23 @@ import {
  * único parcial `groups_name_per_dependency`: se recorta antes de validar para
  * que "Mandos" con un espacio delante y sin él no sean dos grupos distintos.
  */
-const name = v.pipe(v.string(), v.trim(), v.minLength(3), v.maxLength(120));
+const name = v.pipe(
+	v.string("El nombre del grupo es obligatorio."),
+	v.trim(),
+	v.minLength(3, "El nombre debe tener al menos 3 caracteres."),
+	v.maxLength(120, "El nombre no puede superar los 120 caracteres."),
+);
 
-const description = v.pipe(v.string(), v.trim(), v.maxLength(400));
+const description = v.pipe(
+	v.string("La descripción debe ser texto."),
+	v.trim(),
+	v.maxLength(400, "La descripción no puede superar los 400 caracteres."),
+);
 
-const documentId = v.pipe(v.string(), v.uuid());
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 // ── Entidad ───────────────────────────────────────────────────────────────────
 
@@ -67,9 +79,13 @@ export const findGroupRule = v.object({ documentId });
 export const listGroupsRule = createListRule({
 	/** Filtro ADICIONAL al alcance: pedir otra dependencia no amplía nada. */
 	dependency: v.optional(documentId),
-	status: v.optional(v.picklist(GROUP_STATUSES)),
-	sortBy: v.optional(v.picklist(GROUP_SORT_FIELDS)),
-	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
+	status: v.optional(v.picklist(GROUP_STATUSES, "El estado no es válido.")),
+	sortBy: v.optional(
+		v.picklist(GROUP_SORT_FIELDS, "No se puede ordenar por ese campo."),
+	),
+	sortDir: v.optional(
+		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
+	),
 });
 
 /**
@@ -78,7 +94,10 @@ export const listGroupsRule = createListRule({
  */
 export const addMembersRule = v.object({
 	documentId,
-	userDocumentIds: v.pipe(v.array(documentId), v.minLength(1)),
+	userDocumentIds: v.pipe(
+		v.array(documentId, "Selecciona a las personas que entran al grupo."),
+		v.minLength(1, "Selecciona al menos una persona."),
+	),
 });
 
 export const removeMemberRule = v.object({
@@ -88,7 +107,13 @@ export const removeMemberRule = v.object({
 
 export const listCandidatesRule = v.object({
 	documentId,
-	search: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
+	search: v.optional(
+		v.pipe(
+			v.string("El término de búsqueda debe ser texto."),
+			v.trim(),
+			v.maxLength(120, "La búsqueda no puede superar los 120 caracteres."),
+		),
+	),
 });
 
 export const groupRules = {

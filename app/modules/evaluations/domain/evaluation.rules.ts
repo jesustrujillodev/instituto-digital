@@ -11,24 +11,33 @@ import type {
 	SaveEvaluationResultsDto,
 } from "./evaluation.types";
 
-const documentId = v.pipe(v.string(), v.uuid());
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 
 export const findEvaluationCourseRule = v.object({ documentId });
 
 const evaluationNote = v.pipe(
-	v.optional(v.string(), ""),
+	v.optional(v.string("La observación debe ser texto."), ""),
 	v.trim(),
-	v.maxLength(EVALUATION_NOTE_MAX_LENGTH),
+	v.maxLength(
+		EVALUATION_NOTE_MAX_LENGTH,
+		`La observación no puede superar los ${EVALUATION_NOTE_MAX_LENGTH} caracteres.`,
+	),
 	v.transform((value): string | null => (value === "" ? null : value)),
 );
 
 const evaluationTitle = v.pipe(
-	v.string(),
+	v.string("El nombre de la evaluación es obligatorio."),
 	v.trim(),
-	v.minLength(1),
-	v.maxLength(EVALUATION_TITLE_MAX_LENGTH),
+	v.minLength(1, "El nombre de la evaluación es obligatorio."),
+	v.maxLength(
+		EVALUATION_TITLE_MAX_LENGTH,
+		`El nombre no puede superar los ${EVALUATION_TITLE_MAX_LENGTH} caracteres.`,
+	),
 );
 
 /** `null` en la sesion es deliberado: hay evaluaciones sin dia (§2). */
@@ -52,16 +61,19 @@ export const removeEvaluationRule = v.object({
 const captureEntry = v.object({
 	userDocumentId: documentId,
 	/** `null` es "sin veredicto": la observacion puede ir sola. */
-	passed: v.nullable(v.boolean()),
+	passed: v.nullable(v.boolean("Indica si la persona acreditó.")),
 	note: evaluationNote,
 });
 
 export const saveEvaluationResultsRule = v.object({
 	evaluationDocumentId: documentId,
 	entries: v.pipe(
-		v.array(captureEntry),
-		v.minLength(1),
-		v.maxLength(EVALUATION_BATCH_LIMIT),
+		v.array(captureEntry, "Revisa la captura de resultados."),
+		v.minLength(1, "Captura al menos un resultado."),
+		v.maxLength(
+			EVALUATION_BATCH_LIMIT,
+			`No puedes guardar más de ${EVALUATION_BATCH_LIMIT} resultados a la vez.`,
+		),
 	),
 });
 

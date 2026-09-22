@@ -29,24 +29,40 @@ import type {
 	TeachingSession,
 } from "./teaching.types";
 
-const documentId = v.pipe(v.string(), v.uuid());
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 
 export const findTeachingCourseRule = v.object({ documentId });
 
 export const listTeachingCoursesRule = createListRule({
-	status: v.optional(v.picklist(TEACHABLE_STATUSES)),
-	sortBy: v.optional(v.picklist(TEACHING_SORT_FIELDS)),
-	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
+	status: v.optional(v.picklist(TEACHABLE_STATUSES, "El estado no es válido.")),
+	sortBy: v.optional(
+		v.picklist(TEACHING_SORT_FIELDS, "No se puede ordenar por ese campo."),
+	),
+	sortDir: v.optional(
+		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
+	),
 });
 
 export const saveAttendanceRule = v.object({
 	sessionDocumentId: documentId,
 	marks: v.pipe(
-		v.array(v.object({ userDocumentId: documentId, attended: v.boolean() })),
-		v.minLength(1),
-		v.maxLength(TEACHING_BATCH_LIMIT),
+		v.array(
+			v.object({
+				userDocumentId: documentId,
+				attended: v.boolean("Indica si la persona asistió."),
+			}),
+			"Revisa el pase de lista.",
+		),
+		v.minLength(1, "Marca la asistencia de al menos una persona."),
+		v.maxLength(
+			TEACHING_BATCH_LIMIT,
+			`No puedes guardar más de ${TEACHING_BATCH_LIMIT} marcas a la vez.`,
+		),
 	),
 });
 
@@ -55,14 +71,20 @@ export const GRADE_RANGE = { min: 0, max: 100 } as const;
 const resultEntry = v.pipe(
 	v.object({
 		userDocumentId: documentId,
-		result: v.picklist(ENROLLMENT_RESULTS),
+		result: v.picklist(ENROLLMENT_RESULTS, "Elige un resultado válido."),
 		grade: v.optional(
 			v.nullable(
 				v.pipe(
-					v.number(),
-					v.integer(),
-					v.minValue(GRADE_RANGE.min),
-					v.maxValue(GRADE_RANGE.max),
+					v.number("La calificación debe ser un número."),
+					v.integer("La calificación debe ser un número entero."),
+					v.minValue(
+						GRADE_RANGE.min,
+						`La calificación mínima es ${GRADE_RANGE.min}.`,
+					),
+					v.maxValue(
+						GRADE_RANGE.max,
+						`La calificación máxima es ${GRADE_RANGE.max}.`,
+					),
 				),
 			),
 			null,
@@ -70,15 +92,18 @@ const resultEntry = v.pipe(
 	}),
 	v.check(
 		(entry) => entry.result !== "PENDING" || entry.grade === null,
-		"La nota solo acompaña a un resultado capturado",
+		"La nota solo acompaña a un resultado capturado.",
 	),
 );
 
 export const saveResultsRule = v.object({
 	entries: v.pipe(
-		v.array(resultEntry),
-		v.minLength(1),
-		v.maxLength(TEACHING_BATCH_LIMIT),
+		v.array(resultEntry, "Revisa la captura de resultados."),
+		v.minLength(1, "Captura al menos un resultado."),
+		v.maxLength(
+			TEACHING_BATCH_LIMIT,
+			`No puedes guardar más de ${TEACHING_BATCH_LIMIT} resultados a la vez.`,
+		),
 	),
 });
 

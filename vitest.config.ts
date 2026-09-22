@@ -10,6 +10,11 @@ export default defineConfig({
 		// la convencion falla de forma visible en vez de depender de disciplina.
 		include: ["app/**/__tests__/**/*.test.{ts,tsx}"],
 		globals: false,
+		// Los mensajes en español de valibot se registran en un store global al
+		// importar el modulo, y en la app eso lo hace `app/root.tsx`. Sin esto la
+		// suite correria con los mensajes por defecto en ingles, que es una
+		// configuracion que la plataforma no tiene en ningun entorno.
+		setupFiles: ["app/shared/rules/messages.rules.ts"],
 		// env.server valida y LANZA al importarse. Sin esto la suite dependeria del
 		// .env del desarrollador y no correria en CI. Valores deterministas y
 		// evidentemente falsos: los secretos solo tienen que pasar el minLength(32).

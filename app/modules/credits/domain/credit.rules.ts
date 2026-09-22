@@ -3,13 +3,22 @@ import { createListRule } from "@/shared/rules/list.rules";
 import { CREDIT_YEAR_RANGE } from "./credit.config";
 import type { CreditCandidate, CreditDiff, StoredCredit } from "./credit.types";
 
-const documentId = v.pipe(v.string(), v.uuid());
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 const fiscalYear = v.pipe(
-	v.number(),
-	v.integer(),
-	v.minValue(CREDIT_YEAR_RANGE.min),
-	v.maxValue(CREDIT_YEAR_RANGE.max),
+	v.number("El ejercicio fiscal debe ser un número."),
+	v.integer("El ejercicio fiscal debe ser un año entero."),
+	v.minValue(
+		CREDIT_YEAR_RANGE.min,
+		`El ejercicio fiscal no puede ser anterior a ${CREDIT_YEAR_RANGE.min}.`,
+	),
+	v.maxValue(
+		CREDIT_YEAR_RANGE.max,
+		`El ejercicio fiscal no puede ser posterior a ${CREDIT_YEAR_RANGE.max}.`,
+	),
 );
 
 export const myCreditsQueryRule = v.object({

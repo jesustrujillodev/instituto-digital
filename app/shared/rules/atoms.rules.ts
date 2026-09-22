@@ -4,9 +4,9 @@ import * as v from "valibot";
 // contraseñas o un cliente de correo con espacios alrededor, y `v.email()` los
 // rechazaría. Los espacios internos siguen fallando.
 const email = v.pipe(
-	v.string(),
+	v.string("El correo electrónico es obligatorio."),
 	v.trim(),
-	v.email(),
+	v.email("Escribe un correo electrónico válido."),
 	v.transform((val) => val.toLowerCase()),
 );
 
@@ -14,17 +14,17 @@ const email = v.pipe(
 // maxLength 72: bcrypt trunca a 72 bytes; el cap evita procesar entradas
 // gigantes en el body y que `password + basura` autentique por truncamiento.
 const password = v.pipe(
-	v.string(),
-	v.minLength(1, "Password is required"),
-	v.maxLength(72, "La contraseña excede la longitud máxima"),
+	v.string("La contraseña es obligatoria."),
+	v.minLength(1, "La contraseña es obligatoria."),
+	v.maxLength(72, "La contraseña excede la longitud máxima."),
 );
 
 // Para CREAR/CAMBIAR contraseña: aquí sí aplica la política.
 // maxLength 72: límite efectivo de bcrypt (bytes); más allá se trunca.
 const newPassword = v.pipe(
-	v.string(),
-	v.minLength(8, "La contraseña debe tener al menos 8 caracteres"),
-	v.maxLength(72, "La contraseña no puede exceder 72 caracteres"),
+	v.string("La contraseña es obligatoria."),
+	v.minLength(8, "La contraseña debe tener al menos 8 caracteres."),
+	v.maxLength(72, "La contraseña no puede exceder los 72 caracteres."),
 );
 
 // ── Roles ──────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export function hasRole(role: Role, allowed: readonly Role[]): boolean {
 	return allowed.includes(role);
 }
 
-const role = v.picklist(ROLES);
+const role = v.picklist(ROLES, "El rol seleccionado no es válido.");
 
 export const atoms = {
 	email,

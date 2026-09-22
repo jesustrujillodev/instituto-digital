@@ -20,12 +20,15 @@ import type {
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 
 export const checkInTokenRule = v.pipe(
-	v.string(),
-	v.regex(QR_TOKEN_PATTERN, "Token de asistencia con formato inválido"),
+	v.string("Falta el código de asistencia."),
+	v.regex(QR_TOKEN_PATTERN, "El código de asistencia no es válido."),
 );
 
 export const rotateQrTokenRule = v.object({
-	documentId: v.pipe(v.string(), v.uuid()),
+	documentId: v.pipe(
+		v.string("Falta el identificador del curso."),
+		v.uuid("El identificador del curso no es válido."),
+	),
 });
 
 export const checkInRules = {

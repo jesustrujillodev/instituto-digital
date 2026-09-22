@@ -12,6 +12,29 @@ El resultado es una arquitectura donde **agregar un nuevo módulo es predecible*
 
 ---
 
+## 🛠 Tecnologías Principales
+
+- **[React Router 7](https://reactrouter.com)**: Framework full-stack con SSR, rutas anidadas y `loader`/`action` como adaptadores de entrada (modo framework, no solo librería de rutas).
+- **[React 19](https://react.dev)** + **[TypeScript](https://www.typescriptlang.org)**: Capa de vista y tipado estricto de extremo a extremo.
+- **[Bun](https://bun.sh)**: Runtime y gestor de paquetes (scripts, seed y CLIs del proyecto).
+- **[Vite 7](https://vite.dev)**: Bundler y servidor de desarrollo.
+- **[Prisma 7](https://www.prisma.io)** sobre **[PostgreSQL](https://www.postgresql.org)**: ORM tipo-seguro con driver adapter (`@prisma/adapter-pg`) y migraciones versionadas.
+- **[Valibot](https://valibot.dev)**: Validación de esquemas y fuente de verdad de los tipos de dominio (reemplaza Zod por performance y bundle).
+- **[Awilix](https://github.com/jeffijoe/awilix)**: Contenedor de Inyección de Dependencias, en modo `PROXY` y con un contenedor por petición.
+- **[TailwindCSS 4](https://tailwindcss.com)**: Estilización basada en utilidades, con tokens de tema resueltos en servidor.
+- **[Shadcn/ui](https://ui.shadcn.com)** + **[Radix UI](https://www.radix-ui.com)**: Componentes accesibles y sin estilos impuestos.
+- **[Lucide](https://lucide.dev)**: Set de iconos.
+- **[Sileo](https://github.com/hiaaryan/sileo)**: Notificaciones toast con animación basada en física.
+- **[React Hook Form](https://react-hook-form.com)**: Formularios controlados con resolvers de Valibot.
+- **[jose](https://github.com/panva/jose)** + **[bcryptjs](https://github.com/dcodeIO/bcrypt.js)**: Firma/verificación de JWT y hashing de contraseñas.
+- **[AWS SDK S3](https://aws.amazon.com/s3/)** / **[Google Cloud Storage](https://cloud.google.com/storage)**: Adaptadores intercambiables del puerto de almacenamiento de objetos.
+- **[ExcelJS](https://github.com/exceljs/exceljs)**, **[qrcode](https://github.com/soldair/node-qrcode)** y **[Nodemailer](https://nodemailer.com)**: Exportación a Excel, generación de códigos QR y envío de correo.
+- **[Vitest](https://vitest.dev)**: Runner de pruebas unitarias y de integración por capa.
+- **[Biome](https://biomejs.dev)**: Linter y formateador ultra-rápido (reemplaza ESLint + Prettier).
+- **[Husky](https://typicode.github.io/husky/)** + **[commitlint](https://commitlint.js.org)**: Hooks de Git y Conventional Commits.
+
+---
+
 ## Funcionalidades implementadas
 
 Más allá de la guía de arquitectura genérica de este documento, esta plantilla ya

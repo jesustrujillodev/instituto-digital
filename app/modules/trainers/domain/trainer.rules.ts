@@ -10,27 +10,52 @@ import {
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
 const specialty = v.pipe(
-	v.string(),
+	v.string("La especialidad es obligatoria."),
 	v.trim(),
-	v.minLength(3),
-	v.maxLength(120),
+	v.minLength(3, "La especialidad debe tener al menos 3 caracteres."),
+	v.maxLength(120, "La especialidad no puede superar los 120 caracteres."),
 );
 
 /** Institución de procedencia. Solo la tienen los externos. */
 const institution = v.pipe(
-	v.string(),
+	v.string("La institución es obligatoria."),
 	v.trim(),
-	v.minLength(2),
-	v.maxLength(160),
+	v.minLength(2, "La institución debe tener al menos 2 caracteres."),
+	v.maxLength(160, "La institución no puede superar los 160 caracteres."),
 );
 
-const bio = v.pipe(v.string(), v.trim(), v.maxLength(600));
+const bio = v.pipe(
+	v.string("La semblanza debe ser texto."),
+	v.trim(),
+	v.maxLength(600, "La semblanza no puede superar los 600 caracteres."),
+);
 
-const name = v.pipe(v.string(), v.trim(), v.minLength(2), v.maxLength(80));
+const firstName = v.pipe(
+	v.string("El nombre es obligatorio."),
+	v.trim(),
+	v.minLength(2, "El nombre debe tener al menos 2 caracteres."),
+	v.maxLength(80, "El nombre no puede superar los 80 caracteres."),
+);
 
-const phone = v.pipe(v.string(), v.regex(/^\+?[\d\s-]{7,15}$/));
+const lastName = v.pipe(
+	v.string("Los apellidos son obligatorios."),
+	v.trim(),
+	v.minLength(2, "Los apellidos deben tener al menos 2 caracteres."),
+	v.maxLength(80, "Los apellidos no pueden superar los 80 caracteres."),
+);
 
-const documentId = v.pipe(v.string(), v.uuid());
+const phone = v.pipe(
+	v.string("El teléfono debe ser texto."),
+	v.regex(
+		/^\+?[\d\s-]{7,15}$/,
+		"Escribe un teléfono válido, de 7 a 15 dígitos.",
+	),
+);
+
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 // ── Entidad y proyecciones ────────────────────────────────────────────────────
 
@@ -53,7 +78,7 @@ export const trainerSummarySchema = v.object({
 	firstName: v.nullable(v.string()),
 	lastName: v.nullable(v.string()),
 	email: v.string(),
-	type: v.picklist(USER_TYPES),
+	type: v.picklist(USER_TYPES, "El tipo de cuenta no es válido."),
 	specialty: v.string(),
 	institution: v.nullable(v.string()),
 	dependencyName: v.nullable(v.string()),
@@ -123,8 +148,8 @@ export const updateProfileRule = v.partial(
  * lo sitúa en algún sitio.
  */
 export const createExternalTrainerRule = v.object({
-	firstName: name,
-	lastName: name,
+	firstName,
+	lastName,
 	email: atoms.email,
 	password: atoms.newPassword,
 	phone: v.optional(phone),
@@ -136,11 +161,21 @@ export const createExternalTrainerRule = v.object({
 export const findTrainerRule = v.object({ userDocumentId: documentId });
 
 export const listTrainersRule = createListRule({
-	type: v.optional(v.picklist(USER_TYPES)),
-	specialty: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(120))),
-	status: v.optional(v.picklist(TRAINER_STATUSES)),
-	sortBy: v.optional(v.picklist(TRAINER_SORT_FIELDS)),
-	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
+	type: v.optional(v.picklist(USER_TYPES, "El tipo de cuenta no es válido.")),
+	specialty: v.optional(
+		v.pipe(
+			v.string("La especialidad debe ser texto."),
+			v.trim(),
+			v.maxLength(120, "La especialidad no puede superar los 120 caracteres."),
+		),
+	),
+	status: v.optional(v.picklist(TRAINER_STATUSES, "El estado no es válido.")),
+	sortBy: v.optional(
+		v.picklist(TRAINER_SORT_FIELDS, "No se puede ordenar por ese campo."),
+	),
+	sortDir: v.optional(
+		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
+	),
 });
 
 export const trainerRules = {

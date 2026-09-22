@@ -6,7 +6,13 @@ import {
 	type SortDirection,
 } from "@/shared/rules/list.rules";
 
-const phone = v.pipe(v.string(), v.regex(/^\+?[\d\s-]{7,15}$/));
+const phone = v.pipe(
+	v.string("El teléfono debe ser texto."),
+	v.regex(
+		/^\+?[\d\s-]{7,15}$/,
+		"Escribe un teléfono válido, de 7 a 15 dígitos.",
+	),
+);
 
 // Rol: picklist único compartido — se edita en shared/rules/atoms.rules.ts
 const role = atoms.role;
@@ -22,13 +28,17 @@ export const USER_TYPES = ["INTERNAL", "EXTERNAL"] as const;
 export type UserType = (typeof USER_TYPES)[number];
 
 const employeeNumber = v.pipe(
-	v.string(),
+	v.string("El número de empleado es obligatorio."),
 	v.trim(),
-	v.minLength(1),
-	v.maxLength(32),
+	v.minLength(1, "El número de empleado es obligatorio."),
+	v.maxLength(32, "El número de empleado no puede superar los 32 caracteres."),
 );
 
-const jobTitle = v.pipe(v.string(), v.trim(), v.maxLength(120));
+const jobTitle = v.pipe(
+	v.string("El puesto debe ser texto."),
+	v.trim(),
+	v.maxLength(120, "El puesto no puede superar los 120 caracteres."),
+);
 
 /**
  * Identificador PÚBLICO de la dependencia destino.
@@ -37,7 +47,10 @@ const jobTitle = v.pipe(v.string(), v.trim(), v.maxLength(120));
  * resto del sistema; la traducción a `dependencyId` es del servicio, que además
  * es quien comprueba que exista y esté activa.
  */
-const dependencyDocumentId = v.pipe(v.string(), v.uuid());
+const dependencyDocumentId = v.pipe(
+	v.string("Elige la dependencia."),
+	v.uuid("La dependencia seleccionada no es válida."),
+);
 
 export const userSchema = v.object({
 	id: v.number(),
@@ -53,7 +66,7 @@ export const userSchema = v.object({
 	role,
 	phone: v.nullable(v.string()),
 	/** Interno o externo. Gobierna qué campos son obligatorios. */
-	type: v.picklist(USER_TYPES),
+	type: v.picklist(USER_TYPES, "El tipo de cuenta no es válido."),
 	/** Obligatorio y único para internos; lo impone el CHECK de la base. */
 	employeeNumber: v.nullable(v.string()),
 	jobTitle: v.nullable(v.string()),
@@ -118,11 +131,18 @@ export const createUserRule = v.pipe(
 	v.object({
 		email: atoms.email,
 		password: atoms.newPassword, // creación: aplica la política de contraseñas
-		firstName: v.optional(v.pipe(v.string(), v.trim())),
-		lastName: v.optional(v.pipe(v.string(), v.trim())),
+		firstName: v.optional(
+			v.pipe(v.string("El nombre debe ser texto."), v.trim()),
+		),
+		lastName: v.optional(
+			v.pipe(v.string("Los apellidos deben ser texto."), v.trim()),
+		),
 		phone: v.optional(phone),
 		role: v.optional(role),
-		type: v.optional(v.picklist(USER_TYPES), "INTERNAL"),
+		type: v.optional(
+			v.picklist(USER_TYPES, "El tipo de cuenta no es válido."),
+			"INTERNAL",
+		),
 		employeeNumber: v.optional(employeeNumber),
 		jobTitle: v.optional(jobTitle),
 		dependency: v.optional(dependencyDocumentId),
@@ -130,7 +150,7 @@ export const createUserRule = v.pipe(
 	v.forward(
 		v.check(
 			(input) => input.type !== "INTERNAL" || Boolean(input.employeeNumber),
-			"El número de empleado es obligatorio para el personal interno",
+			"El número de empleado es obligatorio para el personal interno.",
 		),
 		["employeeNumber"],
 	),
@@ -140,21 +160,21 @@ export const createUserRule = v.pipe(
 				input.type !== "INTERNAL" ||
 				input.role === "SUPERADMIN" ||
 				Boolean(input.dependency),
-			"Elige la dependencia a la que pertenece",
+			"Elige la dependencia a la que pertenece.",
 		),
 		["dependency"],
 	),
 	v.forward(
 		v.check(
 			(input) => input.type !== "EXTERNAL" || !input.employeeNumber,
-			"Una cuenta externa no lleva número de empleado",
+			"Una cuenta externa no lleva número de empleado.",
 		),
 		["employeeNumber"],
 	),
 	v.forward(
 		v.check(
 			(input) => input.type !== "EXTERNAL" || !input.dependency,
-			"Una cuenta externa no pertenece a ninguna dependencia",
+			"Una cuenta externa no pertenece a ninguna dependencia.",
 		),
 		["dependency"],
 	),
@@ -172,8 +192,8 @@ export const createUserRule = v.pipe(
 export const updateUserRule = v.partial(
 	v.object({
 		email: atoms.email,
-		firstName: v.pipe(v.string(), v.trim()),
-		lastName: v.pipe(v.string(), v.trim()),
+		firstName: v.pipe(v.string("El nombre debe ser texto."), v.trim()),
+		lastName: v.pipe(v.string("Los apellidos deben ser texto."), v.trim()),
 		phone,
 		role,
 		employeeNumber,
@@ -183,15 +203,15 @@ export const updateUserRule = v.partial(
 
 export const changePasswordRule = v.pipe(
 	v.object({
-		currentPassword: v.string(),
+		currentPassword: v.string("Escribe tu contraseña actual."),
 		newPassword: atoms.newPassword, // cambio: aplica la política de contraseñas
-		confirmPassword: v.string(),
+		confirmPassword: v.string("Confirma la nueva contraseña."),
 	}),
 	v.forward(
 		v.partialCheck(
 			[["newPassword"], ["confirmPassword"]],
 			(input) => input.newPassword === input.confirmPassword,
-			"Las contraseñas no coinciden",
+			"Las contraseñas no coinciden.",
 		),
 		["confirmPassword"],
 	),
@@ -213,7 +233,10 @@ export const adminResetPasswordRule = v.object({
 });
 
 export const findUserRule = v.object({
-	documentId: v.pipe(v.string(), v.uuid()),
+	documentId: v.pipe(
+		v.string("Falta el identificador de la cuenta."),
+		v.uuid("El identificador de la cuenta no es válido."),
+	),
 });
 
 export const listUsersRule = createListRule({
@@ -227,14 +250,23 @@ export const listUsersRule = createListRule({
 	 * porque para el resto es redundante y engañoso.
 	 */
 	dependency: v.optional(dependencyDocumentId),
-	type: v.optional(v.picklist(USER_TYPES)),
-	trainer: v.optional(v.picklist(USER_TRAINER_FILTERS)),
-	status: v.optional(v.picklist(USER_STATUSES)),
-	sortBy: v.optional(v.picklist(USER_SORT_FIELDS)),
-	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
+	type: v.optional(v.picklist(USER_TYPES, "El tipo de cuenta no es válido.")),
+	trainer: v.optional(
+		v.picklist(USER_TRAINER_FILTERS, "El filtro de capacitador no es válido."),
+	),
+	status: v.optional(v.picklist(USER_STATUSES, "El estado no es válido.")),
+	sortBy: v.optional(
+		v.picklist(USER_SORT_FIELDS, "No se puede ordenar por ese campo."),
+	),
+	sortDir: v.optional(
+		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
+	),
 });
 export const deleteUserRule = v.object({
-	documentId: v.pipe(v.string(), v.uuid()),
+	documentId: v.pipe(
+		v.string("Falta el identificador de la cuenta."),
+		v.uuid("El identificador de la cuenta no es válido."),
+	),
 });
 
 /** Traslado de una cuenta: solo el destino, la cuenta movida sale de la URL. */

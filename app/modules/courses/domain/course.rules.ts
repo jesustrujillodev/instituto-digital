@@ -45,40 +45,76 @@ export type CourseStatus = (typeof COURSE_STATUSES)[number];
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
-const title = v.pipe(v.string(), v.trim(), v.minLength(3), v.maxLength(160));
-const description = v.pipe(v.string(), v.trim(), v.maxLength(2000));
-const venue = v.pipe(v.string(), v.trim(), v.maxLength(200));
+const title = v.pipe(
+	v.string("El título del curso es obligatorio."),
+	v.trim(),
+	v.minLength(3, "El título debe tener al menos 3 caracteres."),
+	v.maxLength(160, "El título no puede superar los 160 caracteres."),
+);
+
+const description = v.pipe(
+	v.string("La descripción debe ser texto."),
+	v.trim(),
+	v.maxLength(2000, "La descripción no puede superar los 2000 caracteres."),
+);
+
+const venue = v.pipe(
+	v.string("La sede debe ser texto."),
+	v.trim(),
+	v.maxLength(200, "La sede no puede superar los 200 caracteres."),
+);
 
 /** Enlace externo: la plataforma no aloja contenido (§6.5). */
-const link = v.pipe(v.string(), v.trim(), v.url(), v.maxLength(500));
+const link = v.pipe(
+	v.string("El enlace de la sesión debe ser texto."),
+	v.trim(),
+	v.url("Escribe un enlace válido, con https://"),
+	v.maxLength(500, "El enlace no puede superar los 500 caracteres."),
+);
 
-const documentId = v.pipe(v.string(), v.uuid());
+const documentId = v.pipe(
+	v.string("Falta el identificador del registro."),
+	v.uuid("El identificador del registro no es válido."),
+);
 
 const capacity = v.pipe(
-	v.number(),
-	v.integer(),
-	v.minValue(1),
-	v.maxValue(10000),
+	v.number("El cupo debe ser un número."),
+	v.integer("El cupo debe ser un número entero de personas."),
+	v.minValue(1, "El cupo debe ser de al menos 1 persona."),
+	v.maxValue(10000, "El cupo no puede superar las 10000 personas."),
 );
 
 /** Porcentaje de asistencia exigido para acreditar. */
 const minAttendance = v.pipe(
-	v.number(),
-	v.integer(),
-	v.minValue(1),
-	v.maxValue(100),
+	v.number("La asistencia mínima debe ser un número."),
+	v.integer("La asistencia mínima debe ser un porcentaje entero."),
+	v.minValue(1, "La asistencia mínima debe ser de al menos 1%."),
+	v.maxValue(100, "La asistencia mínima no puede superar el 100%."),
 );
 
 /** Minutos de tolerancia de la ventana de escaneo del QR (§6.8). */
 const qrWindowMinutes = v.pipe(
-	v.number(),
-	v.integer(),
-	v.minValue(COURSE_QR_WINDOW_LIMITS.min),
-	v.maxValue(COURSE_QR_WINDOW_LIMITS.max),
+	v.number("La tolerancia del QR debe ser un número."),
+	v.integer("La tolerancia del QR debe ser un número entero de minutos."),
+	v.minValue(
+		COURSE_QR_WINDOW_LIMITS.min,
+		`La tolerancia del QR debe ser de al menos ${COURSE_QR_WINDOW_LIMITS.min} minutos.`,
+	),
+	v.maxValue(
+		COURSE_QR_WINDOW_LIMITS.max,
+		`La tolerancia del QR no puede superar los ${COURSE_QR_WINDOW_LIMITS.max} minutos.`,
+	),
 );
 
-const dateInput = v.pipe(v.string(), v.regex(DATE_INPUT_PATTERN));
-const timeInput = v.pipe(v.string(), v.regex(TIME_INPUT_PATTERN));
+const dateInput = v.pipe(
+	v.string("La fecha es obligatoria."),
+	v.regex(DATE_INPUT_PATTERN, "Escribe la fecha con el formato AAAA-MM-DD."),
+);
+
+const timeInput = v.pipe(
+	v.string("La hora es obligatoria."),
+	v.regex(TIME_INPUT_PATTERN, "Escribe la hora con el formato HH:MM."),
+);
 
 // ── Entidad y proyecciones ────────────────────────────────────────────────────
 
@@ -197,18 +233,24 @@ export const courseSessionInputRule = v.object({
 const courseFormShape = {
 	title,
 	description: v.optional(description),
-	modality: v.picklist(COURSE_MODALITIES),
-	access: v.picklist(COURSE_ACCESS_TYPES),
+	modality: v.picklist(COURSE_MODALITIES, "Elige una modalidad válida."),
+	access: v.picklist(COURSE_ACCESS_TYPES, "Elige un tipo de acceso válido."),
 	capacity: v.optional(capacity),
 	/** Día completo: se resuelve al último minuto de esa fecha (§6.6). */
 	enrollmentDeadline: v.optional(dateInput),
 	minAttendance: v.optional(minAttendance),
-	requiresEvaluation: v.optional(v.boolean()),
+	requiresEvaluation: v.optional(
+		v.boolean("Indica si el curso exige evaluación."),
+	),
 	qrOpensBeforeMinutes: v.optional(qrWindowMinutes),
 	qrClosesAfterMinutes: v.optional(qrWindowMinutes),
-	trainers: v.array(documentId),
-	audienceDependencies: v.optional(v.array(documentId)),
-	audienceGroups: v.optional(v.array(documentId)),
+	trainers: v.array(documentId, "Selecciona los capacitadores del curso."),
+	audienceDependencies: v.optional(
+		v.array(documentId, "Selecciona las dependencias que pueden inscribirse."),
+	),
+	audienceGroups: v.optional(
+		v.array(documentId, "Selecciona los grupos que pueden inscribirse."),
+	),
 	/**
 	 * Centinela de borrado de la portada.
 	 *
@@ -217,12 +259,12 @@ const courseFormShape = {
 	 * archivo en sí no entra al contrato: un `File` no existe en el servidor con
 	 * el mismo tipo y contaminaría un esquema que corre en los dos lados.
 	 */
-	removeCover: v.optional(v.boolean()),
+	removeCover: v.optional(v.boolean("Indica si se quita la portada.")),
 	/**
 	 * Vacío es válido: el curso nace en borrador y se completa después. La
 	 * exigencia de al menos una sesión es de la publicación, no del guardado.
 	 */
-	sessions: v.array(courseSessionInputRule),
+	sessions: v.array(courseSessionInputRule, "Revisa las sesiones del curso."),
 };
 
 export const createCourseRule = v.object({
@@ -252,11 +294,19 @@ export const findCourseRule = v.object({ documentId });
 export const listCoursesRule = createListRule({
 	/** Filtro ADICIONAL al alcance: pedir otra dependencia no amplía nada. */
 	dependency: v.optional(documentId),
-	status: v.optional(v.picklist(COURSE_STATUSES)),
-	modality: v.optional(v.picklist(COURSE_MODALITIES)),
-	access: v.optional(v.picklist(COURSE_ACCESS_TYPES)),
-	sortBy: v.optional(v.picklist(COURSE_SORT_FIELDS)),
-	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
+	status: v.optional(v.picklist(COURSE_STATUSES, "Elige un estado válido.")),
+	modality: v.optional(
+		v.picklist(COURSE_MODALITIES, "Elige una modalidad válida."),
+	),
+	access: v.optional(
+		v.picklist(COURSE_ACCESS_TYPES, "Elige un tipo de acceso válido."),
+	),
+	sortBy: v.optional(
+		v.picklist(COURSE_SORT_FIELDS, "No se puede ordenar por ese campo."),
+	),
+	sortDir: v.optional(
+		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
+	),
 });
 
 export const courseRules = {

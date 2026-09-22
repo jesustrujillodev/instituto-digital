@@ -69,10 +69,17 @@ export const loginRule = v.object({
 // ── Monitor de sesiones (admin) ───────────────────────────────────────────────
 
 /** Id interno del usuario dueño de la sesión (Session.userId es un entero). */
-const userId = v.pipe(v.number(), v.integer(), v.minValue(1));
+const userId = v.pipe(
+	v.number("El identificador de la cuenta debe ser numérico."),
+	v.integer("El identificador de la cuenta debe ser un número entero."),
+	v.minValue(1, "El identificador de la cuenta no es válido."),
+);
 
 /** Id público de la sesión. Nunca un hash: eso es secreto y no sale del server. */
-const sessionId = v.pipe(v.string(), v.uuid());
+const sessionId = v.pipe(
+	v.string("Falta el identificador de la sesión."),
+	v.uuid("El identificador de la sesión no es válido."),
+);
 
 /**
  * Columnas por las que se puede ordenar el listado.
@@ -101,9 +108,15 @@ export const SESSION_MONITOR_ROLES: readonly Role[] = ["SUPERADMIN"];
 
 export const listSessionsRule = createListRule({
 	userId: v.optional(userId),
-	status: v.optional(v.picklist(SESSION_STATUSES)),
-	sortBy: v.optional(v.picklist(SESSION_SORT_FIELDS)),
-	sortDir: v.optional(v.picklist(SORT_DIRECTIONS)),
+	status: v.optional(
+		v.picklist(SESSION_STATUSES, "El estado de sesión no es válido."),
+	),
+	sortBy: v.optional(
+		v.picklist(SESSION_SORT_FIELDS, "No se puede ordenar por ese campo."),
+	),
+	sortDir: v.optional(
+		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
+	),
 });
 
 export const revokeSessionRule = v.object({ sessionId });
@@ -120,9 +133,17 @@ export const LOCKDOWN_CONFIRMATION_WORD = "CERRAR";
  * la acción más destructiva del sistema y la única que lo exige.
  */
 export const lockdownRule = v.object({
-	scope: v.picklist(LOCKDOWN_SCOPES),
-	reason: v.optional(v.pipe(v.string(), v.maxLength(500))),
-	confirmation: v.literal(LOCKDOWN_CONFIRMATION_WORD),
+	scope: v.picklist(LOCKDOWN_SCOPES, "Elige un alcance de cierre válido."),
+	reason: v.optional(
+		v.pipe(
+			v.string("El motivo debe ser texto."),
+			v.maxLength(500, "El motivo no puede superar los 500 caracteres."),
+		),
+	),
+	confirmation: v.literal(
+		LOCKDOWN_CONFIRMATION_WORD,
+		`Escribe ${LOCKDOWN_CONFIRMATION_WORD} para confirmar el cierre.`,
+	),
 });
 
 // ── Rule map ──────────────────────────────────────────────────────────────────
