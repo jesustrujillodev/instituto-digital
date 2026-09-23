@@ -52,10 +52,11 @@ const run = (payload: unknown, reply: unknown) => {
 
 describe("aula: presentar el examen", () => {
 	// La ruta es la del examen: aunque el cuerpo nombre una lección, se ignora.
-	test("la lección no la decide el cliente", async () => {
+	test("ni la lección ni el módulo los decide el cliente", async () => {
 		const { result, calls } = run(
 			{
 				lessonDocumentId: LESSON_1,
+				moduleDocumentId: LESSON_1,
 				answers: [{ questionDocumentId: Q1, optionDocumentId: OPTION }],
 			},
 			{
@@ -73,6 +74,7 @@ describe("aula: presentar el examen", () => {
 			COURSE_DOC,
 			{
 				lessonDocumentId: null,
+				moduleDocumentId: null,
 				answers: [{ questionDocumentId: Q1, optionDocumentId: OPTION }],
 			},
 		]);

@@ -1,3 +1,4 @@
+import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { ENROLLMENT_ERROR_MESSAGES } from "@/modules/enrollments/utils/enrollment-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
@@ -52,7 +53,7 @@ export const loader = async ({
 		throw toRouteError(content.error, CONTENT_ERROR_MESSAGES);
 
 	const quiz = evaluatesByQuiz(course.data)
-		? await context.quizService.findBank(documentId, null, auth)
+		? await context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
 		: null;
 	if (quiz && !quiz.success)
 		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);

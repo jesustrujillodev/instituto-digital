@@ -38,12 +38,20 @@ export interface ContentLesson {
 	hasMaterial: boolean;
 }
 
+/** La evaluación del módulo (docs/adr/0016). Aprobarla cuenta como contenido. */
+export interface ContentModuleQuiz {
+	documentId: string;
+	title: string;
+	questionCount: number;
+}
+
 export interface ContentModule {
 	documentId: string;
 	title: string;
 	description: string | null;
 	order: number;
 	lessons: ContentLesson[];
+	quiz: ContentModuleQuiz | null;
 }
 
 /** El temario de un curso: sin lo archivado y en su orden. */

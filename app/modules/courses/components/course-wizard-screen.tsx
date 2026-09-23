@@ -54,7 +54,6 @@ export function CourseWizardScreen({
 			quiz={
 				<QuizEditor
 					courseDocumentId={course.documentId}
-					lessonDocumentId={null}
 					bank={quiz}
 					defaultTitle={`Examen final · ${course.title}`}
 				/>

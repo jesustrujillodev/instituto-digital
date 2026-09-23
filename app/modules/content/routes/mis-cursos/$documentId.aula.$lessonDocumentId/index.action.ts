@@ -37,6 +37,7 @@ export const action = async ({
 			dto: validateSubmitQuiz({
 				...(form.payload as object),
 				lessonDocumentId: params.lessonDocumentId,
+				moduleDocumentId: null,
 			}),
 		}));
 		if (!quizInput.success) {

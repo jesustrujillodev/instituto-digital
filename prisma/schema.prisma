@@ -81,6 +81,7 @@ model User {
   attendance         CourseAttendance[] @relation("AttendanceParticipant")
   lessonProgress     LessonProgress[]   @relation("LessonProgressParticipant")
   quizAttempts       QuizAttempt[]      @relation("QuizAttemptParticipant")
+  quizRetakesGranted QuizAttempt[]      @relation("QuizRetakeGranter")
   attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
   evaluationsCreated CourseEvaluation[] @relation("EvaluationCreator")
   evaluationResults  EvaluationResult[] @relation("EvaluationParticipant")
@@ -544,6 +545,7 @@ model CourseModule {
   updatedAt DateTime @updatedAt
 
   lessons Lesson[]
+  quizzes Quiz[]
 
   @@index([courseId, order])
   @@map("course_modules")
@@ -1043,10 +1045,11 @@ enum QuizQuestionType {
   @@schema("org")
 }
 
-/// Un cuestionario autocalificado (docs/adr/0015). Con `lessonId` es la
-/// práctica de una lección `QUIZ`; sin él, el examen final del curso. Hay a lo
-/// sumo un examen por curso: no se expresa con un índice parcial, lo impone el
-/// servicio con la fila del curso bloqueada.
+/// Un cuestionario autocalificado (docs/adr/0015, 0016). Con `lessonId` es la
+/// práctica de una lección `QUIZ`; con `moduleId`, la evaluación de ese módulo;
+/// sin ninguno, el examen final del curso. Hay a lo sumo un examen por curso y
+/// un cuestionario activo por módulo: no se expresa con índices parciales, lo
+/// impone el servicio con la fila del curso bloqueada.
 model Quiz {
   id         Int    @id @default(autoincrement())
   documentId String @unique @default(uuid()) @db.Uuid
@@ -1056,6 +1059,12 @@ model Quiz {
 
   lessonId Int?    @unique @map("lesson_id")
   lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  moduleId Int?          @map("module_id")
+  module   CourseModule? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  /// Solo el de módulo se archiva: sus intentos respaldan completados ya dados.
+  archivedAt DateTime? @map("archived_at")
 
   title            String
   /// Porcentaje de 0 a 100 con el que se aprueba.
@@ -1069,6 +1078,7 @@ model Quiz {
   attempts  QuizAttempt[]
 
   @@index([courseId])
+  @@index([moduleId])
   @@map("quizzes")
   @@schema("org")
 }
@@ -1112,7 +1122,9 @@ model QuizOption {
   @@schema("org")
 }
 
-/// Un solo intento por persona y cuestionario: lo impone la unicidad.
+/// Un intento por persona y cuestionario, salvo que quien imparte habilite otro
+/// sobre uno reprobado de módulo (docs/adr/0016). La unicidad por número es la
+/// última defensa contra dos envíos simultáneos.
 model QuizAttempt {
   id         Int    @id @default(autoincrement())
   documentId String @unique @default(uuid()) @db.Uuid
@@ -1123,14 +1135,21 @@ model QuizAttempt {
   userId Int  @map("user_id")
   user   User @relation("QuizAttemptParticipant", fields: [userId], references: [id], onDelete: Restrict)
 
+  number Int @default(1)
+
   submittedAt DateTime @map("submitted_at")
   /// Porcentaje entero, hacia abajo, sobre los puntos del banco.
   score       Int
   passed      Boolean
 
+  /// Con valor, este intento ya no cierra el cuestionario: hay otro habilitado.
+  retakeGrantedAt   DateTime? @map("retake_granted_at")
+  retakeGrantedById Int?      @map("retake_granted_by_id")
+  retakeGrantedBy   User?     @relation("QuizRetakeGranter", fields: [retakeGrantedById], references: [id], onDelete: Restrict)
+
   answers QuizAnswer[]
 
-  @@unique([quizId, userId])
+  @@unique([quizId, userId, number])
   @@index([userId])
   @@map("quiz_attempts")
   @@schema("org")

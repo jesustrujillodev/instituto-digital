@@ -2,7 +2,9 @@ import * as v from "valibot";
 import { zonedYearOf } from "@/lib/date-utils";
 import {
 	COURSE_MODALITIES,
+	type CourseFormat,
 	type CourseStatus,
+	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
 import {
 	MONTHS,
@@ -115,13 +117,17 @@ export const activeCourseOf = <T extends { status: CourseStatus }>(
  */
 export const planLineStatusOf = (line: {
 	cancelledAt: Date | null;
-	courses: readonly { status: CourseStatus }[];
+	courses: readonly { status: CourseStatus; format: CourseFormat }[];
 }): PlanLineStatus => {
 	if (line.cancelledAt !== null) return "CANCELLED";
 
 	const active = activeCourseOf(line.courses);
 	if (!active) return "PENDING";
-	return active.status === "FINISHED" ? "DONE" : "SCHEDULED";
+	if (active.status === "FINISHED") return "DONE";
+	// Un autogestivo nunca se finaliza (docs/adr/0014): publicarlo es impartirlo.
+	return active.status === "PUBLISHED" && !requiresSessions(active.format)
+		? "DONE"
+		: "SCHEDULED";
 };
 
 export const planProgressOf = (

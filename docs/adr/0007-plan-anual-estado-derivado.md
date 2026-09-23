@@ -37,9 +37,17 @@ PRD-06, PRD-07 se entrega con `prisma db push`.
 ```
 cancelled_at no nulo                     → CANCELLED
 curso vinculado no cancelado, FINISHED   → DONE
+  …autogestivo y PUBLISHED               → DONE   (MVP-02 · F-12)
 curso vinculado no cancelado, otro       → SCHEDULED
 ninguno                                  → PENDING
 ```
+
+**Enmienda MVP-02 · F-12 (D-04).** Un autogestivo nunca se finaliza
+([0014](./0014-avance-por-leccion-y-completado-por-participante.md) §2.1): cada
+participante lo completa por su cuenta. Su línea queda realizada **al
+publicarse**, porque publicarlo es ponerlo a disposición. La regla ramifica por
+`requiresSessions(format)` y no se reescribe. Por eso la lectura del plan trae
+también el `format` de cada curso.
 
 **Por qué:** una columna `status` obligaría a escribirla desde tres casos de uso
 en dos módulos, cada uno dentro de su transacción. Cualquier camino que la

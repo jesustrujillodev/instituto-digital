@@ -2,6 +2,8 @@ import {
 	Archive,
 	ChevronDown,
 	ChevronUp,
+	ClipboardCheck,
+	ClipboardPlus,
 	FilePlus2,
 	LayoutList,
 	Paperclip,
@@ -36,11 +38,13 @@ import {
 	contentPath,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
+	quizPath,
 } from "../utils/content-form";
 import { LESSON_TYPE_LABELS } from "../utils/content-labels";
 import { ContentLessonDialog } from "./content-lesson-dialog";
 import { ContentModuleDialog } from "./content-module-dialog";
 import { LessonMaterialSheet } from "./lesson-material-sheet";
+import { ModuleQuizSheet } from "./module-quiz-sheet";
 
 /** Intercambia dos posiciones de un arreglo sin tocar el original. */
 const swapped = <T,>(values: readonly T[], from: number, to: number): T[] => {
@@ -93,14 +97,19 @@ export function CourseContentManager({
 	const [materialTarget, setMaterialTarget] = useState<ContentLesson | null>(
 		null,
 	);
+	const [quizTarget, setQuizTarget] = useState<ContentModule | null>(null);
 
 	const busy = fetcher.state !== "idle";
 	const canAddModule = tree.length < CONTENT_MAX_MODULES_PER_COURSE;
 
-	const send = (intent: string, payload: unknown) => {
+	const send = (
+		intent: string,
+		payload: unknown,
+		action = contentPath(courseDocumentId),
+	) => {
 		fetcher.submit(
 			{ [INTENT_FIELD]: intent, [PAYLOAD_FIELD]: JSON.stringify(payload) },
-			{ method: "post", action: contentPath(courseDocumentId) },
+			{ method: "post", action },
 		);
 	};
 
@@ -215,9 +224,15 @@ export function CourseContentManager({
 											title={
 												module.lessons.length > 0
 													? "Archiva primero sus lecciones"
-													: undefined
+													: module.quiz
+														? "Archiva primero su evaluación"
+														: undefined
 											}
-											disabled={busy || module.lessons.length > 0}
+											disabled={
+												busy ||
+												module.lessons.length > 0 ||
+												module.quiz !== null
+											}
 											onClick={() =>
 												send(CONTENT_INTENTS.archiveModule, {
 													moduleDocumentId: module.documentId,
@@ -319,8 +334,56 @@ export function CourseContentManager({
 								</ol>
 							)}
 
+							{module.quiz && (
+								<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border border-dashed px-2 py-1.5">
+									<div className="flex min-w-0 flex-wrap items-center gap-2">
+										<ClipboardCheck
+											aria-hidden="true"
+											className="size-4 text-muted-foreground"
+										/>
+										<span className="text-sm">{module.quiz.title}</span>
+										<Badge variant="outline">Evaluación del módulo</Badge>
+										<span className="text-muted-foreground text-xs">
+											{module.quiz.questionCount}{" "}
+											{module.quiz.questionCount === 1
+												? "pregunta"
+												: "preguntas"}
+										</span>
+									</div>
+									<div className="flex items-center gap-1">
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											aria-label={`Preguntas de la evaluación del módulo ${module.title}`}
+											onClick={() => setQuizTarget(module)}
+										>
+											<Pencil aria-hidden="true" />
+										</Button>
+										{canWrite && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												aria-label={`Archivar la evaluación del módulo ${module.title}`}
+												disabled={busy}
+												onClick={() =>
+													send(
+														CONTENT_INTENTS.archiveModuleQuiz,
+														{ moduleDocumentId: module.documentId },
+														quizPath(courseDocumentId),
+													)
+												}
+											>
+												<Archive aria-hidden="true" />
+											</Button>
+										)}
+									</div>
+								</div>
+							)}
+
 							{canWrite && (
-								<div>
+								<div className="flex flex-wrap gap-2">
 									<Button
 										type="button"
 										variant="outline"
@@ -339,6 +402,18 @@ export function CourseContentManager({
 										<FilePlus2 aria-hidden="true" />
 										Agregar lección
 									</Button>
+									{!module.quiz && (
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={busy}
+											onClick={() => setQuizTarget(module)}
+										>
+											<ClipboardPlus aria-hidden="true" />
+											Agregar evaluación
+										</Button>
+									)}
 								</div>
 							)}
 						</li>
@@ -382,6 +457,16 @@ export function CourseContentManager({
 				courseDocumentId={courseDocumentId}
 				moduleDocumentId={lessonTarget?.moduleDocumentId ?? null}
 				lesson={lessonTarget?.lesson ?? null}
+			/>
+
+			<ModuleQuizSheet
+				open={quizTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setQuizTarget(null);
+				}}
+				courseDocumentId={courseDocumentId}
+				module={quizTarget}
+				canWrite={canWrite}
 			/>
 
 			<LessonMaterialSheet

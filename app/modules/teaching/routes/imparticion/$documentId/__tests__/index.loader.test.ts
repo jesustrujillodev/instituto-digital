@@ -21,18 +21,31 @@ const okReply = (data: unknown) => ({
 	timestamp: new Date().toISOString(),
 });
 
+const MODULE_QUIZ = {
+	quizDocumentId: "22222222-2222-4222-8222-222222222222",
+	moduleDocumentId: "33333333-3333-4333-8333-333333333333",
+	moduleTitle: "Fundamentos",
+	title: "Evaluación",
+};
+
 const createHarness = (
 	status: string,
 	requiresEvaluation = false,
 	format = "SCHEDULED",
+	moduleQuizzes: (typeof MODULE_QUIZ)[] = [],
 ) => {
-	const calls = { ratings: 0, evaluations: 0 };
+	const calls = { ratings: 0, evaluations: 0, moduleQuizzes: 0 };
 	const context = {
 		authPayload,
 		teachingService: {
 			findById: async () =>
 				okReply({
-					course: { status, requiresEvaluation, format },
+					course: {
+						status,
+						requiresEvaluation,
+						format,
+						completionRule: format === "SELF_PACED" ? "CONTENT" : "ATTENDANCE",
+					},
 					participants: [],
 				}),
 		},
@@ -46,6 +59,16 @@ const createHarness = (
 			findCourseBoard: async () => {
 				calls.evaluations += 1;
 				return okReply({ canWrite: true, evaluations: [] });
+			},
+		},
+		quizService: {
+			findModuleQuizBoard: async () => {
+				calls.moduleQuizzes += 1;
+				return okReply({
+					canGrantRetake: true,
+					quizzes: moduleQuizzes,
+					attempts: [],
+				});
 			},
 		},
 	} as unknown as LoaderArgs["context"];
@@ -112,6 +135,35 @@ describe("ficha de impartición loader", () => {
 			evaluations: [],
 		});
 		expect(calls.evaluations).toBe(1);
+	});
+
+	// docs/adr/0016: las evaluaciones de módulo viven donde cuenta el temario.
+	test("un autogestivo con evaluaciones de módulo trae su tablero", async () => {
+		const { context, calls } = createHarness("PUBLISHED", false, "SELF_PACED", [
+			MODULE_QUIZ,
+		]);
+
+		const result = await run(context);
+
+		expect(result.data.moduleQuizzes).toEqual({
+			canGrantRetake: true,
+			quizzes: [MODULE_QUIZ],
+			attempts: [],
+		});
+		expect(calls.moduleQuizzes).toBe(1);
+	});
+
+	test("sin evaluaciones de módulo el tablero no viaja", async () => {
+		const { context } = createHarness("PUBLISHED", false, "SELF_PACED");
+
+		expect((await run(context)).data.moduleQuizzes).toBeNull();
+	});
+
+	test("un curso por asistencia no consulta evaluaciones de módulo", async () => {
+		const { context, calls } = createHarness("PUBLISHED");
+
+		expect((await run(context)).data.moduleQuizzes).toBeNull();
+		expect(calls.moduleQuizzes).toBe(0);
 	});
 
 	test("un documentId mal formado responde 400", async () => {

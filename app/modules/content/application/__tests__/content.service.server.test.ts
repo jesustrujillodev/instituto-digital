@@ -64,6 +64,7 @@ const RAW: ContentModuleRaw[] = [
 				quiz: null,
 			},
 		],
+		quizzes: [],
 	},
 	{
 		documentId: MODULE_B,
@@ -82,6 +83,7 @@ const RAW: ContentModuleRaw[] = [
 				quiz: null,
 			},
 		],
+		quizzes: [],
 	},
 ];
 
@@ -91,6 +93,7 @@ const createHarness = (
 		course?: { id: number; status: CourseStatus; format: "SELF_PACED" } | null;
 		modules?: number;
 		activeLessons?: number;
+		moduleHasQuiz?: boolean;
 		lessonType?: LessonType;
 		material?: LessonMaterialRaw["content"];
 		materialFileUrl?: string | null;
@@ -132,7 +135,11 @@ const createHarness = (
 		],
 		findModule: async (_courseId: number, documentId: string) =>
 			documentId === MODULE_A
-				? { id: 21, activeLessons: options.activeLessons ?? 0 }
+				? {
+						id: 21,
+						activeLessons: options.activeLessons ?? 0,
+						hasActiveQuiz: options.moduleHasQuiz ?? false,
+					}
 				: null,
 		findLesson: async (_courseId: number, documentId: string) =>
 			documentId === LESSON_1
@@ -378,6 +385,18 @@ describe("archiveModule", () => {
 		).toMatchObject({
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.MODULE_NOT_EMPTY },
+		});
+		expect(calls.archived).toEqual([]);
+	});
+
+	test("con su evaluación activa tampoco", async () => {
+		const { service, calls } = createHarness({ moduleHasQuiz: true });
+
+		expect(
+			await service.archiveModule(COURSE_DOC, MODULE_A, actorOf()),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.MODULE_HAS_QUIZ },
 		});
 		expect(calls.archived).toEqual([]);
 	});

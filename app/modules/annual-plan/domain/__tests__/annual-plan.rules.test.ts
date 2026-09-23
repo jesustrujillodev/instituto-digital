@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { zonedInputToUtc } from "@/lib/date-utils";
-import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import type {
+	CourseFormat,
+	CourseStatus,
+} from "@/modules/courses/domain/course.rules";
 import { ANNUAL_PLAN_ERROR_CODES } from "../annual-plan.errors";
 import {
 	activeCourseOf,
@@ -22,7 +25,14 @@ const CANCELLED_AT = new Date("2026-08-01T00:00:00.000Z");
 const lineOf = (
 	statuses: CourseStatus[] = [],
 	cancelledAt: Date | null = null,
-) => ({ cancelledAt, courses: statuses.map((status) => ({ status })) });
+	format: CourseFormat = "SCHEDULED",
+) => ({
+	cancelledAt,
+	courses: statuses.map((status) => ({ status, format })),
+});
+
+const selfPacedLineOf = (statuses: CourseStatus[]) =>
+	lineOf(statuses, null, "SELF_PACED");
 
 const codeOf = (run: () => unknown) => {
 	try {
@@ -58,6 +68,15 @@ describe("planLineStatusOf", () => {
 		expect(planLineStatusOf(lineOf([], CANCELLED_AT))).toBe("CANCELLED");
 	});
 
+	test("un autogestivo la realiza al publicarse, porque no se finaliza", () => {
+		expect(planLineStatusOf(selfPacedLineOf(["PUBLISHED"]))).toBe("DONE");
+	});
+
+	test("un autogestivo en borrador la programa y cancelado la devuelve a pendiente", () => {
+		expect(planLineStatusOf(selfPacedLineOf(["DRAFT"]))).toBe("SCHEDULED");
+		expect(planLineStatusOf(selfPacedLineOf(["CANCELLED"]))).toBe("PENDING");
+	});
+
 	test("el curso activo es el que no está cancelado", () => {
 		expect(
 			activeCourseOf([
@@ -78,6 +97,12 @@ describe("planProgressOf", () => {
 				lineOf([], CANCELLED_AT),
 			]),
 		).toEqual({ done: 1, total: 4, cancelled: 1, ratio: 1 / 3 });
+	});
+
+	test("un autogestivo publicado cuenta como realizado", () => {
+		expect(
+			planProgressOf([selfPacedLineOf(["PUBLISHED"]), lineOf(["PUBLISHED"])]),
+		).toEqual({ done: 1, total: 2, cancelled: 0, ratio: 1 / 2 });
 	});
 
 	test("sin nada que medir el avance es null, no cero", () => {

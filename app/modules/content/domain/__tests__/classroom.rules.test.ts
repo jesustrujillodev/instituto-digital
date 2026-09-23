@@ -6,7 +6,7 @@ import {
 	neighborsOf,
 	nextProgressStatus,
 	progressPercentOf,
-	resumeLessonOf,
+	resumeStopOf,
 } from "../classroom.rules";
 import type { ClassroomCourse } from "../classroom.types";
 import { CONTENT_ERROR_CODES } from "../content.errors";
@@ -16,9 +16,18 @@ import {
 	LESSON_2,
 	LESSON_3,
 	lessonOf,
+	MODULE_A,
+	MODULE_QUIZ_A,
 	moduleOf,
 	treeOf,
+	treeWithModuleQuiz,
 } from "./content.fixtures";
+
+const lessonStop = (documentId: string) => ({
+	kind: "LESSON" as const,
+	documentId,
+});
+const moduleQuizStop = { kind: "MODULE_QUIZ" as const, documentId: MODULE_A };
 
 const codeOf = (run: () => unknown) => {
 	try {
@@ -93,6 +102,18 @@ describe("progressPercentOf", () => {
 		expect(progressPercentOf([moduleOf({ lessons: [] })], new Set())).toBe(0);
 	});
 
+	test("la evaluación del módulo cuenta como una más, y solo aprobada", () => {
+		expect(
+			progressPercentOf(treeWithModuleQuiz(), new Set([LESSON_1, LESSON_2])),
+		).toBe(66);
+		expect(
+			progressPercentOf(
+				treeWithModuleQuiz(),
+				new Set([LESSON_1, LESSON_2, MODULE_QUIZ_A]),
+			),
+		).toBe(100);
+	});
+
 	test("una lección que ya no está en el temario no cuenta", () => {
 		expect(progressPercentOf(treeOf(), new Set(["archivada", LESSON_1]))).toBe(
 			50,
@@ -100,23 +121,37 @@ describe("progressPercentOf", () => {
 	});
 });
 
-describe("resumeLessonOf", () => {
+describe("resumeStopOf", () => {
 	test("lleva a la primera obligatoria sin completar", () => {
-		expect(resumeLessonOf(treeOf(), new Set())).toBe(LESSON_1);
-		expect(resumeLessonOf(treeOf(), new Set([LESSON_1]))).toBe(LESSON_2);
+		expect(resumeStopOf(treeOf(), new Set())).toEqual(lessonStop(LESSON_1));
+		expect(resumeStopOf(treeOf(), new Set([LESSON_1]))).toEqual(
+			lessonStop(LESSON_2),
+		);
 	});
 
 	test("hechas las obligatorias, la primera sin completar", () => {
-		expect(resumeLessonOf(treeOf(), new Set([LESSON_1, LESSON_2]))).toBe(
-			LESSON_3,
+		expect(resumeStopOf(treeOf(), new Set([LESSON_1, LESSON_2]))).toEqual(
+			lessonStop(LESSON_3),
 		);
 	});
 
 	test("con todo hecho vuelve al principio; sin temario no hay a dónde", () => {
 		expect(
-			resumeLessonOf(treeOf(), new Set([LESSON_1, LESSON_2, LESSON_3])),
-		).toBe(LESSON_1);
-		expect(resumeLessonOf([], new Set())).toBeNull();
+			resumeStopOf(treeOf(), new Set([LESSON_1, LESSON_2, LESSON_3])),
+		).toEqual(lessonStop(LESSON_1));
+		expect(resumeStopOf([], new Set())).toBeNull();
+	});
+
+	test("la evaluación sin aprobar del módulo va antes que la opcional siguiente", () => {
+		expect(
+			resumeStopOf(treeWithModuleQuiz(), new Set([LESSON_1, LESSON_2])),
+		).toEqual(moduleQuizStop);
+		expect(
+			resumeStopOf(
+				treeWithModuleQuiz(),
+				new Set([LESSON_1, LESSON_2, MODULE_QUIZ_A]),
+			),
+		).toEqual(lessonStop(LESSON_3));
 	});
 });
 
@@ -133,12 +168,33 @@ describe("nextProgressStatus", () => {
 
 describe("neighborsOf", () => {
 	test("cruza de un módulo al siguiente", () => {
-		expect(neighborsOf(treeOf(), LESSON_2)).toEqual({
-			previous: LESSON_1,
-			next: LESSON_3,
+		expect(neighborsOf(treeOf(), lessonStop(LESSON_2))).toEqual({
+			previous: lessonStop(LESSON_1),
+			next: lessonStop(LESSON_3),
 		});
-		expect(neighborsOf(treeOf(), LESSON_1).previous).toBeNull();
-		expect(neighborsOf(treeOf(), LESSON_3).next).toBeNull();
+		expect(neighborsOf(treeOf(), lessonStop(LESSON_1)).previous).toBeNull();
+		expect(neighborsOf(treeOf(), lessonStop(LESSON_3)).next).toBeNull();
+	});
+
+	test("la evaluación del módulo cierra su módulo", () => {
+		expect(
+			neighborsOf(treeWithModuleQuiz(), lessonStop(LESSON_2)).next,
+		).toEqual(moduleQuizStop);
+		expect(neighborsOf(treeWithModuleQuiz(), moduleQuizStop)).toEqual({
+			previous: lessonStop(LESSON_2),
+			next: lessonStop(LESSON_3),
+		});
+	});
+
+	test("una evaluación sin preguntas no es parada", () => {
+		const tree = treeWithModuleQuiz().map((module) =>
+			module.quiz
+				? { ...module, quiz: { ...module.quiz, questionCount: 0 } }
+				: module,
+		);
+		expect(neighborsOf(tree, lessonStop(LESSON_2)).next).toEqual(
+			lessonStop(LESSON_3),
+		);
 	});
 });
 

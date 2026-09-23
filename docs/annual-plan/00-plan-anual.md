@@ -30,12 +30,18 @@ Las decisiones están en [ADR 0007](../adr/0007-plan-anual-estado-derivado.md).
 | --- | --- | --- |
 | Pendiente | Sin curso vigente, incluido si el suyo se canceló | `planLineStatusOf` |
 | Programada | Curso vinculado en borrador o publicado | Ídem |
-| Realizada | Curso vinculado finalizado | Ídem |
+| Realizada | Curso vinculado finalizado, o autogestivo publicado | Ídem |
 | Cancelada | `cancelled_at` no nulo; manda sobre lo demás | Ídem |
 
 "Curso vigente" es el vinculado que no está `CANCELLED` (`activeCourseOf`).
 Ni `courses` ni `teaching` escriben nada en el plan: publicar, cancelar o
 finalizar un curso cambia el estado de su línea en la siguiente lectura.
+
+Un autogestivo nunca se finaliza (ADR 0014), así que su línea queda realizada
+al publicarse (D-04, MVP-02 · F-12). En borrador sigue programada y, cancelado,
+la devuelve a pendiente, como cualquier curso. La pantalla lleva la leyenda
+«Autogestivo» bajo el curso para que se entienda por qué está realizada sin
+haberse finalizado.
 
 El avance es `realizadas / (total − canceladas)` (`planProgressOf`), y es `null`
 —"Sin líneas vigentes"— cuando no hay nada que medir.

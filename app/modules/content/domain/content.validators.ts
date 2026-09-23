@@ -29,6 +29,8 @@ export const validateFindClassroom = (data: unknown) =>
 	v.parse(classroomRules.find, data);
 export const validateFindClassroomLesson = (data: unknown) =>
 	v.parse(classroomRules.findLesson, data);
+export const validateFindClassroomModuleQuiz = (data: unknown) =>
+	v.parse(classroomRules.findModuleQuiz, data);
 export const validateRecordProgress = (data: unknown) =>
 	v.parse(classroomRules.record, data);
 export const validateFindQuiz = (data: unknown) =>
@@ -39,3 +41,7 @@ export const validateRenameQuiz = (data: unknown) =>
 	v.parse(quizRules.rename, data);
 export const validateSubmitQuiz = (data: unknown) =>
 	v.parse(quizRules.submit, data);
+export const validateArchiveModuleQuiz = (data: unknown) =>
+	v.parse(quizRules.archiveModuleQuiz, data);
+export const validateGrantRetake = (data: unknown) =>
+	v.parse(quizRules.grantRetake, data);

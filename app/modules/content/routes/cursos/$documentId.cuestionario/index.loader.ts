@@ -6,11 +6,11 @@ import {
 	validateFindQuiz,
 } from "../../../domain/content.validators";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
-import { LESSON_PARAM } from "../../../utils/content-form";
+import { LESSON_PARAM, MODULE_PARAM } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/cuestionario[?leccion=…]
+ * GET /dashboard/cursos/:documentId/cuestionario[?leccion=…|?modulo=…]
  *
  * El banco con sus respuestas correctas: solo para quien administra el curso.
  */
@@ -24,15 +24,13 @@ export const loader = async ({
 	const { documentId } = validateFindContentCourse({
 		documentId: params.documentId,
 	});
-	const { lessonDocumentId } = validateFindQuiz({
-		lessonDocumentId: new URL(request.url).searchParams.get(LESSON_PARAM),
+	const { searchParams } = new URL(request.url);
+	const owner = validateFindQuiz({
+		lessonDocumentId: searchParams.get(LESSON_PARAM),
+		moduleDocumentId: searchParams.get(MODULE_PARAM),
 	});
 
-	const bank = await context.quizService.findBank(
-		documentId,
-		lessonDocumentId,
-		auth,
-	);
+	const bank = await context.quizService.findBank(documentId, owner, auth);
 	if (!bank.success) throw toRouteError(bank.error, CONTENT_ERROR_MESSAGES);
 
 	return ok(bank.data);

@@ -1,5 +1,10 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { evaluatesByQuiz } from "@/modules/courses/domain/course.rules";
+import {
+	canTeach,
+	resolveTeachingScope,
+	teachingCourseWhere,
+} from "@/modules/teaching/domain/teaching.access";
 import { syncsOnWrite } from "@/modules/teaching/domain/teaching.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
@@ -14,14 +19,22 @@ import {
 	ContentCourseNotFoundError,
 	ContentLessonNotFoundError,
 	ContentMaterialMismatchError,
+	ContentModuleNotFoundError,
 	ContentQuizNotEvaluatedError,
 	ContentQuizNotFoundError,
+	ContentQuizParticipantNotFoundError,
+	ContentQuizRetakeNotAllowedError,
 } from "../domain/content.errors";
+import type { ContentCourseRef } from "../domain/content.types";
 import {
 	assertBankEditable,
 	assertCanSubmit,
+	assertRetakeGrantable,
 	gradeAttempt,
+	nextAttemptNumberOf,
+	type QuizKind,
 	quizAvailabilityOf,
+	quizKindOf,
 	toQuizBank,
 	toQuizBankWrite,
 	toQuizOutcome,
@@ -29,6 +42,10 @@ import {
 } from "../domain/quiz.rules";
 import type { IQuizService } from "../domain/quiz.service";
 import type {
+	GrantRetakeDto,
+	ModuleQuizDto,
+	QuizOwnerIds,
+	QuizOwnerRef,
 	RenameQuizDto,
 	SaveQuizDto,
 	SubmitQuizDto,
@@ -47,6 +64,13 @@ type Dependencies = {
 	logger: ICradle["logger"];
 };
 
+/** El dueño ya resuelto a filas, con la lección si es una práctica. */
+interface ResolvedOwner {
+	kind: QuizKind;
+	ids: QuizOwnerIds;
+	lessonId: number | null;
+}
+
 export const createQuizService = ({
 	contentRepository,
 	classroomRepository,
@@ -62,22 +86,46 @@ export const createQuizService = ({
 	const { requireCourse, requireEditableCourse } =
 		createContentCourseGate(contentRepository);
 
-	/** La lección `QUIZ` de la que cuelga la práctica; `null` es el examen. */
-	const requireQuizLesson = async (
+	/**
+	 * De qué cuelga el cuestionario: una lección `QUIZ` (práctica), un módulo
+	 * (su evaluación) o nada (el examen final).
+	 */
+	const resolveOwner = async (
 		courseId: number,
-		lessonDocumentId: string | null,
-	) => {
-		if (lessonDocumentId === null) return null;
+		owner: QuizOwnerRef,
+	): Promise<ResolvedOwner> => {
+		const kind = quizKindOf(owner);
 
-		const lesson = await contentRepository.findLesson(
-			courseId,
-			lessonDocumentId,
-		);
-		if (!lesson) throw new ContentLessonNotFoundError();
-		if (lesson.type !== "QUIZ") {
-			throw new ContentMaterialMismatchError("QUIZ", lesson.type);
+		if (kind === "PRACTICE" && owner.lessonDocumentId !== null) {
+			const lesson = await contentRepository.findLesson(
+				courseId,
+				owner.lessonDocumentId,
+			);
+			if (!lesson) throw new ContentLessonNotFoundError();
+			if (lesson.type !== "QUIZ") {
+				throw new ContentMaterialMismatchError("QUIZ", lesson.type);
+			}
+			return {
+				kind,
+				ids: { lessonId: lesson.id, moduleId: null },
+				lessonId: lesson.id,
+			};
 		}
-		return lesson;
+
+		if (kind === "MODULE" && owner.moduleDocumentId !== null) {
+			const module = await contentRepository.findModule(
+				courseId,
+				owner.moduleDocumentId,
+			);
+			if (!module) throw new ContentModuleNotFoundError();
+			return {
+				kind,
+				ids: { lessonId: null, moduleId: module.id },
+				lessonId: null,
+			};
+		}
+
+		return { kind, ids: { lessonId: null, moduleId: null }, lessonId: null };
 	};
 
 	/** El curso visto por quien lo presenta, con su inscripción. */
@@ -93,30 +141,46 @@ export const createQuizService = ({
 		return course;
 	};
 
-	/** El examen solo existe para quien lo presenta si el curso se evalúa con él. */
-	const assertFinalQuizCounts = (
-		course: ClassroomCourse,
-		lessonDocumentId: string | null,
+	/** El curso que el alcance imparte; sin alcance, ni siquiera se busca. */
+	const requireTeachingCourse = async (
+		courseDocumentId: string,
+		actor: AuthContext,
 	) => {
-		if (lessonDocumentId === null && !evaluatesByQuiz(course)) {
-			throw new ContentQuizNotEvaluatedError();
-		}
+		const scope = resolveTeachingScope(actor);
+		if (!canTeach(scope)) throw new ContentCourseNotFoundError();
+
+		const course = await quizRepository.findTeachingCourse(
+			courseDocumentId,
+			teachingCourseWhere(scope),
+		);
+		if (!course) throw new ContentCourseNotFoundError();
+		return course;
+	};
+
+	/**
+	 * Una evaluación de módulo que aparece o desaparece mueve el porcentaje de
+	 * todo inscrito, igual que una lección obligatoria (docs/adr/0016).
+	 */
+	const recalculateProgress = async (
+		course: ContentCourseRef,
+		actor: AuthContext,
+		at: Date,
+	) => {
+		if (course.status !== "PUBLISHED") return;
+		await progressSync.recalculate(course, actor.userId, at);
 	};
 
 	return {
 		async findBank(
 			courseDocumentId: string,
-			lessonDocumentId: string | null,
+			owner: QuizOwnerRef,
 			actor: AuthContext,
 		) {
 			return run("findBank", async () => {
 				const course = await requireCourse(courseDocumentId, actor);
-				const lesson = await requireQuizLesson(course.id, lessonDocumentId);
+				const { ids } = await resolveOwner(course.id, owner);
 
-				const quiz = await quizRepository.findQuiz(
-					course.id,
-					lesson?.id ?? null,
-				);
+				const quiz = await quizRepository.findQuiz(course.id, ids);
 				if (!quiz) return ok(null);
 
 				return ok(
@@ -132,25 +196,26 @@ export const createQuizService = ({
 		) {
 			return run("saveBank", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
-				const lesson = await requireQuizLesson(course.id, dto.lessonDocumentId);
+				const { kind, ids } = await resolveOwner(course.id, dto);
 
 				await runInTransaction(async () => {
-					// Con la fila del curso bloqueada: dos guardados del examen no
-					// pueden crear dos exámenes, y nadie presenta a mitad.
+					// Con la fila del curso bloqueada: dos guardados no pueden crear
+					// dos cuestionarios para el mismo dueño, y nadie presenta a mitad.
 					await enrollmentRepository.lockCourseSeats(course.id);
 
-					const quiz = await quizRepository.findQuiz(
-						course.id,
-						lesson?.id ?? null,
-					);
+					const quiz = await quizRepository.findQuiz(course.id, ids);
 					if (quiz)
 						assertBankEditable(await quizRepository.countAttempts(quiz.id));
 
 					await quizRepository.replaceBank(
 						course.id,
-						lesson?.id ?? null,
+						ids,
 						toQuizBankWrite(dto),
 					);
+
+					if (!quiz && kind === "MODULE") {
+						await recalculateProgress(course, actor, clock.now());
+					}
 				});
 
 				return ok(null);
@@ -164,12 +229,9 @@ export const createQuizService = ({
 		) {
 			return run("renameQuiz", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
-				const lesson = await requireQuizLesson(course.id, dto.lessonDocumentId);
+				const { ids } = await resolveOwner(course.id, dto);
 
-				const quiz = await quizRepository.findQuiz(
-					course.id,
-					lesson?.id ?? null,
-				);
+				const quiz = await quizRepository.findQuiz(course.id, ids);
 				if (!quiz) throw new ContentQuizNotFoundError();
 
 				await quizRepository.rename(quiz.id, dto.title);
@@ -177,23 +239,47 @@ export const createQuizService = ({
 			});
 		},
 
+		async archiveModuleQuiz(
+			courseDocumentId: string,
+			dto: ModuleQuizDto,
+			actor: AuthContext,
+		) {
+			return run("archiveModuleQuiz", async () => {
+				const course = await requireEditableCourse(courseDocumentId, actor);
+				const { ids } = await resolveOwner(course.id, {
+					lessonDocumentId: null,
+					moduleDocumentId: dto.moduleDocumentId,
+				});
+				const now = clock.now();
+
+				await runInTransaction(async () => {
+					await enrollmentRepository.lockCourseSeats(course.id);
+
+					const quiz = await quizRepository.findQuiz(course.id, ids);
+					if (!quiz) throw new ContentQuizNotFoundError();
+
+					// Archivarla puede completar a quien solo la debía a ella.
+					await quizRepository.archive(quiz.id, now);
+					await recalculateProgress(course, actor, now);
+				});
+
+				return ok(null);
+			});
+		},
+
 		async findView(
 			courseDocumentId: string,
-			lessonDocumentId: string | null,
+			owner: QuizOwnerRef,
 			actor: AuthContext,
 		) {
 			return run("findView", async () => {
 				const course = await requireClassroomCourse(courseDocumentId, actor);
 				assertClassroomReadable(course);
-				if (lessonDocumentId === null && !evaluatesByQuiz(course)) {
-					return ok(null);
-				}
-				const lesson = await requireQuizLesson(course.id, lessonDocumentId);
+				const kind = quizKindOf(owner);
+				if (kind === "FINAL" && !evaluatesByQuiz(course)) return ok(null);
+				const { ids } = await resolveOwner(course.id, owner);
 
-				const quiz = await quizRepository.findQuiz(
-					course.id,
-					lesson?.id ?? null,
-				);
+				const quiz = await quizRepository.findQuiz(course.id, ids);
 				if (!quiz || quiz.questions.length === 0) return ok(null);
 
 				const attempt = await quizRepository.findAttempt(quiz.id, actor.userId);
@@ -201,7 +287,7 @@ export const createQuizService = ({
 					course,
 					course.enrollment?.contentCompletedAt ?? null,
 					attempt,
-					lesson === null,
+					kind === "FINAL",
 				);
 
 				return ok({
@@ -226,45 +312,62 @@ export const createQuizService = ({
 			return run("submit", async () => {
 				const course = await requireClassroomCourse(courseDocumentId, actor);
 				assertCanProgress(course);
-				assertFinalQuizCounts(course, dto.lessonDocumentId);
-				const lesson = await requireQuizLesson(course.id, dto.lessonDocumentId);
+				const kind = quizKindOf(dto);
+				if (kind === "FINAL" && !evaluatesByQuiz(course)) {
+					throw new ContentQuizNotEvaluatedError();
+				}
+				const { ids, lessonId } = await resolveOwner(course.id, dto);
 				const now = clock.now();
 
 				return runInTransaction(async () => {
 					await enrollmentRepository.lockCourseSeats(course.id);
 
-					const quiz = await quizRepository.findQuiz(
-						course.id,
-						lesson?.id ?? null,
-					);
+					const quiz = await quizRepository.findQuiz(course.id, ids);
 					if (!quiz || quiz.questions.length === 0) {
 						throw new ContentQuizNotFoundError();
 					}
 
+					const latest = await quizRepository.findAttempt(
+						quiz.id,
+						actor.userId,
+					);
 					assertCanSubmit(
 						quizAvailabilityOf(
 							course,
 							course.enrollment?.contentCompletedAt ?? null,
-							await quizRepository.findAttempt(quiz.id, actor.userId),
-							lesson === null,
+							latest,
+							kind === "FINAL",
 						),
 					);
 
 					const graded = gradeAttempt(quiz, dto.answers);
-					await quizRepository.saveAttempt(quiz.id, actor.userId, graded, now);
+					await quizRepository.saveAttempt(
+						quiz.id,
+						actor.userId,
+						nextAttemptNumberOf(latest),
+						graded,
+						now,
+					);
 
-					if (lesson) {
+					if (kind === "PRACTICE" && lessonId !== null) {
 						// La práctica no evalúa: enviarla completa la lección, apruebe o no.
 						const stored = (
 							await classroomRepository.findProgress(course.id, actor.userId)
 						).find((row) => row.lessonDocumentId === dto.lessonDocumentId);
 						if (stored?.status !== "COMPLETED") {
 							await classroomRepository.saveProgress(
-								lesson.id,
+								lessonId,
 								actor.userId,
 								nextProgressStatus(stored?.status ?? null, "COMPLETED"),
 								now,
 							);
+							await progressSync.recalculate(course, actor.userId, now, [
+								actor.userId,
+							]);
+						}
+					} else if (kind === "MODULE") {
+						// Aprobada, cuenta para el avance y puede ser lo último que faltaba.
+						if (graded.passed) {
 							await progressSync.recalculate(course, actor.userId, now, [
 								actor.userId,
 							]);
@@ -298,6 +401,55 @@ export const createQuizService = ({
 						}),
 					);
 				});
+			});
+		},
+
+		async findModuleQuizBoard(courseDocumentId: string, actor: AuthContext) {
+			return run("findModuleQuizBoard", async () => {
+				const course = await requireTeachingCourse(courseDocumentId, actor);
+
+				const [quizzes, attempts] = await Promise.all([
+					quizRepository.findModuleQuizzes(course.id),
+					quizRepository.findLatestModuleAttempts(course.id),
+				]);
+
+				return ok({
+					canGrantRetake: course.status === "PUBLISHED",
+					quizzes,
+					attempts,
+				});
+			});
+		},
+
+		async grantRetake(
+			courseDocumentId: string,
+			dto: GrantRetakeDto,
+			actor: AuthContext,
+		) {
+			return run("grantRetake", async () => {
+				const course = await requireTeachingCourse(courseDocumentId, actor);
+				// Fuera de un curso en curso nadie podría presentarlo.
+				if (course.status !== "PUBLISHED") {
+					throw new ContentQuizRetakeNotAllowedError();
+				}
+				const { ids } = await resolveOwner(course.id, {
+					lessonDocumentId: null,
+					moduleDocumentId: dto.moduleDocumentId,
+				});
+
+				const [quiz, userId] = await Promise.all([
+					quizRepository.findQuiz(course.id, ids),
+					quizRepository.findEnrolledUserId(course.id, dto.userDocumentId),
+				]);
+				if (!quiz) throw new ContentQuizNotFoundError();
+				if (userId === null) throw new ContentQuizParticipantNotFoundError();
+
+				const attempt = assertRetakeGrantable(
+					await quizRepository.findAttempt(quiz.id, userId),
+				);
+				await quizRepository.grantRetake(attempt.id, actor.userId, clock.now());
+
+				return ok(null);
 			});
 		},
 	};

@@ -24,7 +24,7 @@ const LINE_SELECT = {
 	cancelledAt: true,
 	courses: {
 		orderBy: { createdAt: "desc" },
-		select: { documentId: true, title: true, status: true },
+		select: { documentId: true, title: true, status: true, format: true },
 	},
 } satisfies Prisma.PlanLineSelect;
 

@@ -6,7 +6,9 @@ import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
+import { ModuleQuizResults } from "@/modules/content/components/module-quiz-results";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
+import type { ModuleQuizBoard } from "@/modules/content/domain/quiz.types";
 import {
 	CourseFormatBadge,
 	CourseModalityBadge,
@@ -181,12 +183,28 @@ function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
 	);
 }
 
-/** El avance por lección de cada participante, junto al pase de lista. */
-function ProgressList({ detail }: { detail: TeachingDetail }) {
+/**
+ * El avance por lección de cada participante, junto al pase de lista, y cómo
+ * le fue en cada evaluación de módulo.
+ */
+function ProgressList({
+	detail,
+	moduleQuizzes,
+}: {
+	detail: TeachingDetail;
+	moduleQuizzes: ModuleQuizBoard | null;
+}) {
 	return (
 		<Card>
 			<CardContent className="flex flex-col gap-3">
 				<h3 className="font-medium text-sm">Avance en el contenido</h3>
+				{moduleQuizzes && (
+					<p className="text-muted-foreground text-xs">
+						El avance incluye aprobar la evaluación de cada módulo.
+						{moduleQuizzes.canGrantRetake &&
+							" A quien repruebe la última, puedes habilitarle otro intento."}
+					</p>
+				)}
 				<ul className="flex flex-col divide-y divide-border">
 					{detail.participants.map((participant) => (
 						<li
@@ -210,6 +228,16 @@ function ProgressList({ detail }: { detail: TeachingDetail }) {
 									{participant.progressPercent} %
 								</span>
 							</div>
+							{moduleQuizzes && (
+								<div className="sm:col-span-2">
+									<ModuleQuizResults
+										courseDocumentId={detail.course.documentId}
+										board={moduleQuizzes}
+										userDocumentId={participant.userDocumentId}
+										personName={personNameOf(participant)}
+									/>
+								</div>
+							)}
 						</li>
 					))}
 				</ul>
@@ -279,7 +307,7 @@ export default function ImparticionDetallePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { ratings, evaluations, ...detail },
+		data: { ratings, evaluations, moduleQuizzes, ...detail },
 	} = loaderData;
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
@@ -380,7 +408,7 @@ export default function ImparticionDetallePage({
 				)}
 				{withContent && (
 					<TabsContent value="progress">
-						<ProgressList detail={detail} />
+						<ProgressList detail={detail} moduleQuizzes={moduleQuizzes} />
 					</TabsContent>
 				)}
 				<TabsContent value="completion">

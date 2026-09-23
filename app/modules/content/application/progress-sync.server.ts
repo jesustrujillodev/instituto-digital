@@ -10,6 +10,7 @@ import { toCourseContentTree } from "../domain/content.mapper";
 type Dependencies = {
 	contentRepository: ICradle["contentRepository"];
 	classroomRepository: ICradle["classroomRepository"];
+	quizRepository: ICradle["quizRepository"];
 	enrollmentRepository: ICradle["enrollmentRepository"];
 	completionSync: ICradle["completionSync"];
 };
@@ -17,6 +18,7 @@ type Dependencies = {
 export const createProgressSync = ({
 	contentRepository,
 	classroomRepository,
+	quizRepository,
 	enrollmentRepository,
 	completionSync,
 }: Dependencies): IProgressSync => ({
@@ -25,19 +27,22 @@ export const createProgressSync = ({
 		// pueden otorgar créditos calculados sobre datos viejos.
 		await enrollmentRepository.lockCourseSeats(course.id);
 
-		const [rows, states, completedRows] = await Promise.all([
+		const [rows, states, completedRows, passedRows] = await Promise.all([
 			contentRepository.findTree(course.id),
 			enrollmentRepository.findProgressStates(course.id),
 			classroomRepository.findCompletedLessons(course.id, userIds),
+			quizRepository.findPassedModuleQuizzes(course.id, userIds),
 		]);
 		const tree = toCourseContentTree(rows);
 
-		const completedByUser = new Map<number, Set<string>>();
-		for (const row of completedRows) {
-			const done = completedByUser.get(row.userId) ?? new Set<string>();
-			done.add(row.lessonDocumentId);
-			completedByUser.set(row.userId, done);
-		}
+		const doneByUser = new Map<number, Set<string>>();
+		const markDone = (userId: number, documentId: string) => {
+			const done = doneByUser.get(userId) ?? new Set<string>();
+			done.add(documentId);
+			doneByUser.set(userId, done);
+		};
+		for (const row of completedRows) markDone(row.userId, row.lessonDocumentId);
+		for (const row of passedRows) markDone(row.userId, row.quizDocumentId);
 
 		const targets = userIds
 			? states.filter((state) => userIds.includes(state.userId))
@@ -46,7 +51,7 @@ export const createProgressSync = ({
 		const results = targets.map((state) => {
 			const percent = progressPercentOf(
 				tree,
-				completedByUser.get(state.userId) ?? new Set(),
+				doneByUser.get(state.userId) ?? new Set(),
 			);
 			// Se fija una vez y no se borra: una lección obligatoria añadida
 			// después no le quita el completado a quien ya terminó.

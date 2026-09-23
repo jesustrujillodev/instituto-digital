@@ -29,11 +29,13 @@ function progressNote({
 	readOnly,
 	contentCompletedAt,
 	completed,
+	withModuleQuizzes,
 }: {
 	countsContent: boolean;
 	readOnly: boolean;
 	contentCompletedAt: Date | string | null;
 	completed: boolean;
+	withModuleQuizzes: boolean;
 }): string {
 	if (!countsContent) {
 		return "Material de apoyo: recorrerlo no cuenta para completar el curso.";
@@ -44,7 +46,9 @@ function progressNote({
 	}
 	if (readOnly) return "El curso terminó: puedes repasar sus lecciones.";
 
-	return "Completa las lecciones obligatorias para terminar el curso.";
+	return withModuleQuizzes
+		? "Completa las lecciones obligatorias y aprueba la evaluación de cada módulo para terminar el curso."
+		: "Completa las lecciones obligatorias para terminar el curso.";
 }
 
 export default function AulaLayout({ loaderData }: Route.ComponentProps) {
@@ -68,6 +72,7 @@ export default function AulaLayout({ loaderData }: Route.ComponentProps) {
 					readOnly: course.readOnly,
 					contentCompletedAt,
 					completed,
+					withModuleQuizzes: modules.some((module) => module.quiz !== null),
 				})}
 				goBack={MY_COURSES_PATH}
 			/>

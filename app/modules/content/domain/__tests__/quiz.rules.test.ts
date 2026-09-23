@@ -4,15 +4,19 @@ import { CONTENT_ERROR_CODES } from "../content.errors";
 import {
 	assertBankEditable,
 	assertCanSubmit,
+	assertRetakeGrantable,
+	FINAL_QUIZ_OWNER,
 	gradeAttempt,
+	nextAttemptNumberOf,
 	quizAvailabilityOf,
+	quizKindOf,
 	saveQuizRule,
 	toQuizBankWrite,
 	toQuizOutcome,
 	toQuizSheet,
 	toTrueFalseOptions,
 } from "../quiz.rules";
-import type { StoredQuiz } from "../quiz.types";
+import type { StoredAttempt, StoredQuiz } from "../quiz.types";
 
 const Q1 = "11111111-1111-4111-8111-111111111111";
 const Q2 = "22222222-2222-4222-8222-222222222222";
@@ -167,15 +171,21 @@ describe("lo que ve quien lo presenta", () => {
 	});
 });
 
+const attemptOf = (overrides: Partial<StoredAttempt> = {}): StoredAttempt => ({
+	id: 1,
+	number: 1,
+	submittedAt: new Date(),
+	score: 80,
+	passed: true,
+	retakeGrantedAt: null,
+	answers: [],
+	...overrides,
+});
+
 describe("disponibilidad", () => {
 	const content = { completionRule: "CONTENT" as const };
 	const attendance = { completionRule: "ATTENDANCE" as const };
-	const taken = {
-		submittedAt: new Date(),
-		score: 80,
-		passed: true,
-		answers: [],
-	};
+	const taken = attemptOf();
 
 	test("el examen de un curso por contenido espera a terminar las obligatorias", () => {
 		expect(quizAvailabilityOf(content, null, null, true)).toBe(
@@ -202,6 +212,83 @@ describe("disponibilidad", () => {
 		expect(codeOf(() => assertCanSubmit("LOCKED_BY_CONTENT"))).toBe(
 			CONTENT_ERROR_CODES.QUIZ_NOT_AVAILABLE,
 		);
+	});
+
+	test("con otro intento habilitado vuelve a estar disponible", () => {
+		const reopened = attemptOf({ passed: false, retakeGrantedAt: new Date() });
+		expect(quizAvailabilityOf(content, null, reopened, false)).toBe(
+			"AVAILABLE",
+		);
+		expect(nextAttemptNumberOf(reopened)).toBe(2);
+		expect(nextAttemptNumberOf(null)).toBe(1);
+	});
+});
+
+describe("otro intento", () => {
+	test("solo sobre el último reprobado y sin otro ya habilitado", () => {
+		const failed = attemptOf({ passed: false, score: 40 });
+		expect(assertRetakeGrantable(failed)).toBe(failed);
+	});
+
+	test.each([
+		["sin intento", null],
+		["aprobado", attemptOf({ passed: true })],
+		[
+			"con otro ya habilitado",
+			attemptOf({ passed: false, retakeGrantedAt: new Date() }),
+		],
+	])("%s se rechaza", (_, attempt) => {
+		expect(codeOf(() => assertRetakeGrantable(attempt))).toBe(
+			CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED,
+		);
+	});
+});
+
+describe("el dueño del cuestionario", () => {
+	const MODULE = "44444444-4444-4444-8444-444444444444";
+
+	test("de qué cuelga decide qué es", () => {
+		expect(quizKindOf(FINAL_QUIZ_OWNER)).toBe("FINAL");
+		expect(quizKindOf({ lessonDocumentId: Q1, moduleDocumentId: null })).toBe(
+			"PRACTICE",
+		);
+		expect(
+			quizKindOf({ lessonDocumentId: null, moduleDocumentId: MODULE }),
+		).toBe("MODULE");
+	});
+
+	test("sin módulo en el cuerpo, el módulo es nulo", () => {
+		const parsed = v.parse(saveQuizRule, {
+			lessonDocumentId: null,
+			title: "Examen",
+			passingScore: 70,
+			shuffleQuestions: false,
+			questions: [
+				{
+					statement: "¿Cuál?",
+					type: "SINGLE_CHOICE",
+					points: 1,
+					options: [
+						{ text: "A", isCorrect: true },
+						{ text: "B", isCorrect: false },
+					],
+				},
+			],
+		});
+		expect(parsed.moduleDocumentId).toBeNull();
+	});
+
+	test("de una lección y de un módulo a la vez se rechaza", () => {
+		expect(
+			v.safeParse(saveQuizRule, {
+				lessonDocumentId: Q1,
+				moduleDocumentId: MODULE,
+				title: "Examen",
+				passingScore: 70,
+				shuffleQuestions: false,
+				questions: [],
+			}).success,
+		).toBe(false);
 	});
 });
 

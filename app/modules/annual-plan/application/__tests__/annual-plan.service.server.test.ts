@@ -248,12 +248,26 @@ describe("annualPlanService — líneas", () => {
 	test("no se cancela con curso activo ni se borra con historial", async () => {
 		const withCourse = createHarness({
 			line: lineOf({
-				courses: [{ documentId: "c", title: "Curso", status: "PUBLISHED" }],
+				courses: [
+					{
+						documentId: "c",
+						title: "Curso",
+						status: "PUBLISHED",
+						format: "SCHEDULED",
+					},
+				],
 			}),
 		});
 		const withHistory = createHarness({
 			line: lineOf({
-				courses: [{ documentId: "c", title: "Curso", status: "CANCELLED" }],
+				courses: [
+					{
+						documentId: "c",
+						title: "Curso",
+						status: "CANCELLED",
+						format: "SCHEDULED",
+					},
+				],
 			}),
 		});
 
@@ -316,7 +330,14 @@ describe("annualPlanService.findLineForCourse", () => {
 		expectCode(
 			await createHarness({
 				line: lineOf({
-					courses: [{ documentId: "c", title: "Curso", status: "DRAFT" }],
+					courses: [
+						{
+							documentId: "c",
+							title: "Curso",
+							status: "DRAFT",
+							format: "SCHEDULED",
+						},
+					],
 				}),
 			}).service.findLineForCourse(LINE_DOC, actorOf()),
 			ANNUAL_PLAN_ERROR_CODES.LINE_HAS_ACTIVE_COURSE,

@@ -1,5 +1,6 @@
 import type * as v from "valibot";
 import type {
+	CourseFormat,
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
@@ -21,6 +22,7 @@ export interface LinkedCourse {
 	documentId: string;
 	title: string;
 	status: CourseStatus;
+	format: CourseFormat;
 }
 
 export interface StoredPlanLine {

@@ -6,6 +6,7 @@ import type {
 import type {
 	ClassroomCoursesResponse,
 	ClassroomLessonResponse,
+	ClassroomModuleQuizResponse,
 	ClassroomResponse,
 	ProgressResponse,
 	ProgressState,
@@ -25,6 +26,12 @@ export interface IClassroomService {
 		lessonDocumentId: string,
 		actor: AuthContext,
 	): Promise<ClassroomLessonResponse>;
+	/** Dónde cae la evaluación de un módulo en el recorrido; la hoja la da `quizService`. */
+	findModuleQuiz(
+		courseDocumentId: string,
+		moduleDocumentId: string,
+		actor: AuthContext,
+	): Promise<ClassroomModuleQuizResponse>;
 	recordProgress(
 		courseDocumentId: string,
 		dto: RecordProgressDto,

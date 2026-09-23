@@ -15,6 +15,7 @@ import type {
 export interface ContentModuleRef {
 	id: number;
 	activeLessons: number;
+	hasActiveQuiz: boolean;
 }
 
 /** La lección con su padre y su clase: archivarla re-empaqueta a sus hermanas. */

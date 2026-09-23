@@ -2,6 +2,7 @@ import { Lock } from "lucide-react";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { QuizOutcomeView, QuizTaker } from "../../../components/quiz-taker";
+import { FINAL_QUIZ_OWNER } from "../../../domain/quiz.rules";
 import type { Route } from "./+types/index";
 
 export { action } from "./index.action";
@@ -39,7 +40,7 @@ export default function AulaExamenPage({ loaderData }: Route.ComponentProps) {
 						</AlertDescription>
 					</Alert>
 				) : view.sheet ? (
-					<QuizTaker sheet={view.sheet} lessonDocumentId={null} finalExam />
+					<QuizTaker sheet={view.sheet} owner={FINAL_QUIZ_OWNER} />
 				) : (
 					<p className="text-muted-foreground text-sm">
 						El curso terminó: el examen ya no se puede presentar.

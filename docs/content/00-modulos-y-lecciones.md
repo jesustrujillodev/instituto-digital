@@ -13,8 +13,9 @@ Las decisiones están en
 [ADR 0012](../adr/0012-estructura-de-contenido-y-modulo-propio.md) para la
 estructura, [ADR 0013](../adr/0013-material-de-la-leccion.md) para el material y
 [ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md) para
-el avance y [ADR 0015](../adr/0015-cuestionarios-autocalificados.md) para los
-cuestionarios. El formato de curso que lo hace necesario, en
+el avance, [ADR 0015](../adr/0015-cuestionarios-autocalificados.md) para los
+cuestionarios y [ADR 0016](../adr/0016-evaluacion-por-modulo.md) para la
+evaluación de cada módulo. El formato de curso que lo hace necesario, en
 [ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md).
 
 ## 2. El modelo
@@ -255,17 +256,21 @@ el cierre.
 
 ## 9. Cuestionarios
 
-Hay dos, sobre las mismas tablas
-([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)):
+Hay tres, sobre las mismas tablas
+([ADR 0015](../adr/0015-cuestionarios-autocalificados.md),
+[ADR 0016](../adr/0016-evaluacion-por-modulo.md)). El dueño decide cuál:
 
 | Uso | Quién lo arma y dónde | Al enviarse |
 | --- | --- | --- |
-| **Examen final** (`quizzes.lesson_id` nulo) | Paso 4 «Evaluación» del wizard, en `/nuevo/4` o `/editar/4` | Escribe `Enrollment.result` y `grade` por la misma vía que la captura manual |
+| **Examen final** (`lesson_id` y `module_id` nulos) | Paso 4 «Evaluación» del wizard, en `/nuevo/4` o `/editar/4` | Escribe `Enrollment.result` y `grade` por la misma vía que la captura manual |
 | **Práctica** (lección `QUIZ`) | Panel de la lección en el temario | Completa la lección, apruebe o no |
+| **Evaluación del módulo** (`module_id`) | «Agregar evaluación» en el módulo, en el temario | Aprobada, cuenta para el avance como una obligatoria más |
 
 ### 9.1 Reglas
 
-- **Un solo intento** por persona. Lo impone `@@unique([quiz_id, user_id])`.
+- **Un intento** por persona. Lo impone `@@unique([quiz_id, user_id, number])`; solo
+  la evaluación de módulo pasa de `number = 1`, cuando quien imparte habilita otro
+  intento sobre uno reprobado (ADR 0016 §2.4).
 - **Calificación en enteros**, hacia abajo, sobre los puntos del banco. Hay que
   responder todas las preguntas.
 - **La opción correcta nunca viaja al participante**: ni antes de enviar
@@ -275,14 +280,22 @@ Hay dos, sobre las mismas tablas
   las obligatorias; si no, desde la inscripción.
 - **Una práctica con preguntas no se marca a mano**
   (`CONTENT_QUIZ_COMPLETES_ON_SUBMIT`); sin preguntas, sí.
+- **La evaluación del módulo se presenta cuando se quiera** y hay que aprobarla para
+  terminar el contenido: `measuredItemsOf` la suma a las lecciones medidas. Solo
+  cuenta donde cuenta el contenido (`CONTENT`, `BOTH`).
+- **Se archiva, no se borra**, y un módulo con evaluación activa no se archiva
+  (`CONTENT_MODULE_HAS_QUIZ`). Crearla o archivarla en un curso publicado recalcula a
+  todo inscrito.
 
 ### 9.2 Rutas
 
 | Ruta | Pieza |
 | --- | --- |
-| `/dashboard/cursos/:documentId/cuestionario[?leccion=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz` y `rename-quiz` |
+| `/dashboard/cursos/:documentId/cuestionario[?leccion=\|?modulo=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz`, `rename-quiz` y `archive-module-quiz` |
 | `/dashboard/mis-cursos/:documentId/aula/examen` | Presentar el examen. El índice del aula lo lleva al final con su estado |
 | `/dashboard/mis-cursos/:documentId/aula/:lessonDocumentId` | La práctica de una lección `QUIZ`, con el intent `submit-quiz` |
+| `/dashboard/mis-cursos/:documentId/aula/modulo/:moduleDocumentId` | Presentar la evaluación del módulo. El índice la pone al final de su módulo |
+| `/dashboard/imparticion/:documentId/cuestionarios` | Solo action: `grant-retake`, desde la pestaña Avance de Impartición |
 
 El aula también se abre en un curso evaluado por examen que no tiene lecciones:
 en ese caso, su índice lleva directo al examen.

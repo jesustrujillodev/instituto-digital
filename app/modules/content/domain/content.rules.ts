@@ -18,6 +18,7 @@ import {
 import {
 	ContentInvalidOrderError,
 	ContentMaterialMismatchError,
+	ContentModuleHasQuizError,
 	ContentModuleNotEmptyError,
 	ContentTooManyLessonsError,
 	ContentTooManyModulesError,
@@ -432,8 +433,14 @@ export const assertLessonLimit = (current: number): void => {
 	}
 };
 
-export const assertModuleArchivable = (activeLessons: number): void => {
-	if (activeLessons > 0) throw new ContentModuleNotEmptyError(activeLessons);
+export const assertModuleArchivable = (module: {
+	activeLessons: number;
+	hasActiveQuiz: boolean;
+}): void => {
+	if (module.activeLessons > 0) {
+		throw new ContentModuleNotEmptyError(module.activeLessons);
+	}
+	if (module.hasActiveQuiz) throw new ContentModuleHasQuizError();
 };
 
 /**

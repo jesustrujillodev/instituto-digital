@@ -9,6 +9,7 @@ export const CONTENT_ERROR_CODES = {
 	TOO_MANY_MODULES: "CONTENT_TOO_MANY_MODULES",
 	TOO_MANY_LESSONS: "CONTENT_TOO_MANY_LESSONS",
 	MODULE_NOT_EMPTY: "CONTENT_MODULE_NOT_EMPTY",
+	MODULE_HAS_QUIZ: "CONTENT_MODULE_HAS_QUIZ",
 	INVALID_ORDER: "CONTENT_INVALID_ORDER",
 	MATERIAL_MISMATCH: "CONTENT_MATERIAL_MISMATCH",
 	UPLOAD_INVALID: "CONTENT_UPLOAD_INVALID",
@@ -24,6 +25,8 @@ export const CONTENT_ERROR_CODES = {
 	QUIZ_INCOMPLETE: "CONTENT_QUIZ_INCOMPLETE",
 	QUIZ_NOT_EVALUATED: "CONTENT_QUIZ_NOT_EVALUATED",
 	QUIZ_COMPLETES_ON_SUBMIT: "CONTENT_QUIZ_COMPLETES_ON_SUBMIT",
+	QUIZ_RETAKE_NOT_ALLOWED: "CONTENT_QUIZ_RETAKE_NOT_ALLOWED",
+	QUIZ_PARTICIPANT_NOT_FOUND: "CONTENT_QUIZ_PARTICIPANT_NOT_FOUND",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -87,6 +90,14 @@ export class ContentModuleNotEmptyError extends ContentError {
 	constructor(activeLessons: number) {
 		super("Module still has active lessons");
 		this.details = { activeLessons };
+	}
+}
+
+/** Archivar el módulo se llevaría su evaluación sin que nadie lo pidiera. */
+export class ContentModuleHasQuizError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.MODULE_HAS_QUIZ;
+	constructor() {
+		super("Module still has an active quiz");
 	}
 }
 
@@ -216,5 +227,24 @@ export class ContentQuizCompletesOnSubmitError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT;
 	constructor() {
 		super("A quiz lesson is completed by submitting its quiz");
+	}
+}
+
+/**
+ * Otro intento solo sobre el último de un cuestionario de módulo, reprobado y
+ * sin uno ya habilitado.
+ */
+export class ContentQuizRetakeNotAllowedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED;
+	constructor() {
+		super("Only a failed latest module quiz attempt can be retaken");
+	}
+}
+
+/** La persona no tiene inscripción activa en el curso. */
+export class ContentQuizParticipantNotFoundError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND;
+	constructor() {
+		super("Participant not actively enrolled in the course");
 	}
 }

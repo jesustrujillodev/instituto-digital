@@ -1,11 +1,12 @@
-import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useFetcher, useParams } from "react-router";
+import { useFetcher, useParams } from "react-router";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { AppResponse } from "@/shared/response/response.types";
+import { ClassroomStopNav } from "../../../components/classroom-stop-nav";
 import { LessonMaterialView } from "../../../components/lesson-material-view";
 import { QuizOutcomeView, QuizTaker } from "../../../components/quiz-taker";
 import type { ProgressResult } from "../../../domain/classroom.types";
@@ -21,18 +22,9 @@ export function meta({ data }: Route.MetaArgs) {
 
 export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 	const {
-		data: {
-			lesson,
-			material,
-			previousLessonDocumentId,
-			nextLessonDocumentId,
-			readOnly,
-			quiz,
-		},
+		data: { lesson, material, previous, next, readOnly, quiz },
 	} = loaderData;
-	const { documentId } = useParams();
-	const lessonPath = (lessonDocumentId: string) =>
-		`/dashboard/mis-cursos/${documentId}/aula/${lessonDocumentId}`;
+	const { documentId = "" } = useParams();
 
 	const opener = useFetcher<AppResponse<ProgressResult>>();
 	const completer = useFetcher<AppResponse<ProgressResult>>();
@@ -84,8 +76,10 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 					) : quiz.sheet ? (
 						<QuizTaker
 							sheet={quiz.sheet}
-							lessonDocumentId={lesson.documentId}
-							finalExam={false}
+							owner={{
+								lessonDocumentId: lesson.documentId,
+								moduleDocumentId: null,
+							}}
 						/>
 					) : null)}
 
@@ -97,24 +91,11 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 				/>
 
 				<footer className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-					<div className="flex gap-2">
-						{previousLessonDocumentId && (
-							<Button asChild variant="outline">
-								<Link to={lessonPath(previousLessonDocumentId)}>
-									<ChevronLeft />
-									Anterior
-								</Link>
-							</Button>
-						)}
-						{nextLessonDocumentId && (
-							<Button asChild variant="outline">
-								<Link to={lessonPath(nextLessonDocumentId)}>
-									Siguiente
-									<ChevronRight />
-								</Link>
-							</Button>
-						)}
-					</div>
+					<ClassroomStopNav
+						courseDocumentId={documentId}
+						previous={previous}
+						next={next}
+					/>
 
 					{!readOnly && !completed && !byVideo && !byQuiz && (
 						<Button type="button" disabled={completing} onClick={complete}>

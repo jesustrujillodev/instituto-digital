@@ -1,11 +1,15 @@
 import * as v from "valibot";
-import type { ClassroomCourse } from "./classroom.types";
+import type { ClassroomCourse, ClassroomStop } from "./classroom.types";
 import {
 	ContentClassroomReadOnlyError,
 	ContentCourseNotFoundError,
 	ContentNotEnrolledError,
 } from "./content.errors";
-import type { ContentLesson, CourseContentTree } from "./content.types";
+import type {
+	ContentLesson,
+	ContentModuleQuiz,
+	CourseContentTree,
+} from "./content.types";
 
 /** Sin fila es «sin empezar»: no hay un tercer valor que lo diga. */
 export const LESSON_PROGRESS_STATUSES = ["IN_PROGRESS", "COMPLETED"] as const;
@@ -28,6 +32,11 @@ export const findClassroomLessonRule = v.object({
 	lessonDocumentId: documentId,
 });
 
+export const findClassroomModuleQuizRule = v.object({
+	documentId,
+	moduleDocumentId: documentId,
+});
+
 export const recordProgressRule = v.object({
 	lessonDocumentId: documentId,
 	status: v.picklist(
@@ -39,6 +48,7 @@ export const recordProgressRule = v.object({
 export const classroomRules = {
 	find: findClassroomRule,
 	findLesson: findClassroomLessonRule,
+	findModuleQuiz: findClassroomModuleQuizRule,
 	record: recordProgressRule,
 } as const;
 
@@ -59,43 +69,91 @@ export const measuredLessonsOf = (tree: CourseContentTree): ContentLesson[] => {
 	return required.length > 0 ? required : lessons;
 };
 
+/** Las evaluaciones de módulo que ya se pueden presentar. */
+export const moduleQuizzesOf = (tree: CourseContentTree): ContentModuleQuiz[] =>
+	tree.flatMap((module) =>
+		module.quiz && module.quiz.questionCount > 0 ? [module.quiz] : [],
+	);
+
+/**
+ * Todo lo que mide el avance: las lecciones medidas y, aprobadas, las
+ * evaluaciones de módulo (docs/adr/0016).
+ */
+export const measuredItemsOf = (tree: CourseContentTree): string[] => [
+	...measuredLessonsOf(tree).map((lesson) => lesson.documentId),
+	...moduleQuizzesOf(tree).map((quiz) => quiz.documentId),
+];
+
 /**
  * Porcentaje entero y hacia abajo, con el criterio de `attendancePercent`: solo
- * vale 100 cuando no falta ninguna. Un temario vacío da 0 y nunca completa.
+ * vale 100 cuando no falta nada. Un temario vacío da 0 y nunca completa.
+ *
+ * `done` junta las lecciones completadas y las evaluaciones de módulo aprobadas.
  */
 export const progressPercentOf = (
 	tree: CourseContentTree,
-	completed: ReadonlySet<string>,
+	done: ReadonlySet<string>,
 ): number => {
-	const measured = measuredLessonsOf(tree);
+	const measured = measuredItemsOf(tree);
 	if (measured.length === 0) return 0;
 
-	const done = measured.filter((lesson) =>
-		completed.has(lesson.documentId),
-	).length;
+	const finished = measured.filter((id) => done.has(id)).length;
 
-	return Math.floor((done * 100) / measured.length);
+	return Math.floor((finished * 100) / measured.length);
 };
 
+/** Una parada del recorrido: qué es, si cuenta y con qué clave se da por hecha. */
+interface StopEntry {
+	stop: ClassroomStop;
+	counts: boolean;
+	doneKey: string;
+}
+
 /**
- * A dónde lleva «Continuar»: la primera obligatoria sin completar; si no queda
- * ninguna, la primera lección sin completar; y si todo está hecho, la primera.
- * Sale de las filas de avance, así que retoma igual en cualquier dispositivo.
+ * El recorrido del aula en orden: las lecciones de cada módulo y, al final de
+ * cada uno, su evaluación si ya tiene preguntas. La evaluación se nombra por su
+ * módulo, que es lo que lleva la URL.
  */
-export const resumeLessonOf = (
+const stopsOf = (tree: CourseContentTree): StopEntry[] =>
+	tree.flatMap((module) => [
+		...module.lessons.map((lesson) => ({
+			stop: { kind: "LESSON" as const, documentId: lesson.documentId },
+			counts: lesson.isRequired,
+			doneKey: lesson.documentId,
+		})),
+		...(module.quiz && module.quiz.questionCount > 0
+			? [
+					{
+						stop: {
+							kind: "MODULE_QUIZ" as const,
+							documentId: module.documentId,
+						},
+						counts: true,
+						doneKey: module.quiz.documentId,
+					},
+				]
+			: []),
+	]);
+
+/**
+ * A dónde lleva «Continuar»: lo primero que cuenta y falta (una obligatoria o
+ * una evaluación de módulo sin aprobar); si no queda nada, la primera lección
+ * sin completar; y si todo está hecho, la primera parada. Sale de las filas de
+ * avance, así que retoma igual en cualquier dispositivo.
+ */
+export const resumeStopOf = (
 	tree: CourseContentTree,
-	completed: ReadonlySet<string>,
-): string | null => {
-	const lessons = lessonsOf(tree);
-	const pending = (lesson: ContentLesson) => !completed.has(lesson.documentId);
+	done: ReadonlySet<string>,
+): ClassroomStop | null => {
+	const stops = stopsOf(tree);
+	const pending = (entry: StopEntry) => !done.has(entry.doneKey);
 
 	return (
 		(
-			lessons.find((lesson) => lesson.isRequired && pending(lesson)) ??
-			lessons.find(pending) ??
-			lessons.at(0) ??
-			null
-		)?.documentId ?? null
+			stops.find((entry) => entry.counts && pending(entry)) ??
+			stops.find((entry) => entry.stop.kind === "LESSON" && pending(entry)) ??
+			stops.at(0)
+		)?.stop ?? null
 	);
 };
 
@@ -105,19 +163,20 @@ export const nextProgressStatus = (
 	requested: LessonProgressStatus,
 ): LessonProgressStatus => (stored === "COMPLETED" ? "COMPLETED" : requested);
 
-/** La lección anterior y la siguiente en el orden del temario. */
+/** La parada anterior y la siguiente en el recorrido del temario. */
 export const neighborsOf = (
 	tree: CourseContentTree,
-	lessonDocumentId: string,
-): { previous: string | null; next: string | null } => {
-	const lessons = lessonsOf(tree);
-	const index = lessons.findIndex(
-		(lesson) => lesson.documentId === lessonDocumentId,
+	current: ClassroomStop,
+): { previous: ClassroomStop | null; next: ClassroomStop | null } => {
+	const stops = stopsOf(tree).map((entry) => entry.stop);
+	const index = stops.findIndex(
+		(stop) =>
+			stop.kind === current.kind && stop.documentId === current.documentId,
 	);
 
 	return {
-		previous: index > 0 ? (lessons[index - 1]?.documentId ?? null) : null,
-		next: index >= 0 ? (lessons[index + 1]?.documentId ?? null) : null,
+		previous: index > 0 ? (stops[index - 1] ?? null) : null,
+		next: index >= 0 ? (stops[index + 1] ?? null) : null,
 	};
 };
 

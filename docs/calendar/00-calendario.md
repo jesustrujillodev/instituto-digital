@@ -11,6 +11,11 @@ Lo que **no** hace, por alcance:
 
 - Validar traslapes ni bloquear horarios (§8).
 - Exportar o suscribirse desde Outlook o Google Calendar (§11, punto abierto).
+- Enseñar cursos autogestivos (D-04, MVP-02 · F-12). No tienen sesiones, y la
+  proyección solo lee `course_sessions`, así que no dejan chips, huecos ni filas
+  vacías. Tampoco entran en las opciones de filtro, que salen de las mismas
+  sesiones. No hace falta filtrarlos: el formato se congela al publicar, y pasar
+  a autogestivo borra las sesiones (ADR 0011 §2.5).
 
 ## 2. Quién ve qué
 

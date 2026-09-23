@@ -9,7 +9,12 @@ import { Label } from "@/shared/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { AppResponse } from "@/shared/response/response.types";
-import type { QuizOutcome, QuizSheet } from "../domain/quiz.types";
+import { type QuizKind, quizKindOf } from "../domain/quiz.rules";
+import type {
+	QuizOutcome,
+	QuizOwnerRef,
+	QuizSheet,
+} from "../domain/quiz.types";
 import {
 	CONTENT_INTENTS,
 	INTENT_FIELD,
@@ -64,21 +69,38 @@ export function QuizOutcomeView({ outcome }: { outcome: QuizOutcome }) {
 	);
 }
 
+const CONFIRM_COPY: Record<QuizKind, { title: string; description: string }> = {
+	FINAL: {
+		title: "¿Enviar el examen?",
+		description:
+			"Tienes un solo intento: tu nota será la calificación del curso y no podrás presentarlo de nuevo.",
+	},
+	PRACTICE: {
+		title: "¿Enviar el cuestionario?",
+		description:
+			"Tienes un solo intento. Al enviarlo, la lección queda completada.",
+	},
+	MODULE: {
+		title: "¿Enviar la evaluación del módulo?",
+		description:
+			"Tienes un solo intento y necesitas la calificación mínima para completar el curso. Si no la alcanzas, quien imparte puede habilitarte otro.",
+	},
+};
+
 /**
- * Presentar un cuestionario: hay que responder todas las preguntas y solo hay
- * un intento, así que enviar pide confirmación.
+ * Presentar un cuestionario: hay que responder todas las preguntas y cada envío
+ * es un intento, así que enviar pide confirmación.
  */
 export function QuizTaker({
 	sheet,
-	lessonDocumentId,
-	finalExam,
+	owner,
 }: {
 	sheet: QuizSheet;
-	lessonDocumentId: string | null;
-	finalExam: boolean;
+	owner: QuizOwnerRef;
 }) {
 	const fetcher = useFetcher<AppResponse<QuizOutcome>>();
 	useFetcherToast(fetcher);
+	const confirm = CONFIRM_COPY[quizKindOf(owner)];
 	const [answers, setAnswers] = useState<Record<string, string>>({});
 	const [confirming, setConfirming] = useState(false);
 
@@ -93,7 +115,7 @@ export function QuizTaker({
 			{
 				[INTENT_FIELD]: CONTENT_INTENTS.submitQuiz,
 				[PAYLOAD_FIELD]: JSON.stringify({
-					lessonDocumentId,
+					...owner,
 					answers: Object.entries(answers).map(
 						([questionDocumentId, optionDocumentId]) => ({
 							questionDocumentId,
@@ -168,12 +190,8 @@ export function QuizTaker({
 			<ConfirmDialog
 				open={confirming}
 				onOpenChange={setConfirming}
-				title={finalExam ? "¿Enviar el examen?" : "¿Enviar el cuestionario?"}
-				description={
-					finalExam
-						? "Tienes un solo intento: tu nota será la calificación del curso y no podrás presentarlo de nuevo."
-						: "Tienes un solo intento. Al enviarlo, la lección queda completada."
-				}
+				title={confirm.title}
+				description={confirm.description}
 				confirmLabel="Enviar"
 				cancelLabel="Revisar"
 				onConfirm={() => {

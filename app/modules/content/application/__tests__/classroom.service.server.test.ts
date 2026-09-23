@@ -9,6 +9,7 @@ import {
 	LESSON_3,
 	MODULE_A,
 	MODULE_B,
+	MODULE_QUIZ_A,
 } from "../../domain/__tests__/content.fixtures";
 import type { LessonProgressStatus } from "../../domain/classroom.rules";
 import type {
@@ -17,6 +18,7 @@ import type {
 } from "../../domain/classroom.types";
 import { CONTENT_ERROR_CODES } from "../../domain/content.errors";
 import type { ContentModuleRaw } from "../../domain/content.mapper";
+import type { ModuleQuizAttemptRow } from "../../domain/quiz.types";
 import { createClassroomService } from "../classroom.service.server";
 
 const NOW = new Date("2027-03-10T18:00:00.000Z");
@@ -52,6 +54,7 @@ const TREE: ContentModuleRaw[] = [
 		description: null,
 		order: 1,
 		lessons: [lessonRaw(LESSON_1, 1), lessonRaw(LESSON_2, 2)],
+		quizzes: [],
 	},
 	{
 		documentId: MODULE_B,
@@ -59,8 +62,38 @@ const TREE: ContentModuleRaw[] = [
 		description: null,
 		order: 2,
 		lessons: [lessonRaw(LESSON_3, 1, false)],
+		quizzes: [],
 	},
 ];
+
+/** El primer módulo con su evaluación de dos preguntas. */
+const treeWithModuleQuiz = (): ContentModuleRaw[] =>
+	TREE.map((module) =>
+		module.documentId === MODULE_A
+			? {
+					...module,
+					quizzes: [
+						{
+							documentId: MODULE_QUIZ_A,
+							title: "Evaluación · Fundamentos",
+							_count: { questions: 2 },
+						},
+					],
+				}
+			: module,
+	);
+
+const moduleAttemptOf = (
+	overrides: Partial<ModuleQuizAttemptRow> = {},
+): ModuleQuizAttemptRow => ({
+	quizDocumentId: MODULE_QUIZ_A,
+	userDocumentId: ANA.documentId,
+	number: 1,
+	score: 40,
+	passed: false,
+	retakeGrantedAt: null,
+	...overrides,
+});
 
 const courseOf = (
 	overrides: Partial<ClassroomCourse> = {},
@@ -91,6 +124,9 @@ const createHarness = (
 		quizAttempt?: { score: number; passed: boolean } | null;
 		/** La clase de la segunda lección, para probar las de cuestionario. */
 		secondLessonType?: string;
+		/** El temario con la evaluación del primer módulo. */
+		moduleQuiz?: boolean;
+		moduleAttempts?: ModuleQuizAttemptRow[];
 	} = {},
 ) => {
 	let progress = structuredClone(options.progress ?? []);
@@ -127,7 +163,8 @@ const createHarness = (
 	} as unknown as ICradle["classroomRepository"];
 
 	const contentRepository = {
-		findTree: async () => structuredClone(TREE),
+		findTree: async () =>
+			structuredClone(options.moduleQuiz ? treeWithModuleQuiz() : TREE),
 		findLesson: async (_courseId: number, documentId: string) =>
 			documentId === LESSON_1
 				? { id: 31, moduleId: 21, type: "TEXT", isRequired: true }
@@ -194,8 +231,16 @@ const createHarness = (
 						},
 			findAttempt: async () =>
 				options.quizAttempt
-					? { ...options.quizAttempt, submittedAt: NOW, answers: [] }
+					? {
+							...options.quizAttempt,
+							id: 1,
+							number: 1,
+							retakeGrantedAt: null,
+							submittedAt: NOW,
+							answers: [],
+						}
 					: null,
+			findLatestModuleAttempts: async () => options.moduleAttempts ?? [],
 		} as unknown as ICradle["quizRepository"],
 		runInTransaction,
 		clock: { now: () => NOW },
@@ -322,7 +367,10 @@ describe("findClassroom", () => {
 		if (!result.success) throw new Error("se esperaba éxito");
 
 		expect(result.data.percent).toBe(50);
-		expect(result.data.resumeLessonDocumentId).toBe(LESSON_2);
+		expect(result.data.resume).toEqual({
+			kind: "LESSON",
+			documentId: LESSON_2,
+		});
 		expect(result.data.course).toMatchObject({
 			countsContent: true,
 			readOnly: false,
@@ -370,8 +418,8 @@ describe("findLesson", () => {
 			success: true,
 			data: {
 				lesson: { documentId: LESSON_2, status: null },
-				previousLessonDocumentId: LESSON_1,
-				nextLessonDocumentId: LESSON_3,
+				previous: { kind: "LESSON", documentId: LESSON_1 },
+				next: { kind: "LESSON", documentId: LESSON_3 },
 				readOnly: false,
 			},
 		});
@@ -453,6 +501,91 @@ describe("cuestionarios en el aula (docs/adr/0015)", () => {
 		expect(await service.findClassroom(COURSE_DOC, ANA)).toMatchObject({
 			success: true,
 			data: { finalQuiz: null },
+		});
+	});
+});
+
+describe("evaluaciones de módulo en el aula (docs/adr/0016)", () => {
+	test("reprobada no cuenta para el avance y «Continuar» lleva a ella", async () => {
+		const { service } = createHarness({
+			moduleQuiz: true,
+			progress: [
+				{ lessonDocumentId: LESSON_1, status: "COMPLETED" },
+				{ lessonDocumentId: LESSON_2, status: "COMPLETED" },
+			],
+			moduleAttempts: [moduleAttemptOf()],
+		});
+
+		const result = await service.findClassroom(COURSE_DOC, ANA);
+		if (!result.success) throw new Error("se esperaba éxito");
+
+		expect(result.data.percent).toBe(66);
+		expect(result.data.resume).toEqual({
+			kind: "MODULE_QUIZ",
+			documentId: MODULE_A,
+		});
+		expect(result.data.modules[0]?.quiz).toEqual({
+			title: "Evaluación · Fundamentos",
+			availability: "TAKEN",
+			score: 40,
+			passed: false,
+		});
+		expect(result.data.modules[1]?.quiz).toBeNull();
+	});
+
+	test("aprobada completa el avance", async () => {
+		const { service } = createHarness({
+			moduleQuiz: true,
+			progress: [
+				{ lessonDocumentId: LESSON_1, status: "COMPLETED" },
+				{ lessonDocumentId: LESSON_2, status: "COMPLETED" },
+			],
+			moduleAttempts: [moduleAttemptOf({ score: 90, passed: true })],
+		});
+
+		const result = await service.findClassroom(COURSE_DOC, ANA);
+
+		expect(result).toMatchObject({ success: true, data: { percent: 100 } });
+	});
+
+	test("con otro intento habilitado vuelve a estar disponible", async () => {
+		const { service } = createHarness({
+			moduleQuiz: true,
+			moduleAttempts: [moduleAttemptOf({ retakeGrantedAt: NOW })],
+		});
+
+		const result = await service.findClassroom(COURSE_DOC, ANA);
+		if (!result.success) throw new Error("se esperaba éxito");
+
+		expect(result.data.modules[0]?.quiz).toMatchObject({
+			availability: "AVAILABLE",
+			score: 40,
+		});
+	});
+
+	test("la evaluación cae entre su módulo y el siguiente", async () => {
+		const { service } = createHarness({ moduleQuiz: true });
+
+		expect(
+			await service.findModuleQuiz(COURSE_DOC, MODULE_A, ANA),
+		).toMatchObject({
+			success: true,
+			data: {
+				moduleTitle: "Fundamentos",
+				previous: { kind: "LESSON", documentId: LESSON_2 },
+				next: { kind: "LESSON", documentId: LESSON_3 },
+			},
+		});
+	});
+
+	test("un módulo sin evaluación no tiene parada", async () => {
+		const { service } = createHarness({ moduleQuiz: true });
+
+		expect(
+			await service.findModuleQuiz(COURSE_DOC, MODULE_B, ANA),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.QUIZ_NOT_FOUND },
 		});
 	});
 });

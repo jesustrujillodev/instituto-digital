@@ -54,11 +54,27 @@ export interface ClassroomLesson extends ContentLesson {
 	status: LessonProgressStatus | null;
 }
 
+/** Un cuestionario en el índice del aula, con el último intento de quien lo ve. */
+export interface ClassroomQuizStatus {
+	title: string;
+	availability: QuizAvailability;
+	score: number | null;
+	passed: boolean | null;
+}
+
 export interface ClassroomModule {
 	documentId: string;
 	title: string;
 	description: string | null;
 	lessons: ClassroomLesson[];
+	/** Su evaluación, si tiene una con preguntas (docs/adr/0016). */
+	quiz: ClassroomQuizStatus | null;
+}
+
+/** Una parada del aula: una lección, o la evaluación de un módulo (por su módulo). */
+export interface ClassroomStop {
+	kind: "LESSON" | "MODULE_QUIZ";
+	documentId: string;
 }
 
 export interface ClassroomView {
@@ -76,22 +92,24 @@ export interface ClassroomView {
 	contentCompletedAt: Date | null;
 	completed: boolean;
 	/** A dónde lleva «Continuar»; `null` con el temario vacío. */
-	resumeLessonDocumentId: string | null;
+	resume: ClassroomStop | null;
 	/** El examen, si el curso se evalúa con uno que ya tiene preguntas. */
-	finalQuiz: {
-		title: string;
-		availability: QuizAvailability;
-		score: number | null;
-		passed: boolean | null;
-	} | null;
+	finalQuiz: ClassroomQuizStatus | null;
 }
 
 export interface ClassroomLessonView {
 	lesson: ClassroomLesson;
 	material: LessonMaterial;
-	previousLessonDocumentId: string | null;
-	nextLessonDocumentId: string | null;
+	previous: ClassroomStop | null;
+	next: ClassroomStop | null;
 	readOnly: boolean;
+}
+
+/** La evaluación de un módulo como parada del recorrido. */
+export interface ClassroomModuleQuizView {
+	moduleTitle: string;
+	previous: ClassroomStop | null;
+	next: ClassroomStop | null;
 }
 
 export interface ProgressResult {
@@ -108,5 +126,6 @@ export interface ProgressState {
 
 export type ClassroomResponse = AppResponse<ClassroomView>;
 export type ClassroomLessonResponse = AppResponse<ClassroomLessonView>;
+export type ClassroomModuleQuizResponse = AppResponse<ClassroomModuleQuizView>;
 export type ProgressResponse = AppResponse<ProgressResult>;
 export type ClassroomCoursesResponse = AppResponse<string[]>;

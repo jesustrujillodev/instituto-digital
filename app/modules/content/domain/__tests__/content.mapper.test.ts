@@ -38,6 +38,7 @@ const raw: ContentModuleRaw[] = [
 				quiz: null,
 			},
 		],
+		quizzes: [],
 	},
 ];
 
@@ -69,8 +70,30 @@ describe("toCourseContentTree", () => {
 						hasMaterial: false,
 					},
 				],
+				quiz: null,
 			},
 		]);
+	});
+
+	test("la evaluación activa del módulo viaja con su número de preguntas", () => {
+		const [module] = toCourseContentTree([
+			{
+				...(raw[0] as ContentModuleRaw),
+				quizzes: [
+					{
+						documentId: LESSON_2,
+						title: "Evaluación",
+						_count: { questions: 4 },
+					},
+				],
+			},
+		]);
+
+		expect(module?.quiz).toEqual({
+			documentId: LESSON_2,
+			title: "Evaluación",
+			questionCount: 4,
+		});
 	});
 
 	test("un curso sin temario devuelve un árbol vacío", () => {
@@ -200,6 +223,7 @@ describe("hasMaterial de un cuestionario", () => {
 						quiz: { _count: { questions } },
 					},
 				],
+				quizzes: [],
 			},
 		])[0]?.lessons[0]?.hasMaterial;
 

@@ -1,4 +1,7 @@
 import type { AppResponse } from "@/shared/response/response.types";
+import type { ClassroomStop } from "../domain/classroom.types";
+import { FINAL_QUIZ_OWNER } from "../domain/quiz.rules";
+import type { QuizOwnerRef } from "../domain/quiz.types";
 
 export const INTENT_FIELD = "intent";
 export const PAYLOAD_FIELD = "payload";
@@ -15,7 +18,9 @@ export const CONTENT_INTENTS = {
 	saveMaterial: "save-material",
 	saveQuiz: "save-quiz",
 	renameQuiz: "rename-quiz",
+	archiveModuleQuiz: "archive-module-quiz",
 	submitQuiz: "submit-quiz",
+	grantRetake: "grant-retake",
 } as const;
 
 export type ContentActionData = AppResponse<null>;
@@ -36,23 +41,44 @@ export const materialPath = (
 	lessonDocumentId: string,
 ) => `${contentPath(courseDocumentId)}/${lessonDocumentId}`;
 
+export const LESSON_PARAM = "leccion";
+export const MODULE_PARAM = "modulo";
+
 /**
  * El banco de un cuestionario, para quien lo arma: el examen del curso o, con
- * `?leccion=`, la práctica de esa lección. Sin componente: lo leen y le
- * escriben el paso de Evaluación y el panel del temario.
+ * `?leccion=` o `?modulo=`, la práctica de esa lección o la evaluación de ese
+ * módulo. Sin componente: lo leen y le escriben el paso de Evaluación y el
+ * panel del temario.
  */
 export const quizPath = (
 	courseDocumentId: string,
-	lessonDocumentId: string | null = null,
-) =>
-	`/dashboard/cursos/${courseDocumentId}/cuestionario${
-		lessonDocumentId ? `?leccion=${lessonDocumentId}` : ""
-	}`;
+	owner: QuizOwnerRef = FINAL_QUIZ_OWNER,
+) => {
+	const base = `/dashboard/cursos/${courseDocumentId}/cuestionario`;
+	if (owner.lessonDocumentId) {
+		return `${base}?${LESSON_PARAM}=${owner.lessonDocumentId}`;
+	}
+	if (owner.moduleDocumentId) {
+		return `${base}?${MODULE_PARAM}=${owner.moduleDocumentId}`;
+	}
+	return base;
+};
 
-export const LESSON_PARAM = "leccion";
+export const classroomPath = (courseDocumentId: string) =>
+	`/dashboard/mis-cursos/${courseDocumentId}/aula`;
 
 export const examPath = (courseDocumentId: string) =>
-	`/dashboard/mis-cursos/${courseDocumentId}/aula/examen`;
+	`${classroomPath(courseDocumentId)}/examen`;
+
+/** A dónde lleva una parada del aula: una lección o la evaluación de un módulo. */
+export const stopPath = (courseDocumentId: string, stop: ClassroomStop) =>
+	stop.kind === "LESSON"
+		? `${classroomPath(courseDocumentId)}/${stop.documentId}`
+		: `${classroomPath(courseDocumentId)}/modulo/${stop.documentId}`;
+
+/** Donde quien imparte habilita otro intento de una evaluación de módulo. */
+export const retakePath = (courseDocumentId: string) =>
+	`/dashboard/imparticion/${courseDocumentId}/cuestionarios`;
 
 export interface ParsedContentFormData {
 	intent: string | null;

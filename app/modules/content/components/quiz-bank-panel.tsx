@@ -2,25 +2,28 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useFetcher } from "react-router";
 import type { AppResponse } from "@/shared/response/response.types";
-import type { QuizBank } from "../domain/quiz.types";
+import type { QuizBank, QuizOwnerRef } from "../domain/quiz.types";
 import { quizPath } from "../utils/content-form";
 import { QuizEditor } from "./quiz-editor";
 
 /**
- * El cuestionario de práctica de una lección `QUIZ`, dentro del panel del
- * temario. El banco se pide al abrir: el árbol no lo carga.
+ * El banco de un cuestionario del temario —la práctica de una lección `QUIZ` o
+ * la evaluación de un módulo— dentro de su panel. Se pide al abrir: el árbol no
+ * lo carga.
  */
-export function LessonQuizPanel({
+export function QuizBankPanel({
 	courseDocumentId,
-	lesson,
+	owner,
+	defaultTitle,
 	canWrite,
 }: {
 	courseDocumentId: string;
-	lesson: { documentId: string; title: string };
+	owner: QuizOwnerRef;
+	defaultTitle: string;
 	canWrite: boolean;
 }) {
 	const loader = useFetcher<AppResponse<QuizBank | null>>();
-	const path = quizPath(courseDocumentId, lesson.documentId);
+	const path = quizPath(courseDocumentId, owner);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: el fetcher cambia de identidad en cada render y reentraría en bucle.
 	useEffect(() => {
@@ -39,9 +42,9 @@ export function LessonQuizPanel({
 	return (
 		<QuizEditor
 			courseDocumentId={courseDocumentId}
-			lessonDocumentId={lesson.documentId}
+			owner={owner}
 			bank={loader.data.success ? loader.data.data : null}
-			defaultTitle={lesson.title}
+			defaultTitle={defaultTitle}
 			disabled={!canWrite}
 		/>
 	);

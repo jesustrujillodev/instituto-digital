@@ -42,6 +42,16 @@ const MODULE_SELECT = {
 			quiz: { select: { _count: { select: { questions: true } } } },
 		},
 	},
+	// A lo sumo uno activo por módulo: lo impone el servicio.
+	quizzes: {
+		where: ACTIVE,
+		take: 1,
+		select: {
+			documentId: true,
+			title: true,
+			_count: { select: { questions: true } },
+		},
+	},
 } satisfies Prisma.CourseModuleSelect;
 
 const MATERIAL_SELECT = {
@@ -111,7 +121,9 @@ export const createContentRepository = ({
 
 		async countFinalQuizQuestions(courseId) {
 			return prisma.quizQuestion.count({
-				where: { quiz: { courseId, lessonId: null } },
+				where: {
+					quiz: { courseId, lessonId: null, moduleId: null, ...ACTIVE },
+				},
 			});
 		},
 
@@ -142,12 +154,18 @@ export const createContentRepository = ({
 				where: { courseId, documentId: moduleDocumentId, ...ACTIVE },
 				select: {
 					id: true,
-					_count: { select: { lessons: { where: ACTIVE } } },
+					_count: {
+						select: { lessons: { where: ACTIVE }, quizzes: { where: ACTIVE } },
+					},
 				},
 			});
 			if (!module) return null;
 
-			return { id: module.id, activeLessons: module._count.lessons };
+			return {
+				id: module.id,
+				activeLessons: module._count.lessons,
+				hasActiveQuiz: module._count.quizzes > 0,
+			};
 		},
 
 		async createModule(courseId, data) {

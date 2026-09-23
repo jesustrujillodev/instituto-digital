@@ -1,4 +1,8 @@
-import { requiresSessions } from "@/modules/courses/domain/course.rules";
+import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
+import {
+	requiresContent,
+	requiresSessions,
+} from "@/modules/courses/domain/course.rules";
 import { EVALUATION_ERROR_MESSAGES } from "@/modules/evaluations/utils/evaluation-error-messages";
 import { RATING_ERROR_MESSAGES } from "@/modules/ratings/utils/rating-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
@@ -8,7 +12,10 @@ import { TEACHING_ERROR_MESSAGES } from "../../../utils/teaching-error-messages"
 import { requireTeaching } from "../../require-teaching.server";
 import type { Route } from "./+types/index";
 
-/** GET /dashboard/imparticion/:documentId — lista, evaluaciones, cierre y valoraciones. */
+/**
+ * GET /dashboard/imparticion/:documentId — lista, evaluaciones, evaluaciones de
+ * módulo, cierre y valoraciones.
+ */
 export const loader = async ({
 	request,
 	context,
@@ -43,9 +50,21 @@ export const loader = async ({
 		throw toRouteError(evaluations.error, EVALUATION_ERROR_MESSAGES);
 	}
 
+	// Las evaluaciones de módulo cuentan donde cuenta el temario.
+	const moduleQuizzes = requiresContent(course)
+		? await context.quizService.findModuleQuizBoard(documentId, auth)
+		: null;
+	if (moduleQuizzes && !moduleQuizzes.success) {
+		throw toRouteError(moduleQuizzes.error, CONTENT_ERROR_MESSAGES);
+	}
+
 	return ok({
 		...detail.data,
 		ratings: ratings?.success ? ratings.data : null,
 		evaluations: evaluations?.success ? evaluations.data : null,
+		moduleQuizzes:
+			moduleQuizzes?.success && moduleQuizzes.data.quizzes.length > 0
+				? moduleQuizzes.data
+				: null,
 	});
 };

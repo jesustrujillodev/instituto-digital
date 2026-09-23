@@ -1,5 +1,6 @@
 import { redirect } from "react-router";
 import { toContentSummary } from "@/modules/content/domain/content.mapper";
+import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { EVALUATION_ERROR_MESSAGES } from "@/modules/evaluations/utils/evaluation-error-messages";
 import type { ICradle } from "@/shared/di/container.types";
@@ -92,7 +93,7 @@ export const loadCourseWizard = async (
 	// pendiente de publicación, así que se lee en los dos casos.
 	const quiz =
 		step.key === "rules" || evaluatesByQuiz(course.data)
-			? await context.quizService.findBank(documentId, null, auth)
+			? await context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
 			: null;
 	if (quiz && !quiz.success)
 		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);

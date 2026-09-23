@@ -17,12 +17,14 @@ import {
 	ContentQuizIncompleteError,
 	ContentQuizLockedError,
 	ContentQuizNotAvailableError,
+	ContentQuizRetakeNotAllowedError,
 } from "./content.errors";
 import type {
 	GradedAttempt,
 	QuizBank,
 	QuizBankWrite,
 	QuizOutcome,
+	QuizOwnerRef,
 	QuizSheet,
 	SaveQuizDto,
 	StoredAttempt,
@@ -45,10 +47,37 @@ const documentId = v.pipe(
 	v.uuid("El identificador del registro no es válido."),
 );
 
+/** De quién cuelga un cuestionario, y con ello qué hace al enviarse. */
+export const QUIZ_KINDS = ["FINAL", "PRACTICE", "MODULE"] as const;
+export type QuizKind = (typeof QUIZ_KINDS)[number];
+
+export const quizKindOf = (owner: QuizOwnerRef): QuizKind => {
+	if (owner.lessonDocumentId !== null) return "PRACTICE";
+	if (owner.moduleDocumentId !== null) return "MODULE";
+	return "FINAL";
+};
+
+export const FINAL_QUIZ_OWNER: QuizOwnerRef = {
+	lessonDocumentId: null,
+	moduleDocumentId: null,
+};
+
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 
-/** `null`: el examen final del curso; con valor, la práctica de esa lección. */
-const lessonDocumentId = v.nullable(documentId);
+/**
+ * Los dos nulos: el examen final del curso. Con lección, la práctica de esa
+ * lección `QUIZ`; con módulo, la evaluación de ese módulo. Nunca los dos.
+ */
+const owner = {
+	lessonDocumentId: v.nullable(documentId),
+	moduleDocumentId: v.optional(v.nullable(documentId), null),
+};
+
+const ownedBySingleParent = <T extends QuizOwnerRef>(entry: T) =>
+	entry.lessonDocumentId === null || entry.moduleDocumentId === null;
+
+const OWNER_CONFLICT_MESSAGE =
+	"Un cuestionario cuelga de una lección o de un módulo, no de los dos.";
 
 const title = v.pipe(
 	v.string("El título del cuestionario es obligatorio."),
@@ -113,42 +142,61 @@ const question = v.pipe(
 	),
 );
 
-export const saveQuizRule = v.object({
-	lessonDocumentId,
-	title,
-	passingScore: v.pipe(
-		v.number("La calificación mínima debe ser un número."),
-		v.integer("La calificación mínima debe ser un número entero."),
-		v.minValue(0, "La calificación mínima va de 0 a 100."),
-		v.maxValue(100, "La calificación mínima va de 0 a 100."),
-	),
-	shuffleQuestions: v.boolean("Indica si las preguntas se barajan."),
-	questions: v.pipe(
-		v.array(question, "Agrega las preguntas del cuestionario."),
-		v.minLength(1, "Agrega al menos una pregunta."),
-		v.maxLength(
-			QUIZ_MAX_QUESTIONS,
-			`Un cuestionario no puede tener más de ${QUIZ_MAX_QUESTIONS} preguntas.`,
+export const saveQuizRule = v.pipe(
+	v.object({
+		...owner,
+		title,
+		passingScore: v.pipe(
+			v.number("La calificación mínima debe ser un número."),
+			v.integer("La calificación mínima debe ser un número entero."),
+			v.minValue(0, "La calificación mínima va de 0 a 100."),
+			v.maxValue(100, "La calificación mínima va de 0 a 100."),
 		),
-	),
-});
-
-export const renameQuizRule = v.object({ lessonDocumentId, title });
-
-export const findQuizRule = v.object({ lessonDocumentId });
-
-export const submitQuizRule = v.object({
-	lessonDocumentId,
-	answers: v.pipe(
-		v.array(
-			v.object({
-				questionDocumentId: documentId,
-				optionDocumentId: documentId,
-			}),
-			"Revisa tus respuestas.",
+		shuffleQuestions: v.boolean("Indica si las preguntas se barajan."),
+		questions: v.pipe(
+			v.array(question, "Agrega las preguntas del cuestionario."),
+			v.minLength(1, "Agrega al menos una pregunta."),
+			v.maxLength(
+				QUIZ_MAX_QUESTIONS,
+				`Un cuestionario no puede tener más de ${QUIZ_MAX_QUESTIONS} preguntas.`,
+			),
 		),
-		v.maxLength(QUIZ_MAX_QUESTIONS, "Hay más respuestas que preguntas."),
-	),
+	}),
+	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+);
+
+export const renameQuizRule = v.pipe(
+	v.object({ ...owner, title }),
+	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+);
+
+export const findQuizRule = v.pipe(
+	v.object(owner),
+	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+);
+
+export const submitQuizRule = v.pipe(
+	v.object({
+		...owner,
+		answers: v.pipe(
+			v.array(
+				v.object({
+					questionDocumentId: documentId,
+					optionDocumentId: documentId,
+				}),
+				"Revisa tus respuestas.",
+			),
+			v.maxLength(QUIZ_MAX_QUESTIONS, "Hay más respuestas que preguntas."),
+		),
+	}),
+	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+);
+
+export const moduleQuizRule = v.object({ moduleDocumentId: documentId });
+
+export const grantRetakeRule = v.object({
+	moduleDocumentId: documentId,
+	userDocumentId: documentId,
 });
 
 export const quizRules = {
@@ -156,6 +204,8 @@ export const quizRules = {
 	save: saveQuizRule,
 	rename: renameQuizRule,
 	submit: submitQuizRule,
+	archiveModuleQuiz: moduleQuizRule,
+	grantRetake: grantRetakeRule,
 } as const;
 
 // ── El banco ──────────────────────────────────────────────────────────────────
@@ -222,14 +272,35 @@ export const toQuizBank = (
 export const quizAvailabilityOf = (
 	course: { completionRule: CourseCompletionRule },
 	contentCompletedAt: Date | null,
-	attempt: StoredAttempt | null,
+	latestAttempt: StoredAttempt | null,
 	isFinal: boolean,
 ): QuizAvailability => {
-	if (attempt) return "TAKEN";
+	if (latestAttempt && !latestAttempt.retakeGrantedAt) return "TAKEN";
 	if (isFinal && countsContent(course.completionRule) && !contentCompletedAt) {
 		return "LOCKED_BY_CONTENT";
 	}
 	return "AVAILABLE";
+};
+
+/** El número del siguiente intento: la unicidad por número frena el doble envío. */
+export const nextAttemptNumberOf = (latestAttempt: StoredAttempt | null) =>
+	(latestAttempt?.number ?? 0) + 1;
+
+/**
+ * Otro intento solo sobre el último, reprobado y sin uno ya habilitado. Uno
+ * aprobado no se repite: su nota ya respalda el avance.
+ */
+export const assertRetakeGrantable = (
+	latestAttempt: StoredAttempt | null,
+): StoredAttempt => {
+	if (
+		!latestAttempt ||
+		latestAttempt.passed ||
+		latestAttempt.retakeGrantedAt !== null
+	) {
+		throw new ContentQuizRetakeNotAllowedError();
+	}
+	return latestAttempt;
 };
 
 export const assertCanSubmit = (availability: QuizAvailability): void => {
@@ -335,7 +406,7 @@ export const gradeAttempt = (
 /** El resultado sin la opción correcta: solo si cada pregunta se acertó. */
 export const toQuizOutcome = (
 	quiz: StoredQuiz,
-	attempt: StoredAttempt,
+	attempt: Pick<StoredAttempt, "submittedAt" | "score" | "passed" | "answers">,
 ): QuizOutcome => {
 	const correctOf = new Map(
 		attempt.answers.map((answer) => [answer.questionId, answer.isCorrect]),

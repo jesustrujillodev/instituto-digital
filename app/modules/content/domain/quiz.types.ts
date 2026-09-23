@@ -1,6 +1,12 @@
 import type * as v from "valibot";
+import type {
+	CourseFormat,
+	CourseStatus,
+} from "@/modules/courses/domain/course.rules";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
+	grantRetakeRule,
+	moduleQuizRule,
 	QuizAvailability,
 	QuizQuestionType,
 	renameQuizRule,
@@ -11,6 +17,20 @@ import type {
 export type SaveQuizDto = v.InferOutput<typeof saveQuizRule>;
 export type RenameQuizDto = v.InferOutput<typeof renameQuizRule>;
 export type SubmitQuizDto = v.InferOutput<typeof submitQuizRule>;
+export type ModuleQuizDto = v.InferOutput<typeof moduleQuizRule>;
+export type GrantRetakeDto = v.InferOutput<typeof grantRetakeRule>;
+
+/** De quién cuelga un cuestionario, por `documentId`. Los dos nulos: el examen. */
+export interface QuizOwnerRef {
+	lessonDocumentId: string | null;
+	moduleDocumentId: string | null;
+}
+
+/** Lo mismo, ya resuelto a filas. */
+export interface QuizOwnerIds {
+	lessonId: number | null;
+	moduleId: number | null;
+}
 
 // ── Lo que el repositorio lee y escribe ───────────────────────────────────────
 
@@ -48,10 +68,38 @@ export interface StoredAnswer {
 }
 
 export interface StoredAttempt {
+	id: number;
+	number: number;
 	submittedAt: Date;
 	score: number;
 	passed: boolean;
+	/** Con valor, hay otro intento habilitado después de este. */
+	retakeGrantedAt: Date | null;
 	answers: StoredAnswer[];
+}
+
+/** Un cuestionario de módulo aprobado por alguien: cuenta para su avance. */
+export interface PassedModuleQuizRow {
+	userId: number;
+	quizDocumentId: string;
+}
+
+/** El último intento de cada persona en un cuestionario de módulo. */
+export interface ModuleQuizAttemptRow {
+	quizDocumentId: string;
+	userDocumentId: string;
+	number: number;
+	score: number;
+	passed: boolean;
+	retakeGrantedAt: Date | null;
+}
+
+/** El curso visto por quien imparte, para autorizar el tablero y otro intento. */
+export interface QuizTeachingCourseRef {
+	id: number;
+	status: CourseStatus;
+	format: CourseFormat;
+	dependencyId: number;
 }
 
 /** El banco ya normalizado, listo para reescribir preguntas y opciones. */
@@ -126,10 +174,30 @@ export interface QuizView {
 	title: string;
 	questionCount: number;
 	sheet: QuizSheet | null;
+	/** El del último intento; con otro habilitado convive con `sheet`. */
 	outcome: QuizOutcome | null;
+}
+
+// ── Lo que ve quien imparte ───────────────────────────────────────────────────
+
+export interface ModuleQuizBoardEntry {
+	quizDocumentId: string;
+	moduleDocumentId: string;
+	moduleTitle: string;
+	title: string;
+}
+
+export interface ModuleQuizBoard {
+	/** Solo en un curso publicado se habilita otro intento. */
+	canGrantRetake: boolean;
+	/** En el orden del temario. */
+	quizzes: ModuleQuizBoardEntry[];
+	/** El último intento de cada persona; sin fila, no lo ha presentado. */
+	attempts: ModuleQuizAttemptRow[];
 }
 
 export type QuizBankResponse = AppResponse<QuizBank | null>;
 export type QuizViewResponse = AppResponse<QuizView | null>;
 export type QuizOutcomeResponse = AppResponse<QuizOutcome>;
 export type QuizMutationResponse = AppResponse<null>;
+export type ModuleQuizBoardResponse = AppResponse<ModuleQuizBoard>;

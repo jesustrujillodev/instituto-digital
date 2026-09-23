@@ -23,8 +23,8 @@ import {
 	QUIZ_POINTS_RANGE,
 	TRUE_FALSE_LABELS,
 } from "../domain/content.config";
-import type { QuizQuestionType } from "../domain/quiz.rules";
-import type { QuizBank } from "../domain/quiz.types";
+import { FINAL_QUIZ_OWNER, type QuizQuestionType } from "../domain/quiz.rules";
+import type { QuizBank, QuizOwnerRef } from "../domain/quiz.types";
 import {
 	CONTENT_INTENTS,
 	type ContentActionData,
@@ -117,8 +117,8 @@ const problemsOf = (draft: Draft): string[] => {
 	return problems;
 };
 
-const payloadOf = (draft: Draft, lessonDocumentId: string | null) => ({
-	lessonDocumentId,
+const payloadOf = (draft: Draft, owner: QuizOwnerRef) => ({
+	...owner,
 	title: draft.title,
 	passingScore: draft.passingScore,
 	shuffleQuestions: draft.shuffleQuestions,
@@ -134,22 +134,24 @@ const payloadOf = (draft: Draft, lessonDocumentId: string | null) => ({
 });
 
 const sameDraft = (a: Draft, b: Draft) =>
-	JSON.stringify(payloadOf(a, null)) === JSON.stringify(payloadOf(b, null));
+	JSON.stringify(payloadOf(a, FINAL_QUIZ_OWNER)) ===
+	JSON.stringify(payloadOf(b, FINAL_QUIZ_OWNER));
 
 /**
- * El banco de preguntas de un cuestionario: el examen del curso o la práctica
- * de una lección. Guarda el banco entero de una vez, por su cuenta, y se
- * congela en cuanto alguien lo presenta (docs/adr/0015).
+ * El banco de preguntas de un cuestionario: el examen del curso, la práctica
+ * de una lección o la evaluación de un módulo. Guarda el banco entero de una
+ * vez, por su cuenta, y se congela en cuanto alguien lo presenta
+ * (docs/adr/0015).
  */
 export function QuizEditor({
 	courseDocumentId,
-	lessonDocumentId,
+	owner = FINAL_QUIZ_OWNER,
 	bank,
 	defaultTitle,
 	disabled = false,
 }: {
 	courseDocumentId: string;
-	lessonDocumentId: string | null;
+	owner?: QuizOwnerRef;
 	bank: QuizBank | null;
 	defaultTitle: string;
 	disabled?: boolean;
@@ -231,7 +233,7 @@ export function QuizEditor({
 						disabled={disabled || busy || draft.title === baseline.title}
 						onClick={() =>
 							send(CONTENT_INTENTS.renameQuiz, {
-								lessonDocumentId,
+								...owner,
 								title: draft.title,
 							})
 						}
@@ -512,7 +514,7 @@ export function QuizEditor({
 					type="button"
 					disabled={disabled || busy || !dirty || problems.length > 0}
 					onClick={() =>
-						send(CONTENT_INTENTS.saveQuiz, payloadOf(draft, lessonDocumentId))
+						send(CONTENT_INTENTS.saveQuiz, payloadOf(draft, owner))
 					}
 				>
 					<Save />

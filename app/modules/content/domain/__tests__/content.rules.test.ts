@@ -218,13 +218,25 @@ describe("límites", () => {
 
 describe("assertModuleArchivable", () => {
 	test("con lecciones activas no se archiva", () => {
-		expect(codeOf(() => assertModuleArchivable(2))).toBe(
-			CONTENT_ERROR_CODES.MODULE_NOT_EMPTY,
-		);
+		expect(
+			codeOf(() =>
+				assertModuleArchivable({ activeLessons: 2, hasActiveQuiz: false }),
+			),
+		).toBe(CONTENT_ERROR_CODES.MODULE_NOT_EMPTY);
+	});
+
+	test("con su cuestionario activo tampoco", () => {
+		expect(
+			codeOf(() =>
+				assertModuleArchivable({ activeLessons: 0, hasActiveQuiz: true }),
+			),
+		).toBe(CONTENT_ERROR_CODES.MODULE_HAS_QUIZ);
 	});
 
 	test("vacío sí", () => {
-		expect(() => assertModuleArchivable(0)).not.toThrow();
+		expect(() =>
+			assertModuleArchivable({ activeLessons: 0, hasActiveQuiz: false }),
+		).not.toThrow();
 	});
 });
 

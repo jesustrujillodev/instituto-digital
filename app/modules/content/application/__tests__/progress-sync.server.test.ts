@@ -13,9 +13,11 @@ import {
 	LESSON_2,
 	LESSON_3,
 	MODULE_A,
+	MODULE_QUIZ_A,
 } from "../../domain/__tests__/content.fixtures";
 import type { CompletedLessonRow } from "../../domain/classroom.types";
 import type { ContentModuleRaw } from "../../domain/content.mapper";
+import type { PassedModuleQuizRow } from "../../domain/quiz.types";
 import { createProgressSync } from "../progress-sync.server";
 
 const AT = new Date("2027-03-10T18:00:00.000Z");
@@ -32,7 +34,7 @@ const lessonRaw = (documentId: string, order: number) => ({
 	quiz: null,
 });
 
-const treeOf = (lessons: string[]): ContentModuleRaw[] => [
+const treeOf = (lessons: string[], withQuiz: boolean): ContentModuleRaw[] => [
 	{
 		documentId: MODULE_A,
 		title: "Fundamentos",
@@ -41,6 +43,15 @@ const treeOf = (lessons: string[]): ContentModuleRaw[] => [
 		lessons: lessons.map((documentId, index) =>
 			lessonRaw(documentId, index + 1),
 		),
+		quizzes: withQuiz
+			? [
+					{
+						documentId: MODULE_QUIZ_A,
+						title: "Evaluación",
+						_count: { questions: 2 },
+					},
+				]
+			: [],
 	},
 ];
 
@@ -48,6 +59,8 @@ const createHarness = (options: {
 	lessons: string[];
 	states: StoredProgress[];
 	completed: CompletedLessonRow[];
+	moduleQuiz?: boolean;
+	passed?: PassedModuleQuizRow[];
 }) => {
 	const calls = {
 		locks: 0,
@@ -57,7 +70,8 @@ const createHarness = (options: {
 
 	const sync = createProgressSync({
 		contentRepository: {
-			findTree: async () => treeOf(options.lessons),
+			findTree: async () =>
+				treeOf(options.lessons, options.moduleQuiz ?? false),
 		} as unknown as ICradle["contentRepository"],
 		classroomRepository: {
 			findCompletedLessons: async (
@@ -68,6 +82,15 @@ const createHarness = (options: {
 					(row) => !userIds || userIds.includes(row.userId),
 				),
 		} as unknown as ICradle["classroomRepository"],
+		quizRepository: {
+			findPassedModuleQuizzes: async (
+				_courseId: number,
+				userIds?: readonly number[],
+			) =>
+				(options.passed ?? []).filter(
+					(row) => !userIds || userIds.includes(row.userId),
+				),
+		} as unknown as ICradle["quizRepository"],
 		enrollmentRepository: {
 			lockCourseSeats: async () => {
 				calls.locks += 1;
@@ -111,6 +134,43 @@ describe("progressSync.recalculate", () => {
 			{ userId: 50, percent: 100, contentCompleted: true },
 		]);
 		expect(calls.locks).toBe(1);
+		expect(calls.writes).toEqual([
+			[{ userId: 50, percent: 100, completedAt: AT }],
+		]);
+		expect(calls.syncs).toEqual([{ courseId: 7, actorId: 50, at: AT }]);
+	});
+
+	// ADR-0016: la evaluación del módulo cuenta como una parada más del contenido.
+	test("sin aprobar la evaluación del módulo el contenido no termina", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [{ userId: 50, progressPercent: 0, contentCompletedAt: null }],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+		});
+
+		const result = await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(result).toEqual([
+			{ userId: 50, percent: 50, contentCompleted: false },
+		]);
+		expect(calls.syncs).toEqual([]);
+	});
+
+	test("aprobarla termina el contenido y un autogestivo lo acredita", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [{ userId: 50, progressPercent: 50, contentCompletedAt: null }],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			passed: [{ userId: 50, quizDocumentId: MODULE_QUIZ_A }],
+		});
+
+		const result = await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(result).toEqual([
+			{ userId: 50, percent: 100, contentCompleted: true },
+		]);
 		expect(calls.writes).toEqual([
 			[{ userId: 50, percent: 100, completedAt: AT }],
 		]);

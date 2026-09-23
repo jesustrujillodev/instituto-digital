@@ -37,12 +37,12 @@ import { LESSON_TYPE_LABELS } from "../utils/content-labels";
 import { LessonBodyView } from "./lesson-body-view";
 import { LessonLinkField } from "./lesson-link-field";
 import { LessonFilePreview } from "./lesson-material-view";
-import { LessonQuizPanel } from "./lesson-quiz-panel";
 import {
 	LessonUploadField,
 	type UploadedMaterial,
 } from "./lesson-upload-field";
 import { LessonVideoPlayer } from "./lesson-video-player";
+import { QuizBankPanel } from "./quiz-bank-panel";
 
 // Tiptap solo lo descarga quien captura, y solo al abrir el panel de una
 // lección de texto.
@@ -254,9 +254,13 @@ export function LessonMaterialSheet({
 
 			case "QUIZ":
 				return (
-					<LessonQuizPanel
+					<QuizBankPanel
 						courseDocumentId={courseDocumentId}
-						lesson={lesson}
+						owner={{
+							lessonDocumentId: lesson.documentId,
+							moduleDocumentId: null,
+						}}
+						defaultTitle={lesson.title}
 						canWrite={canWrite}
 					/>
 				);

@@ -12,6 +12,7 @@ export const LESSON_1 = "33333333-3333-4333-8333-333333333333";
 export const LESSON_2 = "44444444-4444-4444-8444-444444444444";
 export const LESSON_3 = "55555555-5555-4555-8555-555555555555";
 export const OTHER_DOC = "66666666-6666-4666-8666-666666666666";
+export const MODULE_QUIZ_A = "77777777-7777-4777-8777-777777777777";
 
 export const lessonOf = (
 	overrides: Partial<ContentLesson> = {},
@@ -34,6 +35,7 @@ export const moduleOf = (
 	description: null,
 	order: 1,
 	lessons: [lessonOf()],
+	quiz: null,
 	...overrides,
 });
 
@@ -69,3 +71,18 @@ export const actorOf = (overrides: Partial<AuthContext> = {}): AuthContext => ({
 	isTrainer: false,
 	...overrides,
 });
+
+/** El árbol de `treeOf` con una evaluación en el primer módulo. */
+export const treeWithModuleQuiz = (): CourseContentTree =>
+	treeOf().map((module, index) =>
+		index === 0
+			? {
+					...module,
+					quiz: {
+						documentId: MODULE_QUIZ_A,
+						title: "Evaluación · Fundamentos",
+						questionCount: 3,
+					},
+				}
+			: module,
+	);

@@ -4,6 +4,7 @@ import { type LessonType, lessonBodyRule, resolveEmbed } from "./content.rules";
 import type {
 	ContentLesson,
 	ContentModule,
+	ContentModuleQuiz,
 	ContentSummary,
 	CourseContentTree,
 	LessonBody,
@@ -40,6 +41,12 @@ export interface ContentModuleRaw {
 	description: string | null;
 	order: number;
 	lessons: readonly ContentLessonRaw[];
+	/** El cuestionario activo del módulo, si lo tiene. */
+	quizzes: readonly {
+		documentId: string;
+		title: string;
+		_count: { questions: number };
+	}[];
 }
 
 const toLesson = (raw: ContentLessonRaw): ContentLesson => ({
@@ -52,12 +59,24 @@ const toLesson = (raw: ContentLessonRaw): ContentLesson => ({
 	hasMaterial: hasMaterialOf(raw),
 });
 
+const toModuleQuiz = (
+	raw: ContentModuleRaw["quizzes"][number] | undefined,
+): ContentModuleQuiz | null =>
+	raw
+		? {
+				documentId: raw.documentId,
+				title: raw.title,
+				questionCount: raw._count.questions,
+			}
+		: null;
+
 const toModule = (raw: ContentModuleRaw): ContentModule => ({
 	documentId: raw.documentId,
 	title: raw.title,
 	description: raw.description,
 	order: raw.order,
 	lessons: raw.lessons.map(toLesson),
+	quiz: toModuleQuiz(raw.quizzes.at(0)),
 });
 
 export const toCourseContentTree = (

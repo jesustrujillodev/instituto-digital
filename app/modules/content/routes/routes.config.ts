@@ -22,6 +22,12 @@ export const contentRoutes = [
 		"cursos/:documentId/cuestionario",
 		"modules/content/routes/cursos/$documentId.cuestionario/index.ts",
 	),
+	// Sin componente: quien imparte habilita otro intento de una evaluación de
+	// módulo desde la pestaña Avance (docs/adr/0016).
+	route(
+		"imparticion/:documentId/cuestionarios",
+		"modules/content/routes/imparticion/$documentId.cuestionarios/index.ts",
+	),
 	// El aula del participante (docs/adr/0014): el índice lateral es el layout y
 	// su índice redirige a la lección donde se quedó.
 	route(
@@ -34,6 +40,10 @@ export const contentRoutes = [
 			route(
 				"examen",
 				"modules/content/routes/mis-cursos/$documentId.aula.examen/index.tsx",
+			),
+			route(
+				"modulo/:moduleDocumentId",
+				"modules/content/routes/mis-cursos/$documentId.aula.modulo.$moduleDocumentId/index.tsx",
 			),
 			route(
 				":lessonDocumentId",

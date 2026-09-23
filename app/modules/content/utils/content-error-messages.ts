@@ -56,6 +56,11 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 			"Archiva primero sus lecciones: un módulo con lecciones activas no se archiva.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[CONTENT_ERROR_CODES.MODULE_HAS_QUIZ]: {
+		message:
+			"Archiva primero su cuestionario: un módulo con evaluación activa no se archiva.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[CONTENT_ERROR_CODES.INVALID_ORDER]: {
 		message:
 			"El orden ya no coincide con lo que hay guardado. Vuelve a cargar la página.",
@@ -126,6 +131,15 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 	[CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT]: {
 		message: "Esta lección se completa al enviar su cuestionario.",
 		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED]: {
+		message:
+			"Solo se habilita otro intento en un curso en curso, cuando el último quedó reprobado y no hay otro pendiente.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND]: {
+		message: "Esa persona ya no está inscrita en el curso.",
+		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

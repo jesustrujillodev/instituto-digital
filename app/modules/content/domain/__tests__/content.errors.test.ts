@@ -8,6 +8,7 @@ import {
 	ContentLessonNotFoundError,
 	ContentLinkInvalidError,
 	ContentMaterialMismatchError,
+	ContentModuleHasQuizError,
 	ContentModuleNotEmptyError,
 	ContentModuleNotFoundError,
 	ContentNotEnrolledError,
@@ -18,6 +19,8 @@ import {
 	ContentQuizNotAvailableError,
 	ContentQuizNotEvaluatedError,
 	ContentQuizNotFoundError,
+	ContentQuizParticipantNotFoundError,
+	ContentQuizRetakeNotAllowedError,
 	ContentTooManyLessonsError,
 	ContentTooManyModulesError,
 	ContentUploadInvalidError,
@@ -53,6 +56,15 @@ describe("errores de contenido", () => {
 				new ContentQuizCompletesOnSubmitError(),
 				CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT,
 			],
+			[
+				new ContentQuizRetakeNotAllowedError(),
+				CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED,
+			],
+			[
+				new ContentQuizParticipantNotFoundError(),
+				CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND,
+			],
+			[new ContentModuleHasQuizError(), CONTENT_ERROR_CODES.MODULE_HAS_QUIZ],
 		] as const) {
 			expect(error.code).toBe(code);
 		}

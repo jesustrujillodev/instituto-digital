@@ -5,6 +5,7 @@ import {
 	validateFindClassroom,
 	validateSubmitQuiz,
 } from "../../../domain/content.validators";
+import { FINAL_QUIZ_OWNER } from "../../../domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import { parseContentFormData } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
@@ -25,10 +26,10 @@ export const action = async ({
 
 	const input = parseInput(() => ({
 		course: validateFindClassroom({ documentId: params.documentId }).documentId,
-		// La ruta es la del examen: la lección no la decide el cliente.
+		// La ruta es la del examen: el dueño no lo decide el cliente.
 		dto: validateSubmitQuiz({
 			...(form.payload as object),
-			lessonDocumentId: null,
+			...FINAL_QUIZ_OWNER,
 		}),
 	}));
 	if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);

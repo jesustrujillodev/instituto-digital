@@ -237,7 +237,7 @@ export const createContentService = ({
 			return run("archiveModule", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
 				const module = await requireModule(course.id, moduleDocumentId);
-				assertModuleArchivable(module.activeLessons);
+				assertModuleArchivable(module);
 
 				const siblings = await contentRepository.findModuleSiblings(course.id);
 

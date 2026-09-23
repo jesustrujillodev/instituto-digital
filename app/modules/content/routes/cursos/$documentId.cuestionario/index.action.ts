@@ -3,6 +3,7 @@ import { fail, ok, parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
+	validateArchiveModuleQuiz,
 	validateFindContentCourse,
 	validateRenameQuiz,
 	validateSaveQuiz,
@@ -14,7 +15,10 @@ import {
 } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/:documentId/cuestionario — guardar o renombrar el banco. */
+/**
+ * POST /dashboard/cursos/:documentId/cuestionario — guardar o renombrar el
+ * banco, o archivar la evaluación de un módulo.
+ */
 export const action = async ({
 	request,
 	context,
@@ -59,6 +63,23 @@ export const action = async ({
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
 			return ok(null, { message: "Título guardado." });
+		}
+
+		case CONTENT_INTENTS.archiveModuleQuiz: {
+			const input = parseInput(() => ({
+				course: courseDocumentId(),
+				dto: validateArchiveModuleQuiz(form.payload),
+			}));
+			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
+
+			const result = await context.quizService.archiveModuleQuiz(
+				input.data.course,
+				input.data.dto,
+				auth,
+			);
+			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
+
+			return ok(null, { message: "Cuestionario del módulo archivado." });
 		}
 
 		default:

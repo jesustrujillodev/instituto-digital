@@ -116,8 +116,18 @@ describe("toPlanDetail", () => {
 				lineOf({
 					documentId: "line-2",
 					courses: [
-						{ documentId: "c2", title: "Actual", status: "PUBLISHED" },
-						{ documentId: "c1", title: "Viejo", status: "CANCELLED" },
+						{
+							documentId: "c2",
+							title: "Actual",
+							status: "PUBLISHED",
+							format: "SCHEDULED",
+						},
+						{
+							documentId: "c1",
+							title: "Viejo",
+							status: "CANCELLED",
+							format: "SCHEDULED",
+						},
 					],
 				}),
 				lineOf({ documentId: "line-3", cancelledAt: NOW }),
@@ -144,6 +154,32 @@ describe("toPlanDetail", () => {
 			reactivate: true,
 			createCourse: false,
 		});
+	});
+
+	test("la línea de un autogestivo publicado sale realizada, con su curso vigente", () => {
+		const detail = toPlanDetail(
+			planOf([
+				lineOf({
+					courses: [
+						{
+							documentId: "c3",
+							title: "En línea",
+							status: "PUBLISHED",
+							format: "SELF_PACED",
+						},
+					],
+				}),
+			]),
+			true,
+			NOW,
+		);
+
+		expect(detail.lines[0]).toMatchObject({
+			status: "DONE",
+			activeCourse: { title: "En línea", format: "SELF_PACED" },
+			can: { cancel: false, createCourse: false },
+		});
+		expect(detail.progress).toMatchObject({ done: 1, ratio: 1 });
 	});
 
 	test("un plan pasado o sin permiso de gestión no ofrece acciones", () => {

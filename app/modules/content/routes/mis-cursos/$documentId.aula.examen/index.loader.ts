@@ -2,6 +2,7 @@ import { requireParticipant } from "@/modules/enrollments/routes/require-partici
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
 import { validateFindClassroom } from "../../../domain/content.validators";
+import { FINAL_QUIZ_OWNER } from "../../../domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
@@ -21,7 +22,11 @@ export const loader = async ({
 		documentId: params.documentId,
 	});
 
-	const view = await context.quizService.findView(documentId, null, auth);
+	const view = await context.quizService.findView(
+		documentId,
+		FINAL_QUIZ_OWNER,
+		auth,
+	);
 	if (!view.success) throw toRouteError(view.error, CONTENT_ERROR_MESSAGES);
 
 	return ok(view.data);

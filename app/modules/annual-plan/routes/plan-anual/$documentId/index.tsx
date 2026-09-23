@@ -14,6 +14,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { Link, useFetcher, useNavigate } from "react-router";
 import { CourseModalityBadge } from "@/modules/courses/components/course-badges";
+import { FORMAT_LABELS } from "@/modules/courses/utils/course-labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import {
 	DataTable,
@@ -57,6 +58,16 @@ const coursePath = (line: PlanLineView) =>
 		? `/dashboard/cursos/${line.activeCourse.documentId}`
 		: null;
 
+/** Dice por qué la línea está realizada sin que su curso se haya finalizado. */
+function SelfPacedHint({ line }: { line: PlanLineView }) {
+	if (line.activeCourse?.format !== "SELF_PACED") return null;
+	return (
+		<span className="text-muted-foreground text-xs">
+			{FORMAT_LABELS.SELF_PACED}
+		</span>
+	);
+}
+
 export const handle = {
 	breadcrumb: () => [
 		{ label: "Plan anual", path: "/dashboard/plan-anual" },
@@ -78,12 +89,15 @@ function LineCard({ line }: { line: PlanLineView }) {
 				<PlanLineStatusBadge status={line.status} />
 			</div>
 			{path && line.activeCourse && (
-				<Link
-					to={path}
-					className="text-muted-foreground text-xs hover:underline"
-				>
-					{line.activeCourse.title}
-				</Link>
+				<div className="flex flex-wrap items-baseline gap-x-2">
+					<Link
+						to={path}
+						className="text-muted-foreground text-xs hover:underline"
+					>
+						{line.activeCourse.title}
+					</Link>
+					<SelfPacedHint line={line} />
+				</div>
 			)}
 		</li>
 	);
@@ -153,9 +167,12 @@ export default function PlanDetallePage({ loaderData }: Route.ComponentProps) {
 			columnHelpers.custom<LineRow>("activeCourse", "Curso", (line) => {
 				const path = coursePath(line);
 				return path && line.activeCourse ? (
-					<Link to={path} className="text-sm hover:underline">
-						{line.activeCourse.title}
-					</Link>
+					<div className="flex flex-col">
+						<Link to={path} className="text-sm hover:underline">
+							{line.activeCourse.title}
+						</Link>
+						<SelfPacedHint line={line} />
+					</div>
 				) : (
 					<span className="text-muted-foreground text-sm">
 						{line.cancelledCourses > 0

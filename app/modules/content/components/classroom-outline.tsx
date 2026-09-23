@@ -8,8 +8,12 @@ import {
 import { NavLink } from "react-router";
 import { cn } from "@/lib/utils";
 import type { LessonProgressStatus } from "../domain/classroom.rules";
-import type { ClassroomModule, ClassroomView } from "../domain/classroom.types";
-import { examPath } from "../utils/content-form";
+import type {
+	ClassroomModule,
+	ClassroomQuizStatus,
+	ClassroomView,
+} from "../domain/classroom.types";
+import { examPath, stopPath } from "../utils/content-form";
 import { LESSON_TYPE_LABELS } from "../utils/content-labels";
 
 const STATUS_ICON = {
@@ -36,17 +40,54 @@ function StatusIcon({ status }: { status: LessonProgressStatus | null }) {
 	);
 }
 
-/** El índice del aula: módulos y lecciones con el estado de cada una. */
-const finalQuizNote = (quiz: NonNullable<ClassroomView["finalQuiz"]>) => {
+const quizNote = (quiz: ClassroomQuizStatus) => {
 	switch (quiz.availability) {
 		case "TAKEN":
 			return `Presentado · ${quiz.score} · ${quiz.passed ? "aprobado" : "no aprobado"}`;
 		case "LOCKED_BY_CONTENT":
 			return "Se habilita al terminar las lecciones obligatorias";
 		case "AVAILABLE":
-			return "Disponible · un solo intento";
+			return quiz.score === null
+				? "Disponible · un solo intento"
+				: `Otro intento habilitado · antes ${quiz.score}`;
 	}
 };
+
+/** Un cuestionario en el índice: el examen final o la evaluación de un módulo. */
+function QuizLink({ to, quiz }: { to: string; quiz: ClassroomQuizStatus }) {
+	return (
+		<NavLink
+			to={to}
+			className={({ isActive }) =>
+				cn(
+					"flex items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent",
+					isActive && "bg-accent font-medium",
+				)
+			}
+		>
+			{quiz.availability === "LOCKED_BY_CONTENT" ? (
+				<Lock
+					aria-hidden="true"
+					className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+				/>
+			) : (
+				<ClipboardCheck
+					aria-hidden="true"
+					className={cn(
+						"mt-0.5 size-4 shrink-0",
+						quiz.passed ? "text-primary" : "text-muted-foreground",
+					)}
+				/>
+			)}
+			<span className="flex min-w-0 flex-col">
+				<span>{quiz.title}</span>
+				<span className="text-muted-foreground text-xs">{quizNote(quiz)}</span>
+			</span>
+		</NavLink>
+	);
+}
+
+/** El índice del aula: módulos y lecciones con el estado de cada una. */
 
 export function ClassroomOutline({
 	courseDocumentId,
@@ -90,6 +131,17 @@ export function ClassroomOutline({
 								</NavLink>
 							</li>
 						))}
+						{module.quiz && (
+							<li>
+								<QuizLink
+									to={stopPath(courseDocumentId, {
+										kind: "MODULE_QUIZ",
+										documentId: module.documentId,
+									})}
+									quiz={module.quiz}
+								/>
+							</li>
+						)}
 					</ol>
 				</section>
 			))}
@@ -99,38 +151,7 @@ export function ClassroomOutline({
 					<h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
 						Evaluación
 					</h2>
-					<NavLink
-						to={examPath(courseDocumentId)}
-						className={({ isActive }) =>
-							cn(
-								"flex items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent",
-								isActive && "bg-accent font-medium",
-							)
-						}
-					>
-						{finalQuiz.availability === "LOCKED_BY_CONTENT" ? (
-							<Lock
-								aria-hidden="true"
-								className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-							/>
-						) : (
-							<ClipboardCheck
-								aria-hidden="true"
-								className={cn(
-									"mt-0.5 size-4 shrink-0",
-									finalQuiz.availability === "TAKEN"
-										? "text-primary"
-										: "text-muted-foreground",
-								)}
-							/>
-						)}
-						<span className="flex min-w-0 flex-col">
-							<span>{finalQuiz.title}</span>
-							<span className="text-muted-foreground text-xs">
-								{finalQuizNote(finalQuiz)}
-							</span>
-						</span>
-					</NavLink>
+					<QuizLink to={examPath(courseDocumentId)} quiz={finalQuiz} />
 				</section>
 			)}
 		</nav>
