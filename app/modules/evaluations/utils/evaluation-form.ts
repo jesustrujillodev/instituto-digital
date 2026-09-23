@@ -12,7 +12,12 @@ export const EVALUATION_INTENTS = {
 
 export type EvaluationActionData = AppResponse<null>;
 
-export const evaluationsPath = (courseDocumentId: string) =>
+/** Alta, cambio y baja: se definen junto con el curso. */
+export const evaluationDefinitionsPath = (courseDocumentId: string) =>
+	`/dashboard/cursos/${courseDocumentId}/evaluaciones`;
+
+/** La captura de resultados: se hace al impartirlo. */
+export const evaluationResultsPath = (courseDocumentId: string) =>
 	`/dashboard/imparticion/${courseDocumentId}/evaluaciones`;
 
 export interface ParsedEvaluationFormData {

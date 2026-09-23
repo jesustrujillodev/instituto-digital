@@ -50,12 +50,12 @@ const run = (
 	documentId = COURSE_ID,
 ) =>
 	action({
-		request: postRequest(`/dashboard/cursos/${documentId}/editar`, fields),
+		request: postRequest(`/dashboard/cursos/${documentId}/editar/1`, fields),
 		context,
-		params: { documentId },
+		params: { documentId, paso: "1" },
 	} as unknown as ActionArgs);
 
-describe("cursos/editar action", () => {
+describe("cursos/edición action", () => {
 	test("guarda con el documentId de la URL", async () => {
 		const { context, calls } = createHarness({ role: "USER", isTrainer: true });
 

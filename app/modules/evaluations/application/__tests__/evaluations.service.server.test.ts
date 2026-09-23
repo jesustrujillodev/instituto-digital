@@ -32,6 +32,8 @@ const silentLogger: Logger = {
 const HEAD = actorOf({ userId: 2, role: "DEPENDENCY_HEAD", isTrainer: false });
 /** Capacitador del curso, sin dependencia organizadora detrás. */
 const TRAINER = actorOf({ dependencyId: null });
+/** Capacitador interno que creó el curso: lo administra y lo imparte. */
+const CREATOR = actorOf();
 
 /**
  * Doble en memoria: lo que escribe cambia lo que la siguiente lectura devuelve,
@@ -57,18 +59,21 @@ const createHarness = (
 		removed: [] as number[],
 		saved: [] as { writes: EvaluationResultWrite[]; deletes: number[] }[],
 		transactions: 0,
+		wheres: [] as unknown[],
 	};
 
 	const evaluationRepository = {
-		findCourse: async (courseDocumentId: string) =>
-			courseDocumentId === COURSE_DOC
+		findCourse: async (courseDocumentId: string, where: unknown) => {
+			log.wheres.push(where);
+			return courseDocumentId === COURSE_DOC
 				? {
 						id: 10,
 						status,
 						dependencyId: 3,
 						evaluationCount: options.evaluationCount ?? 0,
 					}
-				: null,
+				: null;
+		},
 		findBoard: async () => structuredClone(options.board ?? []),
 		findTarget: async (
 			courseDocumentId: string,
@@ -133,13 +138,13 @@ const capture = (
 ) => ({ userDocumentId, passed, note });
 
 describe("create", () => {
-	test("crea la evaluación con la sesión resuelta", async () => {
+	test("quien administra el curso la crea con la sesión resuelta", async () => {
 		const { service, log } = createHarness();
 
 		const result = await service.create(
 			COURSE_DOC,
 			{ title: "Práctica de campo", sessionDocumentId: SESSION_DOC },
-			TRAINER,
+			CREATOR,
 		);
 
 		expect(result.success).toBe(true);
@@ -148,16 +153,47 @@ describe("create", () => {
 		]);
 	});
 
-	test("una evaluación sin sesión se guarda sin sesión", async () => {
+	test("se definen desde el borrador, junto con el curso", async () => {
+		const { service, log } = createHarness({ status: "DRAFT" });
+
+		const result = await service.create(
+			COURSE_DOC,
+			{ title: "Proyecto final", sessionDocumentId: null },
+			HEAD,
+		);
+
+		expect(result.success).toBe(true);
+		expect(log.created).toEqual([{ title: "Proyecto final", sessionId: null }]);
+	});
+
+	test("el curso se busca con el alcance de administración", async () => {
 		const { service, log } = createHarness();
 
 		await service.create(
 			COURSE_DOC,
-			{ title: "Proyecto final", sessionDocumentId: null },
+			{ title: "Práctica", sessionDocumentId: null },
+			CREATOR,
+		);
+
+		expect(log.wheres).toEqual([{ dependencyId: 3, createdById: 9 }]);
+	});
+
+	// Quien solo imparte captura resultados, pero no decide qué se evalúa.
+	test("un capacitador que solo imparte no la define", async () => {
+		const { service, log } = createHarness();
+
+		const result = await service.create(
+			COURSE_DOC,
+			{ title: "Práctica", sessionDocumentId: null },
 			TRAINER,
 		);
 
-		expect(log.created).toEqual([{ title: "Proyecto final", sessionId: null }]);
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: EVALUATION_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+		expect(log.wheres).toEqual([]);
+		expect(log.created).toEqual([]);
 	});
 
 	test("una sesión de otro curso se rechaza", async () => {
@@ -166,7 +202,7 @@ describe("create", () => {
 		const result = await service.create(
 			COURSE_DOC,
 			{ title: "Práctica", sessionDocumentId: ANA_DOC },
-			TRAINER,
+			CREATOR,
 		);
 
 		expect(result).toMatchObject({
@@ -182,7 +218,7 @@ describe("create", () => {
 		const result = await service.create(
 			EVALUATION_DOC,
 			{ title: "Práctica", sessionDocumentId: null },
-			TRAINER,
+			CREATOR,
 		);
 
 		expect(result).toMatchObject({
@@ -200,7 +236,7 @@ describe("create", () => {
 		const result = await service.create(
 			COURSE_DOC,
 			{ title: "Una más", sessionDocumentId: null },
-			TRAINER,
+			CREATOR,
 		);
 
 		expect(result).toMatchObject({
@@ -210,36 +246,31 @@ describe("create", () => {
 		expect(log.created).toEqual([]);
 	});
 
-	test("en un curso finalizado solo escribe quien corrige", async () => {
-		const trainer = createHarness({ status: "FINISHED" });
-		const head = createHarness({ status: "FINISHED" });
+	test.each(["FINISHED", "CANCELLED"] as const)(
+		"un curso %s ya no admite evaluaciones nuevas, ni del titular",
+		async (status) => {
+			const { service, log } = createHarness({ status });
 
-		const rejected = await trainer.service.create(
-			COURSE_DOC,
-			{ title: "Extraordinario", sessionDocumentId: null },
-			TRAINER,
-		);
-		const accepted = await head.service.create(
-			COURSE_DOC,
-			{ title: "Extraordinario", sessionDocumentId: null },
-			HEAD,
-		);
+			const result = await service.create(
+				COURSE_DOC,
+				{ title: "Extraordinario", sessionDocumentId: null },
+				HEAD,
+			);
 
-		expect(rejected).toMatchObject({
-			success: false,
-			error: { code: EVALUATION_ERROR_CODES.FORBIDDEN },
-		});
-		expect(trainer.log.created).toEqual([]);
-		expect(accepted.success).toBe(true);
-		expect(head.log.created).toHaveLength(1);
-	});
+			expect(result).toMatchObject({
+				success: false,
+				error: { code: EVALUATION_ERROR_CODES.FORBIDDEN },
+			});
+			expect(log.created).toEqual([]);
+		},
+	);
 });
 
 describe("update y remove", () => {
 	test("una evaluación de otro curso no existe", async () => {
 		const { service, log } = createHarness({ target: null });
 
-		const result = await service.remove(COURSE_DOC, EVALUATION_DOC, TRAINER);
+		const result = await service.remove(COURSE_DOC, EVALUATION_DOC, CREATOR);
 
 		expect(result).toMatchObject({
 			success: false,
@@ -255,25 +286,87 @@ describe("update y remove", () => {
 			COURSE_DOC,
 			EVALUATION_DOC,
 			{ title: "Práctica 1", sessionDocumentId: null },
-			TRAINER,
+			CREATOR,
 		);
 
 		expect(result.success).toBe(true);
 		expect(log.updated).toEqual([{ title: "Práctica 1", sessionId: null }]);
 	});
 
-	test("borrar en un curso finalizado es corrección", async () => {
+	test("borrar en un curso publicado se lleva la evaluación", async () => {
+		const { service, log } = createHarness();
+
+		const result = await service.remove(COURSE_DOC, EVALUATION_DOC, HEAD);
+
+		expect(result.success).toBe(true);
+		expect(log.removed).toEqual([7]);
+	});
+
+	test("quien solo imparte no renombra ni borra", async () => {
+		const { service, log } = createHarness();
+
+		const updated = await service.update(
+			COURSE_DOC,
+			EVALUATION_DOC,
+			{ title: "Práctica 1", sessionDocumentId: null },
+			TRAINER,
+		);
+		const removed = await service.remove(COURSE_DOC, EVALUATION_DOC, TRAINER);
+
+		for (const result of [updated, removed]) {
+			expect(result).toMatchObject({
+				success: false,
+				error: { code: EVALUATION_ERROR_CODES.COURSE_NOT_FOUND },
+			});
+		}
+		expect(log.updated).toEqual([]);
+		expect(log.removed).toEqual([]);
+	});
+
+	test("en un curso finalizado ya no se borra", async () => {
 		const { service, log } = createHarness({ status: "FINISHED" });
 
-		const rejected = await service.remove(COURSE_DOC, EVALUATION_DOC, TRAINER);
-		const accepted = await service.remove(COURSE_DOC, EVALUATION_DOC, HEAD);
+		const result = await service.remove(COURSE_DOC, EVALUATION_DOC, HEAD);
 
-		expect(rejected).toMatchObject({
+		expect(result).toMatchObject({
 			success: false,
 			error: { code: EVALUATION_ERROR_CODES.FORBIDDEN },
 		});
-		expect(accepted.success).toBe(true);
-		expect(log.removed).toEqual([7]);
+		expect(log.removed).toEqual([]);
+	});
+});
+
+describe("findDefinitions", () => {
+	test("devuelve las evaluaciones del curso para editarlo", async () => {
+		const { service } = createHarness({
+			status: "DRAFT",
+			board: [
+				{
+					documentId: EVALUATION_DOC,
+					title: "Práctica de campo",
+					session: null,
+					results: [],
+				} as unknown as EvaluationRaw,
+			],
+		});
+
+		const result = await service.findDefinitions(COURSE_DOC, CREATOR);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: [{ documentId: EVALUATION_DOC, title: "Práctica de campo" }],
+		});
+	});
+
+	test("quien solo imparte no las ve para editar", async () => {
+		const { service } = createHarness();
+
+		const result = await service.findDefinitions(COURSE_DOC, TRAINER);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: EVALUATION_ERROR_CODES.COURSE_NOT_FOUND },
+		});
 	});
 });
 

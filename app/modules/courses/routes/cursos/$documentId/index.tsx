@@ -62,7 +62,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 	// habilita: separarlos dejaba el botón apagado sin decir por qué.
 	const actions = can.edit && (
 		<Button asChild variant="outline">
-			<Link to={`/dashboard/cursos/${course.documentId}/editar`}>
+			<Link to={`/dashboard/cursos/${course.documentId}/editar/1`}>
 				<Pencil aria-hidden="true" />
 				Editar
 			</Link>

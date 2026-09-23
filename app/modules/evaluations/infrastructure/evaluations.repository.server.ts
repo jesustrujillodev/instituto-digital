@@ -1,15 +1,17 @@
 import type { Prisma } from "@prisma/client";
-import type { TeachingCourseWhere } from "@/modules/teaching/domain/teaching.access";
 import type { ICradle } from "@/shared/di/container.types";
 import type { EvaluationRaw } from "../domain/evaluation.mapper";
-import type { IEvaluationRepository } from "../domain/evaluation.repository";
+import type {
+	EvaluationCourseWhere,
+	IEvaluationRepository,
+} from "../domain/evaluation.repository";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
 };
 
 /** El filtro de dominio usa arreglos `readonly`, que Prisma no acepta tal cual. */
-const asCourseWhere = (where: TeachingCourseWhere) =>
+const asCourseWhere = (where: EvaluationCourseWhere) =>
 	where as unknown as Prisma.CourseWhereInput;
 
 const EVALUATION_SELECT = {

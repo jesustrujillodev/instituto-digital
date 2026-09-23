@@ -1,4 +1,8 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import {
+	administersCourse,
+	resolveCourseScope,
+} from "@/modules/courses/domain/course.access";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -111,7 +115,14 @@ export const createTeachingService = ({
 				const scope = requireScope(actor);
 				const course = await requireCourse(documentId, scope);
 
-				return ok(toTeachingDetail(course, scope, clock.now()));
+				return ok(
+					toTeachingDetail(
+						course,
+						scope,
+						clock.now(),
+						administersCourse(resolveCourseScope(actor), course),
+					),
+				);
 			});
 		},
 

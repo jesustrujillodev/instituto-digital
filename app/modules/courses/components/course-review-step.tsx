@@ -35,6 +35,7 @@ interface CourseReviewStepProps {
 	checklist: PublishChecklist;
 	/** El temario, solo cuando el curso lo pide. */
 	content: ContentSummary | null;
+	evaluationTitles: readonly string[];
 }
 
 /** Último paso: lo capturado, lo que falta y la puerta a publicar. */
@@ -42,6 +43,7 @@ export function CourseReviewStep({
 	course,
 	checklist,
 	content,
+	evaluationTitles,
 }: CourseReviewStepProps) {
 	const { documentId } = course;
 	const scheduled = requiresSessions(course.format);
@@ -76,7 +78,7 @@ export function CourseReviewStep({
 								Organiza {course.dependencyName}
 							</p>
 							{course.description ? (
-								<p className="mt-2 max-w-prose whitespace-pre-line text-sm leading-relaxed">
+								<p className="mt-2 whitespace-pre-line text-sm leading-relaxed">
 									{course.description}
 								</p>
 							) : (
@@ -101,82 +103,19 @@ export function CourseReviewStep({
 						)
 					}
 				>
-					{scheduled ? (
-						<CourseProgram
-							sessions={course.sessions}
-							modality={course.modality}
-						/>
-					) : (
-						<p className="text-muted-foreground text-sm">
-							Sin sesiones: quien se inscribe recorre el curso a su ritmo.
-						</p>
-					)}
-				</ReviewBlock>
-
-				<ReviewBlock
-					documentId={documentId}
-					step={ACCESS.number}
-					title={ACCESS.title}
-					aside={<CourseAccessBadge access={course.access} />}
-				>
 					<div className="flex flex-col gap-5">
 						<CourseTrainers trainers={course.trainers} />
-						<CourseAudience access={course.access} audience={course.audience} />
-						<ReviewFacts
-							facts={[
-								{
-									term: "Cupo",
-									value:
-										course.capacity === null
-											? "Sin límite"
-											: `${course.capacity} lugares`,
-								},
-								{
-									term: "Cierre de inscripción",
-									value: course.enrollmentDeadline
-										? formatZonedDate(new Date(course.enrollmentDeadline))
-										: "Al iniciar la primera sesión",
-								},
-							]}
-						/>
+						{scheduled ? (
+							<CourseProgram
+								sessions={course.sessions}
+								modality={course.modality}
+							/>
+						) : (
+							<p className="text-muted-foreground text-sm">
+								Sin sesiones: quien se inscribe recorre el curso a su ritmo.
+							</p>
+						)}
 					</div>
-				</ReviewBlock>
-
-				<ReviewBlock
-					documentId={documentId}
-					step={RULES.number}
-					title={RULES.title}
-				>
-					<ReviewFacts
-						facts={[
-							{
-								term: "Se completa con",
-								value: COMPLETION_RULE_LABELS[course.completionRule],
-							},
-							...(countsAttendance(course.completionRule)
-								? [
-										{
-											term: "Asistencia mínima",
-											value: `${course.minAttendance} %`,
-										},
-									]
-								: []),
-							{
-								term: "Evaluación",
-								value: course.requiresEvaluation
-									? "Aprobado / no aprobado"
-									: "Sin evaluación",
-							},
-							...(scheduled
-								? [
-										{
-											term: "Ventana del QR",
-											value: `Se activa ${course.qrOpensBeforeMinutes} min antes y se cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,
-										},
-									]
-								: []),
-						]}
-					/>
 				</ReviewBlock>
 
 				{content ? (
@@ -202,6 +141,78 @@ export function CourseReviewStep({
 						)}
 					</ReviewBlock>
 				) : null}
+				<ReviewBlock
+					documentId={documentId}
+					step={RULES.number}
+					title={RULES.title}
+				>
+					<ReviewFacts
+						facts={[
+							{
+								term: "Se completa con",
+								value: COMPLETION_RULE_LABELS[course.completionRule],
+							},
+							...(countsAttendance(course.completionRule)
+								? [
+										{
+											term: "Asistencia mínima",
+											value: `${course.minAttendance} %`,
+										},
+									]
+								: []),
+							{
+								term: "Evaluación",
+								value: course.requiresEvaluation
+									? "Aprobado / no aprobado"
+									: "Sin evaluación",
+							},
+							...(course.requiresEvaluation && evaluationTitles.length > 0
+								? [
+										{
+											term: "Evaluaciones de seguimiento",
+											value: evaluationTitles.join(", "),
+										},
+									]
+								: []),
+							...(scheduled
+								? [
+										{
+											term: "Ventana del QR",
+											value: `Se activa ${course.qrOpensBeforeMinutes} min antes y se cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,
+										},
+									]
+								: []),
+						]}
+					/>
+				</ReviewBlock>
+
+				<ReviewBlock
+					documentId={documentId}
+					step={ACCESS.number}
+					title={ACCESS.title}
+					aside={<CourseAccessBadge access={course.access} />}
+				>
+					<div className="flex flex-col gap-5">
+						<CourseAudience access={course.access} audience={course.audience} />
+						<ReviewFacts
+							facts={[
+								{
+									term: "Cupo",
+									value:
+										course.capacity === null
+											? "Sin límite"
+											: `${course.capacity} lugares`,
+								},
+								{
+									term: "Cierre de inscripción",
+									value: course.enrollmentDeadline
+										? formatZonedDate(new Date(course.enrollmentDeadline))
+										: "Al iniciar la primera sesión",
+								},
+							]}
+						/>
+					</div>
+				</ReviewBlock>
 			</div>
 		</div>
 	);

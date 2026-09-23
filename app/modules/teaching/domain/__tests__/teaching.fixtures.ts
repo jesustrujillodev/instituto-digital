@@ -58,6 +58,7 @@ export const courseOf = (
 	documentId: COURSE_DOC,
 	title: "Seguridad en obra",
 	dependencyId: 3,
+	createdById: 2,
 	dependencyName: "Obras Públicas",
 	modality: "HYBRID",
 	format: "SCHEDULED",

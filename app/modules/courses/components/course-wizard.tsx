@@ -1,5 +1,5 @@
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, type Resolver, useForm } from "react-hook-form";
 import { Link, useFetcher, useNavigate } from "react-router";
 import { sileo } from "sileo";
@@ -14,13 +14,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { AppResponse } from "@/shared/response/response.types";
-import {
-	type CourseFormat,
-	type CourseModality,
-	requiresLink,
-	requiresSessions,
-	requiresVenue,
-} from "../domain/course.rules";
+import { requiresContent } from "../domain/course.rules";
 import type { CourseDetail, CourseFormOptions } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import {
@@ -36,9 +30,11 @@ import {
 import {
 	type CourseStep,
 	type CourseStepKey,
+	type CourseWizardMode,
 	nextStep,
 	type PublishChecklist,
 	previousStep,
+	stepOfKey,
 	stepPath,
 	stepPosition,
 	stepsFor,
@@ -52,17 +48,14 @@ import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/parse-course-form-data";
-import {
-	CourseRulesFields,
-	RULES_DESCRIPTION,
-} from "./course-attendance-section";
+import { CourseEnrollmentFields } from "./course-enrollment-fields";
+import { CourseEvaluationFields } from "./course-evaluation-fields";
 import {
 	type CourseCoverControl,
-	CourseGeneralFields,
-} from "./course-general-section";
-import { CourseAccessFields } from "./course-people-section";
+	CourseIdentityFields,
+} from "./course-identity-fields";
+import { CourseProgramFields } from "./course-program-fields";
 import { CourseReviewStep } from "./course-review-step";
-import { CourseProgramFields } from "./course-sessions-manager";
 import { CourseWizardFooter } from "./course-wizard-footer";
 import { CourseWizardStepper } from "./course-wizard-stepper";
 
@@ -70,31 +63,20 @@ const LIST_PATH = "/dashboard/cursos";
 
 const NO_PENDING: ReadonlySet<CourseStepKey> = new Set();
 
-const placeOf = (modality: CourseModality) =>
-	requiresVenue(modality) && requiresLink(modality)
-		? "sede y enlace"
-		: requiresVenue(modality)
-			? "sede"
-			: "enlace";
-
-const describeStep = (
-	step: CourseStep,
-	modality: CourseModality,
-	format: CourseFormat,
-): string => {
+const describeStep = (step: CourseStep, mode: CourseWizardMode): string => {
 	switch (step.key) {
 		case "identity":
-			return "Es lo que el personal lee en el catálogo. Con el título basta para guardar el borrador.";
+			return mode === "create"
+				? "Es lo que el personal lee en el catálogo. Con el título basta para guardar el borrador."
+				: "Es lo que el personal lee en el catálogo.";
 		case "program":
-			return requiresSessions(format)
-				? `Horario de Tijuana. Para publicar hace falta al menos una sesión, y cada una con ${placeOf(modality)}.`
-				: "Un curso autogestivo no se reúne: no hay sesiones que programar.";
-		case "access":
-			return "Quién imparte, quién puede verlo y cuántos lugares hay.";
-		case "rules":
-			return RULES_DESCRIPTION;
+			return "Quién lo imparte, cuándo y dónde.";
 		case "content":
 			return "Los módulos y las lecciones que se recorren. Cada cambio se guarda solo, sin salir del paso.";
+		case "rules":
+			return "Qué hace falta para completar el curso y obtener el crédito, y cómo se evalúa a quien lo toma.";
+		case "access":
+			return "Quién puede verlo e inscribirse, y cuántos lugares hay.";
 		case "review":
 			return "Repasa lo capturado. Al publicar, el curso aparece a su audiencia y puede recibir inscripciones.";
 	}
@@ -102,6 +84,8 @@ const describeStep = (
 
 interface CourseWizardProps {
 	step: CourseStep;
+	/** El alta de un borrador, o la edición de un curso publicado. */
+	mode?: CourseWizardMode;
 	options: CourseFormOptions;
 	/** `null` en el paso 1 del alta: el borrador todavía no existe. */
 	course?: CourseDetail | null;
@@ -110,12 +94,19 @@ interface CourseWizardProps {
 	content?: CourseContentTree | null;
 	prefill?: CoursePlanPrefill | null;
 	/** Aviso propio de la pantalla, sobre el índice (p. ej. la línea del plan). */
-	notice?: React.ReactNode;
+	notice?: ReactNode;
 	ids: CourseFormIds;
+	/** A dónde lleva salir de la edición. En el alta es siempre la ficha. */
+	exitTo?: string;
+	/** Query que viaja entre pasos, para no perder a dónde se vuelve. */
+	search?: string;
+	/** Las evaluaciones de seguimiento, ya pintadas, para el paso Evaluación. */
+	evaluations?: ReactNode;
+	evaluationTitles?: readonly string[];
 }
 
 /**
- * El alta de un curso, paso a paso.
+ * El alta y la edición de un curso, paso a paso.
  *
  * El borrador nace al salir del paso 1 y cada paso guarda al avanzar, así que
  * el servidor es la única fuente de verdad: al llegar datos nuevos, el
@@ -123,6 +114,7 @@ interface CourseWizardProps {
  */
 export function CourseWizard({
 	step,
+	mode = "create",
 	options,
 	course,
 	checklist,
@@ -130,12 +122,20 @@ export function CourseWizard({
 	prefill,
 	notice,
 	ids,
+	exitTo,
+	search = "",
+	evaluations,
+	evaluationTitles = [],
 }: CourseWizardProps) {
 	const navigate = useNavigate();
 	const isCreate = !course;
+	const isEdit = mode === "edit";
 	const isReview = step.key === "review";
 	const documentId = course?.documentId ?? null;
-	const detailPath = documentId ? `${LIST_PATH}/${documentId}` : LIST_PATH;
+	const exitPath =
+		exitTo ?? (documentId ? `${LIST_PATH}/${documentId}` : LIST_PATH);
+	const hrefOf = (number: number) =>
+		documentId ? `${stepPath(documentId, number, mode)}${search}` : null;
 
 	const fetcher = useFetcher<CourseCreateActionData | AppResponse<null>>();
 	const isSubmitting = fetcher.state !== "idle";
@@ -179,20 +179,23 @@ export function CourseWizard({
 	const headingRef = useRef<HTMLHeadingElement>(null);
 	// `watch` y no `useWatch`: el proveedor del formulario se monta más abajo en
 	// este mismo árbol, así que aquí todavía no hay contexto que consultar.
-	const modality = watch("modality");
 	const format = watch("format");
 	const completionRule = watch("completionRule");
-	const steps = stepsFor({ format, completionRule });
+	const steps = stepsFor({ format, completionRule }, mode);
 	const following = nextStep(steps, step);
 	const preceding = previousStep(steps, step);
 
 	// Datos nuevos del servidor mandan sobre lo que haya en pantalla: es lo que
 	// deja `isDirty` en falso tras cada guardado y libera el aviso de salida.
+	// Se compara el contenido y no el objeto: guardar una evaluación recarga la
+	// ruta con el mismo curso, y reiniciar ahí tiraría lo que está sin guardar.
+	const defaultsKey = JSON.stringify(defaultValues);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: defaultsKey resume a defaultValues.
 	useEffect(() => {
 		reset(defaultValues);
 		setCover(null);
 		setCoverRemoved(false);
-	}, [reset, defaultValues]);
+	}, [reset, defaultsKey]);
 
 	useEffect(() => {
 		headingRef.current?.focus({ preventScroll: true });
@@ -208,6 +211,23 @@ export function CourseWizard({
 		}
 	}, [fetcher.data, setError]);
 
+	/**
+	 * Tras guardar: la salida, o el paso siguiente. Si la regla recién elegida
+	 * pide un temario que el curso no tenía, el siguiente es Contenido aunque
+	 * quede atrás: sin él no se puede publicar.
+	 */
+	const destinationAfterSave = (): string => {
+		if (targetRef.current === "exit" || isReview || !following) return exitPath;
+
+		const contentBecameRequired =
+			step.key === "rules" &&
+			content === null &&
+			requiresContent({ format, completionRule });
+		const target = contentBecameRequired ? stepOfKey("content") : following;
+
+		return hrefOf(target.number) ?? exitPath;
+	};
+
 	useFetcherToast(fetcher, {
 		errorMessage: isCreate
 			? "No se pudo crear el curso"
@@ -222,11 +242,7 @@ export function CourseWizard({
 				return;
 			}
 
-			setLeavingTo(
-				targetRef.current === "exit" || isReview || !following
-					? detailPath
-					: stepPath(documentId as string, following.number),
-			);
+			setLeavingTo(destinationAfterSave());
 		},
 	});
 
@@ -257,11 +273,7 @@ export function CourseWizard({
 		// Un paso sin campos del curso no tiene nada que guardar aquí: el temario
 		// ya se persistió por su propio fetcher, lección a lección.
 		if (step.fields.length === 0 && documentId) {
-			setLeavingTo(
-				targetRef.current === "exit" || !following
-					? detailPath
-					: stepPath(documentId, following.number),
-			);
+			setLeavingTo(destinationAfterSave());
 			return;
 		}
 
@@ -327,10 +339,10 @@ export function CourseWizard({
 					title={course ? course.title : "Nuevo curso"}
 					description={
 						course
-							? `Borrador · Paso ${position} de ${total}`
+							? `${isEdit ? "Editando" : "Borrador"} · Paso ${position} de ${total}`
 							: "En cuanto continúes, el curso queda guardado como borrador."
 					}
-					goBack={detailPath}
+					goBack={exitPath}
 					collapseActionsOnMobile
 					actions={
 						course && !isReview ? (
@@ -354,7 +366,8 @@ export function CourseWizard({
 
 				<div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-6">
 					<CourseWizardStepper
-						documentId={documentId}
+						hrefOf={hrefOf}
+						tracksProgress={!isEdit}
 						steps={steps}
 						current={step.number}
 						pending={pending}
@@ -379,8 +392,8 @@ export function CourseWizard({
 										>
 											{step.title}
 										</h2>
-										<p className="max-w-prose text-muted-foreground text-sm">
-											{describeStep(step, modality, format)}
+										<p className="text-muted-foreground text-sm">
+											{describeStep(step, mode)}
 										</p>
 									</header>
 
@@ -389,8 +402,11 @@ export function CourseWizard({
 										ids={ids}
 										options={options}
 										course={course}
+										isPublished={course?.status === "PUBLISHED"}
 										checklist={checklist ?? []}
 										content={content ?? null}
+										evaluations={evaluations}
+										evaluationTitles={evaluationTitles}
 										cover={{
 											value: cover,
 											existingUrl: course?.coverImageUrl ?? null,
@@ -411,13 +427,11 @@ export function CourseWizard({
 
 						<CourseWizardFooter
 							formId={ids.form}
-							backTo={
-								documentId && preceding
-									? stepPath(documentId, preceding.number)
-									: null
-							}
+							backTo={preceding ? hrefOf(preceding.number) : null}
 							isSubmitting={isSubmitting}
-							isLastStep={isReview}
+							submitKind={
+								isReview ? "publish" : isEdit && !following ? "save" : "next"
+							}
 							canSubmit={!isReview || canPublish}
 						/>
 					</div>
@@ -432,22 +446,28 @@ function StepFields({
 	ids,
 	options,
 	course,
+	isPublished,
 	checklist,
 	content,
 	cover,
+	evaluations,
+	evaluationTitles,
 }: {
 	step: CourseStep;
 	ids: CourseFormIds;
 	options: CourseFormOptions;
 	course?: CourseDetail | null;
+	isPublished: boolean;
 	checklist: PublishChecklist;
 	content: CourseContentTree | null;
 	cover: CourseCoverControl;
+	evaluations?: ReactNode;
+	evaluationTitles: readonly string[];
 }) {
 	switch (step.key) {
 		case "identity":
 			return (
-				<CourseGeneralFields
+				<CourseIdentityFields
 					ids={ids}
 					organizers={
 						!course && options.canChooseOrganizer ? options.organizers : null
@@ -456,11 +476,13 @@ function StepFields({
 				/>
 			);
 		case "program":
-			return <CourseProgramFields ids={ids} isPublished={false} />;
-		case "access":
-			return <CourseAccessFields ids={ids} options={options} />;
-		case "rules":
-			return <CourseRulesFields ids={ids} />;
+			return (
+				<CourseProgramFields
+					ids={ids}
+					options={options}
+					isPublished={isPublished}
+				/>
+			);
 		case "content":
 			return course && content ? (
 				<CourseContentManager
@@ -468,12 +490,23 @@ function StepFields({
 					tree={content}
 				/>
 			) : null;
+		case "rules":
+			return (
+				<CourseEvaluationFields
+					ids={ids}
+					isPublished={isPublished}
+					evaluations={evaluations}
+				/>
+			);
+		case "access":
+			return <CourseEnrollmentFields ids={ids} options={options} />;
 		case "review":
 			return course ? (
 				<CourseReviewStep
 					course={course}
 					checklist={checklist}
 					content={content ? toContentSummary(content) : null}
+					evaluationTitles={evaluationTitles}
 				/>
 			) : null;
 	}

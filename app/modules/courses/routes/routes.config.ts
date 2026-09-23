@@ -16,7 +16,7 @@ export const coursesRoutes = [
 		"modules/courses/routes/cursos/$documentId/index.tsx",
 	),
 	route(
-		"cursos/:documentId/editar",
-		"modules/courses/routes/cursos/$documentId.editar/index.tsx",
+		"cursos/:documentId/editar/:paso?",
+		"modules/courses/routes/cursos/$documentId.editar.$paso/index.tsx",
 	),
 ] satisfies RouteConfigEntry[];

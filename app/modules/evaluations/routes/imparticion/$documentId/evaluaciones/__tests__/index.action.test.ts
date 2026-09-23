@@ -3,7 +3,6 @@ import {
 	ANA_DOC,
 	COURSE_DOC,
 	EVALUATION_DOC,
-	SESSION_DOC,
 } from "../../../../../domain/__tests__/evaluation.fixtures";
 import { EVALUATION_NOTE_MAX_LENGTH } from "../../../../../domain/evaluation.config";
 import { action } from "../index.action";
@@ -58,64 +57,7 @@ const run = (context: ActionArgs["context"], fields: Record<string, string>) =>
 		params: { documentId: COURSE_DOC },
 	} as unknown as ActionArgs);
 
-describe("evaluaciones action", () => {
-	test("crear pasa el título y la sesión al servicio", async () => {
-		const { context, calls } = createHarness(okReply(null));
-
-		const result = await run(context, {
-			intent: "create",
-			payload: JSON.stringify({
-				title: "Práctica de campo",
-				sessionDocumentId: SESSION_DOC,
-			}),
-		});
-
-		expect(result).toMatchObject({
-			success: true,
-			message: "Evaluación añadida.",
-		});
-		expect(calls[0].method).toBe("create");
-		expect(calls[0].args.slice(0, 2)).toEqual([
-			COURSE_DOC,
-			{ title: "Práctica de campo", sessionDocumentId: SESSION_DOC },
-		]);
-	});
-
-	test("actualizar separa el id de la evaluación del resto del dto", async () => {
-		const { context, calls } = createHarness(okReply(null));
-
-		await run(context, {
-			intent: "update",
-			payload: JSON.stringify({
-				evaluationDocumentId: EVALUATION_DOC,
-				title: "Práctica 1",
-				sessionDocumentId: null,
-			}),
-		});
-
-		expect(calls[0].method).toBe("update");
-		expect(calls[0].args.slice(0, 3)).toEqual([
-			COURSE_DOC,
-			EVALUATION_DOC,
-			{ title: "Práctica 1", sessionDocumentId: null },
-		]);
-	});
-
-	test("eliminar avisa de que se lleva lo capturado", async () => {
-		const { context, calls } = createHarness(okReply(null));
-
-		const result = await run(context, {
-			intent: "remove",
-			payload: JSON.stringify({ evaluationDocumentId: EVALUATION_DOC }),
-		});
-
-		expect(result).toMatchObject({
-			success: true,
-			message: "Evaluación eliminada, junto con lo capturado en ella.",
-		});
-		expect(calls[0].args.slice(0, 2)).toEqual([COURSE_DOC, EVALUATION_DOC]);
-	});
-
+describe("imparticion/evaluaciones action", () => {
 	test("guardar capturas cuenta los cambios en el mensaje", async () => {
 		const { context } = createHarness();
 
@@ -178,11 +120,27 @@ describe("evaluaciones action", () => {
 		const { context, calls } = createHarness();
 
 		const result = await run(context, {
-			intent: "create",
+			intent: "results",
 			payload: "{no es json",
 		});
 
 		expect(result.success).toBe(false);
+		expect(calls).toEqual([]);
+	});
+
+	// Al impartir solo se captura: la evaluación se define con el curso.
+	test("crear una evaluación ya no se acepta aquí", async () => {
+		const { context, calls } = createHarness(okReply(null));
+
+		const result = await run(context, {
+			intent: "create",
+			payload: JSON.stringify({ title: "Práctica de campo" }),
+		});
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { message: "Acción no reconocida." },
+		});
 		expect(calls).toEqual([]);
 	});
 

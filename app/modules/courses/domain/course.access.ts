@@ -165,6 +165,33 @@ export const courseScopeWriteWhere = (
 	}
 };
 
+/**
+ * ¿Este alcance administra el curso? Es `courseScopeWhere` evaluado en memoria,
+ * para quien ya tiene el curso en la mano por otro camino (la impartición).
+ */
+export const administersCourse = (
+	scope: CourseScope,
+	course: { dependencyId: number; createdById: number },
+): boolean => {
+	switch (scope.kind) {
+		case "global":
+			return true;
+		case "dependency":
+			return course.dependencyId === scope.dependencyId;
+		case "creator":
+			return (
+				course.dependencyId === scope.dependencyId &&
+				course.createdById === scope.userId
+			);
+		case "none":
+			return false;
+		default: {
+			const exhaustive: never = scope;
+			return exhaustive;
+		}
+	}
+};
+
 /** ¿Este alcance elige la dependencia organizadora, o la hereda? */
 export const canChooseOrganizer = (scope: CourseScope): boolean =>
 	scope.kind === "global";

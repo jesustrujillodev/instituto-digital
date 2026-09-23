@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { TextInput } from "@/shared/components/common/text-input";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -11,11 +11,7 @@ import {
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
-import { CourseFormSection } from "./course-form-section";
 import { CourseSelectField } from "./course-select-field";
-
-export const RULES_DESCRIPTION =
-	"Qué hace falta para completar el curso y obtener el crédito.";
 
 const RULE_OPTIONS = COURSE_COMPLETION_RULES.map((value) => ({
 	value,
@@ -30,13 +26,19 @@ const RULE_HINTS: Record<(typeof COURSE_COMPLETION_RULES)[number], string> = {
 	BOTH: "Completa quien alcanza la asistencia mínima, termina las lecciones obligatorias y, si hay evaluación, aprueba.",
 };
 
-/** Lo que decide si alguien completa el curso y obtiene su crédito. */
-export const CourseRulesFields = memo(function CourseRulesFields({
+/**
+ * Lo que decide si alguien completa el curso y obtiene su crédito, y cómo se le
+ * evalúa. Las evaluaciones de seguimiento se guardan por su cuenta y llegan ya
+ * pintadas desde su módulo.
+ */
+export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	ids,
 	isPublished = false,
+	evaluations,
 }: {
 	ids: CourseFormIds;
 	isPublished?: boolean;
+	evaluations?: ReactNode;
 }) {
 	const {
 		register,
@@ -47,6 +49,9 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 	const completionRule = useWatch<CourseFormValues, "completionRule">({
 		name: "completionRule",
 	});
+	const requiresEvaluation = useWatch<CourseFormValues, "requiresEvaluation">({
+		name: "requiresEvaluation",
+	});
 
 	const scheduled = requiresSessions(format);
 	const byAttendance = countsAttendance(completionRule);
@@ -56,7 +61,7 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 
 	return (
 		<>
-			<div className="sm:max-w-xs">
+			<div className="grid items-start gap-4 sm:grid-cols-2">
 				<CourseSelectField
 					id={ids.completionRule}
 					name="completionRule"
@@ -70,10 +75,7 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 					disabled={locked}
 					helperText={RULE_HINTS[completionRule]}
 				/>
-			</div>
-
-			{byAttendance && (
-				<div className="sm:max-w-xs">
+				{byAttendance && (
 					<TextInput
 						id={ids.minAttendance}
 						label="Asistencia mínima (%)"
@@ -85,48 +87,21 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 						error={errors.minAttendance?.message}
 						{...register("minAttendance")}
 					/>
-				</div>
-			)}
-
-			<Controller
-				control={control}
-				name="requiresEvaluation"
-				render={({ field }) => (
-					<div className="flex items-start gap-3">
-						<Checkbox
-							id={ids.requiresEvaluation}
-							checked={field.value}
-							disabled={locked}
-							onCheckedChange={(checked) => field.onChange(checked === true)}
-							onBlur={field.onBlur}
-							className="mt-0.5"
-						/>
-						<Label
-							htmlFor={ids.requiresEvaluation}
-							className="flex flex-col items-start gap-0.5 font-normal"
-						>
-							<span>Requiere evaluación</span>
-							<span className="text-muted-foreground text-xs">
-								{locked
-									? "El curso ya está publicado y otorga créditos: no se puede cambiar."
-									: "Quien imparte captura aprobado o no aprobado de cada participante."}
-							</span>
-						</Label>
-					</div>
 				)}
-			/>
+			</div>
 
 			{scheduled && (
 				<fieldset className="flex flex-col gap-3">
 					<legend className="mb-1 font-medium text-sm">
 						Ventana del código QR
 					</legend>
-					<p className="max-w-prose text-muted-foreground text-sm">
-						Quien llega a una sesión escanea su QR para registrarse. Decide
-						cuánto antes se activa y cuánto después deja de aceptar registros.
+					<p className="text-muted-foreground text-sm">
+						Quien llega a una sesión escanea su QR para registrar su asistencia.
+						Decide cuánto antes se activa y cuánto después deja de aceptar
+						registros.
 					</p>
 
-					<div className="grid items-start gap-4 sm:max-w-md sm:grid-cols-2">
+					<div className="grid items-start gap-4 sm:grid-cols-2">
 						<TextInput
 							id={ids.qrOpensBeforeMinutes}
 							label="Se activa (minutos antes)"
@@ -148,20 +123,38 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 					</div>
 				</fieldset>
 			)}
+
+			<div className="flex flex-col gap-4 border-border border-t pt-6">
+				<Controller
+					control={control}
+					name="requiresEvaluation"
+					render={({ field }) => (
+						<div className="flex items-start gap-3">
+							<Checkbox
+								id={ids.requiresEvaluation}
+								checked={field.value}
+								disabled={locked}
+								onCheckedChange={(checked) => field.onChange(checked === true)}
+								onBlur={field.onBlur}
+								className="mt-0.5"
+							/>
+							<Label
+								htmlFor={ids.requiresEvaluation}
+								className="flex flex-col items-start gap-0.5 font-normal"
+							>
+								<span>Requiere evaluación</span>
+								<span className="text-muted-foreground text-xs">
+									{locked
+										? "El curso ya está publicado y otorga créditos: no se puede cambiar."
+										: "Quien imparte captura aprobado o no aprobado de cada participante."}
+								</span>
+							</Label>
+						</div>
+					)}
+				/>
+
+				{requiresEvaluation && evaluations}
+			</div>
 		</>
 	);
 });
-
-export function CourseAttendanceSection({
-	ids,
-	isPublished,
-}: {
-	ids: CourseFormIds;
-	isPublished: boolean;
-}) {
-	return (
-		<CourseFormSection section="attendance" description={RULES_DESCRIPTION}>
-			<CourseRulesFields ids={ids} isPublished={isPublished} />
-		</CourseFormSection>
-	);
-}

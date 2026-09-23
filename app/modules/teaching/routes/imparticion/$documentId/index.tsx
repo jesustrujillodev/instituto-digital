@@ -1,9 +1,9 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { DoorClosed, DoorOpen, Flag } from "lucide-react";
+import { DoorClosed, DoorOpen, Flag, Pencil } from "lucide-react";
 import { useState } from "react";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
@@ -18,6 +18,12 @@ import {
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
 import { COMPLETION_RULE_LABELS } from "@/modules/courses/utils/course-labels";
+import {
+	RETURN_PARAM,
+	RETURN_TO_TEACHING,
+	stepOfKey,
+	stepPath,
+} from "@/modules/courses/utils/course-wizard-steps";
 import {
 	ENROLLMENT_RESULT_LABELS,
 	personNameOf,
@@ -277,12 +283,26 @@ export default function ImparticionDetallePage({
 	const scheduled = requiresSessions(course.format);
 	const withContent = requiresContent(course);
 
+	// Editar vuelve aquí al terminar: se entra y se sale desde la impartición.
+	const editHref = (step: number) =>
+		`${stepPath(course.documentId, step, "edit")}?${RETURN_PARAM}=${RETURN_TO_TEACHING}`;
+
 	return (
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
 				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? ", con evaluación" : ""}.`}
 				goBack="/dashboard/imparticion"
+				actions={
+					detail.can.editCourse ? (
+						<Button variant="outline" asChild>
+							<Link to={editHref(1)}>
+								<Pencil aria-hidden="true" />
+								Editar curso
+							</Link>
+						</Button>
+					) : undefined
+				}
 			/>
 
 			<div className="flex flex-wrap gap-2">
@@ -347,6 +367,11 @@ export default function ImparticionDetallePage({
 							board={evaluations}
 							sessions={detail.sessions}
 							participants={detail.participants}
+							defineHref={
+								detail.can.editCourse
+									? editHref(stepOfKey("rules").number)
+									: null
+							}
 						/>
 					</TabsContent>
 				)}

@@ -1,6 +1,7 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
 	EvaluationBoardResponse,
+	EvaluationDefinitionsResponse,
 	EvaluationMutationResponse,
 	EvaluationSaveResultsResponse,
 	SaveEvaluationDto,
@@ -13,6 +14,11 @@ export interface IEvaluationService {
 		courseDocumentId: string,
 		actor: AuthContext,
 	): Promise<EvaluationBoardResponse>;
+	/** Las evaluaciones del curso para definirlas al crearlo o editarlo. */
+	findDefinitions(
+		courseDocumentId: string,
+		actor: AuthContext,
+	): Promise<EvaluationDefinitionsResponse>;
 	create(
 		courseDocumentId: string,
 		dto: SaveEvaluationDto,

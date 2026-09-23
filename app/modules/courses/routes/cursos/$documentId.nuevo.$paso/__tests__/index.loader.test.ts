@@ -48,7 +48,7 @@ const createHarness = (
 		lessons?: boolean;
 	} = {},
 ) => {
-	const calls = { trees: 0 };
+	const calls = { trees: 0, evaluations: 0 };
 
 	const context = {
 		authPayload: authPayloadOf(options),
@@ -56,6 +56,20 @@ const createHarness = (
 			findTree: async () => {
 				calls.trees += 1;
 				return okReply(options.lessons === false ? [] : [moduleOf()]);
+			},
+		},
+		evaluationService: {
+			findDefinitions: async () => {
+				calls.evaluations += 1;
+				return okReply([
+					{
+						documentId: "44444444-4444-4444-8444-444444444444",
+						title: "Examen parcial",
+						sessionDocumentId: null,
+						captures: {},
+						recorded: 0,
+					},
+				]);
 			},
 		},
 		courseService: {
@@ -116,11 +130,11 @@ describe("cursos/alta loader", () => {
 		);
 	});
 
-	// El 5 existe, pero un curso con sesiones no lo recorre: va a lo que falta.
+	// El 3 existe, pero un curso con sesiones no lo recorre: va a lo que falta.
 	test("el paso de contenido no es alcanzable en un calendarizado", async () => {
 		const { context, calls } = createHarness();
 
-		const thrown = await run(context, { paso: "5" }).catch((e) => e);
+		const thrown = await run(context, { paso: "3" }).catch((e) => e);
 
 		expect(thrown).toBeInstanceOf(Response);
 		expect(thrown.headers.get("Location")).toBe(
@@ -132,9 +146,9 @@ describe("cursos/alta loader", () => {
 	test("un autogestivo abre el paso de contenido con su temario", async () => {
 		const { context, calls } = createHarness({ format: "SELF_PACED" });
 
-		const { data } = await run(context, { paso: "5" });
+		const { data } = await run(context, { paso: "3" });
 
-		expect(data.stepNumber).toBe(5);
+		expect(data.stepNumber).toBe(3);
 		expect(data.content).toHaveLength(1);
 		expect(calls.trees).toBe(1);
 		expect(data.checklist).toContainEqual({ check: "content", done: true });
@@ -146,21 +160,41 @@ describe("cursos/alta loader", () => {
 			lessons: false,
 		});
 
-		const { data } = await run(context, { paso: "5" });
+		const { data } = await run(context, { paso: "3" });
 
 		expect(data.checklist).toContainEqual({ check: "content", done: false });
 	});
 
-	// El alta es para capturar de cero. Un curso que ya salió de borrador se
-	// corrige por campo, no recorriendo pasos.
-	test("un publicado lleva a su formulario de edición", async () => {
+	// El alta es para capturar de cero: un curso que ya salió de borrador se
+	// recorre en la edición, que no tiene revisión ni publica.
+	test("un publicado lleva al primer paso de su edición", async () => {
 		const { context } = createHarness({ status: "PUBLISHED" });
 
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/editar`,
+			`/dashboard/cursos/${COURSE_ID}/editar/1`,
 		);
+	});
+
+	test("el paso de evaluación trae las evaluaciones de seguimiento", async () => {
+		const { context, calls } = createHarness();
+
+		const { data } = await run(context, { paso: "4" });
+
+		expect(data.evaluations).toEqual([
+			expect.objectContaining({ title: "Examen parcial" }),
+		]);
+		expect(calls.evaluations).toBe(1);
+	});
+
+	test("los pasos que no las muestran no leen evaluaciones", async () => {
+		const { context, calls } = createHarness();
+
+		const { data } = await run(context, { paso: "2" });
+
+		expect(data.evaluations).toEqual([]);
+		expect(calls.evaluations).toBe(0);
 	});
 
 	test("un cancelado lleva a su ficha, que es lo único que le queda", async () => {

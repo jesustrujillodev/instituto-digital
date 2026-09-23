@@ -266,8 +266,38 @@ ella el gestor de nube marcaría toda portada como huérfana y la borraría.
 ## 8. El formulario
 
 Nivel 3 de la [guía de formularios](../guia-formularios-react-router-rhf.md):
-`FormProvider`, una sección por bloque, `useFieldArray` para las sesiones y
-`useWatch` acotado a la sección que depende del acceso o la modalidad.
+`FormProvider`, un paso por bloque, `useFieldArray` para las sesiones y
+`useWatch` acotado a los campos que dependen del acceso o la modalidad.
+
+Alta y edición usan **el mismo wizard** (`CourseWizard`), con los pasos en el
+orden en que se llena un curso (`utils/course-wizard-steps.ts`):
+
+| # | Paso | Qué captura |
+| --- | --- | --- |
+| 1 | Identidad | Dependencia (solo superadmin), título, descripción, portada |
+| 2 | Programa | Formato, modalidad, capacitadores, sesiones |
+| 3 | Contenido | Módulos y lecciones; solo si `requiresContent` |
+| 4 | Evaluación | Se completa con, asistencia mínima, ventana del QR, "Requiere evaluación" y las evaluaciones de seguimiento |
+| 5 | Inscripción | Acceso, audiencia, cupo, fecha límite |
+| 6 | Revisión | Pendientes y publicar; solo en el alta |
+
+- **El estado decide el modo.** Un borrador va por `/cursos/:id/nuevo/:paso`
+  (alta, con revisión y publicar); un publicado por `/cursos/:id/editar/:paso?`
+  (edición, sin revisión: el último paso guarda y sale). La URL del otro modo
+  redirige a la correcta, y un finalizado o cancelado va a su ficha. Loader y
+  action son comunes: `routes/course-wizard.server.ts`.
+- **El número de paso es la URL, la posición es lo que se ve.** Un calendarizado
+  sin temario salta del 2 al 4 y lee "Paso 3 de 5" en Evaluación.
+- **Elegir una regla que pide temario lleva a Contenido.** Si al guardar
+  Evaluación el curso pasa a necesitar lecciones que no tenía, el siguiente paso
+  es Contenido aunque esté antes.
+- **A dónde se vuelve.** `?volver=imparticion` hace que salir o terminar la
+  edición regrese a la ficha de impartición; cualquier otro valor lleva a la
+  ficha del curso (`editReturnPath`), nunca a una dirección arbitraria.
+- **Las evaluaciones de seguimiento se guardan solas**, por su propio `fetcher`
+  contra el módulo de evaluaciones. Su recarga trae el mismo curso, así que el
+  wizard solo reinicia el formulario cuando cambian los valores, no el objeto:
+  lo capturado sin guardar en el paso no se pierde.
 
 - **Un solo contrato.** `utils/build-course-payload.ts` traduce los valores del
   formulario (todo texto) a la entrada de la regla de dominio, y

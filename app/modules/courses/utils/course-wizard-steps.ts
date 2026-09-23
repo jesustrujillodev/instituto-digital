@@ -26,10 +26,8 @@ export interface CourseStep {
 }
 
 /**
- * Los pasos del alta.
- *
- * Acceso va antes que Reglas porque Reglas es el único paso con valores por
- * defecto sanos: es el más salteable y por eso queda pegado a la revisión.
+ * Los pasos del alta, en el orden en que se llena un curso: qué es, cuándo y
+ * con quién se imparte, qué se recorre, cómo se completa y quién puede entrar.
  */
 export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 	{
@@ -43,44 +41,43 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		key: "program",
 		number: 2,
 		title: "Programa",
-		summary: "Cuándo y dónde se imparte",
-		fields: ["format", "modality", "sessions"],
+		summary: "Quién lo imparte, cuándo y dónde",
+		fields: ["format", "modality", "trainers", "sessions"],
+	},
+	{
+		key: "content",
+		number: 3,
+		title: "Contenido",
+		summary: "El temario que se recorre",
+		// Vacío a propósito: el temario NO viaja en el payload del curso. Se
+		// guarda solo, por intents, contra la ruta del módulo de contenido.
+		fields: [],
+	},
+	{
+		key: "rules",
+		number: 4,
+		title: "Evaluación",
+		summary: "Cómo se completa y se evalúa",
+		fields: [
+			"completionRule",
+			"minAttendance",
+			"qrOpensBeforeMinutes",
+			"qrClosesAfterMinutes",
+			"requiresEvaluation",
+		],
 	},
 	{
 		key: "access",
-		number: 3,
-		title: "Acceso",
-		summary: "Quién imparte y quién puede entrar",
+		number: 5,
+		title: "Inscripción",
+		summary: "Quién puede entrar y cuántos lugares hay",
 		fields: [
-			"trainers",
 			"access",
 			"audienceDependencies",
 			"audienceGroups",
 			"capacity",
 			"enrollmentDeadline",
 		],
-	},
-	{
-		key: "rules",
-		number: 4,
-		title: "Reglas",
-		summary: "Qué hace falta para completarlo",
-		fields: [
-			"completionRule",
-			"minAttendance",
-			"requiresEvaluation",
-			"qrOpensBeforeMinutes",
-			"qrClosesAfterMinutes",
-		],
-	},
-	{
-		key: "content",
-		number: 5,
-		title: "Contenido",
-		summary: "El temario que se recorre",
-		// Vacío a propósito: el temario NO viaja en el payload del curso. Se
-		// guarda solo, por intents, contra la ruta del módulo de contenido.
-		fields: [],
 	},
 	{
 		key: "review",
@@ -107,16 +104,27 @@ export interface CourseStepShape {
 }
 
 /**
+ * Alta de un borrador, o edición de un curso ya publicado: la edición recorre
+ * los mismos pasos, pero no tiene revisión porque no publica.
+ */
+export type CourseWizardMode = "create" | "edit";
+
+/**
  * Los pasos que ESTE curso recorre.
  *
- * Los números no se recalculan: el 5 es Contenido para todo el mundo y un curso
- * sin temario salta del 4 al 6. Así ninguna URL guardada cambia de destino al
+ * Los números no se recalculan: el 3 es Contenido para todo el mundo y un curso
+ * sin temario salta del 2 al 4. Así ninguna URL guardada cambia de destino al
  * cambiar el formato o la regla, y `parseStepNumber` sigue siendo función de la
  * URL sola.
  */
-export const stepsFor = (course: CourseStepShape): readonly CourseStep[] =>
+export const stepsFor = (
+	course: CourseStepShape,
+	mode: CourseWizardMode = "create",
+): readonly CourseStep[] =>
 	COURSE_WIZARD_STEPS.filter(
-		(step) => step.key !== "content" || requiresContent(course),
+		(step) =>
+			(step.key !== "content" || requiresContent(course)) &&
+			(step.key !== "review" || mode === "create"),
 	);
 
 /** Posición visible del paso: lo que el índice numera y la barra mide. */
@@ -148,7 +156,7 @@ export const previousStep = (
 const STEP_OF_CHECK: Record<PublishCheck, CourseStepKey> = {
 	sessions: "program",
 	places: "program",
-	trainer: "access",
+	trainer: "program",
 	audience: "access",
 	content: "content",
 };
@@ -161,7 +169,7 @@ export type PublishChecklist = readonly {
 export const stepOfCheck = (check: PublishCheck): CourseStepKey =>
 	STEP_OF_CHECK[check];
 
-/** Pasos con algo pendiente. Identidad y Reglas nunca lo están. */
+/** Pasos con algo pendiente. Identidad y Evaluación nunca lo están. */
 export const stepsWithPending = (
 	checklist: PublishChecklist,
 ): Set<CourseStepKey> =>
@@ -196,8 +204,21 @@ export const parseStepNumber = (raw: string | undefined): CourseStep | null => {
 	return stepOfNumber(number);
 };
 
-export const stepPath = (documentId: string, step: number) =>
-	`/dashboard/cursos/${documentId}/nuevo/${step}`;
+export const stepPath = (
+	documentId: string,
+	step: number,
+	mode: CourseWizardMode = "create",
+) =>
+	`/dashboard/cursos/${documentId}/${mode === "create" ? "nuevo" : "editar"}/${step}`;
+
+/** A dónde vuelve la edición: la ficha, o la impartición si se entró desde ahí. */
+export const RETURN_PARAM = "volver";
+export const RETURN_TO_TEACHING = "imparticion";
+
+export const editReturnPath = (documentId: string, returnTo: string | null) =>
+	returnTo === RETURN_TO_TEACHING
+		? `/dashboard/imparticion/${documentId}`
+		: `/dashboard/cursos/${documentId}`;
 
 /** Pasos con al menos un campo marcado; un error anidado cuenta por su raíz. */
 export const stepsWithErrors = (

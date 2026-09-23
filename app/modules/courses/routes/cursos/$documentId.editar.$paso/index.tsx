@@ -3,11 +3,6 @@ export { loader } from "./index.loader";
 
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizardScreen } from "../../../components/course-wizard-screen";
-import {
-	stepOfNumber,
-	stepPosition,
-	stepsFor,
-} from "../../../utils/course-wizard-steps";
 import type { Route } from "./+types/index";
 
 const LIST_PATH = "/dashboard/cursos";
@@ -21,23 +16,17 @@ export const handle = {
 					path: `${LIST_PATH}/${loaderData.data.course.documentId}`,
 				}
 			: { label: "Curso" },
-		{ label: "Alta" },
+		{ label: "Editar" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta({ data }: Route.MetaArgs) {
-	const course = data?.data.course;
-	const step = course && stepOfNumber(data.data.stepNumber);
-
-	if (!course || !step) return [{ title: "Alta de curso" }];
-
-	const { position, total } = stepPosition(stepsFor(course), step);
-
-	return [{ title: `Paso ${position} de ${total} · ${course.title}` }];
+	const title = data?.data.course.title;
+	return [{ title: title ? `Editar · ${title}` : "Editar curso" }];
 }
 
-export default function CursoAltaPasoPage({
+export default function CursoEditarPasoPage({
 	loaderData,
 }: Route.ComponentProps) {
-	return <CourseWizardScreen mode="create" data={loaderData.data} />;
+	return <CourseWizardScreen mode="edit" data={loaderData.data} />;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	COURSE_WIZARD_STEPS,
+	editReturnPath,
 	firstPendingStep,
 	LAST_STEP_NUMBER,
 	nextStep,
@@ -42,8 +43,11 @@ describe("stepOfCheck", () => {
 		expect(stepOfCheck("places")).toBe("program");
 	});
 
-	test("capacitador y audiencia se resuelven en acceso", () => {
-		expect(stepOfCheck("trainer")).toBe("access");
+	test("el capacitador se resuelve en el programa, junto a las sesiones", () => {
+		expect(stepOfCheck("trainer")).toBe("program");
+	});
+
+	test("la audiencia se resuelve en la inscripción", () => {
 		expect(stepOfCheck("audience")).toBe("access");
 	});
 
@@ -59,9 +63,29 @@ const SCHEDULED = {
 const SELF_PACED = { format: "SELF_PACED", completionRule: "CONTENT" } as const;
 
 describe("stepsFor", () => {
-	test("un calendarizado salta del 4 al 6: no ve el contenido", () => {
+	test("un calendarizado salta del 2 al 4: no ve el contenido", () => {
 		expect(stepsFor(SCHEDULED).map((step) => step.number)).toEqual([
-			1, 2, 3, 4, 6,
+			1, 2, 4, 5, 6,
+		]);
+	});
+
+	test("el orden es el de llenado: qué, cuándo, cómo y quién entra", () => {
+		expect(COURSE_WIZARD_STEPS.map((step) => step.key)).toEqual([
+			"identity",
+			"program",
+			"content",
+			"rules",
+			"access",
+			"review",
+		]);
+	});
+
+	test("la edición recorre los mismos pasos, sin revisión", () => {
+		expect(stepsFor(SCHEDULED, "edit").map((step) => step.key)).toEqual([
+			"identity",
+			"program",
+			"rules",
+			"access",
 		]);
 	});
 
@@ -85,8 +109,8 @@ describe("stepsFor", () => {
 	test("el siguiente y el anterior saltan el paso que no aplica", () => {
 		const steps = stepsFor(SCHEDULED);
 
-		expect(nextStep(steps, stepOfKey("rules"))).toBe(stepOfKey("review"));
-		expect(previousStep(steps, stepOfKey("review"))).toBe(stepOfKey("rules"));
+		expect(nextStep(steps, stepOfKey("program"))).toBe(stepOfKey("rules"));
+		expect(previousStep(steps, stepOfKey("rules"))).toBe(stepOfKey("program"));
 		expect(nextStep(steps, stepOfKey("review"))).toBeNull();
 		expect(previousStep(steps, stepOfKey("identity"))).toBeNull();
 	});
@@ -99,11 +123,11 @@ describe("stepsFor", () => {
 		).toEqual([1, 2, 3, 4, 5, 6]);
 	});
 
-	test("en un autogestivo el contenido va entre reglas y revisión", () => {
+	test("en un autogestivo el contenido va entre programa y evaluación", () => {
 		const steps = stepsFor(SELF_PACED);
 
-		expect(nextStep(steps, stepOfKey("rules"))).toBe(stepOfKey("content"));
-		expect(nextStep(steps, stepOfKey("content"))).toBe(stepOfKey("review"));
+		expect(nextStep(steps, stepOfKey("program"))).toBe(stepOfKey("content"));
+		expect(nextStep(steps, stepOfKey("content"))).toBe(stepOfKey("rules"));
 	});
 });
 
@@ -135,19 +159,20 @@ describe("firstPendingStep", () => {
 				[
 					{ check: "sessions", done: true },
 					{ check: "places", done: true },
-					{ check: "trainer", done: false },
+					{ check: "trainer", done: true },
+					{ check: "audience", done: false },
 				],
 				SCHEDULED,
 			),
-		).toBe(3);
+		).toBe(5);
 	});
 
-	test("el programa gana al acceso aunque los dos falten", () => {
+	test("el programa gana a la inscripción aunque los dos falten", () => {
 		expect(
 			firstPendingStep(
 				[
+					{ check: "audience", done: false },
 					{ check: "trainer", done: false },
-					{ check: "sessions", done: false },
 				],
 				SCHEDULED,
 			),
@@ -175,7 +200,7 @@ describe("firstPendingStep", () => {
 
 describe("parseStepNumber", () => {
 	test("devuelve el paso que nombra el segmento", () => {
-		expect(parseStepNumber("3")).toMatchObject({ number: 3, key: "access" });
+		expect(parseStepNumber("5")).toMatchObject({ number: 5, key: "access" });
 	});
 
 	test.each(["0", "7", "dos", "", undefined, "1.5"])(
@@ -187,17 +212,40 @@ describe("parseStepNumber", () => {
 });
 
 describe("stepPath", () => {
-	test("apunta al paso del curso", () => {
+	test("apunta al paso del alta", () => {
 		expect(stepPath(COURSE_ID, 2)).toBe(
 			`/dashboard/cursos/${COURSE_ID}/nuevo/2`,
 		);
 	});
+
+	test("la edición tiene su propia ruta", () => {
+		expect(stepPath(COURSE_ID, 4, "edit")).toBe(
+			`/dashboard/cursos/${COURSE_ID}/editar/4`,
+		);
+	});
+});
+
+describe("editReturnPath", () => {
+	test("vuelve a la impartición si de ahí se entró", () => {
+		expect(editReturnPath(COURSE_ID, "imparticion")).toBe(
+			`/dashboard/imparticion/${COURSE_ID}`,
+		);
+	});
+
+	test.each([null, "https://otro.sitio", "/dashboard/usuarios"])(
+		"%s vuelve a la ficha, nunca a una dirección arbitraria",
+		(returnTo) => {
+			expect(editReturnPath(COURSE_ID, returnTo)).toBe(
+				`/dashboard/cursos/${COURSE_ID}`,
+			);
+		},
+	);
 });
 
 describe("stepsWithErrors", () => {
 	test("marca el paso de cada campo con error", () => {
-		expect(stepsWithErrors(["title", "minAttendance"])).toEqual(
-			new Set(["identity", "rules"]),
+		expect(stepsWithErrors(["title", "minAttendance", "trainers"])).toEqual(
+			new Set(["identity", "rules", "program"]),
 		);
 	});
 

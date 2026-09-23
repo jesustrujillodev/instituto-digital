@@ -1,8 +1,9 @@
-import type {
-	CourseCompletionRule,
-	CourseFormat,
-	CourseModality,
-	CourseStatus,
+import {
+	type CourseCompletionRule,
+	type CourseFormat,
+	type CourseModality,
+	type CourseStatus,
+	canEdit,
 } from "@/modules/courses/domain/course.rules";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import type { TeachingScope } from "./teaching.access";
@@ -31,6 +32,7 @@ export interface TeachingCourseRaw {
 	documentId: string;
 	title: string;
 	dependencyId: number;
+	createdById: number;
 	dependency: { name: string };
 	modality: CourseModality;
 	format: CourseFormat;
@@ -82,6 +84,7 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	documentId: raw.documentId,
 	title: raw.title,
 	dependencyId: raw.dependencyId,
+	createdById: raw.createdById,
 	dependencyName: raw.dependency.name,
 	modality: raw.modality,
 	format: raw.format,
@@ -147,11 +150,15 @@ export const toTeachingCourseSummary = (
 /**
  * La ficha de impartición. Sin ids internos: la pantalla trabaja con
  * `documentId`, igual que el resto del proyecto.
+ *
+ * `administers` dice si quien mira también administra el curso: impartir y
+ * administrar son alcances distintos, y solo el segundo lo edita.
  */
 export const toTeachingDetail = (
 	course: TeachingCourse,
 	scope: TeachingScope,
 	now: Date,
+	administers: boolean,
 ): TeachingDetail => {
 	const sessionCount = course.sessions.length;
 	const writable = canWrite(course, scope);
@@ -224,6 +231,7 @@ export const toTeachingDetail = (
 			finish: finishBlocker === null,
 			correct: course.status === "FINISHED" && writable,
 			toggleEnrollment: canToggleEnrollment(course),
+			editCourse: administers && canEdit(course.status),
 		},
 	};
 };

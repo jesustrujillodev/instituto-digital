@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Send } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "@/shared/components/ui/button";
 
@@ -7,8 +7,8 @@ interface CourseWizardFooterProps {
 	/** `null` en el primer paso: no hay atrás dentro del alta. */
 	backTo: string | null;
 	isSubmitting: boolean;
-	/** El último paso publica en vez de avanzar. */
-	isLastStep: boolean;
+	/** La revisión del alta publica; el último paso de la edición guarda y sale. */
+	submitKind: "next" | "publish" | "save";
 	/** Publicar exige que no quede nada pendiente. */
 	canSubmit?: boolean;
 }
@@ -23,7 +23,7 @@ export function CourseWizardFooter({
 	formId,
 	backTo,
 	isSubmitting,
-	isLastStep,
+	submitKind,
 	canSubmit = true,
 }: CourseWizardFooterProps) {
 	return (
@@ -46,10 +46,15 @@ export function CourseWizardFooter({
 				disabled={isSubmitting || !canSubmit}
 				className="flex-1 md:flex-none"
 			>
-				{isLastStep ? (
+				{submitKind === "publish" ? (
 					<>
 						<Send aria-hidden="true" />
 						{isSubmitting ? "Publicando…" : "Publicar curso"}
+					</>
+				) : submitKind === "save" ? (
+					<>
+						<Check aria-hidden="true" />
+						{isSubmitting ? "Guardando…" : "Guardar cambios"}
 					</>
 				) : (
 					<>

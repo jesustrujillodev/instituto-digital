@@ -7,7 +7,6 @@ import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { ACCESS_LABELS } from "../utils/course-labels";
 import { CourseChecklistField } from "./course-checklist-field";
-import { CourseFormSection } from "./course-form-section";
 import { CourseSelectField } from "./course-select-field";
 
 const ACCESS_OPTIONS = COURSE_ACCESS_TYPES.map((value) => ({
@@ -15,38 +14,26 @@ const ACCESS_OPTIONS = COURSE_ACCESS_TYPES.map((value) => ({
 	label: ACCESS_LABELS[value],
 }));
 
-interface CourseAccessFieldsProps {
+interface CourseEnrollmentFieldsProps {
 	ids: CourseFormIds;
 	options: CourseFormOptions;
 }
 
 /**
- * Quién imparte, quién puede inscribirse y en qué condiciones.
+ * Quién puede inscribirse y en qué condiciones.
  *
  * `useWatch` vive aquí y no en el orquestador: cambiar el acceso solo tiene que
  * volver a pintar estos campos, no el formulario entero.
  */
-export const CourseAccessFields = memo(function CourseAccessFields({
+export const CourseEnrollmentFields = memo(function CourseEnrollmentFields({
 	ids,
 	options,
-}: CourseAccessFieldsProps) {
+}: CourseEnrollmentFieldsProps) {
 	const {
 		register,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 	const access = useWatch<CourseFormValues, "access">({ name: "access" });
-
-	const trainerOptions = useMemo(
-		() =>
-			options.trainers.map((trainer) => ({
-				value: trainer.documentId,
-				label:
-					[trainer.firstName, trainer.lastName].filter(Boolean).join(" ") ||
-					trainer.email,
-				description: trainer.specialty,
-			})),
-		[options.trainers],
-	);
 
 	const dependencyOptions = useMemo(
 		() =>
@@ -69,26 +56,23 @@ export const CourseAccessFields = memo(function CourseAccessFields({
 
 	return (
 		<>
-			<CourseChecklistField
-				id={ids.trainers}
-				name="trainers"
-				legend="Capacitadores"
-				options={trainerOptions}
-				emptyText="No hay capacitadores activos en el catálogo."
-			/>
+			<div className="flex flex-col gap-4">
+				<CourseSelectField
+					id={ids.access}
+					name="access"
+					label="Acceso"
+					required
+					options={ACCESS_OPTIONS}
+					helperText={
+						access === "PUBLIC"
+							? "Cualquier persona interna podrá verlo una vez publicado."
+							: access === "INVITATION"
+								? "Solo lo verán las personas invitadas. Las invitaciones se envían después de publicarlo."
+								: "Solo lo verán las dependencias y los grupos que elijas."
+					}
+				/>
 
-			<div className="flex flex-col gap-3">
-				<div className="sm:max-w-xs">
-					<CourseSelectField
-						id={ids.access}
-						name="access"
-						label="Acceso"
-						required
-						options={ACCESS_OPTIONS}
-					/>
-				</div>
-
-				{access === "RESTRICTED" ? (
+				{access === "RESTRICTED" && (
 					<div id={ids.audience} className="grid gap-4 md:grid-cols-2">
 						<CourseChecklistField
 							id={`${ids.audience}-dependencies`}
@@ -105,12 +89,6 @@ export const CourseAccessFields = memo(function CourseAccessFields({
 							emptyText="No hay grupos activos a tu alcance."
 						/>
 					</div>
-				) : (
-					<p className="text-muted-foreground text-sm">
-						{access === "PUBLIC"
-							? "Cualquier persona interna podrá verlo una vez publicado."
-							: "Solo lo verán las personas invitadas. Las invitaciones se envían después de publicarlo."}
-					</p>
 				)}
 			</div>
 
@@ -136,14 +114,3 @@ export const CourseAccessFields = memo(function CourseAccessFields({
 		</>
 	);
 });
-
-export function CoursePeopleSection(props: CourseAccessFieldsProps) {
-	return (
-		<CourseFormSection
-			section="people"
-			description="Quién imparte, quién puede verlo y cuántos lugares hay."
-		>
-			<CourseAccessFields {...props} />
-		</CourseFormSection>
-	);
-}

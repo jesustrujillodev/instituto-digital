@@ -1,3 +1,4 @@
+import type { CourseScopeWhere } from "@/modules/courses/domain/course.access";
 import type { TeachingCourseWhere } from "@/modules/teaching/domain/teaching.access";
 import type { EvaluationRaw } from "./evaluation.mapper";
 import type {
@@ -7,18 +8,21 @@ import type {
 	EvaluationWrite,
 } from "./evaluation.types";
 
+/** Impartición para capturar; administración de cursos para definir. */
+export type EvaluationCourseWhere = TeachingCourseWhere | CourseScopeWhere;
+
 export interface IEvaluationRepository {
-	/** El curso si el alcance lo imparte u organiza; `null` si no. */
+	/** El curso si el alcance lo alcanza; `null` si no. */
 	findCourse(
 		courseDocumentId: string,
-		where: TeachingCourseWhere,
+		where: EvaluationCourseWhere,
 	): Promise<EvaluationCourse | null>;
 	findBoard(courseId: number): Promise<EvaluationRaw[]>;
 	/** `null` si la evaluacion no existe o no es de ese curso. */
 	findTarget(
 		courseDocumentId: string,
 		evaluationDocumentId: string,
-		where: TeachingCourseWhere,
+		where: EvaluationCourseWhere,
 	): Promise<EvaluationTarget | null>;
 	/** El id interno de la sesion si pertenece al curso. */
 	findSessionId(

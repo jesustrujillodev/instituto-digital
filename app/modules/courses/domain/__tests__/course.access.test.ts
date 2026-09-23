@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { Role } from "@/shared/rules/atoms.rules";
 import {
+	administersCourse,
 	type CourseScope,
 	canChooseOrganizer,
 	canManageCourses,
@@ -120,6 +121,26 @@ describe("courseScopeWhere", () => {
 
 		expect(where).toEqual({ id: { in: [] } });
 		expect(where).not.toEqual({});
+	});
+});
+
+describe("administersCourse", () => {
+	const course = { dependencyId: 7, createdById: 3 };
+
+	test.each<[string, CourseScope, boolean]>([
+		["global", { kind: "global" }, true],
+		["su dependencia", { kind: "dependency", dependencyId: 7 }, true],
+		["otra dependencia", { kind: "dependency", dependencyId: 8 }, false],
+		["su autor", { kind: "creator", dependencyId: 7, userId: 3 }, true],
+		["otro autor", { kind: "creator", dependencyId: 7, userId: 4 }, false],
+		[
+			"su autor desde otra unidad",
+			{ kind: "creator", dependencyId: 8, userId: 3 },
+			false,
+		],
+		["sin alcance", { kind: "none" }, false],
+	])("%s", (_label, scope, expected) => {
+		expect(administersCourse(scope, course)).toBe(expected);
 	});
 });
 

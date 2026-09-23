@@ -32,6 +32,7 @@ const courseSelect = (sessionFilter: Prisma.CourseSessionWhereInput) =>
 		documentId: true,
 		title: true,
 		dependencyId: true,
+		createdById: true,
 		dependency: { select: { name: true } },
 		modality: true,
 		format: true,

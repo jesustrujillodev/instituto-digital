@@ -63,6 +63,7 @@ export interface TeachingCourse {
 	documentId: string;
 	title: string;
 	dependencyId: number;
+	createdById: number;
 	dependencyName: string;
 	modality: CourseModality;
 	format: CourseFormat;
@@ -165,6 +166,8 @@ export interface TeachingDetail {
 		correct: boolean;
 		/** Abrir o cerrar las inscripciones de un autogestivo publicado. */
 		toggleEnrollment: boolean;
+		/** Quien mira también administra el curso, y el curso aún se edita. */
+		editCourse: boolean;
 	};
 }
 

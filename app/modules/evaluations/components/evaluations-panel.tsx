@@ -1,6 +1,6 @@
-import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useFetcher } from "react-router";
+import { Check, Pencil, Plus, Save, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useFetcher } from "react-router";
 import { cn } from "@/lib/utils";
 import { personNameOf } from "@/modules/enrollments/utils/enrollment-labels";
 import type { TeachingDetail } from "@/modules/teaching/domain/teaching.types";
@@ -17,15 +17,11 @@ import type {
 import {
 	EVALUATION_INTENTS,
 	type EvaluationActionData,
-	evaluationsPath,
+	evaluationResultsPath,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/evaluation-form";
-import {
-	EvaluationDialog,
-	type Sessions,
-	sessionLabel,
-} from "./evaluation-dialog";
+import { type Sessions, sessionLabel } from "./evaluation-dialog";
 
 type Participants = TeachingDetail["participants"];
 
@@ -57,16 +53,23 @@ const draftOf = (
 const sessionIndexOf = (sessions: Sessions, sessionDocumentId: string | null) =>
 	sessions.findIndex((row) => row.documentId === sessionDocumentId);
 
+/**
+ * La captura de resultados de las evaluaciones de seguimiento. Aquí no se crean
+ * ni se renombran: se definen junto con el curso, y `defineHref` lleva a ese
+ * paso cuando quien mira puede editarlo.
+ */
 export function EvaluationsPanel({
 	courseDocumentId,
 	board,
 	sessions,
 	participants,
+	defineHref,
 }: {
 	courseDocumentId: string;
 	board: EvaluationBoard;
 	sessions: Sessions;
 	participants: Participants;
+	defineHref: string | null;
 }) {
 	const { canWrite, evaluations } = board;
 	const fetcher = useFetcher<EvaluationActionData>();
@@ -105,27 +108,12 @@ export function EvaluationsPanel({
 		);
 	}).length;
 
-	// Una evaluación recién creada pasa a ser la activa, salvo que eso tire
-	// capturas sin guardar de la que se está calificando.
-	const knownIds = useRef(new Set(evaluations.map((row) => row.documentId)));
-	const hasPendingChanges = useRef(false);
-	hasPendingChanges.current = pendingChanges > 0;
-	useEffect(() => {
-		const added = evaluations.find(
-			(row) => !knownIds.current.has(row.documentId),
-		);
-		knownIds.current = new Set(evaluations.map((row) => row.documentId));
-		if (added && !hasPendingChanges.current) setDocumentId(added.documentId);
-	}, [evaluations]);
-
-	const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
-	const [removing, setRemoving] = useState(false);
 	const [switchTo, setSwitchTo] = useState<string | null>(null);
 
 	const submit = (intent: string, payload: unknown) =>
 		fetcher.submit(
 			{ [INTENT_FIELD]: intent, [PAYLOAD_FIELD]: JSON.stringify(payload) },
-			{ method: "post", action: evaluationsPath(courseDocumentId) },
+			{ method: "post", action: evaluationResultsPath(courseDocumentId) },
 		);
 
 	const select = (next: string) => {
@@ -173,19 +161,18 @@ export function EvaluationsPanel({
 					<div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed p-6">
 						<div>
 							<p className="font-medium text-sm">
-								Este curso todavía no tiene evaluaciones
+								Este curso no tiene evaluaciones de seguimiento
 							</p>
-							{canWrite && (
-								<p className="text-muted-foreground text-sm">
-									Crea una y califica a cada participante con aprobado o no
-									aprobado.
-								</p>
-							)}
+							<p className="text-muted-foreground text-sm">
+								Se definen al crear o editar el curso, en el paso Evaluación.
+							</p>
 						</div>
-						{canWrite && (
-							<Button type="button" onClick={() => setDialog("create")}>
-								<Plus className="size-4" aria-hidden />
-								Nueva evaluación
+						{defineHref && (
+							<Button type="button" variant="outline" asChild>
+								<Link to={defineHref}>
+									<Pencil className="size-4" aria-hidden />
+									Definirlas en el curso
+								</Link>
 							</Button>
 						)}
 					</div>
@@ -227,17 +214,6 @@ export function EvaluationsPanel({
 								</button>
 							);
 						})}
-						{canWrite && (
-							<Button
-								type="button"
-								variant="ghost"
-								className="col-span-2 h-auto justify-start self-stretch sm:justify-center"
-								onClick={() => setDialog("create")}
-							>
-								<Plus className="size-4" aria-hidden />
-								Nueva evaluación
-							</Button>
-						)}
 					</div>
 				)}
 
@@ -246,42 +222,18 @@ export function EvaluationsPanel({
 						aria-labelledby="evaluation-heading"
 						className="flex flex-col gap-3 border-t pt-4"
 					>
-						<div className="flex items-start justify-between gap-3">
-							<div className="min-w-0">
-								<h3
-									id="evaluation-heading"
-									className="truncate font-medium text-base"
-								>
-									{active.title}
-								</h3>
-								<p className="text-muted-foreground text-xs">
-									{activeSession === -1
-										? "Sin sesión en particular"
-										: sessionLabel(activeSession, sessions[activeSession])}
-								</p>
-							</div>
-							{canWrite && (
-								<div className="flex shrink-0 items-center gap-1">
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										aria-label={`Editar ${active.title}`}
-										onClick={() => setDialog("edit")}
-									>
-										<Pencil className="size-4" aria-hidden />
-									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										aria-label={`Eliminar ${active.title}`}
-										onClick={() => setRemoving(true)}
-									>
-										<Trash2 className="size-4" aria-hidden />
-									</Button>
-								</div>
-							)}
+						<div className="min-w-0">
+							<h3
+								id="evaluation-heading"
+								className="truncate font-medium text-base"
+							>
+								{active.title}
+							</h3>
+							<p className="text-muted-foreground text-xs">
+								{activeSession === -1
+									? "Sin sesión en particular"
+									: sessionLabel(activeSession, sessions[activeSession])}
+							</p>
 						</div>
 
 						{participants.length === 0 ? (
@@ -387,33 +339,6 @@ export function EvaluationsPanel({
 					</section>
 				)}
 			</CardContent>
-
-			{canWrite && (
-				<EvaluationDialog
-					open={dialog !== null}
-					onOpenChange={(open) => !open && setDialog(null)}
-					courseDocumentId={courseDocumentId}
-					sessions={sessions}
-					evaluation={dialog === "edit" ? (active ?? null) : null}
-				/>
-			)}
-
-			{active && (
-				<ConfirmDialog
-					open={removing}
-					onOpenChange={setRemoving}
-					title={`¿Eliminar ${active.title}?`}
-					description="Se borra junto con sus calificaciones y observaciones. No afecta a la asistencia ni al resultado del curso."
-					confirmLabel="Eliminar"
-					destructive
-					onConfirm={() => {
-						submit(EVALUATION_INTENTS.remove, {
-							evaluationDocumentId: active.documentId,
-						});
-						setRemoving(false);
-					}}
-				/>
-			)}
 
 			<ConfirmDialog
 				open={switchTo !== null}

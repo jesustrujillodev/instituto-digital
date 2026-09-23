@@ -9,9 +9,14 @@ PRD-06 cierra el ciclo del curso en tres módulos:
 | `app/modules/teaching` | §6.8: pase de lista, resultados, cierre y corrección | `/dashboard/imparticion`, `/dashboard/imparticion/:documentId` |
 | `app/modules/credits` | §6.9: mis créditos, créditos del personal, créditos por dependencia | `/dashboard/mis-creditos`, `/dashboard/creditos` |
 | `app/modules/ratings` | §6.10: valorar y ver el promedio | `/dashboard/mis-cursos/:documentId/valorar` (solo action) |
-| `app/modules/evaluations` | §6.8: varias evaluaciones por curso, documentales | `/dashboard/imparticion/:documentId/evaluaciones` (solo action) |
+| `app/modules/evaluations` | §6.8: varias evaluaciones por curso, documentales; aquí solo se capturan, se definen con el curso | `/dashboard/imparticion/:documentId/evaluaciones` (solo action) |
 
 Las decisiones están en [ADR 0006](../adr/0006-imparticion-creditos-y-valoracion.md).
+
+La ficha ofrece **Editar curso** cuando quien imparte también lo administra
+(`administersCourse` sobre su alcance de cursos) y el curso sigue editable. La
+edición vuelve a la ficha al terminar (`?volver=imparticion`). El capacitador
+asignado que no lo creó ve la ficha sin ese botón: imparte, no administra.
 
 Finalizar no toca el plan anual: la línea vinculada pasa a `realizada` sola
 porque su estado se deriva del curso ([ADR 0007](../adr/0007-plan-anual-estado-derivado.md)).

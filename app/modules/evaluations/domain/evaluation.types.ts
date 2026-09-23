@@ -66,5 +66,6 @@ export interface EvaluationWrite {
 }
 
 export type EvaluationBoardResponse = AppResponse<EvaluationBoard>;
+export type EvaluationDefinitionsResponse = AppResponse<EvaluationView[]>;
 export type EvaluationMutationResponse = AppResponse<null>;
 export type EvaluationSaveResultsResponse = AppResponse<{ affected: number }>;

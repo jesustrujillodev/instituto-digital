@@ -1,7 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useFetcher } from "react-router";
 import { formatSessionRange } from "@/lib/date-utils";
-import type { TeachingDetail } from "@/modules/teaching/domain/teaching.types";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Dialog,
@@ -25,12 +24,17 @@ import type { EvaluationView } from "../domain/evaluation.types";
 import {
 	EVALUATION_INTENTS,
 	type EvaluationActionData,
-	evaluationsPath,
+	evaluationDefinitionsPath,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/evaluation-form";
 
-export type Sessions = TeachingDetail["sessions"];
+/** Lo justo de cada sesión para nombrarla: la ficha y el alta la traen así. */
+export type Sessions = readonly {
+	documentId: string;
+	startsAt: Date | string;
+	endsAt: Date | string;
+}[];
 
 /** Radix no admite un `SelectItem` con valor vacío. */
 const NO_SESSION = "none";
@@ -92,7 +96,7 @@ export function EvaluationDialog({
 						: shared,
 				),
 			},
-			{ method: "post", action: evaluationsPath(courseDocumentId) },
+			{ method: "post", action: evaluationDefinitionsPath(courseDocumentId) },
 		);
 	};
 
@@ -110,6 +114,9 @@ export function EvaluationDialog({
 					className="flex flex-col gap-4"
 					onSubmit={(event) => {
 						event.preventDefault();
+						// El diálogo vive en un portal, pero React propaga el envío por su
+						// árbol: sin esto también se enviaría el formulario del paso.
+						event.stopPropagation();
 						submit();
 					}}
 				>

@@ -29,7 +29,7 @@ describe("toTeachingDetail", () => {
 			],
 		});
 
-		const detail = toTeachingDetail(course, scope, LAST_DAY);
+		const detail = toTeachingDetail(course, scope, LAST_DAY, false);
 
 		expect(JSON.stringify(detail)).not.toContain('"id":');
 		expect(detail.participants[0].marks).toEqual({
@@ -50,6 +50,7 @@ describe("toTeachingDetail", () => {
 			}),
 			scope,
 			LAST_DAY,
+			false,
 		);
 
 		expect(detail.participants[0]).toMatchObject({
@@ -64,6 +65,7 @@ describe("toTeachingDetail", () => {
 			finish: true,
 			correct: false,
 			toggleEnrollment: false,
+			editCourse: false,
 		});
 	});
 
@@ -72,11 +74,29 @@ describe("toTeachingDetail", () => {
 			courseOf({ status: "FINISHED" }),
 			scope,
 			LAST_DAY,
+			false,
 		);
 
 		expect(detail.can.recordAttendance).toBe(false);
 		expect(detail.can.correct).toBe(false);
 		expect(detail.finishBlocker).toBe("NOT_PUBLISHED");
+	});
+
+	// Impartir no es administrar: el capacitador asignado pasa lista, pero solo
+	// quien administra el curso lo edita, y solo mientras se puede editar.
+	test("editar el curso exige administrarlo y que siga editable", () => {
+		const published = courseOf();
+		const finished = courseOf({ status: "FINISHED" });
+
+		expect(
+			toTeachingDetail(published, scope, LAST_DAY, true).can.editCourse,
+		).toBe(true);
+		expect(
+			toTeachingDetail(published, scope, LAST_DAY, false).can.editCourse,
+		).toBe(false);
+		expect(
+			toTeachingDetail(finished, scope, LAST_DAY, true).can.editCourse,
+		).toBe(false);
 	});
 });
 
@@ -87,6 +107,7 @@ describe("toTeachingCourse", () => {
 			documentId: "c",
 			title: "Curso",
 			dependencyId: 3,
+			createdById: 2,
 			dependency: { name: "Obras Públicas" },
 			modality: "ONLINE",
 			format: "SCHEDULED",

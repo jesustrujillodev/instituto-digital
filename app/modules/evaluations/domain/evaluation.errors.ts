@@ -35,7 +35,10 @@ export class EvaluationSessionNotFoundError extends EvaluationError {
 	}
 }
 
-/** El curso no admite escritura para este alcance (borrador, o ya finalizado). */
+/**
+ * El curso no admite el cambio: definir exige un curso editable, y capturar en
+ * uno finalizado exige poder corregirlo.
+ */
 export class EvaluationForbiddenError extends EvaluationError {
 	readonly code = EVALUATION_ERROR_CODES.FORBIDDEN;
 	constructor() {

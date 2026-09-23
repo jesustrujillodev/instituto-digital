@@ -1,5 +1,6 @@
 import { ImageUp, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/ui/button";
 import { Dropzone } from "@/shared/components/ui/dropzone";
 import { Label } from "@/shared/components/ui/label";
@@ -122,7 +123,12 @@ export function CourseCoverField({
 				onDrop={handleDrop}
 				onError={(dropError) => setError(coverRejectionMessage(dropError))}
 				aria-labelledby={id}
-				className="group aspect-video max-w-md overflow-hidden p-0"
+				className={cn(
+					"group w-full overflow-hidden p-0",
+					// La vista previa guarda la proporción de la tarjeta del catálogo; el
+					// hueco vacío es solo un blanco donde soltar, y ocupa el ancho entero.
+					shownUrl && "aspect-video sm:max-w-md",
+				)}
 			>
 				{shownUrl ? (
 					<>

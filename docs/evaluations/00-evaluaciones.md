@@ -6,6 +6,14 @@
 que quien lo imparte capture, por persona, aprobado / no aprobado y una
 observación en texto libre.
 
+Tienen dos momentos, y cada uno vive en su pantalla:
+
+- **Definirlas** (alta, cambio de nombre o sesión, baja) es parte de crear o
+  editar el curso: paso **Evaluación** del wizard, debajo de "Requiere
+  evaluación".
+- **Capturar sus resultados** es parte de impartirlo: pestaña **Evaluaciones**
+  de la ficha de impartición. Ahí no se crean ni se renombran.
+
 Las decisiones están en [ADR 0010](../adr/0010-evaluaciones-por-curso.md).
 
 Lo que **no** es:
@@ -37,14 +45,28 @@ evaluación sin día, nunca la borra.
 
 | Qué | Dónde |
 | --- | --- |
+| Definir | Paso Evaluación de `/dashboard/cursos/:documentId/nuevo/4` o `/editar/4` |
+| Escribir la definición | `POST /dashboard/cursos/:documentId/evaluaciones` (solo action: `create`, `update`, `remove`) |
 | Ver y capturar | Pestaña **Evaluaciones** de `/dashboard/imparticion/:documentId` |
-| Escribir | `POST /dashboard/imparticion/:documentId/evaluaciones` (solo action) |
+| Escribir la captura | `POST /dashboard/imparticion/:documentId/evaluaciones` (solo action: `results`) |
 
 La pestaña aparece con la misma condición que Resultados: el curso debe tener
 `requiresEvaluation`. El loader de impartición carga el tablero solo en ese
-caso.
+caso. Sin evaluaciones, la pestaña lleva al paso Evaluación del curso si quien
+mira puede editarlo.
 
-Quién escribe, calcado del resultado final (`canWrite` de `teaching.rules`):
+Quién **define**, igual que quien edita el curso (`resolveCourseScope` +
+`courseScopeWhere`, y `canEdit` del estado):
+
+| Estado del curso | Quién |
+| --- | --- |
+| `DRAFT`, `PUBLISHED` | Superadmin, titular o auxiliar de la organizadora, o el capacitador interno que lo creó |
+| `FINISHED`, `CANCELLED` | Nadie: `EVALUATION_FORBIDDEN` |
+
+El capacitador asignado que no administra el curso **no** define: su alcance de
+cursos es `none` y el curso se ve igual que inexistente.
+
+Quién **captura**, calcado del resultado final (`canWrite` de `teaching.rules`):
 
 | Estado del curso | Quién |
 | --- | --- |
@@ -81,6 +103,7 @@ Altas, cambios y bajas del mismo envío van en una transacción.
 | --- | --- |
 | Un participante lee la observación que escribió su capacitador | Ninguna consulta de "Mis cursos" selecciona `evaluation_results` |
 | Se capturan evaluaciones de un curso que no se imparte | `teachingCourseWhere` en el `where` del curso |
+| Quien solo imparte crea o borra evaluaciones | Definir usa `courseScopeWhere`, no el alcance de impartición |
 | Un capacitador corrige un curso ya finalizado | `canWrite` → `EVALUATION_FORBIDDEN` |
 | Se cuelga una evaluación de la sesión de otro curso | `findSessionId` acota por `course_id` |
 | Guardar dos veces reescribe quién capturó | El diff descarta lo idéntico |
@@ -89,10 +112,12 @@ Altas, cambios y bajas del mismo envío van en una transacción.
 
 ## 6. Añadir una operación
 
-1. Resuelve el alcance con `resolveTeachingScope` y busca el curso con
+1. Decide a qué momento pertenece. Si define, resuelve `resolveCourseScope` y
+   busca con `courseScopeWhere`; si captura, `resolveTeachingScope` y
    `teachingCourseWhere`. Sin curso, `EVALUATION_COURSE_NOT_FOUND`.
-2. Si escribe, pasa por `canWrite` y lanza **errores de este módulo**, no de
-   teaching: el adaptador solo carga `EVALUATION_ERROR_MESSAGES`.
+2. Si escribe, pasa por `canEdit` (definir) o `canWrite` (capturar) y lanza
+   **errores de este módulo**, no de teaching ni de courses: el adaptador solo
+   carga `EVALUATION_ERROR_MESSAGES`.
 3. Si escribe en una tabla de otro módulo, añade el método al puerto de ese
    módulo. Aquí no hay ninguna: este módulo es dueño de las dos que toca.
 4. No calcules créditos ni completado. Eso es de `teaching` y no cambia.

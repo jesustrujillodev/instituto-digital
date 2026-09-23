@@ -1,5 +1,10 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import {
+	courseScopeWhere,
+	resolveCourseScope,
+} from "@/modules/courses/domain/course.access";
+import { canEdit } from "@/modules/courses/domain/course.rules";
+import {
 	canTeach,
 	resolveTeachingScope,
 	type TeachingScope,
@@ -18,6 +23,7 @@ import {
 	EvaluationTooManyError,
 } from "../domain/evaluation.errors";
 import { toEvaluationBoard } from "../domain/evaluation.mapper";
+import type { EvaluationCourseWhere } from "../domain/evaluation.repository";
 import { resolveCaptureWrites } from "../domain/evaluation.rules";
 import type { IEvaluationService } from "../domain/evaluation.service";
 import type {
@@ -32,6 +38,11 @@ type Dependencies = {
 	logger: ICradle["logger"];
 };
 
+/**
+ * Las evaluaciones de seguimiento tienen dos momentos con dos alcances: se
+ * DEFINEN al crear o editar el curso, con el alcance de quien lo administra, y
+ * sus resultados se CAPTURAN al impartirlo, con el de quien lo imparte.
+ */
 export const createEvaluationService = ({
 	evaluationRepository,
 	runInTransaction,
@@ -46,16 +57,28 @@ export const createEvaluationService = ({
 		return scope;
 	};
 
+	/** El alcance de administracion de cursos: el capacitador que solo imparte no define. */
+	const definitionWhereOf = (actor: AuthContext): EvaluationCourseWhere => {
+		const scope = resolveCourseScope(actor);
+		if (scope.kind === "none") throw new EvaluationCourseNotFoundError();
+		return courseScopeWhere(scope);
+	};
+
 	const requireCourse = async (
 		courseDocumentId: string,
-		scope: TeachingScope,
+		where: EvaluationCourseWhere,
 	) => {
 		const course = await evaluationRepository.findCourse(
 			courseDocumentId,
-			teachingCourseWhere(scope),
+			where,
 		);
 		if (!course) throw new EvaluationCourseNotFoundError();
 		return course;
+	};
+
+	/** Se definen mientras el curso se puede editar: borrador o publicado. */
+	const assertDefinable = (course: EvaluationCourseRef) => {
+		if (!canEdit(course.status)) throw new EvaluationForbiddenError();
 	};
 
 	/**
@@ -86,12 +109,12 @@ export const createEvaluationService = ({
 	const requireTarget = async (
 		courseDocumentId: string,
 		evaluationDocumentId: string,
-		scope: TeachingScope,
+		where: EvaluationCourseWhere,
 	) => {
 		const target = await evaluationRepository.findTarget(
 			courseDocumentId,
 			evaluationDocumentId,
-			teachingCourseWhere(scope),
+			where,
 		);
 		if (!target) throw new EvaluationNotFoundError();
 		return target;
@@ -101,7 +124,10 @@ export const createEvaluationService = ({
 		async findCourseBoard(courseDocumentId: string, actor: AuthContext) {
 			return run("findCourseBoard", async () => {
 				const scope = scopeOf(actor);
-				const course = await requireCourse(courseDocumentId, scope);
+				const course = await requireCourse(
+					courseDocumentId,
+					teachingCourseWhere(scope),
+				);
 
 				return ok(
 					toEvaluationBoard(
@@ -112,15 +138,33 @@ export const createEvaluationService = ({
 			});
 		},
 
+		async findDefinitions(courseDocumentId: string, actor: AuthContext) {
+			return run("findDefinitions", async () => {
+				const course = await requireCourse(
+					courseDocumentId,
+					definitionWhereOf(actor),
+				);
+
+				return ok(
+					toEvaluationBoard(
+						await evaluationRepository.findBoard(course.id),
+						canEdit(course.status),
+					).evaluations,
+				);
+			});
+		},
+
 		async create(
 			courseDocumentId: string,
 			dto: SaveEvaluationDto,
 			actor: AuthContext,
 		) {
 			return run("create", async () => {
-				const scope = scopeOf(actor);
-				const course = await requireCourse(courseDocumentId, scope);
-				assertWritable(course, scope);
+				const course = await requireCourse(
+					courseDocumentId,
+					definitionWhereOf(actor),
+				);
+				assertDefinable(course);
 
 				if (course.evaluationCount >= EVALUATIONS_PER_COURSE_LIMIT) {
 					throw new EvaluationTooManyError(EVALUATIONS_PER_COURSE_LIMIT);
@@ -144,13 +188,12 @@ export const createEvaluationService = ({
 			actor: AuthContext,
 		) {
 			return run("update", async () => {
-				const scope = scopeOf(actor);
 				const target = await requireTarget(
 					courseDocumentId,
 					evaluationDocumentId,
-					scope,
+					definitionWhereOf(actor),
 				);
-				assertWritable(target.course, scope);
+				assertDefinable(target.course);
 
 				await evaluationRepository.update(target.id, {
 					title: dto.title,
@@ -170,13 +213,12 @@ export const createEvaluationService = ({
 			actor: AuthContext,
 		) {
 			return run("remove", async () => {
-				const scope = scopeOf(actor);
 				const target = await requireTarget(
 					courseDocumentId,
 					evaluationDocumentId,
-					scope,
+					definitionWhereOf(actor),
 				);
-				assertWritable(target.course, scope);
+				assertDefinable(target.course);
 
 				await evaluationRepository.remove(target.id);
 
@@ -194,7 +236,7 @@ export const createEvaluationService = ({
 				const target = await requireTarget(
 					courseDocumentId,
 					dto.evaluationDocumentId,
-					scope,
+					teachingCourseWhere(scope),
 				);
 				assertWritable(target.course, scope);
 

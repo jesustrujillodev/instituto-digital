@@ -7,17 +7,18 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/shared/components/ui/popover";
-import {
-	type CourseStep,
-	type CourseStepKey,
-	stepPath,
-} from "../utils/course-wizard-steps";
+import type { CourseStep, CourseStepKey } from "../utils/course-wizard-steps";
 
-type StepState = "done" | "pending" | "error";
+type StepState = "done" | "pending" | "error" | "neutral";
 
 interface CourseWizardStepperProps {
 	/** `null` mientras el borrador no existe: no hay a dónde saltar todavía. */
-	documentId: string | null;
+	hrefOf: (number: number) => string | null;
+	/**
+	 * El alta marca lo resuelto y lo pendiente; la edición recorre un curso ya
+	 * publicado, donde no queda nada por resolver y solo importan los errores.
+	 */
+	tracksProgress: boolean;
 	/** Los pasos que este curso recorre: un calendarizado no ve Contenido. */
 	steps: readonly CourseStep[];
 	current: number;
@@ -29,8 +30,10 @@ const stateOf = (
 	step: CourseStep,
 	pending: ReadonlySet<CourseStepKey>,
 	errors: ReadonlySet<CourseStepKey>,
+	tracksProgress: boolean,
 ): StepState => {
 	if (errors.has(step.key)) return "error";
+	if (!tracksProgress) return "neutral";
 	if (pending.has(step.key)) return "pending";
 
 	return "done";
@@ -154,7 +157,8 @@ function StepRow({
 }
 
 function StepList({
-	documentId,
+	hrefOf,
+	tracksProgress,
 	steps,
 	current,
 	pending,
@@ -168,9 +172,9 @@ function StepList({
 						step={step}
 						position={index + 1}
 						isLast={index === steps.length - 1}
-						state={stateOf(step, pending, errors)}
+						state={stateOf(step, pending, errors, tracksProgress)}
 						isCurrent={step.number === current}
-						to={documentId ? stepPath(documentId, step.number) : null}
+						to={hrefOf(step.number)}
 					/>
 				</li>
 			))}
@@ -190,7 +194,7 @@ export function CourseWizardStepper(props: CourseWizardStepperProps) {
 	return (
 		<>
 			<nav
-				aria-label="Pasos del alta"
+				aria-label="Pasos del curso"
 				className="sticky top-24 hidden lg:block"
 			>
 				<StepList {...props} />
@@ -199,7 +203,7 @@ export function CourseWizardStepper(props: CourseWizardStepperProps) {
 			{/* En móvil el índice no cabe como columna: se reduce a la posición, una
 			    barra de avance y un desplegable con los mismos pasos. */}
 			<nav
-				aria-label="Pasos del alta"
+				aria-label="Pasos del curso"
 				className="flex flex-col gap-2 lg:hidden"
 			>
 				<Popover>

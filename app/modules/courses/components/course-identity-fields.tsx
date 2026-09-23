@@ -6,7 +6,6 @@ import type { CourseAudienceOption } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { CourseCoverField } from "./course-cover-field";
-import { CourseFormSection } from "./course-form-section";
 import { CourseSelectField } from "./course-select-field";
 
 /** La portada vive fuera del esquema del formulario (guía §10.4). */
@@ -18,23 +17,19 @@ export interface CourseCoverControl {
 	onRemove: () => void;
 }
 
-interface CourseGeneralFieldsProps {
+interface CourseIdentityFieldsProps {
 	ids: CourseFormIds;
 	/** `null` cuando la organizadora no se elige: se hereda del alcance. */
 	organizers: readonly CourseAudienceOption[] | null;
 	cover: CourseCoverControl;
 }
 
-/**
- * Identidad del curso: lo que el personal lee en el catálogo antes de
- * inscribirse. Desnudo de encabezado, porque el alta lo pinta como pantalla
- * completa y la edición lo envuelve en su sección.
- */
-export const CourseGeneralFields = memo(function CourseGeneralFields({
+/** Identidad del curso: lo que el personal lee en el catálogo antes de inscribirse. */
+export const CourseIdentityFields = memo(function CourseIdentityFields({
 	ids,
 	organizers,
 	cover,
-}: CourseGeneralFieldsProps) {
+}: CourseIdentityFieldsProps) {
 	const {
 		register,
 		formState: { errors },
@@ -85,14 +80,3 @@ export const CourseGeneralFields = memo(function CourseGeneralFields({
 		</>
 	);
 });
-
-export function CourseGeneralSection(props: CourseGeneralFieldsProps) {
-	return (
-		<CourseFormSection
-			section="general"
-			description="Lo que ve el personal en el catálogo antes de inscribirse."
-		>
-			<CourseGeneralFields {...props} />
-		</CourseFormSection>
-	);
-}
