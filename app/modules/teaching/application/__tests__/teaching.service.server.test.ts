@@ -70,6 +70,7 @@ const createHarness = (
 		finishes: 0,
 		markedFailed: 0,
 		enrollmentClosed: [] as (Date | null)[],
+		issued: [] as number[][],
 	};
 
 	const participantById = (userId: number) => {
@@ -184,6 +185,15 @@ const createHarness = (
 		teachingRepository,
 		enrollmentRepository,
 		creditRepository,
+		certificateIssuance: {
+			sync: async (
+				_courseId: number,
+				completed: readonly { userId: number }[],
+			) => {
+				log.issued.push(completed.map((candidate) => candidate.userId));
+				return { issued: completed.length, restored: 0, revoked: 0 };
+			},
+		} as unknown as ICradle["certificateIssuance"],
 	});
 
 	const service = createTeachingService({
@@ -351,9 +361,10 @@ describe("teachingService.finish", () => {
 
 		expect(result).toMatchObject({
 			success: true,
-			data: { completed: 1, credits: 1 },
+			data: { completed: 1, credits: 1, certificates: 1 },
 		});
 		expect(course().status).toBe("FINISHED");
+		expect(log.issued).toEqual([[50]]);
 		expect(log.locks).toEqual([true]);
 		expect(log.completion).toEqual([[50]]);
 		expect(log.grants).toEqual([
@@ -504,6 +515,55 @@ describe("corrección de un curso finalizado", () => {
 
 		expect(result.success).toBe(true);
 		expect(harness.credits()[0].revokedAt).toEqual(LAST_DAY);
+	});
+});
+
+describe("teachingService.issueCertificates", () => {
+	const finishedBeforeCertificates = () => {
+		const base = courseOf();
+		return courseOf({
+			status: "FINISHED",
+			participants: [
+				participantOf({
+					completed: true,
+					attendance: attendanceOf(base, [0, 1, 2]),
+				}),
+			],
+		});
+	};
+
+	test("sincroniza en una transacción y emite a quien completó", async () => {
+		const { service, log } = createHarness(finishedBeforeCertificates());
+
+		const result = await service.issueCertificates(COURSE_DOC, HEAD);
+
+		expect(result).toMatchObject({ success: true, data: { issued: 1 } });
+		expect(log.locks).toEqual([true]);
+		expect(log.issued).toEqual([[50]]);
+	});
+
+	test("un curso por impartir no emite a demanda", async () => {
+		const { service, log } = createHarness(courseOf());
+
+		const result = await service.issueCertificates(COURSE_DOC, HEAD);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE },
+		});
+		expect(log.issued).toEqual([]);
+	});
+
+	test("en un finalizado solo emite quien puede corregirlo", async () => {
+		const { service, log } = createHarness(finishedBeforeCertificates());
+
+		const result = await service.issueCertificates(COURSE_DOC, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.CORRECTION_FORBIDDEN },
+		});
+		expect(log.issued).toEqual([]);
 	});
 });
 

@@ -9,6 +9,7 @@ export const TEACHING_INTENTS = {
 	finish: "finish",
 	enrollmentWindow: "enrollment-window",
 	rotateQr: "rotate-qr",
+	issueCertificates: "issue-certificates",
 } as const;
 
 export type TeachingActionData = AppResponse<null>;

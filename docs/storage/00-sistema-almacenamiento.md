@@ -98,6 +98,7 @@ al modelo `User`:
 ```prisma
 User   { …, photoUrl String?, … }        // referencia proxy, NO la URL del proveedor
 Course { …, coverImageUrl String?, … }   // idem, bajo media/portadas/
+CourseCertificate { draftDesign Json, … } // la firma va DENTRO del diseño, bajo documentos/firmas/
 ```
 
 **Formato de la referencia persistida:** `/api/storage?key=<key-encoded>`.
@@ -350,6 +351,16 @@ Las portadas de curso viven en `media/portadas/`: heredan la visibilidad y el
 bucket de `media/` —la política mira el inicio de la key— y la subcarpeta propia
 permite que el gestor de nube la nombre sin apropiarse de `media/`, que es de
 todo el proyecto.
+
+Las firmas de los certificados viven en `documentos/firmas/<courseDocumentId>/`
+([ADR 0018](../adr/0018-diseno-del-certificado-borrador-y-publicado.md)). Son
+**privadas a propósito**: fuera de `media/`, el proxy exige sesión, y la firma de
+un titular no queda descargable para quien consiga la URL. El curso en la key es lo
+que deja a su fuente de referencias saber de quién es cada objeto sin tabla propia.
+Desde F-09 esa fuente cuenta también las firmas que imprimen certificados ya
+emitidos: el exportador las lee con `storageProvider.getFile`, porque Chromium no
+tiene sesión, y el gestor de nube no puede borrarlas
+([ADR 0019](../adr/0019-snapshot-del-diseno-y-puerto-de-exportacion.md)).
 
 Cambiar la política = editar `PUBLIC_PREFIXES` en un solo archivo; el proxy la
 consume automáticamente. Para autorización más fina (p. ej. "solo el dueño ve su

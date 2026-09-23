@@ -31,8 +31,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# curl para el HEALTHCHECK (overhead mínimo en alpine)
-RUN apk add --no-cache curl
+# curl para el HEALTHCHECK (overhead mínimo en alpine).
+# Chromium exporta los certificados a PDF y PNG (docs/adr/0019): el que trae
+# puppeteer no corre en musl, así que se usa el de Alpine. ttf-liberation da la
+# serif del cuerpo del certificado (métricas de Times New Roman).
+RUN apk add --no-cache curl chromium ttf-liberation
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
+# El contenedor corre como `node`, sin privilegios para el sandbox de Chromium.
+# El documento que abre es HTML propio, sin JavaScript ni red.
+ENV CHROMIUM_NO_SANDBOX=true
 
 # Copiar solo lo necesario al runtime — de menor a mayor volatilidad
 # para maximizar la reutilización de capas entre redeploys.

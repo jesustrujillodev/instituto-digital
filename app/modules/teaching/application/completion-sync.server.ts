@@ -4,6 +4,7 @@ import {
 	completedParticipantsOf,
 	creditCandidatesOf,
 	fiscalYearOf,
+	issueCandidatesOf,
 } from "../domain/teaching.rules";
 import type { ICompletionSync } from "../domain/teaching.service";
 
@@ -11,12 +12,14 @@ type Dependencies = {
 	teachingRepository: ICradle["teachingRepository"];
 	enrollmentRepository: ICradle["enrollmentRepository"];
 	creditRepository: ICradle["creditRepository"];
+	certificateIssuance: ICradle["certificateIssuance"];
 };
 
 export const createCompletionSync = ({
 	teachingRepository,
 	enrollmentRepository,
 	creditRepository,
+	certificateIssuance,
 }: Dependencies): ICompletionSync => ({
 	/** Lee después de escribir para que el cálculo vea lo que se acaba de guardar. */
 	async sync(courseId: number, actorId: number, at: Date) {
@@ -43,6 +46,14 @@ export const createCompletionSync = ({
 		await creditRepository.restore(diff.restore, context);
 		await creditRepository.revoke(diff.revoke, context);
 
-		return { completed: completed.length, diff };
+		// El mismo cálculo decide créditos y certificados: retirar uno retira el
+		// otro. Los certificados, a todos los que completaron.
+		const certificates = await certificateIssuance.sync(
+			course.id,
+			issueCandidatesOf(completed),
+			at,
+		);
+
+		return { completed: completed.length, diff, certificates };
 	},
 });

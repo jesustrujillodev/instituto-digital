@@ -66,7 +66,53 @@ describe("toTeachingDetail", () => {
 			correct: false,
 			toggleEnrollment: false,
 			editCourse: false,
+			issueCertificates: false,
 		});
+	});
+
+	// Lo completado antes de F-09 no tiene certificado: quien corrige lo emite.
+	test("cuenta a quien completó sin certificado y deja emitirlo a quien corrige", () => {
+		const course = courseOf({
+			status: "FINISHED",
+			participants: [
+				participantOf({ completed: true }),
+				participantOf({
+					userId: 51,
+					completed: true,
+					certificate: {
+						documentId: "d0000000-0000-4000-8000-000000000000",
+						folio: "2026-0001",
+						revoked: false,
+					},
+				}),
+				participantOf({ userId: 52, completed: false }),
+			],
+		});
+		const head = resolveTeachingScope(
+			actorOf({ role: "DEPENDENCY_HEAD", isTrainer: false }),
+		);
+
+		const detail = toTeachingDetail(course, head, LAST_DAY, false);
+
+		expect(detail.pendingCertificates).toBe(1);
+		expect(detail.can.issueCertificates).toBe(true);
+		expect(detail.participants[1].certificate).toMatchObject({
+			folio: "2026-0001",
+		});
+		expect(
+			toTeachingDetail(course, scope, LAST_DAY, false).can.issueCertificates,
+		).toBe(false);
+	});
+
+	test("un curso por impartir no tiene certificados pendientes", () => {
+		const detail = toTeachingDetail(
+			courseOf({ participants: [participantOf({ completed: true })] }),
+			scope,
+			LAST_DAY,
+			false,
+		);
+
+		expect(detail.pendingCertificates).toBe(0);
 	});
 
 	test("el capacitador ve un curso finalizado en solo lectura", () => {
@@ -138,6 +184,7 @@ describe("toTeachingCourse", () => {
 						lastName: null,
 						email: "elena@universidad.mx",
 						type: "EXTERNAL",
+						certificates: [],
 						dependencyId: null,
 						dependency: null,
 						attendance: [{ sessionId: 1, attended: true }],

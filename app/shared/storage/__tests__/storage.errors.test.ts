@@ -3,6 +3,7 @@ import { isDomainError } from "@/shared/errors/domain-error";
 import {
 	STORAGE_ERROR_CODES,
 	StorageBatchError,
+	StorageObjectLockedError,
 	StorageValidationError,
 } from "../storage.errors";
 
@@ -11,6 +12,7 @@ describe("STORAGE_ERROR_CODES", () => {
 		expect(STORAGE_ERROR_CODES).toEqual({
 			VALIDATION: "STORAGE_VALIDATION",
 			BATCH_FAILED: "STORAGE_BATCH_FAILED",
+			OBJECT_LOCKED: "STORAGE_OBJECT_LOCKED",
 		});
 	});
 });
@@ -83,5 +85,15 @@ describe("StorageBatchError", () => {
 
 	test("handles an empty list without breaking", () => {
 		expect(new StorageBatchError([]).details).toEqual({ failures: [] });
+	});
+});
+
+describe("StorageObjectLockedError", () => {
+	test("carries the stable code and the locked keys as details", () => {
+		const error = new StorageObjectLockedError(["documentos/firmas/c/a.png"]);
+
+		expect(isDomainError(error)).toBe(true);
+		expect(error.code).toBe("STORAGE_OBJECT_LOCKED");
+		expect(error.details).toEqual({ keys: ["documentos/firmas/c/a.png"] });
 	});
 });

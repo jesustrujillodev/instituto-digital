@@ -547,6 +547,29 @@ enganche: se encola dentro de la transacción, no se encola si la operación fal
 no avisa lo que no debe (título editado, borrador, traslado propio, invitados
 omitidos) y no incluye contraseñas.
 
+## Certificates
+
+Núcleo de render (F-07), editor (F-08) y emisión (F-09) del certificado. Lo que estas
+pruebas protegen es que **un solo renderizador dibuje las tres plantillas sin que un dato de una persona
+se convierta en marcado ni en estilo**, y que **solo quien administra el curso guarde un
+diseño con firmas de ese mismo curso**. Desde F-09, además, que **lo emitido no cambie ni se
+fabrique**: se dibuja solo con lo congelado en la base y el diseño nunca llega del navegador.
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `domain/…/certificate.rules.test.ts` | 58 | Plantilla desconocida, vacía o nula que cae en la institucional; `safeAccent` que solo deja pasar `#rrggbb` (inyección de CSS, hex corto, `url()`); `safeImageUrl` que admite `https:` y el proxy y descarta `javascript:`, `data:`, `blob:` y `http:`; y el esquema del diseño en su tope y con dos firmantes exactos. Desde F-08: `isOwnSignatureRef` solo para la firma del propio curso (rechaza otro curso, `blob:`, `data:`, URL externa, otra carpeta, key sin codificar y escape de carpeta), `canEditCertificate` hasta finalizado, `resolveFolio`, el contraste del logo, y `designsEqual`/`certificateStateOf`. Desde F-09: el folio sin `{seq}` rechazado, `diffIssues` (emitir, idempotente, revocar y restaurar), el esquema de descarga que descarta un diseño en la petición y el nombre de archivo saneado. |
+| `domain/…/certificate.renderer.test.ts` | 32 | Por cada plantilla: datos interpolados, línea de horas omitida sin horas, descripción del diseño sobre la del curso, marcado escapado en nombre y subtítulo, todo selector bajo `.t-<id>`, cuatro celdas del pie con una firma apagada, acento malicioso fuera del CSS y firma con URL no permitida sin imagen. Además, la caída a la institucional, fuentes y logo resueltos contra la base sin Google Fonts, lienzo fijo sin `@media` y el documento autocontenido. Desde F-09: con recursos incrustados el documento no apunta a ninguna URL, y una firma que no está entre ellos no se pinta. |
+| `domain/…/certificate.mapper.test.ts` | 18 | Lectura tolerante: un blob válido vuelve idéntico; incompleto, con plantilla que ya no existe, con un firmante, no-objeto o nulo da `null` sin lanzar. Horas en singular y plural y los datos de muestra con la fecha de Tijuana y el primer folio. Desde F-09: los datos que se congelan al emitir, año y mes del folio en la zona del instituto y la lectura tolerante del snapshot de datos. |
+| `domain/…/certificate.errors.test.ts` | 10 | Cada error del editor y de la emisión con su `code` estable y el estado del curso en los detalles. |
+| `application/…/certificates.service.server.test.ts` | 29 | Envelope en éxito y fallo de `getEditor`, `saveDraft`, `publish`, `discardDraft` y `uploadSignature`. Fuera de alcance como inexistente, sin alcance ni se consulta, alcance de autor para el capacitador; una firma `blob:`, ajena o externa no se escribe; cancelado no edita y finalizado sí; publicar copia el borrador **guardado**; subir va a la carpeta del curso en el bucket privado y rechaza JPG, vacío y de más de 1 MB sin subir. Desde F-09: la descarga dibuja **solo** los snapshots con los recursos incrustados, busca con el alcance de impartición, y rechaza fuera de alcance, revocada y sin Chromium; la muestra sale del diseño guardado (borrador o publicado). |
+| `infrastructure/…/certificates.repository.server.test.ts` | 13 | Sin fila, el diseño por defecto; un blob roto cae al defecto y se registra; `saveDraft` y `publish` como upsert; soltar una firma la quita del borrador y del publicado en una escritura, y no escribe si no coincide. Desde F-09: `reserveFolios` devuelve el primero del rango, `findIssue` filtra por el curso y cae al diseño por defecto, unos datos ilegibles lanzan, y `createIssues` escribe los dos snapshots. |
+| `infrastructure/…/certificate-signature.references.server.test.ts` | 8 | Una firma del borrador o del publicado está referenciada y una vieja no; solo consulta los cursos de las keys; `release` por curso en forma de proxy; la raíz y cada carpeta de curso con su título. Desde F-09: una firma que solo imprime una emisión sigue referenciada y `release` la bloquea sin soltar nada. |
+| `routes/**/…certificado/__tests__/` | 13 | Loader: 403 sin alcance, 404 fuera de alcance, solo lectura en cancelado y la fecha del servidor. Action: el diseño validado llega al servicio, un JSON roto o inválido no, publicar ignora el diseño del cuerpo, la subida pasa el archivo y la copia del error. |
+| `application/…/certificate-issuance.server.test.ts` | 5 | Emite con el publicado y folios consecutivos, con el de por defecto sin publicado, no duplica al repetir, revoca y restaura con el mismo folio, y sin nadie a quien emitir no reserva folios. |
+| `infrastructure/…/certificate-assets.server.test.ts` | 5 | Fuentes, logo y firmas como data URIs; la firma sale del bucket privado una vez aunque se repita; una referencia fuera de `documentos/firmas/`, con `..` o externa no se lee; una firma que ya no existe frena la exportación. |
+| `routes/**/…descargar/__tests__/`, `…muestra/__tests__/` | 11 | La descarga responde el archivo privado y sin caché; **un diseño en la petición se ignora**; formato o versión desconocidos dan 400 sin llegar al servicio; 403 para quien no imparte o no administra; y el status de cada rechazo (404, 409, 503, 502). |
+| `utils/…/resize-signature-image.test.ts` | 3 | Reducir sin ampliar ni perder proporción, y nunca alto cero. |
+
 ## Annual plan
 
 Plan anual (PRD-07). Lo que estas pruebas protegen es que **la línea cambie de
@@ -572,28 +595,29 @@ Impartición (PRD-06). Lo que estas pruebas protegen es que **el crédito siempr
 coincida con la fórmula de §6.8**, también después de corregir, y que quien
 imparte no corrija lo que ya se finalizó.
 
-### `domain/__tests__/` — 48 tests
+### `domain/__tests__/` — 60 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `teaching.rules.test.ts` | 27 | Asistencia comparada en enteros (2 de 3 contra 66 % y 67 %), el 100 % de hecho de un curso de una sesión, aprobado exigido solo con evaluación, que un externo complete sin sumar crédito, las ventanas de lista y cierre en la zona del instituto, el ejercicio de una clase nocturna del 31 de diciembre, el código de cada impedimento para finalizar, que un capacitador no corrija y que un envío solo escriba lo que cambia. Desde F-01: la rama `CONTENT` del completado, que un autogestivo se finalice sin esperar a ninguna sesión pero siga bloqueado por resultados pendientes, y que su ejercicio salga de la fecha de cierre. |
+| `teaching.rules.test.ts` | 36 | Asistencia comparada en enteros (2 de 3 contra 66 % y 67 %), el 100 % de hecho de un curso de una sesión, aprobado exigido solo con evaluación, que un externo complete sin sumar crédito, las ventanas de lista y cierre en la zona del instituto, el ejercicio de una clase nocturna del 31 de diciembre, el código de cada impedimento para finalizar, que un capacitador no corrija y que un envío solo escriba lo que cambia. Desde F-01: la rama `CONTENT` del completado, que un autogestivo se finalice sin esperar a ninguna sesión pero siga bloqueado por resultados pendientes, y que su ejercicio salga de la fecha de cierre. Desde F-09: a quién se emite certificado (todos los que completaron, con el nombre impreso) y dónde se puede emitir a demanda. |
 | `teaching.access.test.ts` | 6 | Que las ramas se sumen para el auxiliar capacitador, que el capacitador interno no pase lista en lo que solo creó, que el externo sí imparta y que sin ramas el filtro sea imposible y nunca `{}`. |
 | `teaching.validators.test.ts` | 7 | Lista no vacía y booleana; nota entera de 0 a 100; nota prohibida en un pendiente. |
-| `teaching.mapper.test.ts` | 6 | Que la ficha no exponga ids internos, que una sesión sin lista se vea como `null` y los permisos de solo lectura de un finalizado. |
+| `teaching.mapper.test.ts` | 9 | Que la ficha no exponga ids internos, que una sesión sin lista se vea como `null` y los permisos de solo lectura de un finalizado. Desde F-09: los certificados pendientes y que solo quien corrige los emita. |
 | `teaching.errors.test.ts` | 2 | `code` estable y `details` serializables. |
 
-### `application/__tests__/` — 17 tests
+### `application/__tests__/` — 33 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `teaching.service.server.test.ts` | 17 | Con dobles en memoria que reflejan cada escritura: el bloqueo **dentro** de la transacción, que finalizar otorgue el crédito con la dependencia y el ejercicio correctos, que con pendientes o antes de tiempo no escriba nada, `STATE_CHANGED` si otra petición finalizó antes, que corregir retire, restaure (sin crear otra fila) o retire por un no aprobado, y que un autogestivo cierre el mismo día con el ejercicio de esa fecha. |
+| `teaching.service.server.test.ts` | 29 | Con dobles en memoria que reflejan cada escritura: el bloqueo **dentro** de la transacción, que finalizar otorgue el crédito con la dependencia y el ejercicio correctos, que con pendientes o antes de tiempo no escriba nada, `STATE_CHANGED` si otra petición finalizó antes, que corregir retire, restaure (sin crear otra fila) o retire por un no aprobado, y que un autogestivo cierre el mismo día con el ejercicio de esa fecha. Desde F-09: finalizar emite los certificados en la misma sincronización, y «Emitir certificados» corre en transacción, no aplica a un curso por impartir y en un finalizado solo lo hace quien corrige. |
+| `completion-sync.server.test.ts` | 4 | El ejercicio de un autogestivo, el crédito retirado a quien deja de cumplir y, desde F-09, que la emisión reciba a **todos** los que completaron (externos incluidos) mientras el crédito sigue solo para internos. |
 
-### `infrastructure/__tests__/` y `routes/**/__tests__/` — 20 tests
+### `infrastructure/__tests__/` y `routes/**/__tests__/` — 26 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `teaching.repository.server.test.ts` | 10 | Filtro de alcance fundido con los estados que se imparten, asistencia acotada a las sesiones del curso, y quién y cuándo en cada marca. |
-| `imparticion/$documentId/…/index.action.test.ts` | 5 | JSON validado antes del servicio, error localizado con su código, 403 para quien no imparte, intent desconocido. |
+| `imparticion/$documentId/…/index.action.test.ts` | 7 | JSON validado antes del servicio, error localizado con su código, 403 para quien no imparte, intent desconocido. Desde F-09: el aviso de cierre con créditos y certificados, y el intent de emitir pendientes. |
 | `imparticion/$documentId/…/index.loader.test.ts` | 5 | Valoraciones solo en un finalizado y 400 con un `documentId` mal formado. |
 
 ## Credits
@@ -685,7 +709,7 @@ cliente**—, `localizeError`/`failFrom`, y el runner que registra los conocidos
 | `storage.factory.test.ts` | 13 | Selección de proveedor y armado del config desde `Env`; los flags booleanos solo se activan con el literal `"true"`. |
 | `object-key.test.ts` | 11 | `sanitizeFileName` neutraliza separadores de ruta y `..` (**path traversal**); `.gitignore` tratado como nombre sin extensión. |
 | `upload-validation.test.ts` | 11 | Archivo vacío, allowlist de tipos, tope de tamaño; una allowlist vacía no deja pasar nada. |
-| `storage.errors.test.ts` | 10 | Códigos estables, `details` serializables, y que ambos son `DomainError`. |
+| `storage.errors.test.ts` | 11 | Códigos estables, `details` serializables, y que ambos son `DomainError`. Desde F-09: `StorageObjectLockedError` con las keys bloqueadas. |
 | `mime.test.ts` | 7 | Tipo por extensión; fail-safe a `application/octet-stream` (adivinar `text/html` sobre un archivo subido sería un XSS almacenado). |
 | `storage.utils.test.ts` | 7 | `getKeyFromUrl` con el formato proxy, la key cruda y el rechazo de una URL completa del proveedor. |
 | `storage.policy.test.ts` | 5 | Prefijos públicos con `startsWith`; **fail-closed** por defecto. |
@@ -723,6 +747,11 @@ proyección al cliente no incluye la PK interna.
 `single-flight.memory.test.ts` (7): dedup dentro del TTL y **los rechazos no se
 cachean**. `rate-limiter.memory.test.ts` (7): bloqueo en `limit + 1`, ventana que
 se reinicia, claves independientes.
+
+### `html/__tests__/` — 4 tests
+
+`escape-html.test.ts`: etiquetas, comillas de atributo y el `&` escapado una sola vez.
+Es la defensa compartida de correos y certificados.
 
 ### `errors/__tests__/` — 7 tests
 

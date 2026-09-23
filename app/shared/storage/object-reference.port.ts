@@ -12,7 +12,7 @@
 
 // Union cerrada: añadir un módulo que guarde keys = añadir su literal aquí y
 // registrar su fuente en el composition root.
-export type ObjectOwnerType = "user" | "course" | "lesson";
+export type ObjectOwnerType = "user" | "course" | "lesson" | "certificate";
 
 /** Uso de un objeto por una fila de la base. */
 export interface ObjectReference {

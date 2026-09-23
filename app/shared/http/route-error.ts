@@ -17,6 +17,8 @@ export const HTTP_STATUS = {
 	CONFLICT: 409,
 	TOO_MANY_REQUESTS: 429,
 	INTERNAL_SERVER_ERROR: 500,
+	BAD_GATEWAY: 502,
+	SERVICE_UNAVAILABLE: 503,
 } as const;
 
 // ── Contrato del 403 que lanza requireRole ────────────────────────────────────
@@ -89,6 +91,8 @@ const STATUS_TEXT: Record<number, string> = {
 	[HTTP_STATUS.CONFLICT]: "Conflict",
 	[HTTP_STATUS.TOO_MANY_REQUESTS]: "Too Many Requests",
 	[HTTP_STATUS.INTERNAL_SERVER_ERROR]: "Internal Server Error",
+	[HTTP_STATUS.BAD_GATEWAY]: "Bad Gateway",
+	[HTTP_STATUS.SERVICE_UNAVAILABLE]: "Service Unavailable",
 };
 
 /** Cuerpo que el ErrorBoundary recibe en `useRouteError().data`. */

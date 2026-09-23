@@ -79,6 +79,14 @@ delete(selection, actor)
 Qué suelta cada fuente:
 
 - **Usuario** → `photoUrl = null` donde `photoUrl = toProxyRef(key)`.
+- **Firma de certificado** → quita la firma del borrador **y** del publicado del
+  diseño del curso, en una sola escritura. La fuente saca el curso del segundo
+  segmento de la key (`documentos/firmas/<courseDocumentId>/…`) y nombra cada
+  carpeta de curso con su título
+  ([ADR 0018](../adr/0018-diseno-del-certificado-borrador-y-publicado.md)).
+  Una firma que imprime un certificado ya emitido **no se suelta**: `release` lanza
+  `STORAGE_OBJECT_LOCKED` antes de tocar nada y el borrado entero se cancela
+  ([ADR 0019](../adr/0019-snapshot-del-diseno-y-puerto-de-exportacion.md)).
 
 Un módulo nuevo que guarde keys añade aquí su fuente; el gestor no cambia.
 

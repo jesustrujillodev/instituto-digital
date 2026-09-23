@@ -1,5 +1,6 @@
 import { formatSessionRange } from "@/lib/date-utils";
 import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
+import { escapeHtml } from "@/shared/html/escape-html";
 import { PLATFORM_NAME } from "./notification.config";
 import type {
 	NotificationEvent,
@@ -19,14 +20,6 @@ type Block =
 	| { kind: "paragraph"; text: string }
 	| { kind: "list"; items: string[] }
 	| { kind: "action"; label: string; url: string };
-
-const escapeHtml = (value: string): string =>
-	value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&#39;");
 
 const greetingOf = (to: Recipient): string => {
 	const name = [to.firstName, to.lastName].filter(Boolean).join(" ").trim();

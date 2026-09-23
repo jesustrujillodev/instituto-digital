@@ -87,6 +87,7 @@ model User {
   evaluationResults  EvaluationResult[] @relation("EvaluationParticipant")
   evaluationsGraded  EvaluationResult[] @relation("EvaluationRecorder")
   credits            Credit[]           @relation("CreditHolder")
+  certificates       CertificateIssue[] @relation("CertificateHolder")
   creditsGranted     Credit[]           @relation("CreditGranter")
   creditsRevoked     Credit[]           @relation("CreditRevoker")
   courseRatings      CourseRating[]
@@ -478,11 +479,79 @@ model Course {
   quizzes            Quiz[]
   credits            Credit[]
   ratings            CourseRating[]
+  certificate        CourseCertificate?
+  certificateIssues  CertificateIssue[]
 
   @@index([dependencyId, status])
   @@index([createdById])
   @@index([planLineId])
   @@map("courses")
+  @@schema("org")
+}
+
+/// Diseño del certificado de un curso, con borrador y publicado como `Theme`
+/// (docs/adr/0018). Los blobs se validan al leer: una fila de un esquema
+/// anterior cae al diseño por defecto en vez de romper la pantalla. La fila
+/// nace al primer guardado; sin ella, el curso usa el diseño por defecto.
+model CourseCertificate {
+  id Int @id @default(autoincrement())
+
+  courseId Int    @unique @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  draftDesign     Json      @map("draft_design")
+  /// Null mientras nunca se publique. Es el que usa la emisión (F-09).
+  publishedDesign Json?     @map("published_design")
+  publishedAt     DateTime? @map("published_at")
+
+  /// Los usa la entrega al participante (F-11); nacen aquí para no migrar después.
+  isDownloadable Boolean @default(true) @map("is_downloadable")
+  emailMessage   String? @map("email_message")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("course_certificates")
+  @@schema("org")
+}
+
+/// Un certificado emitido, uno por persona y curso. Congela el diseño Y los
+/// datos al emitir (docs/adr/0019): editar la plantilla o renombrar el curso no
+/// cambia un documento ya entregado. Retirarlo marca `revokedAt`; restaurarlo
+/// lo limpia y conserva el folio, como `Credit`.
+model CertificateIssue {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @map("document_id") @db.Uuid
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  userId Int  @map("user_id")
+  user   User @relation("CertificateHolder", fields: [userId], references: [id], onDelete: Restrict)
+
+  folio          String   @unique
+  issuedAt       DateTime @map("issued_at")
+  designSnapshot Json     @map("design_snapshot")
+  dataSnapshot   Json     @map("data_snapshot")
+
+  revokedAt DateTime? @map("revoked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([courseId, userId])
+  @@index([userId])
+  @@map("certificate_issues")
+  @@schema("org")
+}
+
+/// El consecutivo `{seq}` de los folios: global y sin reinicio, para que dos
+/// cursos con el mismo formato nunca choquen. Una sola fila.
+model CertificateFolioCounter {
+  id    String @id
+  value Int    @default(0)
+
+  @@map("certificate_folio_counter")
   @@schema("org")
 }
 

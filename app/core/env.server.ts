@@ -103,6 +103,10 @@ const baseEnvSchema = v.object({
 	APP_BASE_URL: v.optional(v.pipe(v.string(), v.minLength(1))),
 	EMAIL_WORKER_ENABLED: v.optional(v.picklist(["true", "false"])),
 	EMAIL_WORKER_INTERVAL_S: positiveInt(15),
+	/** Chromium con el que se exportan los certificados; sin él no hay descarga. */
+	CHROMIUM_PATH: v.optional(v.pipe(v.string(), v.minLength(1))),
+	/** Solo dentro del contenedor, que no tiene privilegios para el sandbox. */
+	CHROMIUM_NO_SANDBOX: v.optional(v.picklist(["true", "false"]), "false"),
 });
 
 // Validación condicional al proveedor: fail-fast al boot si el proveedor está
@@ -258,6 +262,9 @@ const result = v.safeParse(envSchema, {
 	APP_BASE_URL: process.env.APP_BASE_URL ?? railwayPublicUrl(),
 	EMAIL_WORKER_ENABLED: process.env.EMAIL_WORKER_ENABLED,
 	EMAIL_WORKER_INTERVAL_S: process.env.EMAIL_WORKER_INTERVAL_S,
+
+	CHROMIUM_PATH: process.env.CHROMIUM_PATH,
+	CHROMIUM_NO_SANDBOX: process.env.CHROMIUM_NO_SANDBOX,
 });
 
 if (!result.success) {

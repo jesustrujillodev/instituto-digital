@@ -1,3 +1,4 @@
+import { canEditCertificate } from "@/modules/certificates/domain/certificate.rules";
 import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { ENROLLMENT_ERROR_MESSAGES } from "@/modules/enrollments/utils/enrollment-error-messages";
@@ -74,6 +75,7 @@ export const loader = async ({
 			: null,
 		can: {
 			edit: canEdit(status),
+			certificate: canEditCertificate(status),
 			publish: canPublish(status),
 			cancel: canCancel(status),
 			teach: canOpenTeaching(scope, course.data, auth.documentId),

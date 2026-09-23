@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	TEACHING_ERROR_CODES,
+	TeachingCertificatesNotIssuableError,
 	TeachingCorrectionForbiddenError,
 	TeachingFinishTooEarlyError,
 	TeachingNotSelfPacedError,
@@ -27,6 +28,9 @@ describe("errores de impartición", () => {
 		);
 		expect(new TeachingResultsByQuizError().code).toBe(
 			TEACHING_ERROR_CODES.RESULTS_BY_QUIZ,
+		);
+		expect(new TeachingCertificatesNotIssuableError().code).toBe(
+			TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE,
 		);
 	});
 

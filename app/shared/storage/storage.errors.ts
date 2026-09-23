@@ -9,6 +9,7 @@ import { DomainError } from "@/shared/errors/domain-error";
 export const STORAGE_ERROR_CODES = {
 	VALIDATION: "STORAGE_VALIDATION",
 	BATCH_FAILED: "STORAGE_BATCH_FAILED",
+	OBJECT_LOCKED: "STORAGE_OBJECT_LOCKED",
 } as const;
 
 export abstract class StorageError extends DomainError {}
@@ -44,5 +45,20 @@ export class StorageBatchError extends StorageError {
 				.join(", ")}`,
 		);
 		this.details = { failures };
+	}
+}
+
+/**
+ * Un objeto que no se puede soltar: su dueño lo guarda en un registro que no se
+ * reescribe (un certificado ya emitido). `release` lo lanza y el gestor de nube
+ * no borra nada.
+ */
+export class StorageObjectLockedError extends StorageError {
+	readonly code = STORAGE_ERROR_CODES.OBJECT_LOCKED;
+	readonly details: { keys: string[] };
+
+	constructor(keys: readonly string[]) {
+		super(`Storage objects are locked by their owner: ${keys.join(", ")}`);
+		this.details = { keys: [...keys] };
 	}
 }

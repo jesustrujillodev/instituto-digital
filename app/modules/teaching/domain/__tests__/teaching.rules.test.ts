@@ -3,6 +3,7 @@ import { zonedInputToUtc } from "@/lib/date-utils";
 import { resolveTeachingScope } from "../teaching.access";
 import { TEACHING_ERROR_CODES } from "../teaching.errors";
 import {
+	assertCertificatesIssuable,
 	assertFinishable,
 	assertWritable,
 	attendancePercent,
@@ -13,6 +14,7 @@ import {
 	fiscalYearOf,
 	isCompleted,
 	isSessionOpen,
+	issueCandidatesOf,
 	meetsAttendance,
 	pendingResultsOf,
 	resolveAttendanceMarks,
@@ -201,6 +203,48 @@ describe("creditCandidatesOf", () => {
 		expect(creditCandidatesOf(completed)).toEqual([
 			{ userId: 50, dependencyId: 3 },
 		]);
+	});
+});
+
+describe("issueCandidatesOf", () => {
+	test("todos los que completaron, con el nombre que se imprime", () => {
+		const candidates = issueCandidatesOf([
+			participantOf(),
+			participantOf({
+				userId: 51,
+				firstName: null,
+				lastName: null,
+				email: "elena@universidad.mx",
+				isInternal: false,
+				currentDependencyId: null,
+			}),
+		]);
+
+		expect(candidates).toEqual([
+			{ userId: 50, recipientName: "Ana Ruiz" },
+			{ userId: 51, recipientName: "elena@universidad.mx" },
+		]);
+	});
+});
+
+describe("assertCertificatesIssuable", () => {
+	test("se emite a demanda en un finalizado o en un autogestivo publicado", () => {
+		expect(() =>
+			assertCertificatesIssuable({ status: "FINISHED", format: "SCHEDULED" }),
+		).not.toThrow();
+		expect(() =>
+			assertCertificatesIssuable({ status: "PUBLISHED", format: "SELF_PACED" }),
+		).not.toThrow();
+	});
+
+	test("un curso por impartir espera a su cierre", () => {
+		expect(() =>
+			assertCertificatesIssuable({ status: "PUBLISHED", format: "SCHEDULED" }),
+		).toThrow(
+			expect.objectContaining({
+				code: TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE,
+			}),
+		);
 	});
 });
 

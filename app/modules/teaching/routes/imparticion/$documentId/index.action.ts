@@ -24,8 +24,9 @@ const savedMessage = (affected: number, what: string) =>
 		: `${what}: ${plural(affected, "cambio", "cambios")}.`;
 
 /**
- * POST /dashboard/imparticion/:documentId — lista, resultados, cierre o, en un
- * autogestivo, abrir y cerrar sus inscripciones.
+ * POST /dashboard/imparticion/:documentId — lista, resultados, cierre, emisión
+ * de certificados pendientes o, en un autogestivo, abrir y cerrar sus
+ * inscripciones.
  */
 export const action = async ({
 	request,
@@ -84,7 +85,25 @@ export const action = async ({
 				return localizeError(result, TEACHING_ERROR_MESSAGES);
 
 			return ok(null, {
-				message: `Curso finalizado: ${plural(result.data.completed, "persona completó", "personas completaron")} y se ${result.data.credits === 1 ? "otorgó 1 crédito" : `otorgaron ${result.data.credits} créditos`}.`,
+				message: `Curso finalizado: ${plural(result.data.completed, "persona completó", "personas completaron")}, se ${result.data.credits === 1 ? "otorgó 1 crédito" : `otorgaron ${result.data.credits} créditos`} y se ${result.data.certificates === 1 ? "emitió 1 certificado" : `emitieron ${result.data.certificates} certificados`}.`,
+			});
+		}
+		case TEACHING_INTENTS.issueCertificates: {
+			const input = parseInput(documentId);
+			if (!input.success) return localizeError(input, TEACHING_ERROR_MESSAGES);
+
+			const result = await context.teachingService.issueCertificates(
+				input.data,
+				auth,
+			);
+			if (!result.success)
+				return localizeError(result, TEACHING_ERROR_MESSAGES);
+
+			return ok(null, {
+				message:
+					result.data.issued === 0
+						? "No había certificados pendientes."
+						: `Se ${result.data.issued === 1 ? "emitió 1 certificado" : `emitieron ${result.data.issued} certificados`}.`,
 			});
 		}
 		case TEACHING_INTENTS.enrollmentWindow: {

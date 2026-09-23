@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { startOfZonedDay, zonedYearOf } from "@/lib/date-utils";
+import type { IssueCandidate } from "@/modules/certificates/domain/certificate.types";
 import {
 	countsAttendance,
 	countsContent,
@@ -18,6 +19,7 @@ import {
 	TEACHING_SORT_FIELDS,
 } from "./teaching.config";
 import {
+	TeachingCertificatesNotIssuableError,
 	TeachingCorrectionForbiddenError,
 	TeachingCourseNotFoundError,
 	TeachingEvaluationNotRequiredError,
@@ -280,6 +282,39 @@ export const syncsOnWrite = (
 ): boolean =>
 	course.status === "FINISHED" ||
 	(course.status === "PUBLISHED" && !requiresSessions(course.format));
+
+/**
+ * Quienes completaron y no tienen certificado. Solo pasa con lo completado
+ * antes de F-09: desde entonces, cada sincronización emite en el acto.
+ */
+export const pendingCertificatesOf = (course: TeachingCourse): number =>
+	syncsOnWrite(course)
+		? course.participants.filter(
+				(participant) => participant.completed && !participant.certificate,
+			).length
+		: 0;
+
+export const assertCertificatesIssuable = (
+	course: Pick<TeachingCourse, "status" | "format">,
+): void => {
+	if (!syncsOnWrite(course)) throw new TeachingCertificatesNotIssuableError();
+};
+
+/**
+ * A quién se emite: todos los que completaron, externos incluidos. El crédito
+ * es de la dependencia; el certificado, de la persona.
+ */
+export const issueCandidatesOf = (
+	completed: readonly TeachingParticipant[],
+): IssueCandidate[] =>
+	completed.map((participant) => ({
+		userId: participant.userId,
+		recipientName:
+			[participant.firstName, participant.lastName]
+				.filter(Boolean)
+				.join(" ")
+				.trim() || participant.email,
+	}));
 
 export const canToggleEnrollment = (
 	course: Pick<TeachingCourse, "status" | "format">,

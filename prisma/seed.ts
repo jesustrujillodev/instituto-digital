@@ -27,8 +27,13 @@ async function main() {
 	// Los cursos primero: su dependencia organizadora, su autor y sus grupos de
 	// audiencia son FK RESTRICT. Sesiones, capacitadores y audiencia caen en
 	// cascada con el curso.
-	// Los créditos antes que el curso: su FK hacia él es RESTRICT.
+	// Los créditos antes que el curso: su FK hacia él es RESTRICT. Igual los
+	// certificados emitidos y el diseño de cada curso. El contador de folios se
+	// reinicia con ellos.
 	await prisma.credit.deleteMany({});
+	await prisma.certificateIssue.deleteMany({});
+	await prisma.certificateFolioCounter.deleteMany({});
+	await prisma.courseCertificate.deleteMany({});
 	await prisma.enrollment.deleteMany({});
 	await prisma.course.deleteMany({});
 	// Las líneas del plan después de los cursos, que las referencian con RESTRICT.

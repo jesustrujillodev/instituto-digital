@@ -1,7 +1,7 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Pencil } from "lucide-react";
+import { Award, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
@@ -60,13 +60,25 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 
 	// Publicar vive en el panel de estado, junto a la lista de pendientes que lo
 	// habilita: separarlos dejaba el botón apagado sin decir por qué.
-	const actions = can.edit && (
-		<Button asChild variant="outline">
-			<Link to={`/dashboard/cursos/${course.documentId}/editar/1`}>
-				<Pencil aria-hidden="true" />
-				Editar
-			</Link>
-		</Button>
+	const actions = (can.edit || can.certificate) && (
+		<>
+			{can.certificate && (
+				<Button asChild variant="outline">
+					<Link to={`/dashboard/cursos/${course.documentId}/certificado`}>
+						<Award aria-hidden="true" />
+						Certificado
+					</Link>
+				</Button>
+			)}
+			{can.edit && (
+				<Button asChild variant="outline">
+					<Link to={`/dashboard/cursos/${course.documentId}/editar/1`}>
+						<Pencil aria-hidden="true" />
+						Editar
+					</Link>
+				</Button>
+			)}
+		</>
 	);
 
 	return (

@@ -25,8 +25,11 @@ const PERSON_SELECT = {
 	email: true,
 } satisfies Prisma.UserSelect;
 
-/** La asistencia se acota a las sesiones del curso que se está leyendo. */
-const courseSelect = (sessionFilter: Prisma.CourseSessionWhereInput) =>
+/** El curso que se está leyendo, por id o por documentId. */
+type CourseFilter = { courseId: number } | { course: { documentId: string } };
+
+/** Asistencia y certificados se acotan al curso que se está leyendo. */
+const courseSelect = (courseFilter: CourseFilter) =>
 	({
 		id: true,
 		documentId: true,
@@ -80,8 +83,12 @@ const courseSelect = (sessionFilter: Prisma.CourseSessionWhereInput) =>
 						dependencyId: true,
 						dependency: { select: { name: true } },
 						attendance: {
-							where: { session: sessionFilter },
+							where: { session: courseFilter },
 							select: { sessionId: true, attended: true },
+						},
+						certificates: {
+							where: courseFilter,
+							select: { documentId: true, folio: true, revokedAt: true },
 						},
 					},
 				},

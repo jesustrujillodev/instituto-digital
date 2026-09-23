@@ -47,6 +47,7 @@ export const participantOf = (
 	progressPercent: 0,
 	contentCompletedAt: null,
 	attendance: [],
+	certificate: null,
 	...overrides,
 });
 

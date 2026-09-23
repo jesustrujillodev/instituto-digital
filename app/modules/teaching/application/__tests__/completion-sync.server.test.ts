@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { IssueCandidate } from "@/modules/certificates/domain/certificate.types";
 import type {
 	CreditCandidate,
 	CreditWriteContext,
@@ -24,6 +25,7 @@ const createHarness = (course: TeachingCourse, stored: StoredCredit[] = []) => {
 			context: CreditWriteContext;
 		}[],
 		revoked: [] as number[][],
+		issued: [] as IssueCandidate[][],
 	};
 
 	const sync = createCompletionSync({
@@ -48,6 +50,12 @@ const createHarness = (course: TeachingCourse, stored: StoredCredit[] = []) => {
 				if (userIds.length > 0) calls.revoked.push([...userIds]);
 			},
 		} as unknown as ICradle["creditRepository"],
+		certificateIssuance: {
+			sync: async (_courseId: number, completed: IssueCandidate[]) => {
+				calls.issued.push([...completed]);
+				return { issued: completed.length, restored: 0, revoked: 0 };
+			},
+		} as unknown as ICradle["certificateIssuance"],
 	});
 
 	return { sync, calls };
@@ -91,5 +99,53 @@ describe("completionSync", () => {
 
 		expect(calls.completion).toEqual([[]]);
 		expect(calls.revoked).toEqual([[50]]);
+	});
+
+	// Un externo no suma crédito a ninguna dependencia, pero el certificado es
+	// de la persona: lo recibe igual.
+	test("emite certificado a todos los que completaron, externos incluidos", async () => {
+		const { sync, calls } = createHarness(
+			courseOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				sessions: [],
+				participants: [
+					participantOf({ contentCompletedAt: DONE }),
+					participantOf({
+						userId: 51,
+						userDocumentId: LUIS_DOC,
+						firstName: null,
+						lastName: null,
+						email: "luis@universidad.mx",
+						isInternal: false,
+						currentDependencyId: null,
+						contentCompletedAt: DONE,
+					}),
+				],
+			}),
+		);
+
+		const result = await sync.sync(10, 50, AT);
+
+		expect(calls.grants[0].candidates).toEqual([
+			{ userId: 50, dependencyId: 3 },
+		]);
+		expect(calls.issued).toEqual([
+			[
+				{ userId: 50, recipientName: "Ana Ruiz" },
+				{ userId: 51, recipientName: "luis@universidad.mx" },
+			],
+		]);
+		expect(result.certificates.issued).toBe(2);
+	});
+
+	test("quien deja de cumplir sale de la lista de certificados", async () => {
+		const { sync, calls } = createHarness(
+			courseOf({ participants: [participantOf()] }),
+		);
+
+		await sync.sync(10, 2, AT);
+
+		expect(calls.issued).toEqual([[]]);
 	});
 });

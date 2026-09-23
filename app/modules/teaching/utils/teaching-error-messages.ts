@@ -69,6 +69,11 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 			"Solo un curso autogestivo abre y cierra sus inscripciones a mano; uno con sesiones las cierra al empezar.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE]: {
+		message:
+			"Los certificados se emiten al finalizar el curso: todavía no se sabe quién lo completó.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[TEACHING_ERROR_CODES.RESULTS_BY_QUIZ]: {
 		message:
 			"Este curso se evalúa con examen en línea: el resultado lo escribe el examen, no se captura a mano.",

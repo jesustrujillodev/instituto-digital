@@ -1,10 +1,19 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { DoorClosed, DoorOpen, Flag, Pencil } from "lucide-react";
+import {
+	Award,
+	DoorClosed,
+	DoorOpen,
+	Download,
+	Flag,
+	Pencil,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { useFileDownload } from "@/modules/certificates/hooks/use-file-download";
+import { certificateDownloadUrl } from "@/modules/certificates/utils/certificate-urls";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
 import { ModuleQuizResults } from "@/modules/content/components/module-quiz-results";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
@@ -51,7 +60,10 @@ import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { AttendancePanel } from "../../../components/attendance-panel";
 import { RatingsPanel } from "../../../components/ratings-panel";
 import { ResultsPanel } from "../../../components/results-panel";
-import type { TeachingDetail } from "../../../domain/teaching.types";
+import type {
+	TeachingDetail,
+	TeachingParticipantView,
+} from "../../../domain/teaching.types";
 import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
@@ -92,7 +104,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 									opensAt,
 									pendingResults: detail.pendingResults,
 								})
-							: "Calcula quién completó, otorga los créditos y abre la valoración."}
+							: "Calcula quién completó, otorga créditos y certificados y abre la valoración."}
 					</p>
 				</div>
 				<Button
@@ -108,7 +120,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 				open={confirming}
 				onOpenChange={setConfirming}
 				title="¿Finalizar el curso?"
-				description="Se otorgan los créditos a quien completó. Después, solo el titular o un auxiliar de la dependencia pueden corregir asistencia y resultados."
+				description="Se otorgan los créditos y se emiten los certificados a quien completó. Después, solo el titular o un auxiliar de la dependencia pueden corregir asistencia y resultados."
 				confirmLabel="Finalizar"
 				cancelLabel="Volver"
 				onConfirm={() => {
@@ -246,7 +258,88 @@ function ProgressList({
 	);
 }
 
+/**
+ * Lo completado antes de que existieran los certificados no tiene el suyo: se
+ * emite aquí, una vez. Lo que se complete después se emite solo.
+ */
+function IssueCertificatesCard({ detail }: { detail: TeachingDetail }) {
+	const fetcher = useFetcher<TeachingActionData>();
+	useFetcherToast(fetcher);
+
+	return (
+		<Card>
+			<CardContent className="flex flex-wrap items-center justify-between gap-3">
+				<div className="min-w-0">
+					<h3 className="font-medium text-sm">Certificados pendientes</h3>
+					<p className="text-muted-foreground text-xs">
+						{detail.pendingCertificates === 1
+							? "1 persona completó el curso y no tiene certificado."
+							: `${detail.pendingCertificates} personas completaron el curso y no tienen certificado.`}
+					</p>
+				</div>
+				<Button
+					disabled={fetcher.state !== "idle"}
+					onClick={() =>
+						fetcher.submit(
+							{ [INTENT_FIELD]: TEACHING_INTENTS.issueCertificates },
+							{ method: "post" },
+						)
+					}
+				>
+					<Award aria-hidden="true" />
+					Emitir certificados
+				</Button>
+			</CardContent>
+		</Card>
+	);
+}
+
+/** Folio y descarga del certificado de una persona. */
+function CertificateCell({
+	certificate,
+	download,
+	pending,
+}: {
+	certificate: NonNullable<TeachingParticipantView["certificate"]>;
+	download: ReturnType<typeof useFileDownload>["download"];
+	pending: string | null;
+}) {
+	if (certificate.revoked) {
+		return (
+			<Badge variant="outline" title={`Folio ${certificate.folio}`}>
+				Certificado revocado
+			</Badge>
+		);
+	}
+
+	return (
+		<div className="flex items-center gap-1">
+			<span className="text-muted-foreground text-xs tabular-nums">
+				Folio {certificate.folio}
+			</span>
+			{(["pdf", "png"] as const).map((format) => {
+				const url = certificateDownloadUrl(certificate.documentId, format);
+				return (
+					<Button
+						key={format}
+						variant="ghost"
+						size="sm"
+						disabled={pending !== null}
+						aria-label={`Descargar certificado ${certificate.folio} en ${format.toUpperCase()}`}
+						onClick={() => download(url, `certificado.${format}`)}
+					>
+						<Download aria-hidden="true" />
+						{pending === url ? "…" : format.toUpperCase()}
+					</Button>
+				);
+			})}
+		</div>
+	);
+}
+
 function CompletionList({ detail }: { detail: TeachingDetail }) {
+	const { download, pending } = useFileDownload();
+
 	// Un autogestivo completa en vivo: lo guardado ya es el hecho, no una
 	// previsión del cierre.
 	const live =
@@ -285,15 +378,24 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 										{participant.grade !== null && ` (${participant.grade})`}
 									</p>
 								</div>
-								<Badge variant={completed ? "default" : "outline"}>
-									{completed
-										? live
-											? "Completó"
-											: "Completaría"
-										: live
-											? "Sin completar"
-											: "No completa"}
-								</Badge>
+								<div className="flex flex-wrap items-center gap-2">
+									{live && participant.certificate && (
+										<CertificateCell
+											certificate={participant.certificate}
+											download={download}
+											pending={pending}
+										/>
+									)}
+									<Badge variant={completed ? "default" : "outline"}>
+										{completed
+											? live
+												? "Completó"
+												: "Completaría"
+											: live
+												? "Sin completar"
+												: "No completa"}
+									</Badge>
+								</div>
 							</li>
 						);
 					})}
@@ -411,7 +513,10 @@ export default function ImparticionDetallePage({
 						<ProgressList detail={detail} moduleQuizzes={moduleQuizzes} />
 					</TabsContent>
 				)}
-				<TabsContent value="completion">
+				<TabsContent value="completion" className="flex flex-col gap-4">
+					{detail.can.issueCertificates && (
+						<IssueCertificatesCard detail={detail} />
+					)}
 					<CompletionList detail={detail} />
 				</TabsContent>
 				{scheduled && detail.qr && (

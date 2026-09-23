@@ -18,12 +18,14 @@ import {
 	finishOpensAt,
 	isCompleted,
 	isSessionOpen,
+	pendingCertificatesOf,
 	pendingResultsOf,
 } from "./teaching.rules";
 import type {
 	TeachingCourse,
 	TeachingCourseSummary,
 	TeachingDetail,
+	TeachingParticipant,
 	TeachingPerson,
 } from "./teaching.types";
 
@@ -71,6 +73,12 @@ export interface TeachingCourseRaw {
 			dependencyId: number | null;
 			dependency: { name: string } | null;
 			attendance: readonly { sessionId: number; attended: boolean }[];
+			/** Filtrados al curso que se está leyendo: a lo sumo uno. */
+			certificates: readonly {
+				documentId: string;
+				folio: string;
+				revokedAt: Date | null;
+			}[];
 		};
 	}[];
 }
@@ -80,6 +88,19 @@ const personOf = (raw: PersonRaw): TeachingPerson => ({
 	lastName: raw.lastName,
 	email: raw.email,
 });
+
+const certificateOf = (
+	certificates: TeachingCourseRaw["enrollments"][number]["user"]["certificates"],
+): TeachingParticipant["certificate"] => {
+	const [certificate] = certificates;
+	return certificate
+		? {
+				documentId: certificate.documentId,
+				folio: certificate.folio,
+				revoked: certificate.revokedAt !== null,
+			}
+		: null;
+};
 
 /** `enrollments` debe venir filtrado a los `ENROLLED`. */
 export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
@@ -117,6 +138,7 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 		progressPercent: enrollment.progressPercent,
 		contentCompletedAt: enrollment.contentCompletedAt,
 		attendance: user.attendance.map((mark) => ({ ...mark })),
+		certificate: certificateOf(user.certificates),
 	})),
 });
 
@@ -167,6 +189,7 @@ export const toTeachingDetail = (
 	const sessionCount = course.sessions.length;
 	const writable = canWrite(course, scope);
 	const finishBlocker = finishBlockerOf(course, now);
+	const pendingCertificates = pendingCertificatesOf(course);
 
 	return {
 		course: {
@@ -226,9 +249,11 @@ export const toTeachingDetail = (
 							?.attended ?? null,
 					]),
 				),
+				certificate: participant.certificate,
 			};
 		}),
 		pendingResults: pendingResultsOf(course),
+		pendingCertificates,
 		finishBlocker,
 		can: {
 			recordAttendance: writable,
@@ -239,6 +264,7 @@ export const toTeachingDetail = (
 			correct: course.status === "FINISHED" && writable,
 			toggleEnrollment: canToggleEnrollment(course),
 			editCourse: administers && canEdit(course.status),
+			issueCertificates: writable && pendingCertificates > 0,
 		},
 	};
 };

@@ -2,6 +2,7 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
 	CompletionSyncResult,
 	FinishResponse,
+	IssueCertificatesResponse,
 	ListTeachingCoursesDto,
 	SaveAttendanceDto,
 	SaveResultsDto,
@@ -38,8 +39,16 @@ export interface ITeachingService {
 		dto: SaveResultsDto,
 		actor: AuthContext,
 	): Promise<TeachingWriteResponse>;
-	/** Marca `FINISHED`, calcula quién completó y otorga los créditos. */
+	/** Marca `FINISHED`, calcula quién completó y otorga créditos y certificados. */
 	finish(documentId: string, actor: AuthContext): Promise<FinishResponse>;
+	/**
+	 * Vuelve a sincronizar el completado para emitir lo que falte: lo completado
+	 * antes de que existieran los certificados. Idempotente.
+	 */
+	issueCertificates(
+		documentId: string,
+		actor: AuthContext,
+	): Promise<IssueCertificatesResponse>;
 	/** El cierre de un autogestivo: deja de admitir gente, o vuelve a hacerlo. */
 	setEnrollmentOpen(
 		documentId: string,
@@ -49,7 +58,8 @@ export interface ITeachingService {
 }
 
 /**
- * Recalcula quién completó un curso y deja sus créditos igual que el cálculo.
+ * Recalcula quién completó un curso y deja sus créditos y certificados igual
+ * que el cálculo.
  *
  * No es un caso de uso sino la pieza que comparten los que escriben algo que
  * decide el completado: el cierre, la corrección, el resultado de un autogestivo

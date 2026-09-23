@@ -42,6 +42,7 @@ const createHarness = (
 			saveAttendance: record("saveAttendance"),
 			saveResults: record("saveResults"),
 			finish: record("finish"),
+			issueCertificates: record("issueCertificates"),
 		},
 	} as unknown as ActionArgs["context"];
 
@@ -130,6 +131,35 @@ describe("impartición action", () => {
 
 		expect(thrown.init.status).toBe(403);
 		expect(calls).toHaveLength(0);
+	});
+
+	test("finalizar informa créditos y certificados", async () => {
+		const { context } = createHarness(
+			okReply({ completed: 2, credits: 1, certificates: 2 }),
+		);
+
+		const result = await run(context, { intent: "finish" });
+
+		expect(result).toMatchObject({
+			success: true,
+			message:
+				"Curso finalizado: 2 personas completaron, se otorgó 1 crédito y se emitieron 2 certificados.",
+		});
+	});
+
+	test("emitir certificados pendientes pasa solo el curso", async () => {
+		const { context, calls } = createHarness(okReply({ issued: 1 }));
+
+		const result = await run(context, { intent: "issue-certificates" });
+
+		expect(result).toMatchObject({
+			success: true,
+			message: "Se emitió 1 certificado.",
+		});
+		expect(calls[0]).toMatchObject({
+			method: "issueCertificates",
+			args: [COURSE_DOC, expect.anything()],
+		});
 	});
 
 	test("un intent desconocido no llega al servicio", async () => {

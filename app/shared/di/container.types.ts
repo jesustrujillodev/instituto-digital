@@ -15,6 +15,15 @@ import type { SessionMonitorService } from "@/modules/auth/domain/session-monito
 import type { TokenService } from "@/modules/auth/domain/token.service";
 import type { ICalendarRepository } from "@/modules/calendar/domain/calendar.repository";
 import type { ICalendarService } from "@/modules/calendar/domain/calendar.service";
+import type {
+	ICertificateAssetSource,
+	ICertificateExporter,
+} from "@/modules/certificates/domain/certificate.exporter";
+import type { ICertificateRepository } from "@/modules/certificates/domain/certificate.repository";
+import type {
+	ICertificateIssuance,
+	ICertificateService,
+} from "@/modules/certificates/domain/certificate.service";
 import type { ICheckInService } from "@/modules/check-in/domain/check-in.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
 import type { IClassroomRepository } from "@/modules/content/domain/classroom.repository";
@@ -124,6 +133,12 @@ export interface ICradle {
 	// Cuestionarios autocalificados: examen final y práctica (docs/adr/0015).
 	quizRepository: IQuizRepository;
 	quizService: IQuizService;
+	// Certificado por curso, con borrador y publicado (docs/adr/0018).
+	certificateRepository: ICertificateRepository;
+	certificateService: ICertificateService;
+	certificateIssuance: ICertificateIssuance;
+	certificateExporter: ICertificateExporter;
+	certificateAssetSource: ICertificateAssetSource;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
 	calendarRepository: ICalendarRepository;

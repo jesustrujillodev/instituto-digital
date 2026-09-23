@@ -27,6 +27,12 @@ import { createSecurityStateRepository } from "@/modules/auth/infrastructure/sec
 import { createSessionRepository } from "@/modules/auth/infrastructure/session.repository.server";
 import { createCalendarService } from "@/modules/calendar/application/calendar.service.server";
 import { createCalendarRepository } from "@/modules/calendar/infrastructure/calendar.repository.server";
+import { createCertificateIssuance } from "@/modules/certificates/application/certificate-issuance.server";
+import { createCertificateService } from "@/modules/certificates/application/certificates.service.server";
+import { createCertificateAssetSource } from "@/modules/certificates/infrastructure/certificate-assets.server";
+import { createCertificateSignatureReferenceSource } from "@/modules/certificates/infrastructure/certificate-signature.references.server";
+import { createCertificateRepository } from "@/modules/certificates/infrastructure/certificates.repository.server";
+import { createChromiumExporter } from "@/modules/certificates/infrastructure/chromium-exporter.server";
 import { createCheckInService } from "@/modules/check-in/application/check-in.service.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createClassroomService } from "@/modules/content/application/classroom.service.server";
@@ -122,6 +128,19 @@ const assetUrlResolver = createAssetUrlResolver(env.STORAGE_PUBLIC_DOMAIN);
 // fuera de cualquier transacción de petición.
 const mailer = createMailerFromEnv(env, logger);
 const appBaseUrl = env.APP_BASE_URL ?? "http://localhost:5173";
+
+// Chromium y las fuentes incrustadas son de proceso: abrir un navegador o leer
+// las fuentes por petición costaría segundos y memoria en cada descarga.
+const certificateExporter = createChromiumExporter({
+	executablePath: env.CHROMIUM_PATH ?? null,
+	noSandbox: env.CHROMIUM_NO_SANDBOX === "true",
+	logger,
+});
+const certificateAssetSource = createCertificateAssetSource({
+	storageProvider,
+	storageBucket: env.STORAGE_BUCKET_NAME ?? null,
+	storagePublicBucket: env.STORAGE_PUBLIC_BUCKET_NAME ?? null,
+});
 
 if (isEmailWorkerEnabled(env)) {
 	const notificationRepository = createNotificationRepository({ prisma });
@@ -248,6 +267,11 @@ export const configureContainer = async (
 		classroomService: asSingleton(createClassroomService),
 		quizRepository: asSingleton(createQuizRepository),
 		quizService: asSingleton(createQuizService),
+		certificateRepository: asSingleton(createCertificateRepository),
+		certificateService: asSingleton(createCertificateService),
+		certificateIssuance: asSingleton(createCertificateIssuance),
+		certificateExporter: asValue(certificateExporter),
+		certificateAssetSource: asValue(certificateAssetSource),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
 		calendarRepository: asSingleton(createCalendarRepository),
@@ -275,6 +299,7 @@ export const configureContainer = async (
 			createUserPhotoReferenceSource(cradle),
 			createCourseCoverReferenceSource(cradle),
 			createLessonMaterialReferenceSource(cradle),
+			createCertificateSignatureReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
 		themeRepository: asValue(themeRepository),

@@ -173,6 +173,15 @@ export const formatZonedDate = (value: Date): string =>
 export const formatZonedTime = (value: Date): string =>
 	timeFormatter.format(value);
 
+const longDateFormatter = new Intl.DateTimeFormat("es-MX", {
+	timeZone: INSTITUTE_TIME_ZONE,
+	dateStyle: "long",
+});
+
+/** "5 de octubre de 2026", la fecha de un documento. */
+export const formatZonedLongDate = (value: Date): string =>
+	longDateFormatter.format(value);
+
 /**
  * "5 oct 2026, 09:00–13:00" — el guion es una raya, no un menos.
  *

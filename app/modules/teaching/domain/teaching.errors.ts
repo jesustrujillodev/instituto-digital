@@ -16,6 +16,7 @@ export const TEACHING_ERROR_CODES = {
 	SELF_PACED_NOT_FINISHABLE: "TEACHING_SELF_PACED_NOT_FINISHABLE",
 	NOT_SELF_PACED: "TEACHING_NOT_SELF_PACED",
 	RESULTS_BY_QUIZ: "TEACHING_RESULTS_BY_QUIZ",
+	CERTIFICATES_NOT_ISSUABLE: "TEACHING_CERTIFICATES_NOT_ISSUABLE",
 } as const;
 
 export abstract class TeachingError extends DomainError {}
@@ -136,5 +137,16 @@ export class TeachingStateChangedError extends TeachingError {
 	readonly code = TEACHING_ERROR_CODES.STATE_CHANGED;
 	constructor() {
 		super("Course changed concurrently");
+	}
+}
+
+/**
+ * Emitir a demanda solo tiene sentido donde el completado ya está decidido: un
+ * finalizado o un autogestivo publicado. Uno por impartir se emite al cerrarse.
+ */
+export class TeachingCertificatesNotIssuableError extends TeachingError {
+	readonly code = TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE;
+	constructor() {
+		super("Certificates are issued when the course is finished");
 	}
 }

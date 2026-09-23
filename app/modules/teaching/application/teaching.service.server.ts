@@ -23,6 +23,7 @@ import {
 } from "../domain/teaching.errors";
 import { toTeachingDetail } from "../domain/teaching.mapper";
 import {
+	assertCertificatesIssuable,
 	assertEnrollmentTogglable,
 	assertFinishable,
 	assertWritable,
@@ -232,7 +233,27 @@ export const createTeachingService = ({
 				return ok({
 					completed: summary.completed,
 					credits: summary.diff.grant.length + summary.diff.restore.length,
+					certificates:
+						summary.certificates.issued + summary.certificates.restored,
 				});
+			});
+		},
+
+		async issueCertificates(documentId: string, actor: AuthContext) {
+			return run("issueCertificates", async () => {
+				const scope = requireScope(actor);
+				const { id } = await requireCourse(documentId, scope);
+				const now = clock.now();
+
+				const summary = await runInTransaction(async () => {
+					const course = await lockCourse(id);
+					assertCertificatesIssuable(course);
+					assertWritable(course, scope);
+
+					return completionSync.sync(course.id, actor.userId, now);
+				});
+
+				return ok({ issued: summary.certificates.issued });
 			});
 		},
 

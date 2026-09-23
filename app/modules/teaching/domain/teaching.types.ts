@@ -1,4 +1,5 @@
 import type * as v from "valibot";
+import type { IssuanceResult } from "@/modules/certificates/domain/certificate.types";
 import type {
 	CourseCompletionRule,
 	CourseFormat,
@@ -57,6 +58,14 @@ export interface TeachingParticipant extends TeachingPerson {
 	/** Lo que la regla lee: se fija al terminar las obligatorias y no se borra. */
 	contentCompletedAt: Date | null;
 	attendance: { sessionId: number; attended: boolean }[];
+	/** Su certificado de este curso, si se emitió (F-09). */
+	certificate: TeachingCertificate | null;
+}
+
+export interface TeachingCertificate {
+	documentId: string;
+	folio: string;
+	revoked: boolean;
 }
 
 export interface TeachingCourse {
@@ -136,6 +145,7 @@ export interface TeachingParticipantView extends TeachingPerson {
 	contentCompletedAt: Date | null;
 	/** `null` si todavía no se pasó lista en esa sesión. */
 	marks: Record<string, boolean | null>;
+	certificate: TeachingCertificate | null;
 }
 
 export interface TeachingDetail {
@@ -160,6 +170,8 @@ export interface TeachingDetail {
 	sessions: TeachingSessionView[];
 	participants: TeachingParticipantView[];
 	pendingResults: number;
+	/** Quienes completaron y todavía no tienen certificado. */
+	pendingCertificates: number;
 	finishBlocker: FinishBlocker | null;
 	can: {
 		recordAttendance: boolean;
@@ -171,6 +183,8 @@ export interface TeachingDetail {
 		toggleEnrollment: boolean;
 		/** Quien mira también administra el curso, y el curso aún se edita. */
 		editCourse: boolean;
+		/** Emitir a quienes completaron antes de que existieran los certificados. */
+		issueCertificates: boolean;
 	};
 }
 
@@ -189,14 +203,21 @@ export interface TeachingWriteResult {
 export interface FinishResult {
 	completed: number;
 	credits: number;
+	certificates: number;
 }
 
 export interface CompletionSyncResult {
 	completed: number;
 	diff: CreditDiff;
+	certificates: IssuanceResult;
+}
+
+export interface IssueCertificatesResult {
+	issued: number;
 }
 
 export type TeachingCourseListResponse = AppResponse<TeachingCourseSummary[]>;
 export type TeachingDetailResponse = AppResponse<TeachingDetail>;
 export type TeachingWriteResponse = AppResponse<TeachingWriteResult>;
 export type FinishResponse = AppResponse<FinishResult>;
+export type IssueCertificatesResponse = AppResponse<IssueCertificatesResult>;

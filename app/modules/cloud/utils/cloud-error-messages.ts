@@ -2,6 +2,7 @@ import { HTTP_STATUS } from "@/shared/http/route-error";
 import type { ErrorMessageMap } from "@/shared/response/response.messages";
 import type { ResponseError } from "@/shared/response/response.types";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
+import { STORAGE_ERROR_CODES } from "@/shared/storage/storage.errors";
 import { CLOUD_ERROR_CODES } from "../domain/cloud.errors";
 import { formatBytes } from "./cloud-format";
 
@@ -43,6 +44,11 @@ export const CLOUD_ERROR_MESSAGES: ErrorMessageMap = {
 	[CLOUD_ERROR_CODES.ZIP_TOO_LARGE]: { message: zipTooLargeCopy },
 	[CLOUD_ERROR_CODES.NOTHING_SELECTED]:
 		"Los archivos seleccionados ya no existen.",
+	[STORAGE_ERROR_CODES.OBJECT_LOCKED]: {
+		message:
+			"Una de las firmas aparece en certificados ya emitidos y no se puede borrar.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]:
 		"No se pudo completar la operación con el almacenamiento.",
 };
