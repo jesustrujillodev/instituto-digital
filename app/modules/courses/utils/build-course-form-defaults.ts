@@ -25,6 +25,7 @@ export interface CourseSessionFormValues {
 export interface CourseFormValues {
 	title: string;
 	description: string;
+	hours: string;
 	modality: CourseModality;
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;
@@ -101,6 +102,7 @@ export function buildCourseFormDefaults(
 	return {
 		title: course?.title ?? prefill?.title ?? "",
 		description: course?.description ?? "",
+		hours: course?.hours?.toString() ?? "",
 		modality: course?.modality ?? prefill?.plannedModality ?? "IN_PERSON",
 		format: course?.format ?? COURSE_DEFAULTS.format,
 		completionRule: course?.completionRule ?? COURSE_DEFAULTS.completionRule,

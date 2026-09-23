@@ -39,6 +39,7 @@ const courseOf = (
 	dependencyName: "SEDESOL",
 	title: "Atención ciudadana",
 	description: null,
+	hours: null,
 	coverUrl: null,
 	modality: "IN_PERSON",
 	format: "SCHEDULED",

@@ -22,6 +22,7 @@ import {
 	canPublish,
 	countsAttendance,
 	countsContent,
+	courseHoursOf,
 	createCourseRule,
 	type EvaluationMethod,
 	evaluatesByQuiz,
@@ -87,6 +88,31 @@ describe("modalidad", () => {
 		expect(requiresLink("ONLINE")).toBe(true);
 		expect(requiresVenue("HYBRID")).toBe(true);
 		expect(requiresLink("HYBRID")).toBe(true);
+	});
+});
+
+describe("courseHoursOf", () => {
+	const sessions = [
+		{
+			startsAt: new Date("2026-10-01T16:00:00.000Z"),
+			endsAt: new Date("2026-10-01T19:00:00.000Z"),
+		},
+		{
+			startsAt: new Date("2026-10-02T16:00:00.000Z"),
+			endsAt: new Date("2026-10-02T17:30:00.000Z"),
+		},
+	];
+
+	test("las horas capturadas mandan aunque haya sesiones", () => {
+		expect(courseHoursOf({ hours: 20, sessions })).toBe(20);
+	});
+
+	test("sin horas capturadas, suma la duración de las sesiones", () => {
+		expect(courseHoursOf({ hours: null, sessions })).toBe(4.5);
+	});
+
+	test("sin horas ni sesiones no inventa una duración", () => {
+		expect(courseHoursOf({ hours: null, sessions: [] })).toBeNull();
 	});
 });
 

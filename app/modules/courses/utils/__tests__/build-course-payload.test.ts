@@ -24,14 +24,21 @@ const valuesOf = (
 describe("buildCoursePayload", () => {
 	test("los textos vacíos pasan a ausentes y los números dejan de ser texto", () => {
 		expect(
-			buildCoursePayload(valuesOf({ capacity: "20", description: "  " })),
+			buildCoursePayload(
+				valuesOf({ capacity: "20", hours: "12", description: "  " }),
+			),
 		).toMatchObject({
 			capacity: 20,
+			hours: 12,
 			minAttendance: 80,
 			description: undefined,
 			enrollmentDeadline: undefined,
 			dependency: undefined,
 		});
+	});
+
+	test("las horas vacías viajan ausentes: el servicio las guarda como null", () => {
+		expect(buildCoursePayload(valuesOf({ hours: "" })).hours).toBeUndefined();
 	});
 
 	test("el curso nace calendarizado y por asistencia", () => {

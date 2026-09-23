@@ -59,6 +59,7 @@ export interface CourseSessionData {
 export interface CourseWriteData {
 	title: string;
 	description: string | null;
+	hours: number | null;
 	modality: CourseModality;
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;

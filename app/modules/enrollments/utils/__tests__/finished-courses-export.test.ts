@@ -13,6 +13,7 @@ const courseOf = (
 	dependencyName: "SEDESOL",
 	title: "Atención ciudadana",
 	description: "Trato al público",
+	hours: 4.5,
 	coverUrl: null,
 	modality: "HYBRID",
 	format: "SCHEDULED",
@@ -47,7 +48,7 @@ const courseOf = (
 });
 
 describe("toFinishedCoursesSheets", () => {
-	test("una fila por curso con su copia en español y las horas sumadas", () => {
+	test("una fila por curso con su copia en español y sus horas", () => {
 		const course = courseOf();
 
 		const [courses] = toFinishedCoursesSheets([course]);
@@ -94,6 +95,7 @@ describe("toFinishedCoursesSheets", () => {
 		const [courses, sessions] = toFinishedCoursesSheets([
 			courseOf({
 				status: "CANCELLED",
+				hours: null,
 				capacity: null,
 				finishedAt: null,
 				sessions: [],
@@ -104,7 +106,7 @@ describe("toFinishedCoursesSheets", () => {
 
 		expect(courses.rows[0][3]).toBe("Cancelado");
 		expect(courses.rows[0][6]).toBeNull();
-		expect(courses.rows[0].slice(8)).toEqual([0, 0, null, null, null]);
+		expect(courses.rows[0].slice(8)).toEqual([0, null, null, null, null]);
 		expect(sessions.rows).toEqual([]);
 	});
 

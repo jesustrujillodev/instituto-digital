@@ -47,6 +47,8 @@ export interface EnrollmentCourse {
 	dependencyName: string;
 	title: string;
 	description: string | null;
+	/** Las que acredita, ya resueltas por `courseHoursOf`; null si no hay. */
+	hours: number | null;
 	/** Ya resuelta a la URL con la que se pinta (CDN o proxy), o null. */
 	coverUrl: string | null;
 	modality: CourseModality;

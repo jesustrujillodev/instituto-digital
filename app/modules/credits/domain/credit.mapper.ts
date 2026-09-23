@@ -1,8 +1,9 @@
-import type { CourseModality } from "@/modules/courses/domain/course.rules";
+import {
+	type CourseModality,
+	courseHoursOf,
+} from "@/modules/courses/domain/course.rules";
 import type { CoverResolver } from "@/modules/enrollments/domain/enrollment.mapper";
 import type { CreditTally, MyCredit, MyCredits } from "./credit.types";
-
-const MINUTE_MS = 60 * 1000;
 
 export interface MyCreditRaw {
 	documentId: string;
@@ -12,6 +13,7 @@ export interface MyCreditRaw {
 	course: {
 		documentId: string;
 		title: string;
+		hours: number | null;
 		modality: CourseModality;
 		coverImageUrl: string | null;
 		dependency: { name: string };
@@ -43,12 +45,7 @@ export const toMyCredit = (
 			sessionCount: course.sessions.length,
 			firstSessionAt: course.sessions.at(0)?.startsAt ?? null,
 			lastSessionEndsAt: course.sessions.at(-1)?.endsAt ?? null,
-			totalMinutes: course.sessions.reduce(
-				(total, session) =>
-					total +
-					(session.endsAt.getTime() - session.startsAt.getTime()) / MINUTE_MS,
-				0,
-			),
+			hours: courseHoursOf(course),
 		},
 		attendedSessions,
 		grade: course.enrollments.at(0)?.grade ?? null,
@@ -64,7 +61,12 @@ const tally = <T>(items: readonly T[], keyOf: (item: T) => string) => {
 	return totals;
 };
 
-/** Total del ejercicio, acumulado histórico y ejercicios disponibles (§6.9). */
+/**
+ * Total del ejercicio, acumulado histórico y ejercicios disponibles (§6.9).
+ *
+ * Las horas se suman aparte y no tocan el conteo: un curso completado vale un
+ * crédito, dure lo que dure (D-06).
+ */
 export const summarizeMine = (
 	credits: readonly MyCredit[],
 	fiscalYear: number,
@@ -83,6 +85,10 @@ export const summarizeMine = (
 	return {
 		fiscalYear,
 		yearTotal: ofYear.length,
+		yearHours: ofYear.reduce(
+			(total, credit) => total + (credit.course.hours ?? 0),
+			0,
+		),
 		historicTotal: credits.length,
 		years: [...perYear]
 			.map(([year, total]) => ({ fiscalYear: Number(year), total }))

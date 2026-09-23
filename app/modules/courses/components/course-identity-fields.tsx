@@ -1,7 +1,9 @@
 import { memo } from "react";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { TextInput } from "@/shared/components/common/text-input";
 import { TextareaInput } from "@/shared/components/common/textarea-input";
+import { COURSE_HOURS_LIMITS } from "../domain/course.config";
+import { requiresSessions } from "../domain/course.rules";
 import type { CourseAudienceOption } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
@@ -24,7 +26,7 @@ interface CourseIdentityFieldsProps {
 	cover: CourseCoverControl;
 }
 
-/** Identidad del curso: lo que el personal lee en el catálogo antes de inscribirse. */
+/** Lo general del curso: lo que el personal lee en el catálogo antes de inscribirse. */
 export const CourseIdentityFields = memo(function CourseIdentityFields({
 	ids,
 	organizers,
@@ -34,6 +36,7 @@ export const CourseIdentityFields = memo(function CourseIdentityFields({
 		register,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
+	const format = useWatch<CourseFormValues, "format">({ name: "format" });
 
 	return (
 		<>
@@ -67,6 +70,21 @@ export const CourseIdentityFields = memo(function CourseIdentityFields({
 				placeholder="Qué se aprende, a quién va dirigido y qué hay que llevar."
 				error={errors.description?.message}
 				{...register("description")}
+			/>
+
+			<TextInput
+				id={ids.hours}
+				label="Duración (horas)"
+				type="number"
+				min={COURSE_HOURS_LIMITS.min}
+				max={COURSE_HOURS_LIMITS.max}
+				helperText={
+					requiresSessions(format)
+						? "Las que acredita el certificado. Si lo dejas vacío, se toman de la duración de las sesiones."
+						: "Las que acredita el certificado. Si lo dejas vacío, el curso no muestra horas."
+				}
+				error={errors.hours?.message}
+				{...register("hours")}
 			/>
 
 			<CourseCoverField

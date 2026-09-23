@@ -120,6 +120,32 @@ describe("cursos/alta action · guardar el paso", () => {
 		expect(calls.updated).toEqual([]);
 	});
 
+	test("las horas del paso 1 llegan al servicio", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			updateFields({ ...stepOnePayload, hours: 20 }),
+			context,
+			{ paso: "1" },
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated).toMatchObject([{ dto: { hours: 20 } }]);
+	});
+
+	test("unas horas fuera de rango no llegan al servicio", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			updateFields({ ...stepOnePayload, hours: 501 }),
+			context,
+			{ paso: "1" },
+		);
+
+		expect(!result.success && result.error.code).toBe("VALIDATION_ERROR");
+		expect(calls.updated).toEqual([]);
+	});
+
 	test("un curso que ya no se edita vuelve con su copia", async () => {
 		const { context } = createHarness({
 			updateFailsWith: "COURSE_NOT_EDITABLE",

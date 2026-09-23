@@ -302,6 +302,7 @@ export const createCourseService = ({
 		return {
 			title: dto.title,
 			description: dto.description ?? null,
+			hours: dto.hours ?? null,
 			modality: scheduled ? dto.modality : "ONLINE",
 			format,
 			completionRule,

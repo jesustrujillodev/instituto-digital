@@ -14,6 +14,7 @@ const rawOf = (
 	documentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 	title: "Protección civil básica",
 	description: null,
+	hours: null,
 	coverImageUrl: null,
 	modality: "IN_PERSON",
 	format: "SCHEDULED",
@@ -72,6 +73,12 @@ describe("toEnrollmentCourse", () => {
 			firstSessionAt: null,
 			lastSessionEndsAt: null,
 		});
+	});
+
+	test("resuelve las horas: las capturadas, o las de sus sesiones", () => {
+		expect(toEnrollmentCourse(rawOf({ hours: 12 }), cdn).hours).toBe(12);
+		expect(toEnrollmentCourse(rawOf(), cdn).hours).toBe(4);
+		expect(toEnrollmentCourse(rawOf({ sessions: [] }), cdn).hours).toBeNull();
 	});
 });
 

@@ -46,7 +46,7 @@ export const toFinishedCoursesSheets = (
 			course.capacity,
 			course.enrolledCount,
 			course.sessions.length,
-			course.sessions.reduce((total, session) => total + hoursOf(session), 0),
+			course.hours,
 			course.firstSessionAt,
 			course.lastSessionEndsAt,
 			course.finishedAt,

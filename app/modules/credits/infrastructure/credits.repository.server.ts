@@ -120,6 +120,7 @@ export const createCreditRepository = ({
 							id: true,
 							documentId: true,
 							title: true,
+							hours: true,
 							modality: true,
 							coverImageUrl: true,
 							dependency: { select: { name: true } },

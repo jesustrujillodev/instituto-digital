@@ -72,6 +72,7 @@ describe("toSummary", () => {
 const detailRow = {
 	...baseRow,
 	description: "Introducción a hojas de cálculo",
+	hours: 20,
 	enrollmentDeadline: null,
 	minAttendance: 80,
 	qrOpensBeforeMinutes: 15,

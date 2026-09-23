@@ -174,7 +174,7 @@ En un finalizado, un resultado no puede volver a `PENDING`.
 
 | Pantalla | Quién | Qué cuenta |
 | --- | --- | --- |
-| Mis créditos | Quien puede cursar (`requireParticipant`) | Sus créditos vigentes: total del ejercicio, acumulado y lista |
+| Mis créditos | Quien puede cursar (`requireParticipant`) | Sus créditos vigentes: total del ejercicio con sus horas (`courseHoursOf`), acumulado y lista |
 | Créditos (titular, auxiliar) | `requireScope` con `CREDIT_MANAGER_ROLES` | Su personal **y** quien obtuvo créditos para su dependencia aunque ya se haya ido (marcado "Transferido"). Cuenta solo `credits.dependency_id = su dependencia` |
 | Créditos (superadministrador) | El mismo guard | Resumen por dependencia; al elegir una, su tabla de personal |
 

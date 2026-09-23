@@ -1,9 +1,10 @@
-import type {
-	CourseAccessType,
-	CourseCompletionRule,
-	CourseFormat,
-	CourseModality,
-	CourseStatus,
+import {
+	type CourseAccessType,
+	type CourseCompletionRule,
+	type CourseFormat,
+	type CourseModality,
+	type CourseStatus,
+	courseHoursOf,
 } from "@/modules/courses/domain/course.rules";
 import type {
 	EnrollmentOrigin,
@@ -36,6 +37,7 @@ export interface EnrollmentCourseRaw {
 	documentId: string;
 	title: string;
 	description: string | null;
+	hours: number | null;
 	coverImageUrl: string | null;
 	modality: CourseModality;
 	format: CourseFormat;
@@ -73,6 +75,7 @@ export const toEnrollmentCourse = (
 		dependencyName: raw.dependency.name,
 		title: raw.title,
 		description: raw.description,
+		hours: courseHoursOf({ hours: raw.hours, sessions }),
 		coverUrl: resolveCover(raw.coverImageUrl),
 		modality: raw.modality,
 		format: raw.format,

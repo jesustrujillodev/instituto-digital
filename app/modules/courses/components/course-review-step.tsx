@@ -8,6 +8,7 @@ import { countsAttendance, requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
 	COMPLETION_RULE_LABELS,
+	courseHoursLabel,
 	EVALUATION_METHOD_LABELS,
 } from "../utils/course-labels";
 import {
@@ -92,6 +93,8 @@ export function CourseReviewStep({
 							<p className="font-medium text-sm">{course.title}</p>
 							<p className="text-muted-foreground text-sm">
 								Organiza {course.dependencyName}
+								<span aria-hidden="true"> · </span>
+								Duración: {courseHoursLabel(course)}
 							</p>
 							{course.description ? (
 								<p className="mt-2 whitespace-pre-line text-sm leading-relaxed">

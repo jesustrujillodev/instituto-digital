@@ -44,6 +44,7 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	dependencyId: 3,
 	dependencyName: "Obras Públicas",
 	title: "Ofimática básica",
+	hours: null,
 	coverImageUrl: null,
 	modality: "IN_PERSON",
 	format: "SCHEDULED",
@@ -456,6 +457,17 @@ describe("coursesService.create", () => {
 		});
 	});
 
+	test("guarda las horas capturadas, y null si no las hay", async () => {
+		const { service, calls } = createHarness();
+
+		const withHours = await service.create(dtoOf({ hours: 20 }), actorOf());
+		await service.create(dtoOf(), actorOf());
+
+		expect(withHours.success).toBe(true);
+		expect(calls.created[0]).toMatchObject({ hours: 20 });
+		expect(calls.created[1]).toMatchObject({ hours: null });
+	});
+
 	// El formulario puede traer sesiones de antes de cambiar el formato: el
 	// servicio las descarta, y con ellas la modalidad, que deja de referirse a
 	// nada.
@@ -664,6 +676,23 @@ describe("coursesService.update", () => {
 			documentId: COURSE_ID,
 			scope: { kind: "dependency", dependencyId: 3 },
 		});
+	});
+
+	// Vaciar el campo es quitar las horas: el curso vuelve a tomar las de sus
+	// sesiones.
+	test("editar sin horas las borra", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ hours: 20 }),
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			{ ...updateDto, hours: undefined },
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated[0]).toMatchObject({ data: { hours: null } });
 	});
 
 	test.each(["FINISHED", "CANCELLED"] as const)(

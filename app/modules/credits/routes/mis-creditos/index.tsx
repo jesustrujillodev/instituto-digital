@@ -15,6 +15,7 @@ import {
 	CourseCardList,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
+import { formatHours } from "@/modules/courses/utils/course-labels";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
 import { Badge } from "@/shared/components/ui/badge";
@@ -41,10 +42,6 @@ export function meta() {
 	return [{ title: "Mis créditos" }];
 }
 
-const hoursFormat = new Intl.NumberFormat("es-MX", {
-	maximumFractionDigits: 1,
-});
-
 const creditsLabel = (total: number) =>
 	total === 1 ? "1 crédito" : `${total} créditos`;
 
@@ -67,11 +64,8 @@ const metaOf = (credit: MyCredit): CourseMetaItem[] => {
 		{ icon: CalendarDays, label: dateRangeOf(credit) },
 	];
 
-	if (course.totalMinutes > 0) {
-		items.push({
-			icon: Clock,
-			label: `${hoursFormat.format(course.totalMinutes / 60)} h`,
-		});
+	if (course.hours !== null) {
+		items.push({ icon: Clock, label: formatHours(course.hours) });
 	}
 	items.push({
 		icon: UserCheck,
@@ -134,6 +128,14 @@ function YearSummary({ data }: { data: MyCredits }) {
 					{data.yearTotal}
 				</span>{" "}
 				{data.yearTotal === 1 ? "crédito" : "créditos"} en {data.fiscalYear}
+				{data.yearHours > 0 && (
+					<>
+						<span aria-hidden="true"> · </span>
+						<span className="font-medium text-foreground tabular-nums">
+							{formatHours(data.yearHours)}
+						</span>
+					</>
+				)}
 				<span aria-hidden="true"> · </span>
 				<span className="tabular-nums">{data.historicTotal}</span> en total
 			</p>

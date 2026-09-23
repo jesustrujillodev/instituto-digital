@@ -416,9 +416,9 @@ que un curso no se publique sin lo que §6.5 exige.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `course.access.test.ts` | 38 | Que un capacitador interno con rol `USER` resuelva a `creator` y el externo a `none`; que `none` dé un predicado imposible al leer y `null` al escribir, jamás `{}`; que fuera del alcance global la organizadora **ignore la del formulario**; que un curso por invitación solo se abra por invitación o inscripción propia; y qué ve una dependencia completa al asignar. |
-| `course.rules.test.ts` | 60 | Las condiciones de publicación, que el error diga **qué sesión** falló, las transiciones de estado, que un borrador sin sesiones sea válido y que el cupo no baje de los inscritos. Desde F-01: que un autogestivo se publique sin sesiones, que su checklist omita esos pendientes en vez de marcarlos, que la lista y la aserción no puedan divergir, y las combinaciones de formato y regla que se rechazan. Desde F-03: que un autogestivo sin lecciones no se publique, que un calendarizado ni enseñe ese pendiente, y que la prueba cruzada cubra también el par nuevo. |
+| `course.rules.test.ts` | 76 | Las condiciones de publicación, que el error diga **qué sesión** falló, las transiciones de estado, que un borrador sin sesiones sea válido y que el cupo no baje de los inscritos. Desde F-01: que un autogestivo se publique sin sesiones, que su checklist omita esos pendientes en vez de marcarlos, que la lista y la aserción no puedan divergir, y las combinaciones de formato y regla que se rechazan. Desde F-03: que un autogestivo sin lecciones no se publique, que un calendarizado ni enseñe ese pendiente, y que la prueba cruzada cubra también el par nuevo. Desde F-02: `courseHoursOf`, con horas capturadas, con las de las sesiones y sin ninguna de las dos. |
 | `course.errors.test.ts` | 28 | El `code` estable de cada error, su herencia de `DomainError` y los `details` que el adaptador interpola. |
-| `course.validators.test.ts` | 21 | Contratos de frontera: horas `HH:mm`, uuid en la URL, allowlist de ordenación, y que la edición descarte la organizadora. |
+| `course.validators.test.ts` | 29 | Contratos de frontera: horas `HH:mm`, uuid en la URL, allowlist de ordenación, y que la edición descarte la organizadora. Desde F-02: las horas del curso, opcionales, enteras y de 1 a 500. |
 | `course.mapper.test.ts` | 8 | Que el rango de fechas y los conteos se aplanen sin inventar fechas, y que `isActive` del capacitador se derive de cuenta y perfil. |
 | `course.config.test.ts` | 9 | Defaults de paginación, asistencia mínima, formato y regla de completado, y tope de sesiones. |
 
@@ -426,7 +426,7 @@ que un curso no se publique sin lo que §6.5 exige.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `courses.service.server.test.ts` | 58 | Envelope en éxito y fallo de `create`, `update`, `publish` y `cancel`; que `create` y `update` corran en `runInTransaction`; que la hora de Tijuana llegue a UTC; que un lote con un capacitador o audiencia no disponible **se rechace entero**; que un curso no restringido descarte su audiencia; que un finalizado o cancelado no se edite; y que editar el cupo bloquee el curso y no baje de los inscritos. Desde F-01: que un autogestivo se guarde sin sesiones y se publique, que una combinación incompatible de formato y regla no cree nada, y que un curso publicado no cambie de formato. Desde F-03: que un autogestivo sin lecciones no se publique y que un curso con sesiones ni consulte el temario. |
+| `courses.service.server.test.ts` | 62 | Envelope en éxito y fallo de `create`, `update`, `publish` y `cancel`; que `create` y `update` corran en `runInTransaction`; que la hora de Tijuana llegue a UTC; que un lote con un capacitador o audiencia no disponible **se rechace entero**; que un curso no restringido descarte su audiencia; que un finalizado o cancelado no se edite; y que editar el cupo bloquee el curso y no baje de los inscritos. Desde F-01: que un autogestivo se guarde sin sesiones y se publique, que una combinación incompatible de formato y regla no cree nada, y que un curso publicado no cambie de formato. Desde F-03: que un autogestivo sin lecciones no se publique y que un curso con sesiones ni consulte el temario. Desde F-02: que las horas se guarden al crear y se borren al editar sin ellas. |
 
 ### `routes/**/__tests__/` — 60 tests
 
@@ -445,8 +445,8 @@ que un curso no se publique sin lo que §6.5 exige.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `course-wizard-steps.test.ts` | 28 | Que los números del alta no tengan saltos y ningún campo viva en dos pasos; que `stepsForFormat` deje fuera el contenido en un curso con sesiones sin renumerar a los demás; que la posición visible no sea el número del paso; y que el siguiente y el anterior salten el paso que no aplica. |
-| `build-course-payload.test.ts` | 7 | Que la regla del formulario sea la del servidor, que sus errores conserven el nombre del campo (`sessions.0.startTime`) y que un autogestivo no mande las sesiones que quedaron en el formulario. |
-| `build-course-form-defaults.test.ts` | 4 | Ningún campo `undefined` y que las horas precargadas vuelvan a la zona del instituto. |
+| `build-course-payload.test.ts` | 8 | Que la regla del formulario sea la del servidor, que sus errores conserven el nombre del campo (`sessions.0.startTime`) y que un autogestivo no mande las sesiones que quedaron en el formulario. Desde F-02: que las horas vacías viajen ausentes. |
+| `build-course-form-defaults.test.ts` | 8 | Ningún campo `undefined` y que las horas precargadas vuelvan a la zona del instituto. Desde F-02: que las horas del curso se precarguen como texto. |
 | `parse-course-form-data.test.ts` | 4 | Que el payload JSON se decodifique con sus tipos y que uno roto llegue como `null`. |
 | `course-error-messages.test.ts` | 4 | Cobertura de códigos, reserva, y que la copia nombre la sesión. |
 | `to-course-cards.test.ts` | 2 | Que la PK interna no llegue a la tarjeta y que la portada se pinte con la URL resuelta. |
@@ -500,7 +500,7 @@ escritura respete la máquina de estados de la fila única por persona y curso.
 | `enrollment.rules.test.ts` | 36 | Cierre por fecha límite o primera sesión, baja hasta que empieza, quién cursa (externos y roles globales no), cupo que falla con los lugares restantes, la tabla de transiciones y la clasificación de "Mis cursos". |
 | `enrollment.errors.test.ts` | 14 | El `code` estable de cada error, su herencia y los `details` serializables. |
 | `enrollment.validators.test.ts` | 7 | uuid, modalidad permitida, lote de asignación no vacío e invitación con al menos una persona o grupo. |
-| `enrollment.mapper.test.ts` | 5 | Rango de sesiones, lugares restantes y que la lista use la dependencia con la que se inscribió. |
+| `enrollment.mapper.test.ts` | 10 | Rango de sesiones, lugares restantes y que la lista use la dependencia con la que se inscribió. Desde F-02: que las horas lleguen ya resueltas por `courseHoursOf`. |
 
 ### `application/__tests__/` — 30 tests
 
@@ -604,7 +604,7 @@ contando para la dependencia donde se obtuvo** y que nadie lea los de otra.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `domain/…/credit.rules.test.ts` | 6 | `diffCredits`: otorgar, retirar sin repetir, restaurar en lugar de crear y no tocar lo vigente; validación del ejercicio y de la dependencia. |
-| `domain/…/credit.mapper.test.ts` | 3 | Total del ejercicio frente al histórico y el ejercicio pedido aunque esté vacío. |
+| `domain/…/credit.mapper.test.ts` | 9 | Total del ejercicio frente al histórico y el ejercicio pedido aunque esté vacío. Desde F-02: que las horas capturadas manden sobre las de las sesiones, que el ejercicio sume sus horas sin contar los cursos sin horas, y que las horas **no** cambien el valor del crédito. |
 | `application/…/credits.service.server.test.ts` | 6 | El titular ve su personal aunque pida otra dependencia, el superadministrador ve el resumen o la dependencia que elija y el participante recibe `FORBIDDEN_SCOPE`. |
 | `infrastructure/…/credits.repository.server.test.ts` | 6 | Retirar marca y nunca borra, restaurar no toca `dependency_id`, el personal incluye a quien se fue y el resumen lleva ceros. |
 | `routes/creditos/…/index.loader.test.ts` | 3 | El filtro de dependencia solo se lee con alcance global; 403 al participante. |

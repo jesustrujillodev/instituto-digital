@@ -35,12 +35,31 @@ describe("validateCreateCourse", () => {
 		["una asistencia mínima de 0", { minAttendance: 0 }],
 		["una asistencia mínima de 101", { minAttendance: 101 }],
 		["un cupo de 0", { capacity: 0 }],
+		["cero horas", { hours: 0 }],
+		["más de 500 horas", { hours: 501 }],
+		["media hora de más", { hours: 1.5 }],
+		["horas como texto", { hours: "20" }],
 		["un capacitador que no es uuid", { trainers: ["12345"] }],
 		["una fecha límite con otro formato", { enrollmentDeadline: "12/10/2026" }],
 	])("rechaza %s", (_case, override) => {
 		expect(() =>
 			validateCreateCourse({ ...validCourse, ...override }),
 		).toThrow();
+	});
+});
+
+describe("horas del curso", () => {
+	test.each([1, 500])("acepta %i horas", (hours) => {
+		expect(validateCreateCourse({ ...validCourse, hours }).hours).toBe(hours);
+	});
+
+	test("son opcionales: un curso sin horas es válido", () => {
+		expect(validateCreateCourse(validCourse).hours).toBeUndefined();
+	});
+
+	test("se editan con la misma regla que el alta", () => {
+		expect(() => validateUpdateCourse({ ...validCourse, hours: 0 })).toThrow();
+		expect(validateUpdateCourse({ ...validCourse, hours: 12 }).hours).toBe(12);
 	});
 });
 

@@ -10,6 +10,7 @@ import {
 const course = {
 	title: "Ofimática",
 	description: null,
+	hours: 16,
 	modality: "HYBRID",
 	access: "RESTRICTED",
 	capacity: 20,
@@ -45,6 +46,7 @@ describe("buildCourseFormDefaults", () => {
 			modality: "IN_PERSON",
 			access: "PUBLIC",
 			minAttendance: "80",
+			hours: "",
 			sessions: [],
 		});
 	});
@@ -67,6 +69,7 @@ describe("buildCourseFormDefaults", () => {
 	test("la edición precarga selecciones, números como texto y la fecha límite", () => {
 		expect(buildCourseFormDefaults(course)).toMatchObject({
 			capacity: "20",
+			hours: "16",
 			minAttendance: "90",
 			enrollmentDeadline: "2026-11-01",
 			description: "",

@@ -29,6 +29,7 @@ export const buildCoursePayload = (
 ): CreateCourseDto => ({
 	title: values.title,
 	description: optionalText(values.description),
+	hours: optionalNumber(values.hours),
 	modality: values.modality,
 	format: values.format,
 	completionRule: values.completionRule,

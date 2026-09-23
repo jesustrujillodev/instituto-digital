@@ -3,6 +3,7 @@ import { useFormIds } from "@/shared/hooks/use-form-ids";
 const FIELD_KEYS = [
 	"title",
 	"description",
+	"hours",
 	"cover",
 	"modality",
 	"format",

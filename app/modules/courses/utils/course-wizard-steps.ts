@@ -33,9 +33,9 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 	{
 		key: "identity",
 		number: 1,
-		title: "Identidad",
-		summary: "Cómo se llama y qué se aprende",
-		fields: ["dependency", "title", "description"],
+		title: "General",
+		summary: "Cómo se llama, qué se aprende y cuánto dura",
+		fields: ["dependency", "title", "description", "hours"],
 	},
 	{
 		key: "program",
@@ -171,7 +171,7 @@ export type PublishChecklist = readonly {
 export const stepOfCheck = (check: PublishCheck): CourseStepKey =>
 	STEP_OF_CHECK[check];
 
-/** Pasos con algo pendiente. Identidad y Evaluación nunca lo están. */
+/** Pasos con algo pendiente. General y Evaluación nunca lo están. */
 export const stepsWithPending = (
 	checklist: PublishChecklist,
 ): Set<CourseStepKey> =>

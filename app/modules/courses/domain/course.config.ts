@@ -37,6 +37,9 @@ export const COURSE_DEFAULTS = {
  */
 export const COURSE_QR_WINDOW_LIMITS = { min: 0, max: 240 } as const;
 
+/** Horas que puede acreditar un curso: enteras, y un diplomado largo como tope. */
+export const COURSE_HOURS_LIMITS = { min: 1, max: 500 } as const;
+
 /**
  * Tope de sesiones por curso.
  *

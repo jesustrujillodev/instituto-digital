@@ -24,7 +24,7 @@ const creditOf = (
 		sessionCount: 1,
 		firstSessionAt: null,
 		lastSessionEndsAt: null,
-		totalMinutes: 0,
+		hours: null,
 	},
 	attendedSessions: 1,
 	grade: null,
@@ -59,6 +59,37 @@ describe("summarizeMine", () => {
 		]);
 	});
 
+	test("suma las horas del ejercicio y omite los cursos sin horas", () => {
+		const withHours = (credit: MyCredit, hours: number | null): MyCredit => ({
+			...credit,
+			course: { ...credit.course, hours },
+		});
+
+		const summary = summarizeMine(
+			[
+				withHours(creditOf(2026, "a"), 20),
+				withHours(creditOf(2026, "b"), 7.5),
+				withHours(creditOf(2026, "c"), null),
+				withHours(creditOf(2025, "d"), 40),
+			],
+			2026,
+		);
+
+		expect(summary.yearHours).toBe(27.5);
+	});
+
+	test("las horas no cambian el valor del crédito: uno por curso", () => {
+		const long: MyCredit = {
+			...creditOf(2026, "a"),
+			course: { ...creditOf(2026, "a").course, hours: 120 },
+		};
+
+		const summary = summarizeMine([long, creditOf(2026, "b")], 2026);
+
+		expect(summary.yearTotal).toBe(2);
+		expect(summary.years).toEqual([{ fiscalYear: 2026, total: 2 }]);
+	});
+
 	test("reparte el ejercicio por la dependencia para la que cuenta", () => {
 		const summary = summarizeMine(
 			[
@@ -86,6 +117,7 @@ describe("toMyCredit", () => {
 		course: {
 			documentId: "c",
 			title: "Liderazgo",
+			hours: null,
 			modality: "HYBRID" as const,
 			coverImageUrl: "/api/storage?key=media%2Fc.png",
 			dependency: { name: "Oficialía Mayor" },
@@ -116,9 +148,19 @@ describe("toMyCredit", () => {
 				sessionCount: 2,
 				firstSessionAt: raw.course.sessions[0].startsAt,
 				lastSessionEndsAt: raw.course.sessions[1].endsAt,
-				totalMinutes: 210,
+				hours: 3.5,
 			},
 		});
+	});
+
+	test("las horas capturadas mandan sobre las de sus sesiones", () => {
+		const credit = toMyCredit(
+			{ ...raw, course: { ...raw.course, hours: 20 } },
+			1,
+			() => null,
+		);
+
+		expect(credit.course.hours).toBe(20);
 	});
 
 	test("sin sesiones ni inscripción no inventa fechas ni nota", () => {
@@ -132,7 +174,7 @@ describe("toMyCredit", () => {
 			sessionCount: 0,
 			firstSessionAt: null,
 			lastSessionEndsAt: null,
-			totalMinutes: 0,
+			hours: null,
 		});
 		expect(credit.grade).toBeNull();
 	});

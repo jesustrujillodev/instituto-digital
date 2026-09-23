@@ -48,6 +48,7 @@ const DETAIL_SELECT = {
 	...SUMMARY_SELECT,
 	completionRule: true,
 	description: true,
+	hours: true,
 	enrollmentDeadline: true,
 	minAttendance: true,
 	requiresEvaluation: true,
@@ -176,6 +177,7 @@ const writeWhere = (
 const scalarsOf = (data: CourseWriteData) => ({
 	title: data.title,
 	description: data.description,
+	hours: data.hours,
 	modality: data.modality,
 	format: data.format,
 	completionRule: data.completionRule,

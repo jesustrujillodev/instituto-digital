@@ -52,7 +52,8 @@ export interface MyCreditCourse {
 	sessionCount: number;
 	firstSessionAt: Date | null;
 	lastSessionEndsAt: Date | null;
-	totalMinutes: number;
+	/** Resueltas por `courseHoursOf`: capturadas o, si no, las de sus sesiones. */
+	hours: number | null;
 }
 
 export interface MyCredit {
@@ -74,6 +75,8 @@ export interface CreditTally {
 export interface MyCredits {
 	fiscalYear: number;
 	yearTotal: number;
+	/** Suma de las horas del ejercicio; los cursos sin horas no suman. */
+	yearHours: number;
 	historicTotal: number;
 	/** Ejercicios con algún crédito, más el pedido. Descendentes. */
 	years: { fiscalYear: number; total: number }[];

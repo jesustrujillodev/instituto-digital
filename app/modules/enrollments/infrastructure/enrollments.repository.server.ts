@@ -35,6 +35,7 @@ const COURSE_SELECT = {
 	documentId: true,
 	title: true,
 	description: true,
+	hours: true,
 	coverImageUrl: true,
 	modality: true,
 	format: true,

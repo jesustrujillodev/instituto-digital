@@ -23,7 +23,7 @@ visibilidad de §5.
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `org.courses` | El curso. Organizadora, modalidad, formato, regla de completado, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor, `plan_line_id` y `cover_image_url` |
+| `org.courses` | El curso. Organizadora, horas opcionales, modalidad, formato, regla de completado, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor, `plan_line_id` y `cover_image_url` |
 | `org.course_sessions` | Fecha y horario concretos: `starts_at`, `ends_at`, sede y enlace |
 | `org.course_trainers` | Quién imparte. PK `(course_id, user_id)` |
 | `org.course_dependency_audience` | Audiencia por dependencia completa. PK `(course_id, dependency_id)` |
@@ -59,6 +59,15 @@ Decisiones que el schema no dice por sí solo:
   `PUBLISHED`, pero pasarlo a autogestivo borraría sus sesiones y, con ellas, las
   filas de `course_attendance`, que cuelgan de `session_id`. Lo impide
   `assertFormatEditable` con `COURSE_FORMAT_LOCKED`.
+- **`hours` son las horas que acredita el curso, y las capturadas mandan.** Son
+  enteras, de 1 a 500 (`COURSE_HOURS_LIMITS`), y opcionales: no hay check de
+  publicación. Sin ellas, un curso con sesiones acredita la duración sumada de
+  sus sesiones, y un autogestivo no muestra horas. Esa resolución vive en una
+  sola función pura, `courseHoursOf`, y la usan la ficha, «Mis cursos», el Excel
+  de finalizados y «Mis créditos». La columna es nula en los cursos anteriores,
+  que siguen mostrando las horas de sus sesiones. Las horas se muestran y no se
+  convierten: un curso completado vale un crédito, dure lo que dure (D-06 de
+  MVP-02).
 - **No hay `archived_at`.** La baja de un curso es `status = CANCELLED`, que
   conserva sus sesiones, capacitadores y audiencia (§6.5). Dos mecanismos de baja
   sobre la misma fila se contradirían.
@@ -280,7 +289,7 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 
 | # | Paso | Qué captura |
 | --- | --- | --- |
-| 1 | Identidad | Dependencia (solo superadmin), título, descripción, portada |
+| 1 | General | Dependencia (solo superadmin), título, descripción, horas, portada |
 | 2 | Programa | Formato, modalidad, capacitadores, sesiones |
 | 3 | Contenido | Módulos y lecciones; solo si `requiresContent` |
 | 4 | Evaluación | Se completa con, asistencia mínima, ventana del QR, "Requiere evaluación" y las evaluaciones de seguimiento |

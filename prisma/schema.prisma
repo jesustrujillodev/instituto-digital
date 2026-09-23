@@ -404,6 +404,10 @@ model Course {
   title       String
   description String?
 
+  /// Horas que acredita el curso. Nulo en los cursos anteriores: esos toman la
+  /// duración de sus sesiones (`courseHoursOf`).
+  hours Int? @map("hours")
+
   /// Portada del curso. Guarda la REFERENCIA del proxy (`/api/storage?key=…`),
   /// nunca la URL del proveedor: cambiar S3↔GCS o de dominio no invalida la fila.
   /// Su key vive bajo `media/`, que es público y elegible para CDN.

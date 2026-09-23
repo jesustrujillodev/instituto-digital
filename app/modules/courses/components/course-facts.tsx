@@ -6,6 +6,7 @@ import { countsAttendance, requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
 	COMPLETION_RULE_LABELS,
+	courseHoursLabel,
 	EVALUATION_METHOD_LABELS,
 } from "../utils/course-labels";
 
@@ -44,6 +45,8 @@ export function CourseFacts({
 			},
 		);
 	}
+
+	facts.push({ term: "Duración", value: courseHoursLabel(course) });
 
 	facts.push({
 		term: "Se completa con",

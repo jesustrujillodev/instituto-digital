@@ -6,6 +6,7 @@ import {
 	Building2,
 	CalendarDays,
 	Check,
+	Clock,
 	Download,
 	Layers,
 	X,
@@ -23,6 +24,7 @@ import {
 	countsContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
+import { formatHours } from "@/modules/courses/utils/course-labels";
 import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
@@ -79,19 +81,26 @@ const dateRangeOf = ({ course }: MyCourseEntry) => {
 };
 
 const metaOf = (entry: MyCourseEntry): CourseMetaItem[] => {
-	const count = entry.course.sessions.length;
+	const { course } = entry;
+	const count = course.sessions.length;
+	const hours: CourseMetaItem[] =
+		course.hours === null
+			? []
+			: [{ icon: Clock, label: formatHours(course.hours) }];
 
-	if (!requiresSessions(entry.course.format)) {
+	if (!requiresSessions(course.format)) {
 		return [
-			{ icon: Building2, label: entry.course.dependencyName, wide: true },
+			{ icon: Building2, label: course.dependencyName, wide: true },
 			{ icon: BookOpen, label: "A tu ritmo" },
+			...hours,
 		];
 	}
 
 	return [
-		{ icon: Building2, label: entry.course.dependencyName, wide: true },
+		{ icon: Building2, label: course.dependencyName, wide: true },
 		{ icon: CalendarDays, label: dateRangeOf(entry) },
 		{ icon: Layers, label: count === 1 ? "1 sesión" : `${count} sesiones` },
+		...hours,
 	];
 };
 

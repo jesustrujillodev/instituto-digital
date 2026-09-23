@@ -5,7 +5,11 @@ import {
 	SORT_DIRECTIONS,
 	type SortDirection,
 } from "@/shared/rules/list.rules";
-import { COURSE_MAX_SESSIONS, COURSE_QR_WINDOW_LIMITS } from "./course.config";
+import {
+	COURSE_HOURS_LIMITS,
+	COURSE_MAX_SESSIONS,
+	COURSE_QR_WINDOW_LIMITS,
+} from "./course.config";
 import {
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
@@ -112,6 +116,19 @@ const minAttendance = v.pipe(
 	v.maxValue(100, "La asistencia mínima no puede superar el 100%."),
 );
 
+const hours = v.pipe(
+	v.number("Las horas del curso deben ser un número."),
+	v.integer("Las horas del curso deben ser un número entero."),
+	v.minValue(
+		COURSE_HOURS_LIMITS.min,
+		`Las horas del curso deben ser al menos ${COURSE_HOURS_LIMITS.min}.`,
+	),
+	v.maxValue(
+		COURSE_HOURS_LIMITS.max,
+		`Las horas del curso no pueden superar las ${COURSE_HOURS_LIMITS.max}.`,
+	),
+);
+
 /** Minutos de tolerancia de la ventana de escaneo del QR (§6.8). */
 const qrWindowMinutes = v.pipe(
 	v.number("La tolerancia del QR debe ser un número."),
@@ -199,6 +216,8 @@ export const courseSummarySchema = v.object({
 export const courseDetailSchema = v.object({
 	...courseSummarySchema.entries,
 	description: v.nullable(v.string()),
+	/** Las capturadas; las efectivas las resuelve `courseHoursOf`. */
+	hours: v.nullable(v.number()),
 	enrollmentDeadline: v.nullable(v.date()),
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
@@ -256,6 +275,7 @@ export const courseSessionInputRule = v.object({
 const courseFormShape = {
 	title,
 	description: v.optional(description),
+	hours: v.optional(hours),
 	modality: v.picklist(COURSE_MODALITIES, "Elige una modalidad válida."),
 	format: v.optional(v.picklist(COURSE_FORMATS, "Elige un formato válido.")),
 	access: v.picklist(COURSE_ACCESS_TYPES, "Elige un tipo de acceso válido."),
@@ -406,6 +426,27 @@ export const evaluatesByQuiz = (course: {
 	requiresEvaluation: boolean;
 	evaluationMethod: EvaluationMethod;
 }): boolean => course.requiresEvaluation && course.evaluationMethod === "QUIZ";
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Las horas que acredita el curso: las capturadas mandan, y la duración de las
+ * sesiones es la reserva de los cursos que no las tienen. `null` si no hay ni
+ * unas ni otras, que es el autogestivo sin capturar.
+ */
+export const courseHoursOf = (course: {
+	hours: number | null;
+	sessions: readonly { startsAt: Date; endsAt: Date }[];
+}): number | null => {
+	if (course.hours !== null) return course.hours;
+	if (course.sessions.length === 0) return null;
+
+	return course.sessions.reduce(
+		(total, session) =>
+			total + (session.endsAt.getTime() - session.startsAt.getTime()) / HOUR_MS,
+		0,
+	);
+};
 
 export const requiresVenue = (modality: CourseModality): boolean =>
 	modality === "IN_PERSON" || modality === "HYBRID";

@@ -14,6 +14,7 @@ const MINE_ROW = {
 		id: 10,
 		documentId: "c",
 		title: "Liderazgo",
+		hours: null,
 		modality: "IN_PERSON",
 		coverImageUrl: null,
 		dependency: { name: "Oficialía Mayor" },
@@ -165,7 +166,7 @@ describe("findMine", () => {
 			dependencyName: "Obras Públicas",
 			attendedSessions: 2,
 			grade: 88,
-			course: { dependencyName: "Oficialía Mayor", totalMinutes: 120 },
+			course: { dependencyName: "Oficialía Mayor", hours: 2 },
 		});
 	});
 });

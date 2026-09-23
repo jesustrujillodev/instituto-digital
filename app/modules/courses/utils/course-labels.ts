@@ -1,11 +1,12 @@
-import type {
-	CourseAccessType,
-	CourseCompletionRule,
-	CourseFormat,
-	CourseModality,
-	CourseStatus,
-	EvaluationMethod,
-	PublishCheck,
+import {
+	type CourseAccessType,
+	type CourseCompletionRule,
+	type CourseFormat,
+	type CourseModality,
+	type CourseStatus,
+	courseHoursOf,
+	type EvaluationMethod,
+	type PublishCheck,
 } from "../domain/course.rules";
 
 // El vocabulario persistido está en inglés (reglas §24); la copia, aquí.
@@ -43,6 +44,33 @@ export const STATUS_LABELS: Record<CourseStatus, string> = {
 	PUBLISHED: "Publicado",
 	FINISHED: "Finalizado",
 	CANCELLED: "Cancelado",
+};
+
+const hoursFormat = new Intl.NumberFormat("es-MX", {
+	maximumFractionDigits: 1,
+});
+
+/** "20 h", o "7.5 h" cuando salen de la duración de las sesiones. */
+export const formatHours = (hours: number): string =>
+	`${hoursFormat.format(hours)} h`;
+
+/** La duración para quien administra el curso: dice si se capturó o se dedujo. */
+export const courseHoursLabel = (course: {
+	hours: number | null;
+	sessions: readonly { startsAt: Date | string; endsAt: Date | string }[];
+}): string => {
+	const hours = courseHoursOf({
+		hours: course.hours,
+		sessions: course.sessions.map((session) => ({
+			startsAt: new Date(session.startsAt),
+			endsAt: new Date(session.endsAt),
+		})),
+	});
+
+	if (hours === null) return "Sin capturar";
+	return course.hours === null
+		? `${formatHours(hours)}, según sus sesiones`
+		: formatHours(hours);
 };
 
 const PLACE_LABELS: Record<CourseModality, string> = {

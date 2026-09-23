@@ -9,9 +9,11 @@ import {
 	CourseAccessBadge,
 	CourseModalityBadge,
 } from "@/modules/courses/components/course-badges";
+import { formatHours } from "@/modules/courses/utils/course-labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
@@ -137,6 +139,9 @@ export default function CursoDisponiblePage({
 				<CourseModalityBadge modality={course.modality} />
 				<CourseAccessBadge access={course.access} />
 				<SeatsBadge capacity={course.capacity} seatsLeft={course.seatsLeft} />
+				{course.hours !== null && (
+					<Badge variant="outline">{formatHours(course.hours)}</Badge>
+				)}
 				{enrollment && (
 					<>
 						<EnrollmentStatusBadge status={enrollment.status} />

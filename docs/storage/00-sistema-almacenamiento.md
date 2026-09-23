@@ -476,36 +476,33 @@ CORS no hace falta: las imágenes se cargan con `<img>`, no con `fetch`.
 
 ### 7.3 CORS para el ZIP del gestor de nube y para la subida directa
 
-El gestor de nube ([cloud/00-gestor-nube.md](../cloud/00-gestor-nube.md)) arma los
-ZIP **en el navegador**: pide URLs firmadas y hace `fetch` directo al bucket. Un
-`fetch` entre orígenes exige CORS en **los dos** buckets. Solo lectura, sin
-credenciales:
+El navegador habla directo con el bucket en tres casos, y un `fetch` entre orígenes
+exige CORS en **los dos** buckets:
+
+- el gestor de nube ([cloud/00-gestor-nube.md](../cloud/00-gestor-nube.md)) arma los
+  ZIP en el navegador con `GET` sobre URLs firmadas;
+- el material de lecciones (§5.5) se sube con `PUT` firmado, con `Content-Type` en
+  la firma, así que el preflight pregunta por esa cabecera;
+- el reproductor de video pide rangos, y sin `Content-Range` y `Accept-Ranges`
+  expuestos concluye que el bucket no los admite y no deja saltar dentro del video.
+
+Una sola regla cubre los tres. Es la misma que aplica `bun run storage:cors`:
 
 | Proveedor | Cómo |
 |---|---|
 | MinIO (local) | Permite todos los orígenes por defecto (`MINIO_API_CORS_ALLOW_ORIGIN`). Nada que hacer |
-| Cloudflare R2 | Bucket → Settings → CORS Policy, en el privado **y** en el público: `[{"AllowedOrigins":["https://app.tudominio.com"],"AllowedMethods":["GET","HEAD"]}]` |
+| Cloudflare R2 | Bucket → Settings → CORS Policy, en el privado **y** en el público: `[{"AllowedOrigins":["https://app.tudominio.com"],"AllowedMethods":["GET","HEAD","PUT"],"AllowedHeaders":["*"],"ExposeHeaders":["Content-Range","Content-Length","Accept-Ranges","Content-Type","ETag"],"MaxAgeSeconds":3600}]` |
 | AWS S3 | `aws s3api put-bucket-cors` con la misma regla |
-| GCS | `gcloud storage buckets update gs://<bucket> --cors-file=cors.json` con `[{"origin":["https://app.tudominio.com"],"method":["GET","HEAD"],"maxAgeSeconds":3600}]` |
+| GCS | `gcloud storage buckets update gs://<bucket> --cors-file=cors.json` con `[{"origin":["https://app.tudominio.com"],"method":["GET","HEAD","PUT"],"responseHeader":["Content-Type","Content-Range","Content-Length","Accept-Ranges","ETag"],"maxAgeSeconds":3600}]` |
 
-Sin CORS todo lo demás sigue funcionando (listar, descargar un archivo suelto,
-borrar); solo el ZIP falla, y la pantalla lo explica. CORS de solo lectura no
-expone nada: sin una URL firmada, el bucket privado sigue respondiendo 403.
-
-**El material de lecciones (§5.5) añade una segunda exigencia**: el navegador
-hace `PUT` contra el bucket, así que la regla necesita también `PUT` y la cabecera
-`Content-Type`. Con la regla de solo lectura de arriba, la subida falla en el
+Sin CORS, listar, descargar un archivo suelto y borrar siguen funcionando. Lo que
+falla es el ZIP, que la pantalla explica, y la subida de material, que falla en el
 navegador con un error de CORS opaco —el `PUT` ni siquiera sale— mientras el resto
-de la pantalla parece correcto:
+de la pantalla parece correcto.
 
-| Proveedor | Qué añadir a la regla |
-|---|---|
-| MinIO (local) | Nada: permite todos los orígenes por defecto |
-| Cloudflare R2 / AWS S3 | `"AllowedMethods":["GET","HEAD","PUT"]` y `"AllowedHeaders":["content-type"]` |
-| GCS | `"method":["GET","HEAD","PUT"]` y `"responseHeader":["content-type"]` |
-
-Sigue sin exponer nada: un `PUT` sin URL firmada responde 403, y la firma la emite
-el servidor tras validar tipo y tamaño.
+La regla no expone nada: sin una URL firmada el bucket privado responde 403 a un
+`GET` y a un `PUT`, y la firma de subida la emite el servidor tras validar tipo y
+tamaño.
 
 Hay un script para no hacerlo a mano:
 
