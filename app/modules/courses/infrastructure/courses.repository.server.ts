@@ -51,6 +51,7 @@ const DETAIL_SELECT = {
 	enrollmentDeadline: true,
 	minAttendance: true,
 	requiresEvaluation: true,
+	evaluationMethod: true,
 	qrOpensBeforeMinutes: true,
 	qrClosesAfterMinutes: true,
 	planLine: {
@@ -183,6 +184,7 @@ const scalarsOf = (data: CourseWriteData) => ({
 	enrollmentDeadline: data.enrollmentDeadline,
 	minAttendance: data.minAttendance,
 	requiresEvaluation: data.requiresEvaluation,
+	evaluationMethod: data.evaluationMethod,
 	qrOpensBeforeMinutes: data.qrOpensBeforeMinutes,
 	qrClosesAfterMinutes: data.qrClosesAfterMinutes,
 });

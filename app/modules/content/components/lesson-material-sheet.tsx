@@ -37,6 +37,7 @@ import { LESSON_TYPE_LABELS } from "../utils/content-labels";
 import { LessonBodyView } from "./lesson-body-view";
 import { LessonLinkField } from "./lesson-link-field";
 import { LessonFilePreview } from "./lesson-material-view";
+import { LessonQuizPanel } from "./lesson-quiz-panel";
 import {
 	LessonUploadField,
 	type UploadedMaterial,
@@ -249,6 +250,15 @@ export function LessonMaterialSheet({
 							/>
 						) : null}
 					</div>
+				);
+
+			case "QUIZ":
+				return (
+					<LessonQuizPanel
+						courseDocumentId={courseDocumentId}
+						lesson={lesson}
+						canWrite={canWrite}
+					/>
 				);
 
 			default: {

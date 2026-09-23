@@ -23,6 +23,7 @@ export const COURSE_PAGE_SIZES = [12, 24, 48] as const;
 export const COURSE_DEFAULTS = {
 	format: "SCHEDULED",
 	completionRule: "ATTENDANCE",
+	evaluationMethod: "MANUAL",
 	minAttendance: 80,
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,

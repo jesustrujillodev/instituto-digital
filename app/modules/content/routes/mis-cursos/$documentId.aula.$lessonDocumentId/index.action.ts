@@ -4,15 +4,21 @@ import { localizeError } from "@/shared/response/response.messages";
 import {
 	validateFindClassroom,
 	validateRecordProgress,
+	validateSubmitQuiz,
 } from "../../../domain/content.validators";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
+import {
+	CONTENT_INTENTS,
+	parseContentFormData,
+} from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
  * POST /dashboard/mis-cursos/:documentId/aula/:lessonDocumentId
  *
- * Registra el avance de quien está en sesión. La inscripción activa se exige en
- * el servicio: esconder el botón no protege a nadie de un POST directo.
+ * Registra el avance de quien está en sesión, o presenta la práctica de una
+ * lección `QUIZ`. La inscripción activa se exige en el servicio: esconder el
+ * botón no protege a nadie de un POST directo.
  */
 export const action = async ({
 	request,
@@ -21,6 +27,35 @@ export const action = async ({
 }: Route.ActionArgs) => {
 	const auth = await requireParticipant(request, context);
 	const formData = await request.formData();
+
+	const form = parseContentFormData(formData);
+	if (form.intent === CONTENT_INTENTS.submitQuiz) {
+		const quizInput = parseInput(() => ({
+			course: validateFindClassroom({ documentId: params.documentId })
+				.documentId,
+			// La lección sale de la URL, no del cuerpo.
+			dto: validateSubmitQuiz({
+				...(form.payload as object),
+				lessonDocumentId: params.lessonDocumentId,
+			}),
+		}));
+		if (!quizInput.success) {
+			return localizeError(quizInput, CONTENT_ERROR_MESSAGES);
+		}
+
+		const submitted = await context.quizService.submit(
+			quizInput.data.course,
+			quizInput.data.dto,
+			auth,
+		);
+		if (!submitted.success) {
+			return localizeError(submitted, CONTENT_ERROR_MESSAGES);
+		}
+
+		return ok(submitted.data, {
+			message: `Cuestionario enviado: obtuviste ${submitted.data.score}.`,
+		});
+	}
 
 	const input = parseInput(() => ({
 		course: validateFindClassroom({ documentId: params.documentId }).documentId,

@@ -7,6 +7,7 @@ export const LESSON_TYPE_LABELS: Record<LessonType, string> = {
 	FILE: "Archivo",
 	VIDEO: "Video",
 	LINK: "Enlace",
+	QUIZ: "Cuestionario",
 };
 
 export const LESSON_TYPE_HINTS: Record<LessonType, string> = {
@@ -14,4 +15,5 @@ export const LESSON_TYPE_HINTS: Record<LessonType, string> = {
 	FILE: "Un documento que se lee o se descarga.",
 	VIDEO: "Un video alojado aquí, que se reproduce en la lección.",
 	LINK: "Un recurso que vive fuera.",
+	QUIZ: "Preguntas de práctica: enviarlas completa la lección.",
 };

@@ -3,6 +3,7 @@ import {
 	administersCourse,
 	resolveCourseScope,
 } from "@/modules/courses/domain/course.access";
+import { evaluatesByQuiz } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -214,6 +215,15 @@ export const createTeachingService = ({
 
 					if (!(await courseRepository.finish(course.id, now))) {
 						throw new TeachingStateChangedError();
+					}
+					// Quien no presentó el examen no tiene resultado: al cerrar queda
+					// reprobado, que es lo que la pantalla enseña como «No presentó».
+					if (evaluatesByQuiz(course)) {
+						await enrollmentRepository.markPendingAsFailed(
+							course.id,
+							actor.userId,
+							now,
+						);
 					}
 
 					return completionSync.sync(course.id, actor.userId, now);

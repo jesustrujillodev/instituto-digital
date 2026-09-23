@@ -3,6 +3,7 @@ import { requireParticipant } from "@/modules/enrollments/routes/require-partici
 import { toRouteError } from "@/shared/http/route-error";
 import { validateFindClassroom } from "../../../domain/content.validators";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
+import { examPath } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
@@ -32,6 +33,8 @@ export const loader = async ({
 	const resume = classroom.data.resumeLessonDocumentId;
 	if (resume)
 		throw redirect(`/dashboard/mis-cursos/${documentId}/aula/${resume}`);
+	// Sin temario, el aula es solo el examen: un presencial evaluado en línea.
+	if (classroom.data.finalQuiz) throw redirect(examPath(documentId));
 
 	return null;
 };

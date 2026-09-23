@@ -115,6 +115,7 @@ describe("toTeachingCourse", () => {
 			status: "PUBLISHED",
 			minAttendance: 80,
 			requiresEvaluation: false,
+			evaluationMethod: "MANUAL",
 			finishedAt: null,
 			enrollmentClosedAt: null,
 			qrToken: null,

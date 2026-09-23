@@ -43,6 +43,11 @@ Decisiones que el schema no dice por sí solo:
   `SELF_PACED` con una regla que cuente asistencia se rechaza en el alta con
   `COURSE_INCOMPATIBLE_COMPLETION_RULE`
   ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)).
+- **`evaluation_method` dice con qué se evalúa**: captura manual o examen en
+  línea ([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)). Solo aplica con
+  `requires_evaluation`, se congela al publicar en cualquier formato, y un curso
+  que evalúa por examen no se publica sin examen con preguntas
+  (`COURSE_WITHOUT_QUIZ`).
 - **En un autogestivo publicado se congelan la regla y la evaluación.** Sus
   créditos se otorgan conforme cada quien completa, así que cambiar el criterio
   a mitad dejaría medidos a unos con una regla y a otros con otra.
@@ -189,6 +194,7 @@ capacitador o sin sede. Lo que §6.5 exige se comprueba al **publicar**
 | --- | --- |
 | Al menos una sesión (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_SESSIONS` |
 | Al menos una lección (solo si el curso pide temario: `SELF_PACED` o regla `BOTH`) | `COURSE_WITHOUT_LESSONS` |
+| Un examen con al menos una pregunta (solo si se evalúa con examen en línea) | `COURSE_WITHOUT_QUIZ` |
 | Al menos un capacitador con perfil activo | `COURSE_WITHOUT_ACTIVE_TRAINER` |
 | Sede en cada sesión (presencial, híbrida) | `COURSE_SESSION_MISSING_VENUE` + `sessionNumber` |
 | Enlace en cada sesión (en línea, híbrida) | `COURSE_SESSION_MISSING_LINK` + `sessionNumber` |

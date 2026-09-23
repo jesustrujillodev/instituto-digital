@@ -267,8 +267,8 @@ describe("validadores", () => {
 		expect(() =>
 			validateCreateLesson({
 				moduleDocumentId: MODULE_A,
-				title: "Cuestionario",
-				type: "QUIZ",
+				title: "Presentación",
+				type: "SLIDES",
 			}),
 		).toThrow();
 	});

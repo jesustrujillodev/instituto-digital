@@ -298,6 +298,18 @@ export const createEnrollmentRepository = ({
 			}
 		},
 
+		async markPendingAsFailed(courseId, actorId, at) {
+			await prisma.enrollment.updateMany({
+				where: { courseId, status: "ENROLLED", result: "PENDING" },
+				data: {
+					result: "FAILED",
+					grade: null,
+					resultRecordedById: actorId,
+					resultRecordedAt: at,
+				},
+			});
+		},
+
 		async findProgressStates(courseId) {
 			return prisma.enrollment.findMany({
 				where: { courseId, status: "ENROLLED" },

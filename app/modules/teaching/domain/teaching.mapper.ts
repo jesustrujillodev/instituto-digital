@@ -4,6 +4,8 @@ import {
 	type CourseModality,
 	type CourseStatus,
 	canEdit,
+	type EvaluationMethod,
+	evaluatesByQuiz,
 } from "@/modules/courses/domain/course.rules";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import type { TeachingScope } from "./teaching.access";
@@ -40,6 +42,7 @@ export interface TeachingCourseRaw {
 	status: CourseStatus;
 	minAttendance: number;
 	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
 	finishedAt: Date | null;
 	enrollmentClosedAt: Date | null;
 	qrToken: string | null;
@@ -92,6 +95,7 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	status: raw.status,
 	minAttendance: raw.minAttendance,
 	requiresEvaluation: raw.requiresEvaluation,
+	evaluationMethod: raw.evaluationMethod,
 	finishedAt: raw.finishedAt,
 	enrollmentClosedAt: raw.enrollmentClosedAt,
 	qrToken: raw.qrToken,
@@ -175,6 +179,7 @@ export const toTeachingDetail = (
 			status: course.status,
 			minAttendance: course.minAttendance,
 			requiresEvaluation: course.requiresEvaluation,
+			evaluationMethod: course.evaluationMethod,
 			finishedAt: course.finishedAt,
 			finishOpensAt: finishOpensAt(course),
 			enrollmentClosedAt: course.enrollmentClosedAt,
@@ -227,7 +232,9 @@ export const toTeachingDetail = (
 		finishBlocker,
 		can: {
 			recordAttendance: writable,
-			recordResults: writable && course.requiresEvaluation,
+			// Con examen, el resultado lo escribe el examen: no hay captura manual.
+			recordResults:
+				writable && course.requiresEvaluation && !evaluatesByQuiz(course),
 			finish: finishBlocker === null,
 			correct: course.status === "FINISHED" && writable,
 			toggleEnrollment: canToggleEnrollment(course),

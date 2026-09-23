@@ -5,6 +5,7 @@ import {
 	TeachingFinishTooEarlyError,
 	TeachingNotSelfPacedError,
 	TeachingPendingResultsError,
+	TeachingResultsByQuizError,
 	TeachingSelfPacedNotFinishableError,
 	TeachingSessionNotStartedError,
 	TeachingStateChangedError,
@@ -23,6 +24,9 @@ describe("errores de impartición", () => {
 		);
 		expect(new TeachingNotSelfPacedError().code).toBe(
 			TEACHING_ERROR_CODES.NOT_SELF_PACED,
+		);
+		expect(new TeachingResultsByQuizError().code).toBe(
+			TEACHING_ERROR_CODES.RESULTS_BY_QUIZ,
 		);
 	});
 

@@ -17,6 +17,13 @@ export const CONTENT_ERROR_CODES = {
 	LINK_INVALID: "CONTENT_LINK_INVALID",
 	NOT_ENROLLED: "CONTENT_NOT_ENROLLED",
 	CLASSROOM_READ_ONLY: "CONTENT_CLASSROOM_READ_ONLY",
+	QUIZ_NOT_FOUND: "CONTENT_QUIZ_NOT_FOUND",
+	QUIZ_LOCKED: "CONTENT_QUIZ_LOCKED",
+	QUIZ_ALREADY_TAKEN: "CONTENT_QUIZ_ALREADY_TAKEN",
+	QUIZ_NOT_AVAILABLE: "CONTENT_QUIZ_NOT_AVAILABLE",
+	QUIZ_INCOMPLETE: "CONTENT_QUIZ_INCOMPLETE",
+	QUIZ_NOT_EVALUATED: "CONTENT_QUIZ_NOT_EVALUATED",
+	QUIZ_COMPLETES_ON_SUBMIT: "CONTENT_QUIZ_COMPLETES_ON_SUBMIT",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -153,5 +160,61 @@ export class ContentClassroomReadOnlyError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY;
 	constructor() {
 		super("The course no longer records progress");
+	}
+}
+
+/** No existe, o todavía no tiene preguntas que presentar. */
+export class ContentQuizNotFoundError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_NOT_FOUND;
+	constructor() {
+		super("Quiz not found or without questions");
+	}
+}
+
+/** Con un intento enviado, el banco ya no cambia: las notas dejarían de ser comparables. */
+export class ContentQuizLockedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_LOCKED;
+	constructor() {
+		super("Quiz already has attempts and can no longer change");
+	}
+}
+
+/** Un solo intento por persona. */
+export class ContentQuizAlreadyTakenError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_ALREADY_TAKEN;
+	constructor() {
+		super("Quiz already submitted");
+	}
+}
+
+/** El examen de un curso que cuenta contenido espera a que se termine. */
+export class ContentQuizNotAvailableError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_NOT_AVAILABLE;
+	constructor() {
+		super("Quiz opens once the required lessons are completed");
+	}
+}
+
+/** Falta responder alguna pregunta, o una respuesta no es de su pregunta. */
+export class ContentQuizIncompleteError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_INCOMPLETE;
+	constructor() {
+		super("Every question needs exactly one of its own options");
+	}
+}
+
+/** El curso no se evalúa con examen: su examen no cuenta ni se presenta. */
+export class ContentQuizNotEvaluatedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_NOT_EVALUATED;
+	constructor() {
+		super("Course is not evaluated by quiz");
+	}
+}
+
+/** Una lección de cuestionario se completa al enviarlo, no con el botón. */
+export class ContentQuizCompletesOnSubmitError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT;
+	constructor() {
+		super("A quiz lesson is completed by submitting its quiz");
 	}
 }

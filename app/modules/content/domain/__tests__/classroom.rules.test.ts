@@ -38,6 +38,8 @@ const courseOf = (
 	status: "PUBLISHED",
 	format: "SELF_PACED",
 	completionRule: "CONTENT",
+	requiresEvaluation: false,
+	evaluationMethod: "MANUAL",
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 0,

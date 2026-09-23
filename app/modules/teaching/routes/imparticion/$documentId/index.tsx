@@ -17,7 +17,10 @@ import {
 	requiresContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
-import { COMPLETION_RULE_LABELS } from "@/modules/courses/utils/course-labels";
+import {
+	COMPLETION_RULE_LABELS,
+	EVALUATION_METHOD_LABELS,
+} from "@/modules/courses/utils/course-labels";
 import {
 	RETURN_PARAM,
 	RETURN_TO_TEACHING,
@@ -291,7 +294,7 @@ export default function ImparticionDetallePage({
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
-				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? ", con evaluación" : ""}.`}
+				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? `, evaluado con ${EVALUATION_METHOD_LABELS[course.evaluationMethod].toLowerCase()}` : ""}.`}
 				goBack="/dashboard/imparticion"
 				actions={
 					detail.can.editCourse ? (

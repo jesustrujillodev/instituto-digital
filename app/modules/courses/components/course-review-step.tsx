@@ -6,7 +6,10 @@ import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
 import { countsAttendance, requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
-import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
+import {
+	COMPLETION_RULE_LABELS,
+	EVALUATION_METHOD_LABELS,
+} from "../utils/course-labels";
 import {
 	type PublishChecklist,
 	stepOfKey,
@@ -36,7 +39,19 @@ interface CourseReviewStepProps {
 	/** El temario, solo cuando el curso lo pide. */
 	content: ContentSummary | null;
 	evaluationTitles: readonly string[];
+	/** Preguntas del examen guardado; solo cuenta si se evalúa con examen. */
+	quizQuestionCount: number;
 }
+
+const evaluationLabel = (course: CourseDetail, quizQuestionCount: number) => {
+	if (!course.requiresEvaluation) return "Sin evaluación";
+	if (course.evaluationMethod === "MANUAL") {
+		return EVALUATION_METHOD_LABELS.MANUAL;
+	}
+	return `${EVALUATION_METHOD_LABELS.QUIZ} · ${
+		quizQuestionCount === 1 ? "1 pregunta" : `${quizQuestionCount} preguntas`
+	}`;
+};
 
 /** Último paso: lo capturado, lo que falta y la puerta a publicar. */
 export function CourseReviewStep({
@@ -44,6 +59,7 @@ export function CourseReviewStep({
 	checklist,
 	content,
 	evaluationTitles,
+	quizQuestionCount,
 }: CourseReviewStepProps) {
 	const { documentId } = course;
 	const scheduled = requiresSessions(course.format);
@@ -162,9 +178,7 @@ export function CourseReviewStep({
 								: []),
 							{
 								term: "Evaluación",
-								value: course.requiresEvaluation
-									? "Aprobado / no aprobado"
-									: "Sin evaluación",
+								value: evaluationLabel(course, quizQuestionCount),
 							},
 							...(course.requiresEvaluation && evaluationTitles.length > 0
 								? [

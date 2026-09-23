@@ -3,6 +3,7 @@ import type {
 	CourseCompletionRule,
 	CourseFormat,
 	CourseStatus,
+	EvaluationMethod,
 } from "@/modules/courses/domain/course.rules";
 import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.config";
 import type { AppResponse } from "@/shared/response/response.types";
@@ -11,6 +12,7 @@ import type {
 	recordProgressRule,
 } from "./classroom.rules";
 import type { ContentLesson, LessonMaterial } from "./content.types";
+import type { QuizAvailability } from "./quiz.rules";
 
 export type RecordProgressDto = v.InferOutput<typeof recordProgressRule>;
 
@@ -24,6 +26,8 @@ export interface ClassroomCourse {
 	status: CourseStatus;
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;
+	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
 	enrollment: {
 		status: EnrollmentStatus;
 		progressPercent: number;
@@ -73,6 +77,13 @@ export interface ClassroomView {
 	completed: boolean;
 	/** A dónde lleva «Continuar»; `null` con el temario vacío. */
 	resumeLessonDocumentId: string | null;
+	/** El examen, si el curso se evalúa con uno que ya tiene preguntas. */
+	finalQuiz: {
+		title: string;
+		availability: QuizAvailability;
+		score: number | null;
+		passed: boolean | null;
+	} | null;
 }
 
 export interface ClassroomLessonView {

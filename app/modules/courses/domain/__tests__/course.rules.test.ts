@@ -23,6 +23,8 @@ import {
 	countsAttendance,
 	countsContent,
 	createCourseRule,
+	type EvaluationMethod,
+	evaluatesByQuiz,
 	publishChecklist,
 	requiresContent,
 	requiresLink,
@@ -47,6 +49,8 @@ const courseOf = (
 	modality: "IN_PERSON",
 	format: "SCHEDULED",
 	completionRule: "ATTENDANCE",
+	requiresEvaluation: false,
+	evaluationMethod: "MANUAL",
 	access: "PUBLIC",
 	sessions: [sessionOf()],
 	trainers: [{ isActive: true }],
@@ -160,8 +164,14 @@ describe("assertDeadlineBeforeStart", () => {
 });
 
 /** Con temario: el caso sin lecciones se pide explícito, nunca por descuido. */
-const CONTENT: CourseContentFacts = { lessonCount: 2 };
-const NO_CONTENT: CourseContentFacts = { lessonCount: 0 };
+const CONTENT: CourseContentFacts = {
+	lessonCount: 2,
+	finalQuizQuestionCount: 0,
+};
+const NO_CONTENT: CourseContentFacts = {
+	lessonCount: 0,
+	finalQuizQuestionCount: 0,
+};
 
 describe("assertPublishable", () => {
 	test("un borrador completo se publica", () => {
@@ -205,6 +215,38 @@ describe("assertPublishable", () => {
 
 	test("un calendarizado sin lecciones se publica igual que siempre", () => {
 		expect(() => assertPublishable(courseOf(), NO_CONTENT)).not.toThrow();
+	});
+
+	// docs/adr/0015: evaluar por examen sin examen dejaría a todo inscrito
+	// en pendiente.
+	test("un curso evaluado por examen pide un examen con preguntas", () => {
+		const byQuiz = courseOf({
+			requiresEvaluation: true,
+			evaluationMethod: "QUIZ",
+		});
+
+		expect(() => assertPublishable(byQuiz, CONTENT)).toThrowError(
+			codeOf(COURSE_ERROR_CODES.WITHOUT_QUIZ),
+		);
+		expect(publishChecklist(byQuiz, CONTENT)).toContainEqual({
+			check: "quiz",
+			done: false,
+		});
+		expect(() =>
+			assertPublishable(byQuiz, { ...CONTENT, finalQuizQuestionCount: 3 }),
+		).not.toThrow();
+	});
+
+	test("con captura manual no se enseña el pendiente del examen", () => {
+		const manual = courseOf({ requiresEvaluation: true });
+
+		expect(
+			publishChecklist(manual, CONTENT).map((entry) => entry.check),
+		).not.toContain("quiz");
+		expect(evaluatesByQuiz(manual)).toBe(false);
+		expect(
+			evaluatesByQuiz({ requiresEvaluation: false, evaluationMethod: "QUIZ" }),
+		).toBe(false);
 	});
 
 	test("un calendarizado que también se completa por contenido pide lecciones", () => {
@@ -484,12 +526,18 @@ describe("formato y regla de completado", () => {
 			format: "SELF_PACED" as CourseFormat,
 			completionRule: "CONTENT" as CourseCompletionRule,
 			requiresEvaluation: false,
+			evaluationMethod: "MANUAL" as EvaluationMethod,
+		};
+		const unchanged = {
+			completionRule: "CONTENT" as CourseCompletionRule,
+			requiresEvaluation: false,
+			evaluationMethod: "MANUAL" as EvaluationMethod,
 		};
 
 		test("un autogestivo publicado no cambia su evaluación", () => {
 			expect(() =>
 				assertCompletionSettingsEditable(selfPaced, {
-					completionRule: "CONTENT",
+					...unchanged,
 					requiresEvaluation: true,
 				}),
 			).toThrowError(codeOf(COURSE_ERROR_CODES.COMPLETION_LOCKED));
@@ -497,10 +545,7 @@ describe("formato y regla de completado", () => {
 
 		test("guardarlo sin tocar la regla pasa", () => {
 			expect(() =>
-				assertCompletionSettingsEditable(selfPaced, {
-					completionRule: "CONTENT",
-					requiresEvaluation: false,
-				}),
+				assertCompletionSettingsEditable(selfPaced, unchanged),
 			).not.toThrow();
 		});
 
@@ -508,20 +553,35 @@ describe("formato y regla de completado", () => {
 			expect(() =>
 				assertCompletionSettingsEditable(
 					{ ...selfPaced, status: "DRAFT" },
-					{ completionRule: "CONTENT", requiresEvaluation: true },
+					{ ...unchanged, requiresEvaluation: true, evaluationMethod: "QUIZ" },
 				),
 			).not.toThrow();
 		});
 
 		// Un calendarizado calcula todo al cierre: cambiarla antes no deja
 		// créditos medidos con otro criterio.
-		test("un calendarizado publicado sí la cambia", () => {
+		test("un calendarizado publicado sí cambia su regla", () => {
 			expect(() =>
 				assertCompletionSettingsEditable(
 					{ ...selfPaced, format: "SCHEDULED", completionRule: "ATTENDANCE" },
-					{ completionRule: "BOTH", requiresEvaluation: true },
+					{ ...unchanged, completionRule: "BOTH", requiresEvaluation: true },
 				),
 			).not.toThrow();
+		});
+
+		// docs/adr/0015: pasar de captura a examen a mitad dejaría resultados
+		// medidos de dos formas, en cualquier formato.
+		test("el método de evaluación se congela al publicar, también con sesiones", () => {
+			expect(() =>
+				assertCompletionSettingsEditable(
+					{ ...selfPaced, format: "SCHEDULED", completionRule: "ATTENDANCE" },
+					{
+						completionRule: "ATTENDANCE",
+						requiresEvaluation: false,
+						evaluationMethod: "QUIZ",
+					},
+				),
+			).toThrowError(codeOf(COURSE_ERROR_CODES.COMPLETION_LOCKED));
 		});
 	});
 

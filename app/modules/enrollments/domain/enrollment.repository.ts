@@ -112,6 +112,15 @@ export interface IEnrollmentRepository {
 		courseId: number,
 		writes: readonly ProgressWrite[],
 	): Promise<void>;
+	/**
+	 * «No presentó»: los `ENROLLED` todavía en `PENDING` pasan a `FAILED` sin
+	 * nota. Lo llama el cierre de un curso evaluado por examen (docs/adr/0015).
+	 */
+	markPendingAsFailed(
+		courseId: number,
+		actorId: number,
+		at: Date,
+	): Promise<void>;
 	/** `completed` según el último cálculo; solo toca a los `ENROLLED`. */
 	setCompletion(
 		courseId: number,

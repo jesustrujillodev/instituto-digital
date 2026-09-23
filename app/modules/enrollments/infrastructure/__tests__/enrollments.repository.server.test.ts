@@ -110,3 +110,24 @@ describe("catálogo", () => {
 		}
 	});
 });
+
+describe("markPendingAsFailed", () => {
+	// «No presentó»: al cerrar un curso evaluado por examen (docs/adr/0015).
+	test("solo toca a los inscritos que siguen pendientes, y les quita la nota", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.markPendingAsFailed(7, 2, AT);
+
+		expect(calls).toEqual([
+			{
+				where: { courseId: 7, status: "ENROLLED", result: "PENDING" },
+				data: {
+					result: "FAILED",
+					grade: null,
+					resultRecordedById: 2,
+					resultRecordedAt: AT,
+				},
+			},
+		]);
+	});
+});

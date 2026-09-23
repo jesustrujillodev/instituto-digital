@@ -1,5 +1,8 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
-import { countsContent } from "@/modules/courses/domain/course.rules";
+import {
+	countsContent,
+	evaluatesByQuiz,
+} from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -21,18 +24,21 @@ import type {
 import {
 	ContentCourseNotFoundError,
 	ContentLessonNotFoundError,
+	ContentQuizCompletesOnSubmitError,
 } from "../domain/content.errors";
 import {
 	toCourseContentTree,
 	toLessonMaterial,
 } from "../domain/content.mapper";
 import type { ContentLesson } from "../domain/content.types";
+import { quizAvailabilityOf } from "../domain/quiz.rules";
 
 type Dependencies = {
 	classroomRepository: ICradle["classroomRepository"];
 	contentRepository: ICradle["contentRepository"];
 	lessonMaterialReader: ICradle["lessonMaterialReader"];
 	progressSync: ICradle["progressSync"];
+	quizRepository: ICradle["quizRepository"];
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -43,6 +49,7 @@ export const createClassroomService = ({
 	contentRepository,
 	lessonMaterialReader,
 	progressSync,
+	quizRepository,
 	runInTransaction,
 	clock,
 	logger,
@@ -84,16 +91,37 @@ export const createClassroomService = ({
 		return { tree, completed, withStatus };
 	};
 
+	/** El examen tal como lo enseña el índice del aula. */
+	const readFinalQuiz = async (course: ClassroomCourse, userId: number) => {
+		if (!evaluatesByQuiz(course)) return null;
+
+		const quiz = await quizRepository.findQuiz(course.id, null);
+		if (!quiz || quiz.questions.length === 0) return null;
+
+		const attempt = await quizRepository.findAttempt(quiz.id, userId);
+		return {
+			title: quiz.title,
+			availability: quizAvailabilityOf(
+				course,
+				course.enrollment?.contentCompletedAt ?? null,
+				attempt,
+				true,
+			),
+			score: attempt?.score ?? null,
+			passed: attempt?.passed ?? null,
+		};
+	};
+
 	return {
 		async findClassroom(courseDocumentId: string, actor: AuthContext) {
 			return run("findClassroom", async () => {
 				const course = await requireCourse(courseDocumentId, actor);
 				assertClassroomReadable(course);
 
-				const { tree, completed, withStatus } = await readProgress(
-					course,
-					actor.userId,
-				);
+				const [{ tree, completed, withStatus }, finalQuiz] = await Promise.all([
+					readProgress(course, actor.userId),
+					readFinalQuiz(course, actor.userId),
+				]);
 
 				return ok({
 					course: {
@@ -115,6 +143,7 @@ export const createClassroomService = ({
 					contentCompletedAt: course.enrollment?.contentCompletedAt ?? null,
 					completed: course.enrollment?.completed ?? false,
 					resumeLessonDocumentId: resumeLessonOf(tree, completed),
+					finalQuiz,
 				});
 			});
 		},
@@ -166,6 +195,13 @@ export const createClassroomService = ({
 					dto.lessonDocumentId,
 				);
 				if (!lesson) throw new ContentLessonNotFoundError();
+				if (lesson.type === "QUIZ" && dto.status === "COMPLETED") {
+					const quiz = await quizRepository.findQuiz(course.id, lesson.id);
+					// Una práctica sin preguntas no terminaría nunca: esa sí se marca.
+					if (quiz && quiz.questions.length > 0) {
+						throw new ContentQuizCompletesOnSubmitError();
+					}
+				}
 
 				const now = clock.now();
 

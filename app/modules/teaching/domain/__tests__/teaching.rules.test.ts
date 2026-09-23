@@ -14,6 +14,7 @@ import {
 	isCompleted,
 	isSessionOpen,
 	meetsAttendance,
+	pendingResultsOf,
 	resolveAttendanceMarks,
 	resolveResultEntries,
 	syncsOnWrite,
@@ -413,5 +414,26 @@ describe("syncsOnWrite", () => {
 		],
 	] as const)("%s", (_, format, status, expected) => {
 		expect(syncsOnWrite({ format, status })).toBe(expected);
+	});
+});
+
+describe("pendingResultsOf con examen en línea", () => {
+	test("un pendiente no cuenta: nadie lo captura a mano", () => {
+		const pending = participantOf();
+
+		expect(
+			pendingResultsOf(
+				courseOf({
+					requiresEvaluation: true,
+					evaluationMethod: "QUIZ",
+					participants: [pending],
+				}),
+			),
+		).toBe(0);
+		expect(
+			pendingResultsOf(
+				courseOf({ requiresEvaluation: true, participants: [pending] }),
+			),
+		).toBe(1);
 	});
 });

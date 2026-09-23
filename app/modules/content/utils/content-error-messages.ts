@@ -97,5 +97,35 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 			"El curso ya terminó: puedes repasar sus lecciones, pero ya no se registra avance.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[CONTENT_ERROR_CODES.QUIZ_NOT_FOUND]: {
+		message: "Este cuestionario todavía no tiene preguntas.",
+		status: HTTP_STATUS.NOT_FOUND,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_LOCKED]: {
+		message:
+			"Alguien ya presentó este cuestionario: sus preguntas quedaron fijas. Solo se puede cambiar el título.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_ALREADY_TAKEN]: {
+		message: "Ya presentaste este cuestionario: solo hay un intento.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_NOT_AVAILABLE]: {
+		message:
+			"El examen se habilita cuando completes todas las lecciones obligatorias.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_INCOMPLETE]: {
+		message: "Responde todas las preguntas antes de enviar.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_NOT_EVALUATED]: {
+		message: "Este curso no se evalúa con examen en línea.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT]: {
+		message: "Esta lección se completa al enviar su cuestionario.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

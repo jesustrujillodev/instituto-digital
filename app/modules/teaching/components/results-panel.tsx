@@ -1,6 +1,7 @@
 import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
+import { evaluatesByQuiz } from "@/modules/courses/domain/course.rules";
 import {
 	ENROLLMENT_RESULTS,
 	type EnrollmentResult,
@@ -42,6 +43,52 @@ const draftOf = (participants: TeachingDetail["participants"]): Draft =>
 		]),
 	);
 
+/**
+ * El resultado de un examen en línea: lo escribe el examen y aquí solo se lee.
+ * Un reprobado sin nota es quien no lo presentó antes del cierre.
+ */
+const quizResultLabel = (
+	participant: TeachingDetail["participants"][number],
+) => {
+	if (participant.result === "PENDING") return "Sin presentar";
+	if (participant.result === "FAILED" && participant.grade === null) {
+		return "No presentó";
+	}
+	return `${ENROLLMENT_RESULT_LABELS[participant.result]} · ${participant.grade}`;
+};
+
+function QuizResults({
+	participants,
+}: {
+	participants: TeachingDetail["participants"];
+}) {
+	return (
+		<Card>
+			<CardContent className="flex flex-col gap-4">
+				<p className="text-muted-foreground text-sm">
+					Este curso se evalúa con examen en línea: cada nota la escribe el
+					examen al presentarse, y no se captura a mano.
+				</p>
+				<ul className="flex flex-col divide-y divide-border">
+					{participants.map((participant) => (
+						<li
+							key={participant.userDocumentId}
+							className="flex flex-wrap items-center justify-between gap-3 py-2"
+						>
+							<span className="min-w-0 truncate text-sm">
+								{personNameOf(participant)}
+							</span>
+							<span className="text-muted-foreground text-sm">
+								{quizResultLabel(participant)}
+							</span>
+						</li>
+					))}
+				</ul>
+			</CardContent>
+		</Card>
+	);
+}
+
 export function ResultsPanel({
 	detail,
 }: {
@@ -61,6 +108,9 @@ export function ResultsPanel({
 			</p>
 		);
 	}
+
+	if (evaluatesByQuiz(course))
+		return <QuizResults participants={participants} />;
 
 	// En un curso finalizado ya no se puede volver a "Pendiente".
 	const results =

@@ -15,6 +15,7 @@ export const TEACHING_ERROR_CODES = {
 	STATE_CHANGED: "TEACHING_STATE_CHANGED",
 	SELF_PACED_NOT_FINISHABLE: "TEACHING_SELF_PACED_NOT_FINISHABLE",
 	NOT_SELF_PACED: "TEACHING_NOT_SELF_PACED",
+	RESULTS_BY_QUIZ: "TEACHING_RESULTS_BY_QUIZ",
 } as const;
 
 export abstract class TeachingError extends DomainError {}
@@ -119,6 +120,14 @@ export class TeachingNotSelfPacedError extends TeachingError {
 	readonly code = TEACHING_ERROR_CODES.NOT_SELF_PACED;
 	constructor() {
 		super("Only a self-paced course opens and closes its enrollment by hand");
+	}
+}
+
+/** Con examen en línea, el resultado lo escribe el examen (docs/adr/0015). */
+export class TeachingResultsByQuizError extends TeachingError {
+	readonly code = TEACHING_ERROR_CODES.RESULTS_BY_QUIZ;
+	constructor() {
+		super("Results of a course evaluated by quiz come from the quiz");
 	}
 }
 

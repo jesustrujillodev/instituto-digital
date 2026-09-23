@@ -49,7 +49,14 @@ function progressNote({
 
 export default function AulaLayout({ loaderData }: Route.ComponentProps) {
 	const {
-		data: { course, modules, percent, contentCompletedAt, completed },
+		data: {
+			course,
+			modules,
+			percent,
+			contentCompletedAt,
+			completed,
+			finalQuiz,
+		},
 	} = loaderData;
 
 	return (
@@ -68,19 +75,22 @@ export default function AulaLayout({ loaderData }: Route.ComponentProps) {
 			<div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
 				<Card className="order-2 lg:sticky lg:top-4 lg:order-1">
 					<CardContent className="flex flex-col gap-5">
-						<div className="flex flex-col gap-2">
-							<div className="flex items-baseline justify-between text-sm">
-								<span className="font-medium">Tu avance</span>
-								<span className="text-muted-foreground tabular-nums">
-									{percent} %
-								</span>
+						{modules.length > 0 && (
+							<div className="flex flex-col gap-2">
+								<div className="flex items-baseline justify-between text-sm">
+									<span className="font-medium">Tu avance</span>
+									<span className="text-muted-foreground tabular-nums">
+										{percent} %
+									</span>
+								</div>
+								<ProgressBar value={percent} label="Avance del curso" />
 							</div>
-							<ProgressBar value={percent} label="Avance del curso" />
-						</div>
+						)}
 
 						<ClassroomOutline
 							courseDocumentId={course.documentId}
 							modules={modules}
+							finalQuiz={finalQuiz}
 						/>
 					</CardContent>
 				</Card>

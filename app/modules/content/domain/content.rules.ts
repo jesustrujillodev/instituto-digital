@@ -39,7 +39,7 @@ import type {
 } from "./content.types";
 
 /** Qué clase de material cuelga de la lección: decide el editor que se abre. */
-export const LESSON_TYPES = ["TEXT", "FILE", "VIDEO", "LINK"] as const;
+export const LESSON_TYPES = ["TEXT", "FILE", "VIDEO", "LINK", "QUIZ"] as const;
 export type LessonType = (typeof LESSON_TYPES)[number];
 
 /** Los dos que suben un objeto al bucket. Cada uno con su lista y su tope. */

@@ -4,6 +4,7 @@ import type {
 	CourseFormat,
 	CourseModality,
 	CourseStatus,
+	EvaluationMethod,
 	PublishCheck,
 } from "../domain/course.rules";
 
@@ -24,6 +25,11 @@ export const COMPLETION_RULE_LABELS: Record<CourseCompletionRule, string> = {
 	ATTENDANCE: "Asistencia",
 	CONTENT: "Contenido",
 	BOTH: "Asistencia y contenido",
+};
+
+export const EVALUATION_METHOD_LABELS: Record<EvaluationMethod, string> = {
+	MANUAL: "Captura manual",
+	QUIZ: "Examen en línea",
 };
 
 export const ACCESS_LABELS: Record<CourseAccessType, string> = {
@@ -58,6 +64,8 @@ export const publishCheckLabel = (
 			return "Un capacitador activo";
 		case "audience":
 			return "Dependencias o grupos que lo verán";
+		case "quiz":
+			return "Un examen con al menos una pregunta";
 		case "content":
 			return "Al menos una lección";
 	}

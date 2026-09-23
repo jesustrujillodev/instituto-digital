@@ -25,6 +25,7 @@ const raw: ContentModuleRaw[] = [
 				isRequired: true,
 				estimatedMinutes: 20,
 				content: { fileUrl: null, externalUrl: null },
+				quiz: null,
 			},
 			{
 				documentId: LESSON_2,
@@ -34,6 +35,7 @@ const raw: ContentModuleRaw[] = [
 				isRequired: false,
 				estimatedMinutes: null,
 				content: null,
+				quiz: null,
 			},
 		],
 	},
@@ -175,5 +177,35 @@ describe("toLessonMaterial", () => {
 			"/api/storage?key=documentos%2Flecciones%2Fm-1.pdf",
 		);
 		expect(material.downloadUrl).toBeNull();
+	});
+});
+
+describe("hasMaterial de un cuestionario", () => {
+	const quizLesson = (questions: number) =>
+		toCourseContentTree([
+			{
+				documentId: MODULE_A,
+				title: "Práctica",
+				description: null,
+				order: 1,
+				lessons: [
+					{
+						documentId: LESSON_1,
+						title: "Repaso",
+						type: "QUIZ",
+						order: 1,
+						isRequired: true,
+						estimatedMinutes: null,
+						content: null,
+						quiz: { _count: { questions } },
+					},
+				],
+			},
+		])[0]?.lessons[0]?.hasMaterial;
+
+	// Sus preguntas son su material: sin ellas no enseña nada.
+	test("tiene material solo con preguntas", () => {
+		expect(quizLesson(3)).toBe(true);
+		expect(quizLesson(0)).toBe(false);
 	});
 });

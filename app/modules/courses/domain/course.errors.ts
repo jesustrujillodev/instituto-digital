@@ -19,6 +19,7 @@ export const COURSE_ERROR_CODES = {
 	INVALID_TRANSITION: "COURSE_INVALID_TRANSITION",
 	WITHOUT_SESSIONS: "COURSE_WITHOUT_SESSIONS",
 	WITHOUT_LESSONS: "COURSE_WITHOUT_LESSONS",
+	WITHOUT_QUIZ: "COURSE_WITHOUT_QUIZ",
 	WITHOUT_ACTIVE_TRAINER: "COURSE_WITHOUT_ACTIVE_TRAINER",
 	SESSION_MISSING_VENUE: "COURSE_SESSION_MISSING_VENUE",
 	SESSION_MISSING_LINK: "COURSE_SESSION_MISSING_LINK",
@@ -129,6 +130,14 @@ export class CourseWithoutSessionsError extends CourseError {
 	readonly code = COURSE_ERROR_CODES.WITHOUT_SESSIONS;
 	constructor() {
 		super("A published course needs at least one session");
+	}
+}
+
+/** Evaluar por examen sin examen dejaría a todo inscrito en pendiente (docs/adr/0015). */
+export class CourseWithoutQuizError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.WITHOUT_QUIZ;
+	constructor() {
+		super("A course evaluated by quiz needs a quiz with at least one question");
 	}
 }
 

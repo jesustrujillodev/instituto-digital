@@ -29,6 +29,7 @@ const lessonRaw = (documentId: string, order: number) => ({
 	isRequired: true,
 	estimatedMinutes: null,
 	content: null,
+	quiz: null,
 });
 
 const treeOf = (lessons: string[]): ContentModuleRaw[] => [

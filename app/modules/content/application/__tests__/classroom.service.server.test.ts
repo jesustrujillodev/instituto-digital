@@ -42,6 +42,7 @@ const lessonRaw = (
 	isRequired,
 	estimatedMinutes: null,
 	content: null,
+	quiz: null,
 });
 
 const TREE: ContentModuleRaw[] = [
@@ -70,6 +71,8 @@ const courseOf = (
 	status: "PUBLISHED",
 	format: "SELF_PACED",
 	completionRule: "CONTENT",
+	requiresEvaluation: false,
+	evaluationMethod: "MANUAL",
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 0,
@@ -83,6 +86,11 @@ const createHarness = (
 	options: {
 		course?: ClassroomCourse | null;
 		progress?: LessonProgressRow[];
+		/** Preguntas del cuestionario que devuelva `findQuiz`; sin él, no hay. */
+		quizQuestions?: number;
+		quizAttempt?: { score: number; passed: boolean } | null;
+		/** La clase de la segunda lección, para probar las de cuestionario. */
+		secondLessonType?: string;
 	} = {},
 ) => {
 	let progress = structuredClone(options.progress ?? []);
@@ -124,7 +132,12 @@ const createHarness = (
 			documentId === LESSON_1
 				? { id: 31, moduleId: 21, type: "TEXT", isRequired: true }
 				: documentId === LESSON_2
-					? { id: 32, moduleId: 21, type: "TEXT", isRequired: true }
+					? {
+							id: 32,
+							moduleId: 21,
+							type: options.secondLessonType ?? "TEXT",
+							isRequired: true,
+						}
 					: null,
 		findMaterial: async (_courseId: number, documentId: string) => ({
 			documentId,
@@ -164,6 +177,26 @@ const createHarness = (
 			sign: async (material) => material,
 		} as ICradle["lessonMaterialReader"],
 		progressSync,
+		quizRepository: {
+			findQuiz: async () =>
+				options.quizQuestions === undefined
+					? null
+					: {
+							id: 9,
+							documentId: "99999999-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+							title: "Examen final",
+							passingScore: 70,
+							shuffleQuestions: false,
+							questions: Array.from(
+								{ length: options.quizQuestions },
+								(_, index) => ({ id: index + 1, options: [] }),
+							),
+						},
+			findAttempt: async () =>
+				options.quizAttempt
+					? { ...options.quizAttempt, submittedAt: NOW, answers: [] }
+					: null,
+		} as unknown as ICradle["quizRepository"],
 		runInTransaction,
 		clock: { now: () => NOW },
 		logger: silentLogger,
@@ -352,6 +385,74 @@ describe("findLesson", () => {
 		).toMatchObject({
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.LESSON_NOT_FOUND },
+		});
+	});
+});
+
+describe("cuestionarios en el aula (docs/adr/0015)", () => {
+	test("una práctica con preguntas no se completa con el botón", async () => {
+		const { service, calls } = createHarness({
+			secondLessonType: "QUIZ",
+			quizQuestions: 2,
+		});
+
+		const result = await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_2, status: "COMPLETED" },
+			ANA,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	test("una práctica sin preguntas sí se marca a mano", async () => {
+		const { service, calls } = createHarness({
+			secondLessonType: "QUIZ",
+			quizQuestions: 0,
+		});
+
+		const result = await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_2, status: "COMPLETED" },
+			ANA,
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.saved).toEqual([{ lessonId: 32, status: "COMPLETED" }]);
+	});
+
+	test("el índice enseña el examen de un curso evaluado por examen", async () => {
+		const { service } = createHarness({
+			course: courseOf({ requiresEvaluation: true, evaluationMethod: "QUIZ" }),
+			quizQuestions: 3,
+			quizAttempt: { score: 80, passed: true },
+		});
+
+		const result = await service.findClassroom(COURSE_DOC, ANA);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				finalQuiz: {
+					title: "Examen final",
+					availability: "TAKEN",
+					score: 80,
+					passed: true,
+				},
+			},
+		});
+	});
+
+	test("con captura manual el aula no enseña examen", async () => {
+		const { service } = createHarness({ quizQuestions: 3 });
+
+		expect(await service.findClassroom(COURSE_DOC, ANA)).toMatchObject({
+			success: true,
+			data: { finalQuiz: null },
 		});
 	});
 });

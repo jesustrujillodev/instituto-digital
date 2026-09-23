@@ -19,6 +19,7 @@ import {
 	courseSessionSchema,
 	courseSummarySchema,
 	courseTrainerSchema,
+	type EvaluationMethod,
 } from "./course.rules";
 
 export type CourseSummary = v.InferOutput<typeof courseSummarySchema>;
@@ -66,6 +67,7 @@ export interface CourseWriteData {
 	enrollmentDeadline: Date | null;
 	minAttendance: number;
 	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
 	qrOpensBeforeMinutes: number;
 	qrClosesAfterMinutes: number;
 	sessions: readonly CourseSessionData[];

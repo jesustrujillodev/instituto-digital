@@ -68,6 +68,7 @@ const createHarness = (
 			context: CreditWriteContext;
 		}[],
 		finishes: 0,
+		markedFailed: 0,
 		enrollmentClosed: [] as (Date | null)[],
 	};
 
@@ -111,6 +112,12 @@ const createHarness = (
 					result: entry.result,
 					grade: entry.grade,
 				});
+			}
+		},
+		markPendingAsFailed: async () => {
+			log.markedFailed += 1;
+			for (const participant of course.participants) {
+				if (participant.result === "PENDING") participant.result = "FAILED";
 			}
 		},
 		setCompletion: async (_courseId: number, userIds: number[]) => {
@@ -628,5 +635,51 @@ describe("teachingService.setEnrollmentOpen", () => {
 			error: { code: TEACHING_ERROR_CODES.NOT_SELF_PACED },
 		});
 		expect(log.enrollmentClosed).toEqual([]);
+	});
+});
+
+// docs/adr/0015: con examen en línea el resultado lo escribe el examen.
+describe("curso evaluado con examen en línea", () => {
+	const quizCourse = () =>
+		courseOf({ requiresEvaluation: true, evaluationMethod: "QUIZ" });
+
+	test("no admite captura manual de resultados", async () => {
+		const { service, log } = createHarness(quizCourse());
+
+		const result = await service.saveResults(
+			COURSE_DOC,
+			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: 90 }] },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.RESULTS_BY_QUIZ },
+		});
+		expect(log.results).toEqual([]);
+	});
+
+	test("un pendiente no bloquea el cierre y queda como «No presentó»", async () => {
+		const { service, log, course } = createHarness(quizCourse());
+
+		const result = await service.finish(COURSE_DOC, actorOf());
+
+		expect(result.success).toBe(true);
+		expect(log.markedFailed).toBe(1);
+		expect(course().participants[0]?.result).toBe("FAILED");
+	});
+
+	test("con captura manual, el pendiente sigue bloqueando como siempre", async () => {
+		const { service, log } = createHarness(
+			courseOf({ requiresEvaluation: true }),
+		);
+
+		const result = await service.finish(COURSE_DOC, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.PENDING_RESULTS },
+		});
+		expect(log.markedFailed).toBe(0);
 	});
 });

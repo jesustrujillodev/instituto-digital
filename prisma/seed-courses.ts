@@ -16,14 +16,34 @@ import { endOfZonedDay, zonedInputToUtc } from "@/lib/date-utils";
  * - Los cuatro estados en el listado, incluido uno cancelado con audiencia de
  *   grupo que conserva sus registros.
  * - Un curso AUTOGESTIVO publicado, sin sesiones y con temario, para recorrer
- *   el aula y completarlo por contenido: dos obligatorias y una opcional
- *   (docs/adr/0014).
+ *   el aula y completarlo por contenido: dos obligatorias, una opcional y un
+ *   cuestionario de práctica (docs/adr/0014, 0015).
+ * - Un curso presencial EVALUADO CON EXAMEN en línea, con su examen armado
+ *   (docs/adr/0015).
  *
  * Las horas se escriben como hora de Tijuana y se convierten con el mismo
  * helper que usa la aplicación.
  */
 
 type Seeded = { courses: number };
+
+/** Preguntas de opción única: la primera opción de cada una es la correcta. */
+const singleChoice = (
+	questions: readonly { statement: string; options: readonly string[] }[],
+) =>
+	questions.map((question, index) => ({
+		statement: question.statement,
+		type: "SINGLE_CHOICE" as const,
+		points: 1,
+		order: index + 1,
+		options: {
+			create: question.options.map((text, position) => ({
+				text,
+				isCorrect: position === 0,
+				order: position + 1,
+			})),
+		},
+	}));
 
 /** Una lección de texto con su cuerpo ya en el árbol JSON que guarda el editor. */
 const textLesson = (
@@ -181,7 +201,7 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 
 	// Autogestivo publicado: sin sesiones, se completa al terminar sus lecciones
 	// obligatorias y otorga el crédito en ese momento.
-	await prisma.course.create({
+	const selfPaced = await prisma.course.create({
 		data: {
 			dependencyId: sds,
 			createdById: headSds.id,
@@ -224,10 +244,89 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 									],
 									{ isRequired: false },
 								),
+								{
+									title: "Repaso del módulo",
+									type: "QUIZ",
+									order: 2,
+									isRequired: false,
+									estimatedMinutes: 5,
+								},
 							],
 						},
 					},
 				],
+			},
+		},
+		select: { id: true },
+	});
+
+	// La práctica cuelga de su lección, que tiene que existir antes.
+	const practice = await prisma.lesson.findFirstOrThrow({
+		where: { title: "Repaso del módulo", module: { courseId: selfPaced.id } },
+		select: { id: true },
+	});
+	await prisma.quiz.create({
+		data: {
+			courseId: selfPaced.id,
+			lessonId: practice.id,
+			title: "Repaso del módulo",
+			passingScore: 60,
+			questions: {
+				create: singleChoice([
+					{
+						statement: "¿Qué norma prevalece sobre un reglamento municipal?",
+						options: ["La ley estatal", "Un acuerdo de cabildo"],
+					},
+					{
+						statement:
+							"¿Quién emite los reglamentos de policía y buen gobierno?",
+						options: ["El ayuntamiento", "El congreso federal"],
+					},
+				]),
+			},
+		},
+	});
+
+	// Presencial evaluado con examen en línea: nadie captura resultados a mano.
+	const examined = await prisma.course.create({
+		data: {
+			dependencyId: sds,
+			createdById: headSds.id,
+			title: "Ética en el servicio público",
+			description: "Taller presencial. Se evalúa con un examen en línea.",
+			modality: "IN_PERSON",
+			access: "PUBLIC",
+			status: "PUBLISHED",
+			publishedAt: new Date(),
+			requiresEvaluation: true,
+			evaluationMethod: "QUIZ",
+			sessions: {
+				create: [session("2026-10-27", "09:00", "13:00", { venue })],
+			},
+			trainers: { create: [{ userId: trainerSds.id }] },
+		},
+		select: { id: true },
+	});
+	await prisma.quiz.create({
+		data: {
+			courseId: examined.id,
+			title: "Examen final · Ética en el servicio público",
+			passingScore: 70,
+			questions: {
+				create: singleChoice([
+					{
+						statement: "¿Qué hacer ante un posible conflicto de interés?",
+						options: ["Declararlo y excusarse", "Resolverlo sin avisar"],
+					},
+					{
+						statement: "¿A quién rinde cuentas un servidor público?",
+						options: ["A la ciudadanía", "Solo a su jefe inmediato"],
+					},
+					{
+						statement: "¿Se pueden aceptar regalos por un trámite?",
+						options: ["No", "Sí, si son pequeños"],
+					},
+				]),
 			},
 		},
 	});
@@ -250,5 +349,5 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 		},
 	});
 
-	return { courses: 6 };
+	return { courses: 7 };
 }

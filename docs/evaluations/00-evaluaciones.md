@@ -1,5 +1,11 @@
 # Evaluaciones del curso — Referencia
 
+> **No confundir con el examen en línea.** Estas evaluaciones de seguimiento son
+> documentales y no tocan el resultado. El examen autocalificado que sí escribe
+> `Enrollment.result` es otra pieza: vive en `content` y se elige con
+> `evaluation_method = QUIZ`
+> ([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)). Los dos conviven.
+
 ## 1. Qué es
 
 `app/modules/evaluations` permite que un curso tenga **varias evaluaciones** y

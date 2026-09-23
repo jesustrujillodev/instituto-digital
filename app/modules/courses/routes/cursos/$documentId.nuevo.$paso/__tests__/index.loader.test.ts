@@ -58,6 +58,9 @@ const createHarness = (
 				return okReply(options.lessons === false ? [] : [moduleOf()]);
 			},
 		},
+		quizService: {
+			findBank: async () => okReply(null),
+		},
 		evaluationService: {
 			findDefinitions: async () => {
 				calls.evaluations += 1;

@@ -62,6 +62,7 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	enrollmentDeadline: null,
 	minAttendance: 80,
 	requiresEvaluation: false,
+	evaluationMethod: "MANUAL",
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,
 	planLine: null,

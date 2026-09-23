@@ -59,6 +59,8 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 		"Para publicar, el curso necesita al menos una sesión.",
 	[COURSE_ERROR_CODES.WITHOUT_LESSONS]:
 		"Para publicar, un curso autogestivo necesita al menos una lección.",
+	[COURSE_ERROR_CODES.WITHOUT_QUIZ]:
+		"Para publicar, un curso evaluado con examen en línea necesita un examen con al menos una pregunta.",
 	[COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER]:
 		"Para publicar, el curso necesita al menos un capacitador con el perfil activo.",
 	[COURSE_ERROR_CODES.SESSION_MISSING_VENUE]: {

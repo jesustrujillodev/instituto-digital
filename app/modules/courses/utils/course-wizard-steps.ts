@@ -64,6 +64,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 			"qrOpensBeforeMinutes",
 			"qrClosesAfterMinutes",
 			"requiresEvaluation",
+			"evaluationMethod",
 		],
 	},
 	{
@@ -159,6 +160,7 @@ const STEP_OF_CHECK: Record<PublishCheck, CourseStepKey> = {
 	trainer: "program",
 	audience: "access",
 	content: "content",
+	quiz: "rules",
 };
 
 export type PublishChecklist = readonly {

@@ -9,6 +9,7 @@ import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
 	canEdit,
+	evaluatesByQuiz,
 	publishChecklist,
 	requiresContent,
 } from "../domain/course.rules";
@@ -86,8 +87,20 @@ export const loadCourseWizard = async (
 		throw toRouteError(tree.error, CONTENT_ERROR_MESSAGES);
 
 	const content = tree?.data ?? null;
+
+	// El examen se arma en el paso de Evaluación y su conteo alimenta el
+	// pendiente de publicación, así que se lee en los dos casos.
+	const quiz =
+		step.key === "rules" || evaluatesByQuiz(course.data)
+			? await context.quizService.findBank(documentId, null, auth)
+			: null;
+	if (quiz && !quiz.success)
+		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);
+	const bank = quiz?.success ? quiz.data : null;
+
 	const checklist = publishChecklist(course.data, {
 		lessonCount: content ? toContentSummary(content).lessonCount : 0,
+		finalQuizQuestionCount: bank?.questions.length ?? 0,
 	});
 
 	// Un paso que este curso no recorre no tiene pantalla: el alta manda a lo
@@ -113,6 +126,7 @@ export const loadCourseWizard = async (
 		checklist: mode === "create" ? checklist : null,
 		content,
 		evaluations: evaluations?.success ? evaluations.data : [],
+		quiz: bank,
 	});
 };
 

@@ -7,6 +7,7 @@ import {
 	canCancel,
 	canEdit,
 	canPublish,
+	evaluatesByQuiz,
 	publishChecklist,
 	requiresContent,
 } from "../../../domain/course.rules";
@@ -50,7 +51,18 @@ export const loader = async ({
 	if (content && !content.success)
 		throw toRouteError(content.error, CONTENT_ERROR_MESSAGES);
 
-	const facts = { lessonCount: content?.data.lessonCount ?? 0 };
+	const quiz = evaluatesByQuiz(course.data)
+		? await context.quizService.findBank(documentId, null, auth)
+		: null;
+	if (quiz && !quiz.success)
+		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);
+
+	const facts = {
+		lessonCount: content?.data.lessonCount ?? 0,
+		finalQuizQuestionCount: quiz?.success
+			? (quiz.data?.questions.length ?? 0)
+			: 0,
+	};
 
 	return ok({
 		course: course.data,

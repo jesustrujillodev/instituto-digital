@@ -51,6 +51,7 @@ const RAW: ContentModuleRaw[] = [
 				isRequired: true,
 				estimatedMinutes: null,
 				content: null,
+				quiz: null,
 			},
 			{
 				documentId: LESSON_2,
@@ -60,6 +61,7 @@ const RAW: ContentModuleRaw[] = [
 				isRequired: true,
 				estimatedMinutes: null,
 				content: null,
+				quiz: null,
 			},
 		],
 	},
@@ -77,6 +79,7 @@ const RAW: ContentModuleRaw[] = [
 				isRequired: false,
 				estimatedMinutes: null,
 				content: null,
+				quiz: null,
 			},
 		],
 	},

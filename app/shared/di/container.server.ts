@@ -33,9 +33,11 @@ import { createClassroomService } from "@/modules/content/application/classroom.
 import { createContentService } from "@/modules/content/application/content.service.server";
 import { createLessonMaterialReader } from "@/modules/content/application/lesson-material.reader.server";
 import { createProgressSync } from "@/modules/content/application/progress-sync.server";
+import { createQuizService } from "@/modules/content/application/quiz.service.server";
 import { createClassroomRepository } from "@/modules/content/infrastructure/classroom.repository.server";
 import { createContentRepository } from "@/modules/content/infrastructure/content.repository.server";
 import { createLessonMaterialReferenceSource } from "@/modules/content/infrastructure/lesson-material.references.server";
+import { createQuizRepository } from "@/modules/content/infrastructure/quiz.repository.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
 import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
@@ -244,6 +246,8 @@ export const configureContainer = async (
 		progressSync: asSingleton(createProgressSync),
 		classroomRepository: asSingleton(createClassroomRepository),
 		classroomService: asSingleton(createClassroomService),
+		quizRepository: asSingleton(createQuizRepository),
+		quizService: asSingleton(createQuizService),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
 		calendarRepository: asSingleton(createCalendarRepository),

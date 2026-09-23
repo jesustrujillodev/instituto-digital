@@ -20,6 +20,7 @@ import {
 	CourseTooManySessionsError,
 	CourseWithoutActiveTrainerError,
 	CourseWithoutLessonsError,
+	CourseWithoutQuizError,
 	CourseWithoutSessionsError,
 } from "./course.errors";
 
@@ -57,6 +58,10 @@ export const COURSE_COMPLETION_RULES = [
 	"BOTH",
 ] as const;
 export type CourseCompletionRule = (typeof COURSE_COMPLETION_RULES)[number];
+
+/** Con qué se evalúa, si se evalúa (docs/adr/0015). */
+export const EVALUATION_METHODS = ["MANUAL", "QUIZ"] as const;
+export type EvaluationMethod = (typeof EVALUATION_METHODS)[number];
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
@@ -197,6 +202,7 @@ export const courseDetailSchema = v.object({
 	enrollmentDeadline: v.nullable(v.date()),
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
+	evaluationMethod: v.picklist(EVALUATION_METHODS),
 	completionRule: v.picklist(COURSE_COMPLETION_RULES),
 	qrOpensBeforeMinutes: v.number(),
 	qrClosesAfterMinutes: v.number(),
@@ -259,6 +265,9 @@ const courseFormShape = {
 	minAttendance: v.optional(minAttendance),
 	requiresEvaluation: v.optional(
 		v.boolean("Indica si el curso exige evaluación."),
+	),
+	evaluationMethod: v.optional(
+		v.picklist(EVALUATION_METHODS, "Elige con qué se evalúa el curso."),
 	),
 	completionRule: v.optional(
 		v.picklist(
@@ -388,7 +397,15 @@ export const requiresContent = (course: {
 export interface CourseContentFacts {
 	/** Lecciones activas, en módulos activos. */
 	lessonCount: number;
+	/** Preguntas del examen final; 0 si todavía no se armó. */
+	finalQuizQuestionCount: number;
 }
+
+/** El resultado lo escribe el examen en línea, no quien imparte (docs/adr/0015). */
+export const evaluatesByQuiz = (course: {
+	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
+}): boolean => course.requiresEvaluation && course.evaluationMethod === "QUIZ";
 
 export const requiresVenue = (modality: CourseModality): boolean =>
 	modality === "IN_PERSON" || modality === "HYBRID";
@@ -446,10 +463,13 @@ export const assertCompletionRuleCoherent = (course: {
 };
 
 /**
- * En un autogestivo publicado, la regla y la evaluación se congelan.
+ * Lo que se congela al publicar.
  *
- * Sus créditos se otorgan conforme cada quien completa, no en un cierre: cambiar
- * el criterio a mitad dejaría los ya otorgados medidos con otro (docs/adr/0014).
+ * En cualquier curso, el método de evaluación: pasar de captura a examen a
+ * mitad dejaría resultados medidos de dos formas (docs/adr/0015). En un
+ * autogestivo, además, la regla y la evaluación: sus créditos se otorgan
+ * conforme cada quien completa, y cambiar el criterio dejaría los ya otorgados
+ * medidos con otro (docs/adr/0014).
  */
 export const assertCompletionSettingsEditable = (
 	stored: {
@@ -457,10 +477,20 @@ export const assertCompletionSettingsEditable = (
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
+		evaluationMethod: EvaluationMethod;
 	},
-	next: { completionRule: CourseCompletionRule; requiresEvaluation: boolean },
+	next: {
+		completionRule: CourseCompletionRule;
+		requiresEvaluation: boolean;
+		evaluationMethod: EvaluationMethod;
+	},
 ): void => {
-	if (stored.status === "DRAFT" || requiresSessions(stored.format)) return;
+	if (stored.status === "DRAFT") return;
+
+	if (next.evaluationMethod !== stored.evaluationMethod) {
+		throw new CourseCompletionLockedError();
+	}
+	if (requiresSessions(stored.format)) return;
 
 	if (
 		next.completionRule !== stored.completionRule ||
@@ -505,6 +535,8 @@ export const assertPublishable = (
 		modality: CourseModality;
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
+		requiresEvaluation: boolean;
+		evaluationMethod: EvaluationMethod;
 		access: CourseAccessType;
 		sessions: readonly { venue: string | null; link: string | null }[];
 		trainers: readonly { isActive: boolean }[];
@@ -522,6 +554,10 @@ export const assertPublishable = (
 
 	if (requiresContent(course) && content.lessonCount === 0) {
 		throw new CourseWithoutLessonsError();
+	}
+
+	if (evaluatesByQuiz(course) && content.finalQuizQuestionCount === 0) {
+		throw new CourseWithoutQuizError();
 	}
 
 	if (!course.trainers.some((trainer) => trainer.isActive)) {
@@ -552,7 +588,8 @@ export type PublishCheck =
 	| "trainer"
 	| "places"
 	| "audience"
-	| "content";
+	| "content"
+	| "quiz";
 
 /**
  * Las mismas condiciones de `assertPublishable`, pero todas a la vez y sin
@@ -567,6 +604,8 @@ export const publishChecklist = (
 		modality: CourseModality;
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
+		requiresEvaluation: boolean;
+		evaluationMethod: EvaluationMethod;
 		access: CourseAccessType;
 		sessions: readonly { venue: string | null; link: string | null }[];
 		trainers: readonly { isActive: boolean }[];
@@ -591,6 +630,10 @@ export const publishChecklist = (
 
 	if (requiresContent(course)) {
 		checks.push({ check: "content", done: content.lessonCount > 0 });
+	}
+
+	if (evaluatesByQuiz(course)) {
+		checks.push({ check: "quiz", done: content.finalQuizQuestionCount > 0 });
 	}
 
 	checks.push({

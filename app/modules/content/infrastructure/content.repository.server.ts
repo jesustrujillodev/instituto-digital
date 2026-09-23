@@ -39,6 +39,7 @@ const MODULE_SELECT = {
 			isRequired: true,
 			estimatedMinutes: true,
 			content: { select: { fileUrl: true, externalUrl: true } },
+			quiz: { select: { _count: { select: { questions: true } } } },
 		},
 	},
 } satisfies Prisma.CourseModuleSelect;
@@ -105,6 +106,12 @@ export const createContentRepository = ({
 				where: { courseId, ...ACTIVE },
 				orderBy: { order: "asc" },
 				select: MODULE_SELECT,
+			});
+		},
+
+		async countFinalQuizQuestions(courseId) {
+			return prisma.quizQuestion.count({
+				where: { quiz: { courseId, lessonId: null } },
 			});
 		},
 

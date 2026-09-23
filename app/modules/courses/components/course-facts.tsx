@@ -4,7 +4,10 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { countsAttendance, requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
-import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
+import {
+	COMPLETION_RULE_LABELS,
+	EVALUATION_METHOD_LABELS,
+} from "../utils/course-labels";
 
 const dateOf = (value: Date | string) => formatZonedDate(new Date(value));
 
@@ -57,7 +60,7 @@ export function CourseFacts({
 	facts.push({
 		term: "Evaluación",
 		value: course.requiresEvaluation
-			? "Aprobado / no aprobado"
+			? EVALUATION_METHOD_LABELS[course.evaluationMethod]
 			: "Sin evaluación",
 	});
 

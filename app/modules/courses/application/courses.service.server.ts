@@ -58,6 +58,8 @@ import {
 	type CourseFormat,
 	canCancel,
 	canEdit,
+	type EvaluationMethod,
+	evaluatesByQuiz,
 	hasScheduleChanges,
 	requiresContent,
 	requiresSessions,
@@ -125,19 +127,30 @@ export const createCourseService = ({
 	};
 
 	/**
-	 * Lo que el temario aporta a la publicación.
+	 * Lo que el temario y el examen aportan a la publicación.
 	 *
-	 * Solo se consulta cuando el curso lo exige: uno que se completa solo por
-	 * asistencia no mira sus lecciones, y una consulta de más no se paga por nada.
+	 * Cada conteo se consulta solo cuando el curso lo exige: uno que se completa
+	 * por asistencia no mira sus lecciones, y uno de captura manual no mira su
+	 * examen.
 	 */
 	const contentFactsOf = async (course: {
 		id: number;
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
-	}): Promise<CourseContentFacts> =>
-		requiresContent(course)
-			? { lessonCount: await contentRepository.countActiveLessons(course.id) }
-			: { lessonCount: 0 };
+		requiresEvaluation: boolean;
+		evaluationMethod: EvaluationMethod;
+	}): Promise<CourseContentFacts> => {
+		const [lessonCount, finalQuizQuestionCount] = await Promise.all([
+			requiresContent(course)
+				? contentRepository.countActiveLessons(course.id)
+				: 0,
+			evaluatesByQuiz(course)
+				? contentRepository.countFinalQuizQuestions(course.id)
+				: 0,
+		]);
+
+		return { lessonCount, finalQuizQuestionCount };
+	};
 
 	/** El curso, ya comprobado contra el alcance de quien lo pide. */
 	const requireCourse = async (
@@ -221,6 +234,8 @@ export const createCourseService = ({
 		const format = dto.format ?? COURSE_DEFAULTS.format;
 		const completionRule = dto.completionRule ?? COURSE_DEFAULTS.completionRule;
 		const requiresEvaluation = dto.requiresEvaluation ?? false;
+		const evaluationMethod =
+			dto.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod;
 
 		assertCompletionRuleCoherent({ format, completionRule });
 
@@ -295,6 +310,7 @@ export const createCourseService = ({
 			enrollmentDeadline,
 			minAttendance: dto.minAttendance ?? COURSE_DEFAULTS.minAttendance,
 			requiresEvaluation,
+			evaluationMethod,
 			qrOpensBeforeMinutes:
 				dto.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
 			qrClosesAfterMinutes:
@@ -513,6 +529,8 @@ export const createCourseService = ({
 				assertCompletionSettingsEditable(course, {
 					completionRule: dto.completionRule ?? COURSE_DEFAULTS.completionRule,
 					requiresEvaluation: dto.requiresEvaluation ?? false,
+					evaluationMethod:
+						dto.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod,
 				});
 
 				const data = await buildWriteData(dto, scope);

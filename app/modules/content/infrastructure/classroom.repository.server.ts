@@ -26,6 +26,8 @@ export const createClassroomRepository = ({
 				status: true,
 				format: true,
 				completionRule: true,
+				requiresEvaluation: true,
+				evaluationMethod: true,
 				enrollments: {
 					where: { userId },
 					select: {
@@ -86,7 +88,16 @@ export const createClassroomRepository = ({
 			where: {
 				status: { in: ["PUBLISHED", "FINISHED"] },
 				enrollments: { some: { userId, status: "ENROLLED" } },
-				modules: { some: { ...ACTIVE, lessons: { some: ACTIVE } } },
+				// Con lecciones, o evaluado por un examen que ya tiene preguntas: el
+				// aula es también donde se presenta (docs/adr/0015).
+				OR: [
+					{ modules: { some: { ...ACTIVE, lessons: { some: ACTIVE } } } },
+					{
+						requiresEvaluation: true,
+						evaluationMethod: "QUIZ",
+						quizzes: { some: { lessonId: null, questions: { some: {} } } },
+					},
+				],
 			},
 			select: { documentId: true },
 		});

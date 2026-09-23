@@ -36,6 +36,8 @@ export interface IContentRepository {
 	findTree(courseId: number): Promise<ContentModuleRaw[]>;
 	/** Lo que el checklist de publicación necesita, sin traer el árbol entero. */
 	countActiveLessons(courseId: number): Promise<number>;
+	/** Preguntas del examen final: el pendiente `quiz` de la publicación. */
+	countFinalQuizQuestions(courseId: number): Promise<number>;
 
 	/** Hermanos activos ordenados: de ahí salen el tope, la posición y el hueco. */
 	findModuleSiblings(courseId: number): Promise<OrderedRow[]>;

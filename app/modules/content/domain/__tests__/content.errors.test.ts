@@ -11,6 +11,13 @@ import {
 	ContentModuleNotEmptyError,
 	ContentModuleNotFoundError,
 	ContentNotEnrolledError,
+	ContentQuizAlreadyTakenError,
+	ContentQuizCompletesOnSubmitError,
+	ContentQuizIncompleteError,
+	ContentQuizLockedError,
+	ContentQuizNotAvailableError,
+	ContentQuizNotEvaluatedError,
+	ContentQuizNotFoundError,
 	ContentTooManyLessonsError,
 	ContentTooManyModulesError,
 	ContentUploadInvalidError,
@@ -26,6 +33,29 @@ describe("errores de contenido", () => {
 		expect(new ContentNotEnrolledError().code).toBe(
 			CONTENT_ERROR_CODES.NOT_ENROLLED,
 		);
+		for (const [error, code] of [
+			[new ContentQuizNotFoundError(), CONTENT_ERROR_CODES.QUIZ_NOT_FOUND],
+			[new ContentQuizLockedError(), CONTENT_ERROR_CODES.QUIZ_LOCKED],
+			[
+				new ContentQuizAlreadyTakenError(),
+				CONTENT_ERROR_CODES.QUIZ_ALREADY_TAKEN,
+			],
+			[
+				new ContentQuizNotAvailableError(),
+				CONTENT_ERROR_CODES.QUIZ_NOT_AVAILABLE,
+			],
+			[new ContentQuizIncompleteError(), CONTENT_ERROR_CODES.QUIZ_INCOMPLETE],
+			[
+				new ContentQuizNotEvaluatedError(),
+				CONTENT_ERROR_CODES.QUIZ_NOT_EVALUATED,
+			],
+			[
+				new ContentQuizCompletesOnSubmitError(),
+				CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT,
+			],
+		] as const) {
+			expect(error.code).toBe(code);
+		}
 		expect(new ContentClassroomReadOnlyError().code).toBe(
 			CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY,
 		);

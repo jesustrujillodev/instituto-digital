@@ -103,6 +103,10 @@ interface CourseWizardProps {
 	/** Las evaluaciones de seguimiento, ya pintadas, para el paso Evaluación. */
 	evaluations?: ReactNode;
 	evaluationTitles?: readonly string[];
+	/** El editor del examen, ya pintado, para el paso Evaluación. */
+	quiz?: ReactNode;
+	/** Preguntas del examen guardado, para la revisión. */
+	quizQuestionCount?: number;
 }
 
 /**
@@ -126,6 +130,8 @@ export function CourseWizard({
 	search = "",
 	evaluations,
 	evaluationTitles = [],
+	quiz,
+	quizQuestionCount = 0,
 }: CourseWizardProps) {
 	const navigate = useNavigate();
 	const isCreate = !course;
@@ -407,6 +413,8 @@ export function CourseWizard({
 										content={content ?? null}
 										evaluations={evaluations}
 										evaluationTitles={evaluationTitles}
+										quiz={quiz}
+										quizQuestionCount={quizQuestionCount}
 										cover={{
 											value: cover,
 											existingUrl: course?.coverImageUrl ?? null,
@@ -452,6 +460,8 @@ function StepFields({
 	cover,
 	evaluations,
 	evaluationTitles,
+	quiz,
+	quizQuestionCount,
 }: {
 	step: CourseStep;
 	ids: CourseFormIds;
@@ -463,6 +473,8 @@ function StepFields({
 	cover: CourseCoverControl;
 	evaluations?: ReactNode;
 	evaluationTitles: readonly string[];
+	quiz?: ReactNode;
+	quizQuestionCount: number;
 }) {
 	switch (step.key) {
 		case "identity":
@@ -496,6 +508,7 @@ function StepFields({
 					ids={ids}
 					isPublished={isPublished}
 					evaluations={evaluations}
+					quiz={quiz}
 				/>
 			);
 		case "access":
@@ -507,6 +520,7 @@ function StepFields({
 					checklist={checklist}
 					content={content ? toContentSummary(content) : null}
 					evaluationTitles={evaluationTitles}
+					quizQuestionCount={quizQuestionCount}
 				/>
 			) : null;
 	}

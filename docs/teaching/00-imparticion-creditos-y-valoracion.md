@@ -144,6 +144,18 @@ porcentaje de cada participante y la fecha en que terminó el contenido, junto a
 pase de lista. Se lee del caché `enrollments.progress_percent`, que solo escribe
 el avance por lección (docs/content/00-modulos-y-lecciones.md §8).
 
+### 4.4 · Curso evaluado con examen en línea
+
+Con `evaluation_method = QUIZ`, el resultado lo escribe el examen del participante
+([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)) y hay **una sola vía**:
+
+- Resultados queda de solo lectura, y capturar a mano, también al corregir,
+  responde `TEACHING_RESULTS_BY_QUIZ`.
+- Un pendiente no bloquea el cierre. Al finalizar, quien no lo presentó pasa a
+  `FAILED` sin nota, y la pantalla lo enseña como «No presentó».
+- Un autogestivo no se cierra: acredita al momento de presentar y quien no lo
+  presentó queda pendiente.
+
 ## 5. Corrección posterior
 
 Guardar asistencia o resultados en un curso `FINISHED` **es** la corrección, y

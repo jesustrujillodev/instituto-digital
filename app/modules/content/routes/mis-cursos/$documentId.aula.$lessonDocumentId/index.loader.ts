@@ -29,5 +29,13 @@ export const loader = async ({
 	);
 	if (!lesson.success) throw toRouteError(lesson.error, CONTENT_ERROR_MESSAGES);
 
-	return ok(lesson.data);
+	// La práctica viaja sin respuestas correctas, y solo en su lección.
+	const quiz =
+		lesson.data.lesson.type === "QUIZ"
+			? await context.quizService.findView(documentId, lessonDocumentId, auth)
+			: null;
+	if (quiz && !quiz.success)
+		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);
+
+	return ok({ ...lesson.data, quiz: quiz?.success ? quiz.data : null });
 };

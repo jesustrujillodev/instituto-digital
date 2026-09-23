@@ -59,3 +59,23 @@ export const LESSON_BODY_MAX_DEPTH = 6;
 
 /** A lo que cae una lectura que no reconoce el blob guardado. */
 export const EMPTY_LESSON_BODY: LessonBody = { type: "doc", content: [] };
+
+// ── Cuestionarios (docs/adr/0015) ─────────────────────────────────────────────
+
+export const QUIZ_TITLE_MAX_LENGTH = 120;
+
+/** Un examen más largo que esto es dos exámenes. */
+export const QUIZ_MAX_QUESTIONS = 50;
+
+export const QUIZ_STATEMENT_MAX_LENGTH = 500;
+
+export const QUIZ_OPTION_MAX_LENGTH = 200;
+
+export const QUIZ_OPTIONS_RANGE = { min: 2, max: 6 } as const;
+
+export const QUIZ_POINTS_RANGE = { min: 1, max: 10 } as const;
+
+export const QUIZ_DEFAULT_PASSING_SCORE = 70;
+
+/** El texto de las dos opciones de verdadero o falso lo pone el servidor. */
+export const TRUE_FALSE_LABELS = ["Verdadero", "Falso"] as const;

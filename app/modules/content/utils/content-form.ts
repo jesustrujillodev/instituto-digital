@@ -13,6 +13,9 @@ export const CONTENT_INTENTS = {
 	reorder: "reorder",
 	uploadUrl: "upload-url",
 	saveMaterial: "save-material",
+	saveQuiz: "save-quiz",
+	renameQuiz: "rename-quiz",
+	submitQuiz: "submit-quiz",
 } as const;
 
 export type ContentActionData = AppResponse<null>;
@@ -32,6 +35,24 @@ export const materialPath = (
 	courseDocumentId: string,
 	lessonDocumentId: string,
 ) => `${contentPath(courseDocumentId)}/${lessonDocumentId}`;
+
+/**
+ * El banco de un cuestionario, para quien lo arma: el examen del curso o, con
+ * `?leccion=`, la práctica de esa lección. Sin componente: lo leen y le
+ * escriben el paso de Evaluación y el panel del temario.
+ */
+export const quizPath = (
+	courseDocumentId: string,
+	lessonDocumentId: string | null = null,
+) =>
+	`/dashboard/cursos/${courseDocumentId}/cuestionario${
+		lessonDocumentId ? `?leccion=${lessonDocumentId}` : ""
+	}`;
+
+export const LESSON_PARAM = "leccion";
+
+export const examPath = (courseDocumentId: string) =>
+	`/dashboard/mis-cursos/${courseDocumentId}/aula/examen`;
 
 export interface ParsedContentFormData {
 	intent: string | null;

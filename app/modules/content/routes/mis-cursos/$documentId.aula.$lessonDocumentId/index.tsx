@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { AppResponse } from "@/shared/response/response.types";
 import { LessonMaterialView } from "../../../components/lesson-material-view";
+import { QuizOutcomeView, QuizTaker } from "../../../components/quiz-taker";
 import type { ProgressResult } from "../../../domain/classroom.types";
 import { LESSON_TYPE_LABELS } from "../../../utils/content-labels";
 import type { Route } from "./+types/index";
@@ -26,6 +27,7 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 			previousLessonDocumentId,
 			nextLessonDocumentId,
 			readOnly,
+			quiz,
 		},
 	} = loaderData;
 	const { documentId } = useParams();
@@ -48,6 +50,8 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 	const completed = lesson.status === "COMPLETED";
 	// Un video sin archivo no terminaría nunca: se marca a mano, como el resto.
 	const byVideo = lesson.type === "VIDEO" && material.fileUrl !== null;
+	// Una práctica con preguntas se completa al enviarla; sin ellas, a mano.
+	const byQuiz = lesson.type === "QUIZ" && quiz !== null;
 	const completing = completer.state !== "idle";
 	const complete = () =>
 		completer.submit({ status: "COMPLETED" }, { method: "post" });
@@ -73,6 +77,17 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 					</div>
 					<h2 className="font-semibold text-xl">{lesson.title}</h2>
 				</header>
+
+				{byQuiz &&
+					(quiz.outcome ? (
+						<QuizOutcomeView outcome={quiz.outcome} />
+					) : quiz.sheet ? (
+						<QuizTaker
+							sheet={quiz.sheet}
+							lessonDocumentId={lesson.documentId}
+							finalExam={false}
+						/>
+					) : null)}
 
 				<LessonMaterialView
 					material={material}
@@ -101,7 +116,7 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 						)}
 					</div>
 
-					{!readOnly && !completed && !byVideo && (
+					{!readOnly && !completed && !byVideo && !byQuiz && (
 						<Button type="button" disabled={completing} onClick={complete}>
 							<CheckCircle2 />
 							Marcar como completada

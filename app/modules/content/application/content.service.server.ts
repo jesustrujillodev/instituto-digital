@@ -1,10 +1,4 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
-import {
-	type CourseScope,
-	courseScopeWriteWhere,
-	resolveCourseScope,
-} from "@/modules/courses/domain/course.access";
-import { canEdit } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -17,8 +11,6 @@ import {
 	LESSON_UPLOAD_TTL_S,
 } from "../domain/content.config";
 import {
-	ContentCourseNotEditableError,
-	ContentCourseNotFoundError,
 	ContentLessonNotFoundError,
 	ContentModuleNotFoundError,
 } from "../domain/content.errors";
@@ -51,6 +43,7 @@ import type {
 	UpdateModuleDto,
 	UploadUrlDto,
 } from "../domain/content.types";
+import { createContentCourseGate } from "./content-course.gate.server";
 
 type Dependencies = {
 	contentRepository: ICradle["contentRepository"];
@@ -108,34 +101,8 @@ export const createContentService = ({
 			});
 	};
 
-	/**
-	 * Fuera de alcance responde igual que inexistente: quien no administra el
-	 * curso no confirma por URL que exista.
-	 */
-	const requireCourse = async (
-		courseDocumentId: string,
-		actor: AuthContext,
-	): Promise<ContentCourseRef> => {
-		const scope: CourseScope = resolveCourseScope(actor);
-		const where = courseScopeWriteWhere(scope);
-		if (!where) throw new ContentCourseNotFoundError();
-
-		const course = await contentRepository.findCourse(courseDocumentId, where);
-		if (!course) throw new ContentCourseNotFoundError();
-		return course;
-	};
-
-	/** El temario solo cambia mientras el curso admite edición. */
-	const requireEditableCourse = async (
-		courseDocumentId: string,
-		actor: AuthContext,
-	): Promise<ContentCourseRef> => {
-		const course = await requireCourse(courseDocumentId, actor);
-		if (!canEdit(course.status)) {
-			throw new ContentCourseNotEditableError(course.status);
-		}
-		return course;
-	};
+	const { requireCourse, requireEditableCourse } =
+		createContentCourseGate(contentRepository);
 
 	const requireModule = async (courseId: number, moduleDocumentId: string) => {
 		const module = await contentRepository.findModule(

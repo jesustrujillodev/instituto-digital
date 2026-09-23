@@ -16,6 +16,12 @@ export const contentRoutes = [
 		"cursos/:documentId/contenido/:lessonDocumentId",
 		"modules/content/routes/cursos/$documentId.contenido.$lessonDocumentId/index.ts",
 	),
+	// Sin componente: el banco de un cuestionario, para quien lo arma. Lo leen y
+	// le escriben el paso de Evaluación y el panel del temario (docs/adr/0015).
+	route(
+		"cursos/:documentId/cuestionario",
+		"modules/content/routes/cursos/$documentId.cuestionario/index.ts",
+	),
 	// El aula del participante (docs/adr/0014): el índice lateral es el layout y
 	// su índice redirige a la lección donde se quedó.
 	route(
@@ -24,6 +30,10 @@ export const contentRoutes = [
 		[
 			index(
 				"modules/content/routes/mis-cursos/$documentId.aula._index/index.tsx",
+			),
+			route(
+				"examen",
+				"modules/content/routes/mis-cursos/$documentId.aula.examen/index.tsx",
 			),
 			route(
 				":lessonDocumentId",

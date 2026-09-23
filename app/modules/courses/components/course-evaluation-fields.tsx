@@ -6,16 +6,25 @@ import { Label } from "@/shared/components/ui/label";
 import {
 	COURSE_COMPLETION_RULES,
 	countsAttendance,
+	EVALUATION_METHODS,
 	requiresSessions,
 } from "../domain/course.rules";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
-import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
+import {
+	COMPLETION_RULE_LABELS,
+	EVALUATION_METHOD_LABELS,
+} from "../utils/course-labels";
 import { CourseSelectField } from "./course-select-field";
 
 const RULE_OPTIONS = COURSE_COMPLETION_RULES.map((value) => ({
 	value,
 	label: COMPLETION_RULE_LABELS[value],
+}));
+
+const METHOD_OPTIONS = EVALUATION_METHODS.map((value) => ({
+	value,
+	label: EVALUATION_METHOD_LABELS[value],
 }));
 
 const RULE_HINTS: Record<(typeof COURSE_COMPLETION_RULES)[number], string> = {
@@ -35,10 +44,13 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	ids,
 	isPublished = false,
 	evaluations,
+	quiz,
 }: {
 	ids: CourseFormIds;
 	isPublished?: boolean;
 	evaluations?: ReactNode;
+	/** El editor del examen: se guarda por su cuenta, como las evaluaciones. */
+	quiz?: ReactNode;
 }) {
 	const {
 		register,
@@ -51,6 +63,9 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	});
 	const requiresEvaluation = useWatch<CourseFormValues, "requiresEvaluation">({
 		name: "requiresEvaluation",
+	});
+	const evaluationMethod = useWatch<CourseFormValues, "evaluationMethod">({
+		name: "evaluationMethod",
 	});
 
 	const scheduled = requiresSessions(format);
@@ -146,12 +161,37 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 								<span className="text-muted-foreground text-xs">
 									{locked
 										? "El curso ya está publicado y otorga créditos: no se puede cambiar."
-										: "Quien imparte captura aprobado o no aprobado de cada participante."}
+										: "El resultado de cada participante: aprobado o no aprobado, con su nota."}
 								</span>
 							</Label>
 						</div>
 					)}
 				/>
+
+				{requiresEvaluation && (
+					<CourseSelectField
+						id={ids.evaluationMethod}
+						name="evaluationMethod"
+						label="Se evalúa con"
+						required
+						options={METHOD_OPTIONS}
+						disabled={isPublished}
+						helperText={
+							isPublished
+								? "El curso ya está publicado: la vía de evaluación no se puede cambiar."
+								: evaluationMethod === "QUIZ"
+									? "Cada participante presenta un examen, con un solo intento. Su nota y su resultado se escriben solos."
+									: "Quien imparte captura aprobado o no aprobado de cada participante."
+						}
+					/>
+				)}
+
+				{requiresEvaluation && evaluationMethod === "QUIZ" && quiz && (
+					<fieldset className="flex flex-col gap-3">
+						<legend className="mb-1 font-medium text-sm">Examen final</legend>
+						{quiz}
+					</fieldset>
+				)}
 
 				{requiresEvaluation && evaluations}
 			</div>

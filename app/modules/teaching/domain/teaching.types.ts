@@ -4,6 +4,7 @@ import type {
 	CourseFormat,
 	CourseModality,
 	CourseStatus,
+	EvaluationMethod,
 } from "@/modules/courses/domain/course.rules";
 import type { CreditDiff } from "@/modules/credits/domain/credit.types";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
@@ -71,6 +72,7 @@ export interface TeachingCourse {
 	status: CourseStatus;
 	minAttendance: number;
 	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
 	finishedAt: Date | null;
 	enrollmentClosedAt: Date | null;
 	/** Nulo mientras nadie genere el QR de asistencia (§6.8). */
@@ -147,6 +149,7 @@ export interface TeachingDetail {
 		status: CourseStatus;
 		minAttendance: number;
 		requiresEvaluation: boolean;
+		evaluationMethod: EvaluationMethod;
 		finishedAt: Date | null;
 		finishOpensAt: Date | null;
 		enrollmentClosedAt: Date | null;

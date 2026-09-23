@@ -13,7 +13,8 @@ Las decisiones están en
 [ADR 0012](../adr/0012-estructura-de-contenido-y-modulo-propio.md) para la
 estructura, [ADR 0013](../adr/0013-material-de-la-leccion.md) para el material y
 [ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md) para
-el avance. El formato de curso que lo hace necesario, en
+el avance y [ADR 0015](../adr/0015-cuestionarios-autocalificados.md) para los
+cuestionarios. El formato de curso que lo hace necesario, en
 [ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md).
 
 ## 2. El modelo
@@ -25,7 +26,7 @@ el avance. El formato de curso que lo hace necesario, en
 | `org.lesson_contents` | El material, uno por lección: `body?`, `file_url?`, `file_name?`, `file_size?`, `mime_type?`, `external_url?` |
 | `org.lesson_progress` | El avance: PK `(lesson_id, user_id)`, `status` (`IN_PROGRESS \| COMPLETED`), `started_at`, `completed_at?`. Sin fila = sin empezar |
 
-`LessonType` es `TEXT | FILE | VIDEO | LINK`. Se elige al crear la lección porque
+`LessonType` es `TEXT | FILE | VIDEO | LINK | QUIZ`. Se elige al crear la lección porque
 decide qué editor se abre, no solo cómo se pinta. `VIDEO` está aparte de `FILE`
 porque su lista de tipos y su tope de tamaño no se parecen en nada: con un solo
 valor habría que aceptar la unión de los dos y se colaría un PDF de dos gigas.
@@ -251,3 +252,37 @@ publicado—, el recálculo llama a `completionSync` y la persona recibe su cré
 en ese mismo momento (docs/teaching/00-imparticion-creditos-y-valoracion.md §4.2).
 En un curso con sesiones y regla `BOTH`, el contenido queda guardado y cuenta en
 el cierre.
+
+## 9. Cuestionarios
+
+Hay dos, sobre las mismas tablas
+([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)):
+
+| Uso | Quién lo arma y dónde | Al enviarse |
+| --- | --- | --- |
+| **Examen final** (`quizzes.lesson_id` nulo) | Paso 4 «Evaluación» del wizard, en `/nuevo/4` o `/editar/4` | Escribe `Enrollment.result` y `grade` por la misma vía que la captura manual |
+| **Práctica** (lección `QUIZ`) | Panel de la lección en el temario | Completa la lección, apruebe o no |
+
+### 9.1 Reglas
+
+- **Un solo intento** por persona. Lo impone `@@unique([quiz_id, user_id])`.
+- **Calificación en enteros**, hacia abajo, sobre los puntos del banco. Hay que
+  responder todas las preguntas.
+- **La opción correcta nunca viaja al participante**: ni antes de enviar
+  (`toQuizSheet`) ni después (`toQuizOutcome` solo dice qué se acertó).
+- **El banco se congela con el primer intento.** Solo el título sigue editándose.
+- **Cuándo se presenta el examen**: en un curso que cuenta contenido, al terminar
+  las obligatorias; si no, desde la inscripción.
+- **Una práctica con preguntas no se marca a mano**
+  (`CONTENT_QUIZ_COMPLETES_ON_SUBMIT`); sin preguntas, sí.
+
+### 9.2 Rutas
+
+| Ruta | Pieza |
+| --- | --- |
+| `/dashboard/cursos/:documentId/cuestionario[?leccion=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz` y `rename-quiz` |
+| `/dashboard/mis-cursos/:documentId/aula/examen` | Presentar el examen. El índice del aula lo lleva al final con su estado |
+| `/dashboard/mis-cursos/:documentId/aula/:lessonDocumentId` | La práctica de una lección `QUIZ`, con el intent `submit-quiz` |
+
+El aula también se abre en un curso evaluado por examen que no tiene lecciones:
+en ese caso, su índice lleva directo al examen.

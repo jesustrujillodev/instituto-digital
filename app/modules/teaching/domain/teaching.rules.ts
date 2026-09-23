@@ -3,6 +3,7 @@ import { startOfZonedDay, zonedYearOf } from "@/lib/date-utils";
 import {
 	countsAttendance,
 	countsContent,
+	evaluatesByQuiz,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
 import type { CreditCandidate } from "@/modules/credits/domain/credit.types";
@@ -24,6 +25,7 @@ import {
 	TeachingNotPublishedError,
 	TeachingNotSelfPacedError,
 	TeachingPendingResultsError,
+	TeachingResultsByQuizError,
 	TeachingSelfPacedNotFinishableError,
 	TeachingUnknownParticipantError,
 	TeachingWithoutSessionsError,
@@ -239,8 +241,12 @@ export const fiscalYearOf = (
 	fallback: Date,
 ): number => zonedYearOf(lastSessionOf(course)?.startsAt ?? fallback);
 
+/**
+ * Resultados que faltan capturar. Con examen en línea no cuentan: nadie los
+ * captura, y quien no lo presentó queda «No presentó» al cierre (docs/adr/0015).
+ */
 export const pendingResultsOf = (course: TeachingCourse): number =>
-	course.requiresEvaluation
+	course.requiresEvaluation && !evaluatesByQuiz(course)
 		? course.participants.filter(
 				(participant) => participant.result === "PENDING",
 			).length
@@ -376,6 +382,7 @@ export const resolveResultEntries = (
 	if (!course.requiresEvaluation) {
 		throw new TeachingEvaluationNotRequiredError();
 	}
+	if (evaluatesByQuiz(course)) throw new TeachingResultsByQuizError();
 
 	const participants = participantsByDocument(course);
 	const resolved = entries.map((entry) => {

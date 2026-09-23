@@ -80,6 +80,7 @@ model User {
   resultsRecorded    Enrollment[]       @relation("EnrollmentResultRecorder")
   attendance         CourseAttendance[] @relation("AttendanceParticipant")
   lessonProgress     LessonProgress[]   @relation("LessonProgressParticipant")
+  quizAttempts       QuizAttempt[]      @relation("QuizAttemptParticipant")
   attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
   evaluationsCreated CourseEvaluation[] @relation("EvaluationCreator")
   evaluationResults  EvaluationResult[] @relation("EvaluationParticipant")
@@ -423,8 +424,11 @@ model Course {
   enrollmentDeadline DateTime? @map("enrollment_deadline")
 
   /// Porcentaje. El 80 por defecto sale de §6.8 y se ajusta por curso.
-  minAttendance      Int     @default(80) @map("min_attendance")
-  requiresEvaluation Boolean @default(false) @map("requires_evaluation")
+  minAttendance      Int              @default(80) @map("min_attendance")
+  requiresEvaluation Boolean          @default(false) @map("requires_evaluation")
+  /// Con qué se evalúa, si se evalúa: captura manual o examen en línea
+  /// (docs/adr/0015). Se congela al publicar.
+  evaluationMethod   EvaluationMethod @default(MANUAL) @map("evaluation_method")
 
   /// Token opaco del QR de asistencia. Nulo mientras nadie lo genere: así la
   /// ficha distingue "sin QR" de "con QR", y una columna única no obliga a un
@@ -466,6 +470,7 @@ model Course {
   groupAudience      CourseGroupAudience[]
   enrollments        Enrollment[]
   evaluations        CourseEvaluation[]
+  quizzes            Quiz[]
   credits            Credit[]
   ratings            CourseRating[]
 
@@ -552,6 +557,7 @@ enum LessonType {
   FILE
   VIDEO
   LINK
+  QUIZ
 
   @@schema("org")
 }
@@ -580,6 +586,7 @@ model Lesson {
 
   content  LessonContent?
   progress LessonProgress[]
+  quiz     Quiz?
 
   @@index([moduleId, order])
   @@map("lessons")
@@ -1019,5 +1026,129 @@ model LessonProgress {
   @@id([lessonId, userId])
   @@index([userId])
   @@map("lesson_progress")
+  @@schema("org")
+}
+
+enum EvaluationMethod {
+  MANUAL
+  QUIZ
+
+  @@schema("org")
+}
+
+enum QuizQuestionType {
+  SINGLE_CHOICE
+  TRUE_FALSE
+
+  @@schema("org")
+}
+
+/// Un cuestionario autocalificado (docs/adr/0015). Con `lessonId` es la
+/// práctica de una lección `QUIZ`; sin él, el examen final del curso. Hay a lo
+/// sumo un examen por curso: no se expresa con un índice parcial, lo impone el
+/// servicio con la fila del curso bloqueada.
+model Quiz {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  courseId Int    @map("course_id")
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  lessonId Int?    @unique @map("lesson_id")
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  title            String
+  /// Porcentaje de 0 a 100 con el que se aprueba.
+  passingScore     Int     @map("passing_score")
+  shuffleQuestions Boolean @default(false) @map("shuffle_questions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseId])
+  @@map("quizzes")
+  @@schema("org")
+}
+
+/// Se reescriben enteras al guardar el banco: solo mientras nadie lo presentó.
+model QuizQuestion {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  quizId Int  @map("quiz_id")
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  statement String
+  type      QuizQuestionType
+  points    Int
+  order     Int
+
+  options QuizOption[]
+  answers QuizAnswer[]
+
+  @@index([quizId, order])
+  @@map("quiz_questions")
+  @@schema("org")
+}
+
+model QuizOption {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  questionId Int          @map("question_id")
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  text      String
+  isCorrect Boolean @map("is_correct")
+  order     Int
+
+  answers QuizAnswer[]
+
+  @@index([questionId, order])
+  @@map("quiz_options")
+  @@schema("org")
+}
+
+/// Un solo intento por persona y cuestionario: lo impone la unicidad.
+model QuizAttempt {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  quizId Int  @map("quiz_id")
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation("QuizAttemptParticipant", fields: [userId], references: [id], onDelete: Restrict)
+
+  submittedAt DateTime @map("submitted_at")
+  /// Porcentaje entero, hacia abajo, sobre los puntos del banco.
+  score       Int
+  passed      Boolean
+
+  answers QuizAnswer[]
+
+  @@unique([quizId, userId])
+  @@index([userId])
+  @@map("quiz_attempts")
+  @@schema("org")
+}
+
+model QuizAnswer {
+  attemptId Int         @map("attempt_id")
+  attempt   QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  questionId Int          @map("question_id")
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  optionId Int        @map("option_id")
+  option   QuizOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  isCorrect Boolean @map("is_correct")
+
+  @@id([attemptId, questionId])
+  @@map("quiz_answers")
   @@schema("org")
 }

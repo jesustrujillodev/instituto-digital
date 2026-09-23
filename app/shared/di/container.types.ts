@@ -25,6 +25,8 @@ import type {
 } from "@/modules/content/domain/classroom.service";
 import type { IContentRepository } from "@/modules/content/domain/content.repository";
 import type { IContentService } from "@/modules/content/domain/content.service";
+import type { IQuizRepository } from "@/modules/content/domain/quiz.repository";
+import type { IQuizService } from "@/modules/content/domain/quiz.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
 import type { ICreditRepository } from "@/modules/credits/domain/credit.repository";
@@ -119,6 +121,9 @@ export interface ICradle {
 	progressSync: IProgressSync;
 	classroomRepository: IClassroomRepository;
 	classroomService: IClassroomService;
+	// Cuestionarios autocalificados: examen final y práctica (docs/adr/0015).
+	quizRepository: IQuizRepository;
+	quizService: IQuizService;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
 	calendarRepository: ICalendarRepository;

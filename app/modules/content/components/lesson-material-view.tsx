@@ -122,6 +122,10 @@ export function LessonMaterialView({
 				EMPTY
 			);
 
+		// El cuestionario lo pinta el aula, que sabe si ya se presentó.
+		case "QUIZ":
+			return null;
+
 		default: {
 			const exhaustive: never = material.type;
 			return exhaustive;

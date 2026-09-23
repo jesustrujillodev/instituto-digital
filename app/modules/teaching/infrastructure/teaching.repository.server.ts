@@ -40,6 +40,7 @@ const courseSelect = (sessionFilter: Prisma.CourseSessionWhereInput) =>
 		status: true,
 		minAttendance: true,
 		requiresEvaluation: true,
+		evaluationMethod: true,
 		finishedAt: true,
 		enrollmentClosedAt: true,
 		qrToken: true,

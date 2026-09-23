@@ -18,6 +18,8 @@ export interface ContentLessonRaw {
 	isRequired: boolean;
 	estimatedMinutes: number | null;
 	content: { fileUrl: string | null; externalUrl: string | null } | null;
+	/** Solo en `QUIZ`: sus preguntas son su material. */
+	quiz: { _count: { questions: number } } | null;
 }
 
 /**
@@ -25,6 +27,7 @@ export interface ContentLessonRaw {
  * nube— deja de contar como material, aunque la fila siga ahí.
  */
 const hasMaterialOf = (raw: ContentLessonRaw): boolean => {
+	if (raw.type === "QUIZ") return (raw.quiz?._count.questions ?? 0) > 0;
 	if (!raw.content) return false;
 	if (raw.type === "TEXT") return true;
 
