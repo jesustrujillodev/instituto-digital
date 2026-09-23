@@ -4,7 +4,7 @@ import {
 	COURSE_ERROR_CODES,
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
-	CourseCompletionRuleWithoutEvaluationError,
+	CourseCompletionLockedError,
 	CourseCoverInvalidError,
 	CourseDeadlineAfterStartError,
 	CourseDependencyInactiveError,
@@ -52,10 +52,7 @@ describe("códigos estables", () => {
 			new CourseIncompatibleCompletionRuleError("SELF_PACED", "ATTENDANCE"),
 			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,
 		],
-		[
-			new CourseCompletionRuleWithoutEvaluationError(),
-			COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION,
-		],
+		[new CourseCompletionLockedError(), COURSE_ERROR_CODES.COMPLETION_LOCKED],
 		[
 			new CourseWithoutActiveTrainerError(),
 			COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER,

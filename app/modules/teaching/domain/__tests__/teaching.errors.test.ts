@@ -3,7 +3,9 @@ import {
 	TEACHING_ERROR_CODES,
 	TeachingCorrectionForbiddenError,
 	TeachingFinishTooEarlyError,
+	TeachingNotSelfPacedError,
 	TeachingPendingResultsError,
+	TeachingSelfPacedNotFinishableError,
 	TeachingSessionNotStartedError,
 	TeachingStateChangedError,
 } from "../teaching.errors";
@@ -15,6 +17,12 @@ describe("errores de impartición", () => {
 		);
 		expect(new TeachingStateChangedError().code).toBe(
 			TEACHING_ERROR_CODES.STATE_CHANGED,
+		);
+		expect(new TeachingSelfPacedNotFinishableError().code).toBe(
+			TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE,
+		);
+		expect(new TeachingNotSelfPacedError().code).toBe(
+			TEACHING_ERROR_CODES.NOT_SELF_PACED,
 		);
 	});
 

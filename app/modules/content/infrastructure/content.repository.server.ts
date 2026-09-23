@@ -166,7 +166,7 @@ export const createContentRepository = ({
 					...ACTIVE,
 					module: { courseId, ...ACTIVE },
 				},
-				select: { id: true, moduleId: true, type: true },
+				select: { id: true, moduleId: true, type: true, isRequired: true },
 			});
 		},
 

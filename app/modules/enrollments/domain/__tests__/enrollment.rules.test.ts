@@ -4,6 +4,7 @@ import {
 	acceptsInvitations,
 	assertSeatsFor,
 	canParticipate,
+	canSelfEnroll,
 	canTransition,
 	canWithdraw,
 	classifyMyCourse,
@@ -21,6 +22,7 @@ const courseOf = (
 	status: "PUBLISHED" as const,
 	format: "SCHEDULED" as const,
 	enrollmentDeadline: null,
+	enrollmentClosedAt: null,
 	firstSessionAt: FIRST_SESSION,
 	...overrides,
 });
@@ -81,6 +83,20 @@ describe("enrollmentClosesAt e isEnrollmentOpen", () => {
 		expect(isEnrollmentOpen(course, new Date("2030-01-01"))).toBe(true);
 	});
 
+	// docs/adr/0014: el cierre a mano manda sobre cualquier fecha.
+	test("un autogestivo con las inscripciones cerradas no admite a nadie", () => {
+		const course = courseOf({
+			format: "SELF_PACED",
+			firstSessionAt: null,
+			enrollmentClosedAt: new Date("2026-09-01"),
+		});
+
+		expect(isEnrollmentOpen(course, new Date("2026-09-02"))).toBe(false);
+		expect(
+			isEnrollmentOpen({ ...course, enrollmentClosedAt: null }, new Date()),
+		).toBe(true);
+	});
+
 	test("un autogestivo con fecha límite sí cierra en ella", () => {
 		const course = courseOf({
 			format: "SELF_PACED",
@@ -103,25 +119,51 @@ describe("acceptsInvitations", () => {
 	});
 });
 
+describe("canSelfEnroll", () => {
+	test("un curso público o restringido admite inscripción propia", () => {
+		expect(canSelfEnroll({ access: "PUBLIC" }, null)).toBe(true);
+		expect(canSelfEnroll({ access: "RESTRICTED" }, "WITHDRAWN")).toBe(true);
+	});
+
+	// Verlo porque se administra o se imparte no es estar invitado.
+	test("uno por invitación solo con una invitación pendiente", () => {
+		expect(canSelfEnroll({ access: "INVITATION" }, "INVITED")).toBe(true);
+		expect(canSelfEnroll({ access: "INVITATION" }, null)).toBe(false);
+		expect(canSelfEnroll({ access: "INVITATION" }, "DECLINED")).toBe(false);
+		expect(canSelfEnroll({ access: "INVITATION" }, "WITHDRAWN")).toBe(false);
+	});
+});
+
 describe("canWithdraw", () => {
 	test("antes de la primera sesión se permite", () => {
-		expect(canWithdraw(courseOf(), new Date("2026-10-19"))).toBe(true);
+		expect(canWithdraw(courseOf(), new Date("2026-10-19"), false)).toBe(true);
 	});
 
 	test("desde que empieza la primera sesión ya no", () => {
-		expect(canWithdraw(courseOf(), FIRST_SESSION)).toBe(false);
+		expect(canWithdraw(courseOf(), FIRST_SESSION, false)).toBe(false);
 	});
 
 	test("en un curso cancelado no hay baja", () => {
 		expect(
-			canWithdraw(courseOf({ status: "CANCELLED" }), new Date("2026-09-01")),
+			canWithdraw(
+				courseOf({ status: "CANCELLED" }),
+				new Date("2026-09-01"),
+				false,
+			),
 		).toBe(false);
 	});
 
 	test("un autogestivo se deja cuando sea: no tiene inicio que proteger", () => {
 		const course = courseOf({ format: "SELF_PACED", firstSessionAt: null });
 
-		expect(canWithdraw(course, new Date("2030-01-01"))).toBe(true);
+		expect(canWithdraw(course, new Date("2030-01-01"), false)).toBe(true);
+	});
+
+	// Su crédito quedaría sin la inscripción que lo respalda.
+	test("un autogestivo completado ya no se deja", () => {
+		const course = courseOf({ format: "SELF_PACED", firstSessionAt: null });
+
+		expect(canWithdraw(course, new Date("2030-01-01"), true)).toBe(false);
 	});
 });
 
@@ -176,22 +218,28 @@ describe("classifyMyCourse", () => {
 	};
 
 	test("antes de empezar es próximo", () => {
-		expect(classifyMyCourse(window, new Date("2026-09-30"))).toBe("upcoming");
+		expect(classifyMyCourse(window, new Date("2026-09-30"), false)).toBe(
+			"upcoming",
+		);
 	});
 
 	test("entre la primera y la última sesión está en curso", () => {
-		expect(classifyMyCourse(window, new Date("2026-10-03"))).toBe("inProgress");
+		expect(classifyMyCourse(window, new Date("2026-10-03"), false)).toBe(
+			"inProgress",
+		);
 	});
 
 	test("tras la última sesión está finalizado", () => {
-		expect(classifyMyCourse(window, new Date("2026-10-09"))).toBe("finished");
+		expect(classifyMyCourse(window, new Date("2026-10-09"), false)).toBe(
+			"finished",
+		);
 	});
 
 	test.each(["FINISHED", "CANCELLED"] as const)(
 		"un curso %s va a finalizados aunque no haya empezado",
 		(status) => {
 			expect(
-				classifyMyCourse({ ...window, status }, new Date("2026-09-01")),
+				classifyMyCourse({ ...window, status }, new Date("2026-09-01"), false),
 			).toBe("finished");
 		},
 	);
@@ -205,9 +253,25 @@ describe("classifyMyCourse", () => {
 			lastSessionEndsAt: null,
 		};
 
-		expect(classifyMyCourse(course, new Date("2030-01-01"))).toBe("inProgress");
+		expect(classifyMyCourse(course, new Date("2030-01-01"), false)).toBe(
+			"inProgress",
+		);
 		expect(
-			classifyMyCourse({ ...course, status: "FINISHED" }, new Date()),
+			classifyMyCourse({ ...course, status: "FINISHED" }, new Date(), false),
 		).toBe("finished");
+	});
+
+	// No se cierra nunca: para quien lo cursa termina cuando lo completa.
+	test("un autogestivo completado pasa a finalizados", () => {
+		const course = {
+			...window,
+			format: "SELF_PACED" as const,
+			firstSessionAt: null,
+			lastSessionEndsAt: null,
+		};
+
+		expect(classifyMyCourse(course, new Date("2030-01-01"), true)).toBe(
+			"finished",
+		);
 	});
 });

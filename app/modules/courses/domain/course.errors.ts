@@ -15,8 +15,7 @@ export const COURSE_ERROR_CODES = {
 	NOT_EDITABLE: "COURSE_NOT_EDITABLE",
 	FORMAT_LOCKED: "COURSE_FORMAT_LOCKED",
 	INCOMPATIBLE_COMPLETION_RULE: "COURSE_INCOMPATIBLE_COMPLETION_RULE",
-	COMPLETION_RULE_WITHOUT_EVALUATION:
-		"COURSE_COMPLETION_RULE_WITHOUT_EVALUATION",
+	COMPLETION_LOCKED: "COURSE_COMPLETION_LOCKED",
 	INVALID_TRANSITION: "COURSE_INVALID_TRANSITION",
 	WITHOUT_SESSIONS: "COURSE_WITHOUT_SESSIONS",
 	WITHOUT_LESSONS: "COURSE_WITHOUT_LESSONS",
@@ -118,10 +117,11 @@ export class CourseIncompatibleCompletionRuleError extends CourseError {
 	}
 }
 
-export class CourseCompletionRuleWithoutEvaluationError extends CourseError {
-	readonly code = COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION;
+/** La regla y la evaluación de un autogestivo publicado (docs/adr/0014). */
+export class CourseCompletionLockedError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.COMPLETION_LOCKED;
 	constructor() {
-		super("Completing by content requires the course to be evaluated");
+		super("A published self-paced course cannot change how it is completed");
 	}
 }
 

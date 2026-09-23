@@ -6,18 +6,25 @@ import { COURSE_ERROR_CODES } from "../course.errors";
 import {
 	assertCapacityCovers,
 	assertCompletionRuleCoherent,
+	assertCompletionSettingsEditable,
 	assertDeadlineBeforeStart,
 	assertFormatEditable,
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
+	COURSE_COMPLETION_RULES,
+	type CourseCompletionRule,
 	type CourseContentFacts,
+	type CourseFormat,
 	type CourseStatus,
 	canCancel,
 	canEdit,
 	canPublish,
+	countsAttendance,
+	countsContent,
 	createCourseRule,
 	publishChecklist,
+	requiresContent,
 	requiresLink,
 	requiresSessions,
 	requiresVenue,
@@ -39,6 +46,7 @@ const courseOf = (
 	status: "DRAFT",
 	modality: "IN_PERSON",
 	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
 	access: "PUBLIC",
 	sessions: [sessionOf()],
 	trainers: [{ isActive: true }],
@@ -197,6 +205,15 @@ describe("assertPublishable", () => {
 
 	test("un calendarizado sin lecciones se publica igual que siempre", () => {
 		expect(() => assertPublishable(courseOf(), NO_CONTENT)).not.toThrow();
+	});
+
+	test("un calendarizado que también se completa por contenido pide lecciones", () => {
+		expect(() =>
+			assertPublishable(courseOf({ completionRule: "BOTH" }), NO_CONTENT),
+		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_LESSONS));
+		expect(
+			publishChecklist(courseOf({ completionRule: "BOTH" }), NO_CONTENT),
+		).toContainEqual({ check: "content", done: false });
 	});
 
 	// Se comprueba al publicar y no al asignar: desactivar un perfil no puede
@@ -379,6 +396,11 @@ describe("publishChecklist", () => {
 			NO_CONTENT,
 		],
 		[
+			"asistencia y contenido sin lecciones",
+			{ completionRule: "BOTH" },
+			NO_CONTENT,
+		],
+		[
 			"autogestivo sin capacitador",
 			{
 				format: "SELF_PACED",
@@ -408,48 +430,99 @@ describe("formato y regla de completado", () => {
 		expect(requiresSessions("SELF_PACED")).toBe(false);
 	});
 
-	test("un autogestivo no se puede completar por asistencia", () => {
-		expect(() =>
-			assertCompletionRuleCoherent({
-				format: "SELF_PACED",
-				completionRule: "ATTENDANCE",
-				requiresEvaluation: true,
-			}),
-		).toThrowError(codeOf(COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE));
-	});
+	test.each<CourseCompletionRule>(["ATTENDANCE", "BOTH"])(
+		"un autogestivo no se puede completar con una regla que cuenta asistencia: %s",
+		(completionRule) => {
+			expect(() =>
+				assertCompletionRuleCoherent({ format: "SELF_PACED", completionRule }),
+			).toThrowError(codeOf(COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE));
+		},
+	);
 
-	// Sin evaluación ni contenido, completar por contenido daría el crédito a
-	// todo inscrito.
-	test("completar por contenido exige evaluación", () => {
+	// El avance por lección le da a `CONTENT` algo que medir: la evaluación deja
+	// de ser obligatoria (docs/adr/0014).
+	test.each<[CourseFormat, CourseCompletionRule]>([
+		["SELF_PACED", "CONTENT"],
+		["SCHEDULED", "ATTENDANCE"],
+		["SCHEDULED", "CONTENT"],
+		["SCHEDULED", "BOTH"],
+	])("%s con %s es válido", (format, completionRule) => {
 		expect(() =>
-			assertCompletionRuleCoherent({
-				format: "SELF_PACED",
-				completionRule: "CONTENT",
-				requiresEvaluation: false,
-			}),
-		).toThrowError(
-			codeOf(COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION),
-		);
-	});
-
-	test("la combinación válida del autogestivo pasa", () => {
-		expect(() =>
-			assertCompletionRuleCoherent({
-				format: "SELF_PACED",
-				completionRule: "CONTENT",
-				requiresEvaluation: true,
-			}),
+			assertCompletionRuleCoherent({ format, completionRule }),
 		).not.toThrow();
 	});
 
-	test("el calendarizado por asistencia no exige evaluación", () => {
-		expect(() =>
-			assertCompletionRuleCoherent({
-				format: "SCHEDULED",
-				completionRule: "ATTENDANCE",
-				requiresEvaluation: false,
-			}),
-		).not.toThrow();
+	test("qué cuenta cada regla", () => {
+		expect(COURSE_COMPLETION_RULES.filter(countsAttendance)).toEqual([
+			"ATTENDANCE",
+			"BOTH",
+		]);
+		expect(COURSE_COMPLETION_RULES.filter(countsContent)).toEqual([
+			"CONTENT",
+			"BOTH",
+		]);
+	});
+
+	test("piden temario el autogestivo y el que se completa también por contenido", () => {
+		expect(
+			requiresContent({ format: "SELF_PACED", completionRule: "CONTENT" }),
+		).toBe(true);
+		expect(
+			requiresContent({ format: "SCHEDULED", completionRule: "BOTH" }),
+		).toBe(true);
+		expect(
+			requiresContent({ format: "SCHEDULED", completionRule: "CONTENT" }),
+		).toBe(false);
+		expect(
+			requiresContent({ format: "SCHEDULED", completionRule: "ATTENDANCE" }),
+		).toBe(false);
+	});
+
+	describe("assertCompletionSettingsEditable", () => {
+		const selfPaced = {
+			status: "PUBLISHED" as CourseStatus,
+			format: "SELF_PACED" as CourseFormat,
+			completionRule: "CONTENT" as CourseCompletionRule,
+			requiresEvaluation: false,
+		};
+
+		test("un autogestivo publicado no cambia su evaluación", () => {
+			expect(() =>
+				assertCompletionSettingsEditable(selfPaced, {
+					completionRule: "CONTENT",
+					requiresEvaluation: true,
+				}),
+			).toThrowError(codeOf(COURSE_ERROR_CODES.COMPLETION_LOCKED));
+		});
+
+		test("guardarlo sin tocar la regla pasa", () => {
+			expect(() =>
+				assertCompletionSettingsEditable(selfPaced, {
+					completionRule: "CONTENT",
+					requiresEvaluation: false,
+				}),
+			).not.toThrow();
+		});
+
+		test("en borrador se cambia libremente", () => {
+			expect(() =>
+				assertCompletionSettingsEditable(
+					{ ...selfPaced, status: "DRAFT" },
+					{ completionRule: "CONTENT", requiresEvaluation: true },
+				),
+			).not.toThrow();
+		});
+
+		// Un calendarizado calcula todo al cierre: cambiarla antes no deja
+		// créditos medidos con otro criterio.
+		test("un calendarizado publicado sí la cambia", () => {
+			expect(() =>
+				assertCompletionSettingsEditable(
+					{ ...selfPaced, format: "SCHEDULED", completionRule: "ATTENDANCE" },
+					{ completionRule: "BOTH", requiresEvaluation: true },
+				),
+			).not.toThrow();
+		});
 	});
 
 	test("el formato solo cambia en borrador", () => {

@@ -18,7 +18,8 @@ const createHarness = (options: { createError?: Error } = {}) => {
 					return {
 						id: 10,
 						status: "FINISHED",
-						enrollments: [{ status: "ENROLLED" }],
+						format: "SCHEDULED",
+						enrollments: [{ status: "ENROLLED", completed: true }],
 						ratings: [],
 						_count: { sessions: 2 },
 					};
@@ -60,8 +61,10 @@ describe("ratingRepository", () => {
 		expect(eligibility).toEqual({
 			courseId: 10,
 			courseStatus: "FINISHED",
+			courseFormat: "SCHEDULED",
 			enrollmentStatus: "ENROLLED",
 			attendedSessions: 2,
+			completed: true,
 			alreadyRated: false,
 		});
 		expect(calls.findUnique[0]).toMatchObject({

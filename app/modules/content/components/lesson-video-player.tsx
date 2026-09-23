@@ -22,7 +22,7 @@ export function LessonVideoPlayer({
 	src: string;
 	title: string;
 	mimeType: string | null;
-	/** La señal que el avance por lección (F-05) va a escuchar. */
+	/** Con esto se marca la lección completada: el avance es por clase, no por minutos. */
 	onEnded?: () => void;
 }) {
 	return (

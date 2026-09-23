@@ -11,6 +11,7 @@ import { formatZonedDate } from "@/lib/date-utils";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import type {
+	CourseCompletionRule,
 	CourseFormat,
 	CourseModality,
 	CourseStatus,
@@ -30,6 +31,7 @@ interface CourseStatusPanelProps {
 	status: CourseStatus;
 	modality: CourseModality;
 	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	cancelledAt: Date | string | null;
 	checklist: readonly { check: PublishCheck; done: boolean }[] | null;
 	enrollment: CourseEnrollmentSummary;
@@ -50,6 +52,7 @@ export function CourseStatusPanel({
 	status,
 	modality,
 	format,
+	completionRule,
 	cancelledAt,
 	checklist,
 	enrollment,
@@ -96,7 +99,10 @@ export function CourseStatusPanel({
 						) : (
 							<Button asChild>
 								<Link
-									to={stepPath(documentId, firstPendingStep(checklist, format))}
+									to={stepPath(
+										documentId,
+										firstPendingStep(checklist, { format, completionRule }),
+									)}
 								>
 									Continuar el alta
 									<ArrowRight className="ml-auto" aria-hidden="true" />
@@ -141,7 +147,7 @@ export function CourseStatusPanel({
 						</Button>
 						{/* El borrador edita su temario desde el paso del alta; el
 						    publicado ya no pasa por ahí y necesita su propia puerta. */}
-						{requiresContent(format) && (
+						{requiresContent({ format, completionRule }) && (
 							<Button asChild variant="outline">
 								<Link to={contentPath}>
 									<LayoutList aria-hidden="true" />

@@ -104,6 +104,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						status={course.status}
 						modality={course.modality}
 						format={course.format}
+						completionRule={course.completionRule}
 						cancelledAt={course.cancelledAt}
 						checklist={publishChecklist}
 						enrollment={enrollment}

@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { requiresSessions } from "../domain/course.rules";
+import { countsAttendance, requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
 
@@ -47,7 +47,7 @@ export function CourseFacts({
 		value: COMPLETION_RULE_LABELS[course.completionRule],
 	});
 
-	if (course.completionRule === "ATTENDANCE") {
+	if (countsAttendance(course.completionRule)) {
 		facts.push({
 			term: "Asistencia mínima",
 			value: `${course.minAttendance} %`,

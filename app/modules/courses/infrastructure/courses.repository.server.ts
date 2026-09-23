@@ -367,6 +367,12 @@ export const createCourseRepository = ({
 
 			return count === 1;
 		},
+		async setEnrollmentClosed(courseId, at) {
+			await prisma.course.update({
+				where: { id: courseId },
+				data: { enrollmentClosedAt: at },
+			});
+		},
 		async cancel(documentId, scope) {
 			try {
 				const course = await prisma.course.update({

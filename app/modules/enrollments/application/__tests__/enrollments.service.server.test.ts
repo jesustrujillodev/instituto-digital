@@ -42,11 +42,13 @@ const courseOf = (
 	coverUrl: null,
 	modality: "IN_PERSON",
 	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
 	access: "PUBLIC",
 	status: "PUBLISHED",
 	capacity: null,
 	enrolledCount: 0,
 	enrollmentDeadline: null,
+	enrollmentClosedAt: null,
 	finishedAt: null,
 	sessions: [
 		{
@@ -356,6 +358,37 @@ describe("enrollmentService.enroll", () => {
 			error: { code: ENROLLMENT_ERROR_CODES.CLOSED },
 		});
 		expect(calls.locks).toHaveLength(0);
+	});
+
+	// Quien administra o imparte un curso por invitación lo ve sin estar
+	// invitado: verlo no le da derecho a inscribirse solo (docs/adr/0004).
+	test("un curso por invitación rechaza a quien no tiene invitación", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ access: "INVITATION" }),
+		});
+
+		const result = await service.enroll(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.INVITATION_REQUIRED },
+		});
+		expect(calls.saved).toHaveLength(0);
+	});
+
+	test("con invitación pendiente, inscribirse la acepta", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ access: "INVITATION" }),
+			own: "INVITED",
+		});
+
+		const result = await service.enroll(COURSE_ID, actorOf());
+
+		expect(result.success).toBe(true);
+		expect(calls.saved[0]).toMatchObject({
+			data: { origin: "INVITATION", status: "ENROLLED" },
+			expected: "INVITED",
+		});
 	});
 
 	test("un curso que no puede ver responde como inexistente", async () => {
@@ -902,6 +935,8 @@ describe("enrollmentService.listMine", () => {
 		outcome: {
 			grade: null,
 			completed: false,
+			progressPercent: 0,
+			contentCompletedAt: null,
 			attendedSessions: 0,
 			myRating: null,
 			...outcome,

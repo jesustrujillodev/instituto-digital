@@ -63,6 +63,7 @@ describe("toTeachingDetail", () => {
 			recordResults: false,
 			finish: true,
 			correct: false,
+			toggleEnrollment: false,
 		});
 	});
 
@@ -94,6 +95,7 @@ describe("toTeachingCourse", () => {
 			minAttendance: 80,
 			requiresEvaluation: false,
 			finishedAt: null,
+			enrollmentClosedAt: null,
 			qrToken: null,
 			qrTokenRotatedAt: null,
 			qrOpensBeforeMinutes: 15,
@@ -105,6 +107,8 @@ describe("toTeachingCourse", () => {
 					result: "PENDING",
 					grade: null,
 					completed: false,
+					progressPercent: 0,
+					contentCompletedAt: null,
 					user: {
 						id: 7,
 						documentId: "u",

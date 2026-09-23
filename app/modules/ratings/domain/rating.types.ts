@@ -1,5 +1,8 @@
 import type * as v from "valibot";
-import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import type {
+	CourseFormat,
+	CourseStatus,
+} from "@/modules/courses/domain/course.rules";
 import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.config";
 import type { AppResponse } from "@/shared/response/response.types";
 import type { rateCourseRule } from "./rating.rules";
@@ -10,8 +13,10 @@ export type RateCourseDto = v.InferOutput<typeof rateCourseRule>;
 export interface RatingEligibility {
 	courseId: number;
 	courseStatus: CourseStatus;
+	courseFormat: CourseFormat;
 	enrollmentStatus: EnrollmentStatus | null;
 	attendedSessions: number;
+	completed: boolean;
 	alreadyRated: boolean;
 }
 

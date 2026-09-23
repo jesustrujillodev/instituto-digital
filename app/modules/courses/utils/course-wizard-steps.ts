@@ -1,5 +1,9 @@
 import type { PublishCheck } from "../domain/course.rules";
-import { type CourseFormat, requiresContent } from "../domain/course.rules";
+import {
+	type CourseCompletionRule,
+	type CourseFormat,
+	requiresContent,
+} from "../domain/course.rules";
 import type { CourseFormValues } from "./build-course-form-defaults";
 
 export type CourseStepKey =
@@ -96,16 +100,23 @@ const STEP_BY_KEY = Object.fromEntries(
 
 export const stepOfKey = (key: CourseStepKey): CourseStep => STEP_BY_KEY[key];
 
+/** Lo que decide qué pasos recorre un curso. */
+export interface CourseStepShape {
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
+}
+
 /**
  * Los pasos que ESTE curso recorre.
  *
  * Los números no se recalculan: el 5 es Contenido para todo el mundo y un curso
- * con sesiones salta del 4 al 6. Así ninguna URL guardada cambia de destino al
- * cambiar el formato, y `parseStepNumber` sigue siendo función de la URL sola.
+ * sin temario salta del 4 al 6. Así ninguna URL guardada cambia de destino al
+ * cambiar el formato o la regla, y `parseStepNumber` sigue siendo función de la
+ * URL sola.
  */
-export const stepsForFormat = (format: CourseFormat): readonly CourseStep[] =>
+export const stepsFor = (course: CourseStepShape): readonly CourseStep[] =>
 	COURSE_WIZARD_STEPS.filter(
-		(step) => step.key !== "content" || requiresContent(format),
+		(step) => step.key !== "content" || requiresContent(course),
 	);
 
 /** Posición visible del paso: lo que el índice numera y la barra mide. */
@@ -166,10 +177,10 @@ export const stepsWithPending = (
  */
 export const firstPendingStep = (
 	checklist: PublishChecklist,
-	format: CourseFormat,
+	course: CourseStepShape,
 ): number => {
 	const pending = stepsWithPending(checklist);
-	const step = stepsForFormat(format).find((entry) => pending.has(entry.key));
+	const step = stepsFor(course).find((entry) => pending.has(entry.key));
 
 	return step?.number ?? LAST_STEP_NUMBER;
 };

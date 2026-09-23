@@ -9,6 +9,7 @@ import type { TeachingScope } from "./teaching.access";
 import {
 	attendancePercent,
 	attendedSessionsOf,
+	canToggleEnrollment,
 	canWrite,
 	finishBlockerOf,
 	finishOpensAt,
@@ -38,6 +39,7 @@ export interface TeachingCourseRaw {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	finishedAt: Date | null;
+	enrollmentClosedAt: Date | null;
 	qrToken: string | null;
 	qrTokenRotatedAt: Date | null;
 	qrOpensBeforeMinutes: number;
@@ -55,6 +57,8 @@ export interface TeachingCourseRaw {
 		result: EnrollmentResult;
 		grade: number | null;
 		completed: boolean;
+		progressPercent: number;
+		contentCompletedAt: Date | null;
 		user: PersonRaw & {
 			id: number;
 			documentId: string;
@@ -86,6 +90,7 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	minAttendance: raw.minAttendance,
 	requiresEvaluation: raw.requiresEvaluation,
 	finishedAt: raw.finishedAt,
+	enrollmentClosedAt: raw.enrollmentClosedAt,
 	qrToken: raw.qrToken,
 	qrTokenRotatedAt: raw.qrTokenRotatedAt,
 	qrOpensBeforeMinutes: raw.qrOpensBeforeMinutes,
@@ -102,6 +107,8 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 		result: enrollment.result,
 		grade: enrollment.grade,
 		completed: enrollment.completed,
+		progressPercent: enrollment.progressPercent,
+		contentCompletedAt: enrollment.contentCompletedAt,
 		attendance: user.attendance.map((mark) => ({ ...mark })),
 	})),
 });
@@ -163,6 +170,7 @@ export const toTeachingDetail = (
 			requiresEvaluation: course.requiresEvaluation,
 			finishedAt: course.finishedAt,
 			finishOpensAt: finishOpensAt(course),
+			enrollmentClosedAt: course.enrollmentClosedAt,
 			trainers: course.trainers,
 		},
 		qr: writable
@@ -197,6 +205,8 @@ export const toTeachingDetail = (
 				wouldComplete: isCompleted({ ...course, sessionCount }, participant),
 				attendedSessions: attended,
 				attendancePercent: attendancePercent(attended, sessionCount),
+				progressPercent: participant.progressPercent,
+				contentCompletedAt: participant.contentCompletedAt,
 				marks: Object.fromEntries(
 					course.sessions.map((session) => [
 						session.documentId,
@@ -213,6 +223,7 @@ export const toTeachingDetail = (
 			recordResults: writable && course.requiresEvaluation,
 			finish: finishBlocker === null,
 			correct: course.status === "FINISHED" && writable,
+			toggleEnrollment: canToggleEnrollment(course),
 		},
 	};
 };

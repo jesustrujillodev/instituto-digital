@@ -13,6 +13,7 @@ export const ENROLLMENT_ERROR_CODES = {
 	UNKNOWN_PARTICIPANT: "ENROLLMENT_UNKNOWN_PARTICIPANT",
 	UNKNOWN_GROUP: "ENROLLMENT_UNKNOWN_GROUP",
 	INVITATIONS_DISABLED: "ENROLLMENT_INVITATIONS_DISABLED",
+	INVITATION_REQUIRED: "ENROLLMENT_INVITATION_REQUIRED",
 	STATE_CHANGED: "ENROLLMENT_STATE_CHANGED",
 } as const;
 
@@ -107,6 +108,14 @@ export class EnrollmentInvitationsDisabledError extends EnrollmentError {
 	readonly code = ENROLLMENT_ERROR_CODES.INVITATIONS_DISABLED;
 	constructor() {
 		super("Course does not accept invitations");
+	}
+}
+
+/** Un curso por invitación no admite inscripción propia sin invitación pendiente. */
+export class EnrollmentInvitationRequiredError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.INVITATION_REQUIRED;
+	constructor() {
+		super("Course requires an invitation to enroll");
 	}
 }
 

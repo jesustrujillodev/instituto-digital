@@ -16,6 +16,8 @@ import type {
 	MyCourseRecord,
 	NotifiableParticipant,
 	ParticipantAccount,
+	ProgressState,
+	ProgressWrite,
 	ResultWrite,
 	RosterEntry,
 	StoredEnrollment,
@@ -35,7 +37,10 @@ export interface IEnrollmentRepository {
 		filter: CourseFilter,
 	): Promise<EnrollmentCourse | null>;
 
-	/** Publicados, visibles y con la inscripción abierta en `now`. */
+	/**
+	 * Publicados, visibles y con la inscripción abierta en `now`. Uno por
+	 * invitación solo si `userId` tiene una pendiente.
+	 */
 	findAvailable(params: {
 		filters: ListAvailableCoursesDto;
 		filter: CourseFilter;
@@ -46,6 +51,7 @@ export interface IEnrollmentRepository {
 		filters: ListAvailableCoursesDto;
 		filter: CourseFilter;
 		now: Date;
+		userId: number;
 	}): Promise<number>;
 	/**
 	 * Dependencias que organizan algún curso disponible para quien mira.
@@ -58,6 +64,7 @@ export interface IEnrollmentRepository {
 		filters: ListAvailableCoursesDto;
 		filter: CourseFilter;
 		now: Date;
+		userId: number;
 	}): Promise<CourseOrganizerOption[]>;
 
 	findEnrollment(
@@ -93,6 +100,17 @@ export interface IEnrollmentRepository {
 		entries: readonly ResultWrite[],
 		actorId: number,
 		at: Date,
+	): Promise<void>;
+	/** El avance cacheado de las inscripciones activas del curso. */
+	findProgressStates(courseId: number): Promise<ProgressState[]>;
+	/**
+	 * La caché del avance, escrita por `content` dentro de su transacción. El
+	 * porcentaje se reescribe siempre; `contentCompletedAt` solo si estaba vacío,
+	 * porque no se borra (docs/adr/0014).
+	 */
+	saveProgress(
+		courseId: number,
+		writes: readonly ProgressWrite[],
 	): Promise<void>;
 	/** `completed` según el último cálculo; solo toca a los `ENROLLED`. */
 	setCompletion(

@@ -1,4 +1,4 @@
-import { Download, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
 	lazy,
 	Suspense,
@@ -36,6 +36,7 @@ import {
 import { LESSON_TYPE_LABELS } from "../utils/content-labels";
 import { LessonBodyView } from "./lesson-body-view";
 import { LessonLinkField } from "./lesson-link-field";
+import { LessonFilePreview } from "./lesson-material-view";
 import {
 	LessonUploadField,
 	type UploadedMaterial,
@@ -47,8 +48,6 @@ import { LessonVideoPlayer } from "./lesson-video-player";
 const LessonBodyEditor = lazy(() => import("./lesson-body-editor"));
 
 type MaterialLoaderData = AppResponse<LessonMaterial>;
-
-const EMBEDDABLE_IMAGES = ["image/png", "image/jpeg", "image/webp"];
 
 /** El panel del material de una lección: se abre desde el árbol del temario. */
 export function LessonMaterialSheet({
@@ -231,32 +230,7 @@ export function LessonMaterialSheet({
 			case "FILE":
 				return (
 					<div className="flex flex-col gap-4">
-						{material.fileUrl && material.mimeType === "application/pdf" ? (
-							<iframe
-								title={lesson.title}
-								src={material.fileUrl}
-								className="h-[28rem] w-full rounded-md border border-input"
-							/>
-						) : null}
-
-						{material.fileUrl &&
-						material.mimeType &&
-						EMBEDDABLE_IMAGES.includes(material.mimeType) ? (
-							<img
-								src={material.fileUrl}
-								alt={lesson.title}
-								className="w-full rounded-md border border-input"
-							/>
-						) : null}
-
-						{material.downloadUrl ? (
-							<Button asChild variant="outline" className="self-start">
-								<a href={material.downloadUrl}>
-									<Download />
-									Descargar material
-								</a>
-							</Button>
-						) : null}
+						<LessonFilePreview material={material} title={lesson.title} />
 
 						{canWrite ? (
 							<LessonUploadField

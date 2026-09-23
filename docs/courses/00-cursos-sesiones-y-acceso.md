@@ -38,10 +38,18 @@ Decisiones que el schema no dice por sí solo:
   sede, enlace o las dos. Ver
   [ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md).
 - **`completion_rule` decide qué cuenta como completar.** `ATTENDANCE` es la de
-  siempre; `CONTENT` es la del autogestivo, que no tiene asistencia que medir. Un
-  `SELF_PACED` con `ATTENDANCE` se rechaza en el alta con
-  `COURSE_INCOMPATIBLE_COMPLETION_RULE`, y `CONTENT` exige `requires_evaluation`
-  porque hoy la evaluación es lo único que distingue a quien terminó.
+  siempre; `CONTENT` cuenta las lecciones obligatorias terminadas; `BOTH`, las dos
+  cosas. La evaluación es un término aparte y opcional en las tres. Un
+  `SELF_PACED` con una regla que cuente asistencia se rechaza en el alta con
+  `COURSE_INCOMPATIBLE_COMPLETION_RULE`
+  ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)).
+- **En un autogestivo publicado se congelan la regla y la evaluación.** Sus
+  créditos se otorgan conforme cada quien completa, así que cambiar el criterio
+  a mitad dejaría medidos a unos con una regla y a otros con otra.
+  `assertCompletionSettingsEditable` lo rechaza con `COURSE_COMPLETION_LOCKED`.
+- **`enrollment_closed_at` es el cierre del autogestivo**, que no se finaliza:
+  con valor, nadie nuevo se inscribe y quien ya estaba sigue avanzando. Lo abre y
+  lo cierra la impartición.
 - **El formato se congela al publicar.** `canEdit` admite tocar un curso
   `PUBLISHED`, pero pasarlo a autogestivo borraría sus sesiones y, con ellas, las
   filas de `course_attendance`, que cuelgan de `session_id`. Lo impide
@@ -180,7 +188,7 @@ capacitador o sin sede. Lo que §6.5 exige se comprueba al **publicar**
 | Falta | Código |
 | --- | --- |
 | Al menos una sesión (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_SESSIONS` |
-| Al menos una lección (solo si el formato es `SELF_PACED`) | `COURSE_WITHOUT_LESSONS` |
+| Al menos una lección (solo si el curso pide temario: `SELF_PACED` o regla `BOTH`) | `COURSE_WITHOUT_LESSONS` |
 | Al menos un capacitador con perfil activo | `COURSE_WITHOUT_ACTIVE_TRAINER` |
 | Sede en cada sesión (presencial, híbrida) | `COURSE_SESSION_MISSING_VENUE` + `sessionNumber` |
 | Enlace en cada sesión (en línea, híbrida) | `COURSE_SESSION_MISSING_LINK` + `sessionNumber` |
@@ -195,8 +203,10 @@ misma regla y una prueba cruzada las obliga a coincidir.
 El conteo de lecciones no vive en este módulo: `assertPublishable` y
 `publishChecklist` lo reciben como segundo argumento obligatorio
 (`CourseContentFacts`), y el caso de uso lo pide al puerto `contentRepository`
-solo cuando el formato lo exige
+solo cuando el curso pide temario (`requiresContent`)
 ([ADR 0012](../adr/0012-estructura-de-contenido-y-modulo-propio.md)).
+`requiresContent` recibe el curso y no el formato: también decide si el alta
+enseña el paso Contenido (`stepsFor`).
 
 El número de sesión viaja en `details` porque es lo único accionable del
 mensaje. Al guardar sí se comprueban el rango de cada sesión, el tope de sesiones

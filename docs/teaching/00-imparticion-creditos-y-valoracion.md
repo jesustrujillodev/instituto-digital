@@ -61,9 +61,9 @@ POST /dashboard/imparticion/:id  intent=finish
   ▼ runInTransaction
   │ lockCourseSeats(course)          FOR UPDATE sobre la fila del curso
   │ findCourseById                   relectura con el bloqueo tomado
-  │ assertFinishable                 publicado · (si se reúne) con sesiones y en su día · sin pendientes
+  │ assertFinishable                 publicado · con sesiones · en su día · sin pendientes
   │ courseRepository.finish          UPDATE ... WHERE status = 'PUBLISHED'
-  │ syncCompletion
+  │ completionSync.sync              (teaching/application/completion-sync.server.ts)
   │   completedParticipantsOf        según completion_rule (§4.1)
   │   enrollmentRepository.setCompletion
   │   diffCredits(existentes, candidatos)
@@ -75,8 +75,9 @@ ok({ completed, credits })
 | Impedimento | Código |
 | --- | --- |
 | No está publicado | `TEACHING_NOT_PUBLISHED` |
-| Sin sesiones (solo un curso calendarizado) | `TEACHING_WITHOUT_SESSIONS` |
-| Antes del día de la última sesión (ídem) | `TEACHING_FINISH_TOO_EARLY` + `opensAt` |
+| Es autogestivo: no se finaliza nunca (§4.2) | `TEACHING_SELF_PACED_NOT_FINISHABLE` |
+| Sin sesiones | `TEACHING_WITHOUT_SESSIONS` |
+| Antes del día de la última sesión | `TEACHING_FINISH_TOO_EARLY` + `opensAt` |
 | Resultados pendientes | `TEACHING_PENDING_RESULTS` + `pending` |
 | Otra petición lo finalizó antes | `TEACHING_STATE_CHANGED` |
 
@@ -90,29 +91,59 @@ de hecho 100 %.
 
 ### 4.1 · Qué cuenta como completar
 
-`isCompleted` ramifica por `courses.completion_rule`
-([ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md)):
+`isCompleted` es una conjunción de términos que la regla enciende
+([ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md),
+[ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)):
 
-| Regla | Completa quien |
-| --- | --- |
-| `ATTENDANCE` | Alcanza la asistencia mínima **y**, si hay evaluación, aprueba |
-| `CONTENT` | Aprueba la evaluación. No hay asistencia que medir |
+| Regla | Asistencia mínima | Contenido terminado | Solo con Sesiones |
+| --- | --- | --- | --- |
+| `ATTENDANCE` | Sí | — | Sí |
+| `CONTENT` | — | Sí | No |
+| `BOTH` | Sí | Sí | Sí |
+
+Y en las tres, si `requires_evaluation`, además el aprobado. «Contenido
+terminado» es `enrollments.content_completed_at`, que el avance por lección fija
+la primera vez que el porcentaje llega a 100 y **no borra** aunque después se
+añada una lección obligatoria.
 
 La rama `ATTENDANCE` es idéntica al comportamiento anterior a la regla, bit a
-bit: gobierna todo el histórico y una prueba la fija. `CONTENT` solo se admite
-con `requires_evaluation`, y el alta del curso lo garantiza.
+bit: gobierna todo el histórico y una prueba la fija.
 
-**El curso autogestivo.** Sin sesiones no hay última fecha que esperar, así que
-`finishBlockerOf` se salta `WITHOUT_SESSIONS` y `TOO_EARLY`: el curso se cierra
-cuando quien lo imparte decide. Los resultados pendientes sí lo siguen
-bloqueando. El ejercicio del crédito sale entonces del `fallback` de
-`fiscalYearOf`, que es la propia fecha de cierre.
+### 4.2 · El autogestivo no se finaliza
+
+Cada participante lo completa cuando cumple, y en ese momento recibe su crédito.
+`finishBlockerOf` devuelve `SELF_PACED` y la tarjeta de cierre se sustituye por
+la de **inscripciones**:
+
+```
+POST /dashboard/imparticion/:id  intent=enrollment-window  payload={ open }
+  │ teachingService.setEnrollmentOpen
+  ▼ runInTransaction + lockCourseSeats
+  │ assertEnrollmentTogglable        autogestivo · publicado
+  │ courseRepository.setEnrollmentClosed(at | null)
+```
+
+Cerrado, el curso sale del catálogo y nadie nuevo entra; quien ya está inscrito
+sigue avanzando. Se reabre cuando se quiera.
+
+**Quién dispara el crédito.** `syncsOnWrite(course)` es verdadero en un finalizado
+—escribir en él es corregirlo— y en un autogestivo publicado. Capturar un
+resultado y terminar el contenido acaban en el mismo `completionSync.sync`, así
+que el último dato que falte es el que otorga el crédito. El ejercicio sale del
+`fallback` de `fiscalYearOf`, que es ese momento.
+
+### 4.3 · La pestaña Avance
+
+Cuando el curso tiene temario que cuenta (`requiresContent`), la ficha enseña el
+porcentaje de cada participante y la fecha en que terminó el contenido, junto al
+pase de lista. Se lee del caché `enrollments.progress_percent`, que solo escribe
+el avance por lección (docs/content/00-modulos-y-lecciones.md §8).
 
 ## 5. Corrección posterior
 
 Guardar asistencia o resultados en un curso `FINISHED` **es** la corrección, y
 solo la hacen el superadministrador o el titular y los auxiliares de la
-organizadora (`canCorrect`). Cada una termina en `syncCompletion`:
+organizadora (`canCorrect`). Cada una termina en `completionSync.sync`:
 
 | Situación tras corregir | Efecto en `credits` |
 | --- | --- |
@@ -137,6 +168,8 @@ alcance global, como en cursos.
 
 - Valora quien estuvo `ENROLLED` en un curso `FINISHED` y asistió al menos a una
   sesión (`canRateCourse`). No exige haber completado.
+- Un autogestivo no se finaliza ni tiene sesiones: se valora al quedar completada
+  la inscripción, y quien lo imparte ve el resumen mientras sigue publicado.
 - Una sola vez y sin editar: la unicidad de la base (P2002) se traduce a
   `RATING_ALREADY_RATED`, igual que la comprobación previa.
 - "Mis cursos" enseña el diálogo en la tarjeta del curso finalizado, junto con

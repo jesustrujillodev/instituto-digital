@@ -8,6 +8,8 @@ export const finishBlockerMessage = (
 	switch (blocker) {
 		case "NOT_PUBLISHED":
 			return "Solo se finaliza un curso publicado.";
+		case "SELF_PACED":
+			return "Un curso autogestivo no se finaliza: cada participante lo completa al terminarlo.";
 		case "WITHOUT_SESSIONS":
 			return "El curso no tiene sesiones.";
 		case "TOO_EARLY":

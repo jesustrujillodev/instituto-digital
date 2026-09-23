@@ -9,6 +9,7 @@ import {
 	EnrollmentForbiddenScopeError,
 	EnrollmentFullError,
 	EnrollmentInvitationNotFoundError,
+	EnrollmentInvitationRequiredError,
 	EnrollmentInvitationsDisabledError,
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
@@ -52,6 +53,10 @@ describe("códigos estables", () => {
 		[
 			new EnrollmentInvitationsDisabledError(),
 			ENROLLMENT_ERROR_CODES.INVITATIONS_DISABLED,
+		],
+		[
+			new EnrollmentInvitationRequiredError(),
+			ENROLLMENT_ERROR_CODES.INVITATION_REQUIRED,
 		],
 		[new EnrollmentStateChangedError(), ENROLLMENT_ERROR_CODES.STATE_CHANGED],
 	])("$constructor.name expone su código", (error, code) => {

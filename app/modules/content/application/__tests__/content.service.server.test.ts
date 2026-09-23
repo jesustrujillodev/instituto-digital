@@ -24,6 +24,7 @@ import type {
 } from "../../domain/content.mapper";
 import type { LessonType } from "../../domain/content.rules";
 import { createContentService } from "../content.service.server";
+import { createLessonMaterialReader } from "../lesson-material.reader.server";
 
 const NOW = new Date("2026-09-21T18:00:00.000Z");
 
@@ -104,7 +105,9 @@ const createHarness = (
 		signed: [] as unknown[],
 		deleted: [] as string[],
 		transactions: 0,
+		recalculated: [] as { courseId: number; inTransaction: boolean }[],
 	};
+	let inTransaction = false;
 
 	const contentRepository = {
 		findCourse: async () =>
@@ -130,7 +133,12 @@ const createHarness = (
 				: null,
 		findLesson: async (_courseId: number, documentId: string) =>
 			documentId === LESSON_1
-				? { id: 31, moduleId: 21, type: options.lessonType ?? "TEXT" }
+				? {
+						id: 31,
+						moduleId: 21,
+						type: options.lessonType ?? "TEXT",
+						isRequired: true,
+					}
 				: null,
 		createModule: async (courseId: number, data: unknown) => {
 			calls.created.push({ courseId, data });
@@ -193,8 +201,20 @@ const createHarness = (
 
 	const runInTransaction = (async <T>(work: () => Promise<T>) => {
 		calls.transactions += 1;
-		return work();
+		inTransaction = true;
+		try {
+			return await work();
+		} finally {
+			inTransaction = false;
+		}
 	}) as unknown as ICradle["runInTransaction"];
+
+	const progressSync = {
+		recalculate: async (course: { id: number }) => {
+			calls.recalculated.push({ courseId: course.id, inTransaction });
+			return [];
+		},
+	} as unknown as ICradle["progressSync"];
 
 	return {
 		service: createContentService({
@@ -205,6 +225,13 @@ const createHarness = (
 			storageProvider,
 			storageBucket: "instituto",
 			storagePublicBucket: null,
+			// La real: estas pruebas miden qué URL firmada sale, no que se llame.
+			lessonMaterialReader: createLessonMaterialReader({
+				storageProvider,
+				storageBucket: "instituto",
+				storagePublicBucket: null,
+			}),
+			progressSync,
 		}),
 		calls,
 	};
@@ -691,5 +718,73 @@ describe("archivar una lección con material", () => {
 		await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
 
 		expect(calls.deleted).toEqual([]);
+	});
+});
+
+// docs/adr/0014: cambiar qué lecciones cuentan mueve el porcentaje de todo
+// inscrito, y el caché se recalcula en la misma transacción.
+describe("avance tras cambiar el temario", () => {
+	const published = {
+		id: 7,
+		status: "PUBLISHED" as CourseStatus,
+		format: "SELF_PACED" as const,
+	};
+
+	test("archivar una lección de un curso publicado recalcula dentro de la transacción", async () => {
+		const { service, calls } = createHarness({ course: published });
+
+		await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
+
+		expect(calls.recalculated).toEqual([{ courseId: 7, inTransaction: true }]);
+	});
+
+	test("una lección obligatoria nueva recalcula", async () => {
+		const { service, calls } = createHarness({ course: published });
+
+		await service.createLesson(
+			COURSE_DOC,
+			{
+				moduleDocumentId: MODULE_A,
+				title: "Cierre",
+				type: "TEXT",
+				isRequired: true,
+				estimatedMinutes: null,
+			},
+			actorOf(),
+		);
+
+		expect(calls.recalculated).toEqual([{ courseId: 7, inTransaction: true }]);
+	});
+
+	test("volverla opcional recalcula; editar solo el título no", async () => {
+		const { service, calls } = createHarness({ course: published });
+		const lesson = {
+			lessonDocumentId: LESSON_1,
+			title: "Nuevo título",
+			type: "TEXT" as const,
+			estimatedMinutes: null,
+		};
+
+		await service.updateLesson(
+			COURSE_DOC,
+			{ ...lesson, isRequired: true },
+			actorOf(),
+		);
+		expect(calls.recalculated).toEqual([]);
+
+		await service.updateLesson(
+			COURSE_DOC,
+			{ ...lesson, isRequired: false },
+			actorOf(),
+		);
+		expect(calls.recalculated).toHaveLength(1);
+	});
+
+	test("un borrador no tiene avance que recalcular", async () => {
+		const { service, calls } = createHarness();
+
+		await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
+
+		expect(calls.recalculated).toEqual([]);
 	});
 });

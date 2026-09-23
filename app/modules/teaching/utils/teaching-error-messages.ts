@@ -59,5 +59,15 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "El curso cambió mientras guardabas. Recarga la página.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE]: {
+		message:
+			"Un curso autogestivo no se finaliza: cada participante lo completa al terminarlo. Para dejar de recibir gente, cierra las inscripciones.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[TEACHING_ERROR_CODES.NOT_SELF_PACED]: {
+		message:
+			"Solo un curso autogestivo abre y cierra sus inscripciones a mano; uno con sesiones las cierra al empezar.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

@@ -9,7 +9,7 @@ import { COURSE_MAX_SESSIONS, COURSE_QR_WINDOW_LIMITS } from "./course.config";
 import {
 	CourseAudienceRequiredError,
 	CourseCapacityBelowEnrolledError,
-	CourseCompletionRuleWithoutEvaluationError,
+	CourseCompletionLockedError,
 	CourseDeadlineAfterStartError,
 	CourseFormatLockedError,
 	CourseIncompatibleCompletionRuleError,
@@ -51,7 +51,11 @@ export type CourseStatus = (typeof COURSE_STATUSES)[number];
 export const COURSE_FORMATS = ["SCHEDULED", "SELF_PACED"] as const;
 export type CourseFormat = (typeof COURSE_FORMATS)[number];
 
-export const COURSE_COMPLETION_RULES = ["ATTENDANCE", "CONTENT"] as const;
+export const COURSE_COMPLETION_RULES = [
+	"ATTENDANCE",
+	"CONTENT",
+	"BOTH",
+] as const;
 export type CourseCompletionRule = (typeof COURSE_COMPLETION_RULES)[number];
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
@@ -358,9 +362,21 @@ export const canCancel = (status: CourseStatus): boolean =>
 export const requiresSessions = (format: CourseFormat): boolean =>
 	format === "SCHEDULED";
 
-/** El otro lado de la misma pregunta: lo que el autogestivo sí necesita. */
-export const requiresContent = (format: CourseFormat): boolean =>
-	format === "SELF_PACED";
+export const countsAttendance = (rule: CourseCompletionRule): boolean =>
+	rule === "ATTENDANCE" || rule === "BOTH";
+
+export const countsContent = (rule: CourseCompletionRule): boolean =>
+	rule === "CONTENT" || rule === "BOTH";
+
+/**
+ * Si el curso tiene que tener temario: el autogestivo, porque no tiene otra cosa,
+ * y el que se completa también por contenido (docs/adr/0014).
+ */
+export const requiresContent = (course: {
+	format: CourseFormat;
+	completionRule: CourseCompletionRule;
+}): boolean =>
+	course.format === "SELF_PACED" || course.completionRule === "BOTH";
 
 /**
  * Lo que el módulo de contenido aporta a la publicación: un entero y nada más.
@@ -411,29 +427,46 @@ export const assertDeadlineBeforeStart = (
 };
 
 /**
- * El formato y la regla de completado tienen que poder convivir.
- *
- * Un autogestivo no tiene sesiones, así que no puede completarse por
- * asistencia. Y mientras no exista el avance por lección, `CONTENT` se apoya en
- * el resultado capturado a mano: sin evaluación, todo inscrito completaría.
+ * El formato y la regla de completado tienen que poder convivir: un autogestivo
+ * no tiene sesiones, así que ninguna regla que cuente asistencia lo completaría.
  */
 export const assertCompletionRuleCoherent = (course: {
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;
-	requiresEvaluation: boolean;
 }): void => {
 	if (
 		!requiresSessions(course.format) &&
-		course.completionRule === "ATTENDANCE"
+		countsAttendance(course.completionRule)
 	) {
 		throw new CourseIncompatibleCompletionRuleError(
 			course.format,
 			course.completionRule,
 		);
 	}
+};
 
-	if (course.completionRule === "CONTENT" && !course.requiresEvaluation) {
-		throw new CourseCompletionRuleWithoutEvaluationError();
+/**
+ * En un autogestivo publicado, la regla y la evaluación se congelan.
+ *
+ * Sus créditos se otorgan conforme cada quien completa, no en un cierre: cambiar
+ * el criterio a mitad dejaría los ya otorgados medidos con otro (docs/adr/0014).
+ */
+export const assertCompletionSettingsEditable = (
+	stored: {
+		status: CourseStatus;
+		format: CourseFormat;
+		completionRule: CourseCompletionRule;
+		requiresEvaluation: boolean;
+	},
+	next: { completionRule: CourseCompletionRule; requiresEvaluation: boolean },
+): void => {
+	if (stored.status === "DRAFT" || requiresSessions(stored.format)) return;
+
+	if (
+		next.completionRule !== stored.completionRule ||
+		next.requiresEvaluation !== stored.requiresEvaluation
+	) {
+		throw new CourseCompletionLockedError();
 	}
 };
 
@@ -471,6 +504,7 @@ export const assertPublishable = (
 		status: CourseStatus;
 		modality: CourseModality;
 		format: CourseFormat;
+		completionRule: CourseCompletionRule;
 		access: CourseAccessType;
 		sessions: readonly { venue: string | null; link: string | null }[];
 		trainers: readonly { isActive: boolean }[];
@@ -486,7 +520,7 @@ export const assertPublishable = (
 		throw new CourseWithoutSessionsError();
 	}
 
-	if (requiresContent(course.format) && content.lessonCount === 0) {
+	if (requiresContent(course) && content.lessonCount === 0) {
 		throw new CourseWithoutLessonsError();
 	}
 
@@ -532,6 +566,7 @@ export const publishChecklist = (
 	course: {
 		modality: CourseModality;
 		format: CourseFormat;
+		completionRule: CourseCompletionRule;
 		access: CourseAccessType;
 		sessions: readonly { venue: string | null; link: string | null }[];
 		trainers: readonly { isActive: boolean }[];
@@ -554,7 +589,7 @@ export const publishChecklist = (
 		);
 	}
 
-	if (requiresContent(course.format)) {
+	if (requiresContent(course)) {
 		checks.push({ check: "content", done: content.lessonCount > 0 });
 	}
 

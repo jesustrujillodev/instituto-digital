@@ -4,7 +4,7 @@ import { formatZonedDate } from "@/lib/date-utils";
 import type { ContentSummary } from "@/modules/content/domain/content.types";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
-import { requiresSessions } from "../domain/course.rules";
+import { countsAttendance, requiresSessions } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import { COMPLETION_RULE_LABELS } from "../utils/course-labels";
 import {
@@ -153,7 +153,7 @@ export function CourseReviewStep({
 								term: "Se completa con",
 								value: COMPLETION_RULE_LABELS[course.completionRule],
 							},
-							...(course.completionRule === "ATTENDANCE"
+							...(countsAttendance(course.completionRule)
 								? [
 										{
 											term: "Asistencia mínima",

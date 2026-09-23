@@ -24,9 +24,18 @@ import type {
 	AttendanceMark,
 	TeachingCourse,
 } from "../../domain/teaching.types";
+import { createCompletionSync } from "../completion-sync.server";
 import { createTeachingService } from "../teaching.service.server";
 
 const LAST_DAY = zonedInputToUtc("2026-09-03", "10:00");
+
+const SELF_PACED_COURSE = (overrides: Partial<TeachingCourse> = {}) =>
+	courseOf({
+		format: "SELF_PACED",
+		completionRule: "CONTENT",
+		sessions: [],
+		...overrides,
+	});
 
 const silentLogger: Logger = {
 	debug: () => {},
@@ -59,6 +68,7 @@ const createHarness = (
 			context: CreditWriteContext;
 		}[],
 		finishes: 0,
+		enrollmentClosed: [] as (Date | null)[],
 	};
 
 	const participantById = (userId: number) => {
@@ -118,6 +128,10 @@ const createHarness = (
 			course.status = "FINISHED";
 			return true;
 		},
+		setEnrollmentClosed: async (_courseId: number, at: Date | null) => {
+			log.enrollmentClosed.push(at);
+			course.enrollmentClosedAt = at;
+		},
 	} as unknown as ICradle["courseRepository"];
 
 	const creditRepository = {
@@ -157,11 +171,19 @@ const createHarness = (
 		}
 	}) as unknown as ICradle["runInTransaction"];
 
+	// La real sobre los mismos dobles: estas pruebas miden que el cierre y la
+	// corrección dejan los créditos como el cálculo, no que llamen a una función.
+	const completionSync = createCompletionSync({
+		teachingRepository,
+		enrollmentRepository,
+		creditRepository,
+	});
+
 	const service = createTeachingService({
 		teachingRepository,
 		courseRepository,
 		enrollmentRepository,
-		creditRepository,
+		completionSync,
 		runInTransaction,
 		clock: { now: () => options.now ?? LAST_DAY },
 		logger: silentLogger,
@@ -338,31 +360,17 @@ describe("teachingService.finish", () => {
 		]);
 	});
 
-	// Sin sesiones no hay última fecha que esperar, y el ejercicio del crédito
-	// sale de la propia fecha de cierre (docs/adr/0011).
-	test("un autogestivo cierra el mismo día y su crédito toma el año del cierre", async () => {
-		const { service, log, course, credits } = createHarness(
-			courseOf({
-				format: "SELF_PACED",
-				completionRule: "CONTENT",
-				requiresEvaluation: true,
-				sessions: [],
-				participants: [participantOf({ result: "PASSED" })],
-			}),
-			{ now: zonedInputToUtc("2027-03-18", "10:00") },
-		);
+	// docs/adr/0014: cada participante lo completa; el curso no se cierra.
+	test("un autogestivo no se finaliza", async () => {
+		const { service, log } = createHarness(SELF_PACED_COURSE());
 
 		const result = await service.finish(COURSE_DOC, actorOf());
 
 		expect(result).toMatchObject({
-			success: true,
-			data: { completed: 1, credits: 1 },
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE },
 		});
-		expect(course().status).toBe("FINISHED");
-		expect(log.grants[0]?.context).toMatchObject({ fiscalYear: 2027 });
-		expect(credits()).toEqual([
-			{ userId: 50, dependencyId: 3, revokedAt: null },
-		]);
+		expect(log.finishes).toBe(0);
 	});
 
 	test("con resultados pendientes no finaliza ni otorga nada", async () => {
@@ -505,5 +513,120 @@ describe("teachingService.findById", () => {
 			success: false,
 			error: { code: TEACHING_ERROR_CODES.COURSE_NOT_FOUND },
 		});
+	});
+});
+
+describe("autogestivo: completado en vivo", () => {
+	const DONE = zonedInputToUtc("2027-03-10", "12:00");
+
+	// Sin cierre, el último dato que falte es el que otorga el crédito: aquí el
+	// resultado llega después del contenido.
+	test("capturar el resultado otorga el crédito en ese momento", async () => {
+		const { service, log, course, credits } = createHarness(
+			SELF_PACED_COURSE({
+				requiresEvaluation: true,
+				participants: [participantOf({ contentCompletedAt: DONE })],
+			}),
+			{ now: zonedInputToUtc("2027-03-18", "10:00") },
+		);
+
+		const result = await service.saveResults(
+			COURSE_DOC,
+			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: 90 }] },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({ success: true, data: { affected: 1 } });
+		expect(course().status).toBe("PUBLISHED");
+		expect(course().participants[0]?.completed).toBe(true);
+		expect(log.grants[0]?.context).toMatchObject({ fiscalYear: 2027 });
+		expect(credits()).toEqual([
+			{ userId: 50, dependencyId: 3, revokedAt: null },
+		]);
+	});
+
+	test("aprobar sin haber terminado el contenido no otorga nada", async () => {
+		const { service, log } = createHarness(
+			SELF_PACED_COURSE({
+				requiresEvaluation: true,
+				participants: [participantOf()],
+			}),
+		);
+
+		await service.saveResults(
+			COURSE_DOC,
+			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: null }] },
+			actorOf(),
+		);
+
+		expect(log.grants).toEqual([]);
+	});
+
+	test("un calendarizado publicado no recalcula al capturar", async () => {
+		const { service, log } = createHarness(
+			courseOf({ requiresEvaluation: true }),
+		);
+
+		await service.saveResults(
+			COURSE_DOC,
+			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: null }] },
+			actorOf(),
+		);
+
+		expect(log.completion).toEqual([]);
+	});
+});
+
+describe("teachingService.setEnrollmentOpen", () => {
+	test("cierra y reabre las inscripciones de un autogestivo", async () => {
+		const { service, log, course } = createHarness(SELF_PACED_COURSE());
+
+		const closed = await service.setEnrollmentOpen(
+			COURSE_DOC,
+			{ open: false },
+			actorOf(),
+		);
+
+		expect(closed).toMatchObject({ success: true, data: { affected: 1 } });
+		expect(course().enrollmentClosedAt).toEqual(LAST_DAY);
+		expect(log.locks).toEqual([true]);
+
+		const reopened = await service.setEnrollmentOpen(
+			COURSE_DOC,
+			{ open: true },
+			actorOf(),
+		);
+
+		expect(reopened).toMatchObject({ success: true, data: { affected: 1 } });
+		expect(course().enrollmentClosedAt).toBeNull();
+	});
+
+	test("pedir el estado que ya tiene no escribe", async () => {
+		const { service, log } = createHarness(SELF_PACED_COURSE());
+
+		const result = await service.setEnrollmentOpen(
+			COURSE_DOC,
+			{ open: true },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({ success: true, data: { affected: 0 } });
+		expect(log.enrollmentClosed).toEqual([]);
+	});
+
+	test("un curso con sesiones no se abre ni se cierra a mano", async () => {
+		const { service, log } = createHarness();
+
+		const result = await service.setEnrollmentOpen(
+			COURSE_DOC,
+			{ open: false },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.NOT_SELF_PACED },
+		});
+		expect(log.enrollmentClosed).toEqual([]);
 	});
 });

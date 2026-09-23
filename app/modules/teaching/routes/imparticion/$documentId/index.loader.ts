@@ -1,3 +1,4 @@
+import { requiresSessions } from "@/modules/courses/domain/course.rules";
 import { EVALUATION_ERROR_MESSAGES } from "@/modules/evaluations/utils/evaluation-error-messages";
 import { RATING_ERROR_MESSAGES } from "@/modules/ratings/utils/rating-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
@@ -24,8 +25,10 @@ export const loader = async ({
 		throw toRouteError(detail.error, TEACHING_ERROR_MESSAGES);
 
 	// Las valoraciones se abren al finalizar (§6.10): antes no hay nada que leer.
+	// Un autogestivo no se finaliza, y cada quien valora al completarlo.
+	const { course } = detail.data;
 	const ratings =
-		detail.data.course.status === "FINISHED"
+		course.status === "FINISHED" || !requiresSessions(course.format)
 			? await context.ratingService.findCourseSummary(documentId, auth)
 			: null;
 	if (ratings && !ratings.success) {

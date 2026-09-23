@@ -34,8 +34,10 @@ const eligibilityOf = (
 ): RatingEligibility => ({
 	courseId: 10,
 	courseStatus: "FINISHED",
+	courseFormat: "SCHEDULED",
 	enrollmentStatus: "ENROLLED",
 	attendedSessions: 2,
+	completed: false,
 	alreadyRated: false,
 	...overrides,
 });

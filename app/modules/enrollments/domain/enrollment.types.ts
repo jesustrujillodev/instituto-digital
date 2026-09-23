@@ -1,6 +1,7 @@
 import type * as v from "valibot";
 import type {
 	CourseAccessType,
+	CourseCompletionRule,
 	CourseFormat,
 	CourseModality,
 	CourseStatus,
@@ -50,11 +51,14 @@ export interface EnrollmentCourse {
 	coverUrl: string | null;
 	modality: CourseModality;
 	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	access: CourseAccessType;
 	status: CourseStatus;
 	capacity: number | null;
 	enrolledCount: number;
 	enrollmentDeadline: Date | null;
+	/** El interruptor del autogestivo: con valor, no entra nadie nuevo. */
+	enrollmentClosedAt: Date | null;
 	finishedAt: Date | null;
 	/** Ordenadas por inicio. */
 	sessions: EnrollmentCourseSession[];
@@ -127,6 +131,9 @@ export interface AvailableCourseDetail {
 export interface MyCourseOutcome {
 	grade: number | null;
 	completed: boolean;
+	/** Caché del avance por lección (docs/adr/0014). */
+	progressPercent: number;
+	contentCompletedAt: Date | null;
 	attendedSessions: number;
 	/** Su puntuación si ya valoró; los comentarios no vuelven a la persona. */
 	myRating: number | null;
@@ -220,6 +227,21 @@ export interface BatchResult {
 
 export interface StoredEnrollment extends OwnEnrollment {
 	userId: number;
+	completed: boolean;
+}
+
+/** El avance cacheado de una inscripción activa, para recalcularlo. */
+export interface ProgressState {
+	userId: number;
+	progressPercent: number;
+	contentCompletedAt: Date | null;
+}
+
+/** `completedAt` solo se escribe si la inscripción todavía no lo tenía. */
+export interface ProgressWrite {
+	userId: number;
+	percent: number;
+	completedAt: Date | null;
 }
 
 export type EnrollmentState = Pick<

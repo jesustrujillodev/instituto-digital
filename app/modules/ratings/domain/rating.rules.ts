@@ -1,5 +1,9 @@
 import * as v from "valibot";
-import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import {
+	type CourseFormat,
+	type CourseStatus,
+	requiresSessions,
+} from "@/modules/courses/domain/course.rules";
 import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.config";
 import { RATING_COMMENT_MAX_LENGTH, RATING_SCORE_RANGE } from "./rating.config";
 
@@ -42,12 +46,19 @@ export const ratingRules = {
 /**
  * §6.10: el curso está finalizado y la persona estuvo inscrita y asistió al
  * menos a una sesión. No exige haber completado: quien no aprobó también opina.
+ *
+ * Un autogestivo no se finaliza ni tiene sesiones: se valora al completarlo,
+ * que es cuando termina para quien lo cursa (docs/adr/0014).
  */
 export const canRateCourse = (input: {
 	courseStatus: CourseStatus;
+	courseFormat: CourseFormat;
 	enrollmentStatus: EnrollmentStatus | null;
 	attendedSessions: number;
-}): boolean =>
-	input.courseStatus === "FINISHED" &&
-	input.enrollmentStatus === "ENROLLED" &&
-	input.attendedSessions > 0;
+	completed: boolean;
+}): boolean => {
+	if (input.enrollmentStatus !== "ENROLLED") return false;
+	if (!requiresSessions(input.courseFormat)) return input.completed;
+
+	return input.courseStatus === "FINISHED" && input.attendedSessions > 0;
+};

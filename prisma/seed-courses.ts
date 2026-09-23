@@ -15,14 +15,41 @@ import { endOfZonedDay, zonedInputToUtc } from "@/lib/date-utils";
  * - Un curso creado por un capacitador con rol USER: su alcance de autor.
  * - Los cuatro estados en el listado, incluido uno cancelado con audiencia de
  *   grupo que conserva sus registros.
- * - Un curso AUTOGESTIVO publicado y sin sesiones, para probar el cierre sin
- *   asistencia y el crédito con el ejercicio de la fecha de cierre.
+ * - Un curso AUTOGESTIVO publicado, sin sesiones y con temario, para recorrer
+ *   el aula y completarlo por contenido: dos obligatorias y una opcional
+ *   (docs/adr/0014).
  *
  * Las horas se escriben como hora de Tijuana y se convierten con el mismo
  * helper que usa la aplicación.
  */
 
 type Seeded = { courses: number };
+
+/** Una lección de texto con su cuerpo ya en el árbol JSON que guarda el editor. */
+const textLesson = (
+	order: number,
+	title: string,
+	paragraphs: string[],
+	options: { isRequired?: boolean } = {},
+) =>
+	({
+		title,
+		type: "TEXT",
+		order,
+		isRequired: options.isRequired ?? true,
+		estimatedMinutes: 10,
+		content: {
+			create: {
+				body: {
+					type: "doc",
+					content: paragraphs.map((text) => ({
+						type: "paragraph",
+						content: [{ type: "text", text }],
+					})),
+				},
+			},
+		},
+	}) satisfies Prisma.LessonCreateWithoutModuleInput;
 
 const byEmail = async (prisma: PrismaClient, email: string) => {
 	const user = await prisma.user.findUnique({
@@ -152,22 +179,56 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 		},
 	});
 
-	// Autogestivo publicado: sin sesiones, se completa al aprobar la evaluación.
+	// Autogestivo publicado: sin sesiones, se completa al terminar sus lecciones
+	// obligatorias y otorga el crédito en ese momento.
 	await prisma.course.create({
 		data: {
 			dependencyId: sds,
 			createdById: headSds.id,
 			title: "Marco normativo municipal en línea",
 			description:
-				"Curso a ritmo propio. Se acredita al aprobar la evaluación final.",
+				"Curso a ritmo propio. Se acredita al terminar sus lecciones obligatorias.",
 			modality: "ONLINE",
 			format: "SELF_PACED",
 			completionRule: "CONTENT",
 			access: "PUBLIC",
 			status: "PUBLISHED",
 			publishedAt: new Date(),
-			requiresEvaluation: true,
 			trainers: { create: [{ userId: trainerSds.id }] },
+			modules: {
+				create: [
+					{
+						title: "Fundamentos",
+						order: 1,
+						lessons: {
+							create: [
+								textLesson(1, "Qué regula el municipio", [
+									"El ayuntamiento regula lo que la ley le asigna: servicios públicos, uso de suelo y reglamentos de policía y buen gobierno.",
+								]),
+								textLesson(2, "Jerarquía de las normas", [
+									"Un reglamento municipal no puede contradecir a la ley estatal, y esta no puede contradecir a la Constitución.",
+								]),
+							],
+						},
+					},
+					{
+						title: "Para profundizar",
+						order: 2,
+						lessons: {
+							create: [
+								textLesson(
+									1,
+									"Lecturas complementarias",
+									[
+										"Material de consulta: no hace falta para completar el curso.",
+									],
+									{ isRequired: false },
+								),
+							],
+						},
+					},
+				],
+			},
 		},
 	});
 

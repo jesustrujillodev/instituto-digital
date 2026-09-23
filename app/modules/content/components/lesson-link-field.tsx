@@ -1,7 +1,7 @@
-import { ExternalLink } from "lucide-react";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { resolveEmbed } from "../domain/content.rules";
+import { LessonEmbedView } from "./lesson-material-view";
 
 /** El enlace externo y su vista previa, si el proveedor se reconoce. */
 export function LessonLinkField({
@@ -36,27 +36,8 @@ export function LessonLinkField({
 				</p>
 			</div>
 
-			{embed?.kind === "embed" ? (
-				<iframe
-					title="Vista previa del recurso"
-					src={embed.src}
-					className="aspect-video w-full rounded-md border border-input"
-					allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-					allowFullScreen
-					sandbox="allow-scripts allow-same-origin allow-presentation"
-				/>
-			) : null}
-
-			{embed?.kind === "link" ? (
-				<a
-					href={embed.href}
-					target="_blank"
-					rel="noreferrer noopener"
-					className="inline-flex items-center gap-2 text-primary text-sm underline underline-offset-2"
-				>
-					<ExternalLink className="size-4" />
-					Abrir el recurso
-				</a>
+			{embed ? (
+				<LessonEmbedView embed={embed} title="Vista previa del recurso" />
 			) : null}
 		</div>
 	);

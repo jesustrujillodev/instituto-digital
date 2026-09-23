@@ -14,7 +14,7 @@ import {
 	firstPendingStep,
 	parseStepNumber,
 	stepPath,
-	stepsForFormat,
+	stepsFor,
 } from "../../../utils/course-wizard-steps";
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
@@ -50,7 +50,7 @@ export const loader = async ({
 	if (!options.success)
 		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 
-	const { status, format } = course.data;
+	const { status } = course.data;
 	if (status !== "DRAFT") {
 		const base = `/dashboard/cursos/${documentId}`;
 		throw redirect(canEdit(status) ? `${base}/editar` : base);
@@ -58,7 +58,7 @@ export const loader = async ({
 
 	// El temario se lee una sola vez: alimenta el paso Contenido y el pendiente
 	// de publicación que la revisión enseña.
-	const tree = requiresContent(format)
+	const tree = requiresContent(course.data)
 		? await context.contentService.findTree(documentId, auth)
 		: null;
 	if (tree && !tree.success)
@@ -71,8 +71,10 @@ export const loader = async ({
 
 	// Un paso que este formato no recorre no tiene pantalla: se manda a lo que
 	// de verdad falta.
-	if (!stepsForFormat(format).some((entry) => entry.key === step.key)) {
-		throw redirect(stepPath(documentId, firstPendingStep(checklist, format)));
+	if (!stepsFor(course.data).some((entry) => entry.key === step.key)) {
+		throw redirect(
+			stepPath(documentId, firstPendingStep(checklist, course.data)),
+		);
 	}
 
 	return ok({

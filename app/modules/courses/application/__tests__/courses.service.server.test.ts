@@ -486,9 +486,9 @@ describe("coursesService.create", () => {
 			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,
 		],
 		[
-			"completar por contenido sin evaluación",
-			{ completionRule: "CONTENT", requiresEvaluation: false },
-			COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION,
+			"un autogestivo por asistencia y contenido",
+			{ format: "SELF_PACED", completionRule: "BOTH" },
+			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,
 		],
 	] as const)("no crea %s", async (_case, overrides, code) => {
 		const { service, calls } = createHarness();
@@ -702,6 +702,52 @@ describe("coursesService.update", () => {
 			error: { code: COURSE_ERROR_CODES.FORMAT_LOCKED },
 		});
 		expect(calls.updated).toHaveLength(0);
+	});
+
+	// Sus créditos ya se otorgan conforme cada quien completa: cambiar el
+	// criterio mediría a unos con una regla y a otros con otra.
+	test("un autogestivo publicado no cambia su evaluación", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({
+				status: "PUBLISHED",
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: false,
+				sessions: [],
+			}),
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+			}) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.COMPLETION_LOCKED },
+		});
+		expect(calls.updated).toHaveLength(0);
+	});
+
+	test("un autogestivo sin evaluación se crea", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			dtoOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: false,
+			}),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.created[0]).toMatchObject({ requiresEvaluation: false });
 	});
 
 	test("bloquea el curso y rechaza un cupo menor que los inscritos", async () => {

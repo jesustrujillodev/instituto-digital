@@ -42,9 +42,13 @@ export const TEACHING_ROLES: readonly Role[] = [
 	"DEPENDENCY_DEPUTY",
 ];
 
-/** Por qué todavía no se puede finalizar un curso. */
+/**
+ * Por qué no se puede finalizar un curso. `SELF_PACED` no es un "todavía": un
+ * autogestivo no se finaliza nunca, cada quien lo completa (docs/adr/0014).
+ */
 export const FINISH_BLOCKERS = [
 	"NOT_PUBLISHED",
+	"SELF_PACED",
 	"WITHOUT_SESSIONS",
 	"TOO_EARLY",
 	"PENDING_RESULTS",

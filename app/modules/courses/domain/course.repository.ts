@@ -62,6 +62,11 @@ export interface ICourseRepository {
 	 * petición lo cambió antes. Sin alcance: lo llama `teaching` ya autorizado.
 	 */
 	finish(courseId: number, at: Date): Promise<boolean>;
+	/**
+	 * El interruptor de inscripciones del autogestivo: `at` lo cierra y `null` lo
+	 * reabre. Sin alcance, como `finish`: lo llama `teaching` ya autorizado.
+	 */
+	setEnrollmentClosed(courseId: number, at: Date | null): Promise<void>;
 	/** No borra nada: marca el estado y el instante (§6.5). */
 	cancel(documentId: string, scope: CourseScope): Promise<CourseDetail>;
 

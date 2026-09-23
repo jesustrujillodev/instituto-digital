@@ -29,7 +29,11 @@ import { createCalendarService } from "@/modules/calendar/application/calendar.s
 import { createCalendarRepository } from "@/modules/calendar/infrastructure/calendar.repository.server";
 import { createCheckInService } from "@/modules/check-in/application/check-in.service.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
+import { createClassroomService } from "@/modules/content/application/classroom.service.server";
 import { createContentService } from "@/modules/content/application/content.service.server";
+import { createLessonMaterialReader } from "@/modules/content/application/lesson-material.reader.server";
+import { createProgressSync } from "@/modules/content/application/progress-sync.server";
+import { createClassroomRepository } from "@/modules/content/infrastructure/classroom.repository.server";
 import { createContentRepository } from "@/modules/content/infrastructure/content.repository.server";
 import { createLessonMaterialReferenceSource } from "@/modules/content/infrastructure/lesson-material.references.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
@@ -53,6 +57,7 @@ import { createNotificationService } from "@/modules/notifications/application/n
 import { createNotificationRepository } from "@/modules/notifications/infrastructure/notifications.repository.server";
 import { createRatingService } from "@/modules/ratings/application/ratings.service.server";
 import { createRatingRepository } from "@/modules/ratings/infrastructure/ratings.repository.server";
+import { createCompletionSync } from "@/modules/teaching/application/completion-sync.server";
 import { createTeachingService } from "@/modules/teaching/application/teaching.service.server";
 import { createTeachingRepository } from "@/modules/teaching/infrastructure/teaching.repository.server";
 import { createThemeService } from "@/modules/theme/application/theme.service.server";
@@ -235,12 +240,17 @@ export const configureContainer = async (
 		courseService: asSingleton(createCourseService),
 		contentRepository: asSingleton(createContentRepository),
 		contentService: asSingleton(createContentService),
+		lessonMaterialReader: asSingleton(createLessonMaterialReader),
+		progressSync: asSingleton(createProgressSync),
+		classroomRepository: asSingleton(createClassroomRepository),
+		classroomService: asSingleton(createClassroomService),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
 		calendarRepository: asSingleton(createCalendarRepository),
 		calendarService: asSingleton(createCalendarService),
 		teachingRepository: asSingleton(createTeachingRepository),
 		teachingService: asSingleton(createTeachingService),
+		completionSync: asSingleton(createCompletionSync),
 		checkInService: asSingleton(createCheckInService),
 		creditRepository: asSingleton(createCreditRepository),
 		creditService: asSingleton(createCreditService),

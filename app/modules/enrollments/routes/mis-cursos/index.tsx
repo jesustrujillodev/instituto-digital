@@ -2,6 +2,7 @@ export { action } from "./index.action";
 export { loader } from "./index.loader";
 
 import {
+	BookOpen,
 	Building2,
 	CalendarDays,
 	Check,
@@ -9,14 +10,19 @@ import {
 	Layers,
 	X,
 } from "lucide-react";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { ProgressBar } from "@/modules/content/components/progress-bar";
 import { CourseStatusBadge } from "@/modules/courses/components/course-badges";
 import {
 	CourseCardFrame,
 	CourseCardList,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
+import {
+	countsContent,
+	requiresSessions,
+} from "@/modules/courses/domain/course.rules";
 import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
@@ -75,6 +81,13 @@ const dateRangeOf = ({ course }: MyCourseEntry) => {
 const metaOf = (entry: MyCourseEntry): CourseMetaItem[] => {
 	const count = entry.course.sessions.length;
 
+	if (!requiresSessions(entry.course.format)) {
+		return [
+			{ icon: Building2, label: entry.course.dependencyName, wide: true },
+			{ icon: BookOpen, label: "A tu ritmo" },
+		];
+	}
+
 	return [
 		{ icon: Building2, label: entry.course.dependencyName, wide: true },
 		{ icon: CalendarDays, label: dateRangeOf(entry) },
@@ -93,11 +106,19 @@ function EmptyList({ message }: { message: string }) {
 	);
 }
 
+/**
+ * Un autogestivo no se finaliza: para quien lo cursa termina al completarlo, y
+ * ahí se enseña igual que un curso cerrado (docs/adr/0014).
+ */
+const isOverFor = ({ course, outcome }: MyCourseEntry) =>
+	course.status === "FINISHED" ||
+	(!requiresSessions(course.format) && outcome.completed);
+
 /** Estado del curso, resultado y crédito: lo que cambia de un curso a otro. */
 function EntryFooter({ entry }: { entry: MyCourseEntry }) {
 	const { course, enrollment, outcome } = entry;
 
-	if (course.status === "FINISHED") {
+	if (isOverFor(entry)) {
 		return (
 			<>
 				<Badge variant={outcome.completed ? "default" : "outline"}>
@@ -128,6 +149,19 @@ function EntryFooter({ entry }: { entry: MyCourseEntry }) {
 function OutcomeDetail({ entry }: { entry: MyCourseEntry }) {
 	const { course, enrollment, outcome } = entry;
 
+	if (!requiresSessions(course.format)) {
+		return (
+			<p className="text-muted-foreground text-xs">
+				{outcome.contentCompletedAt
+					? `Terminaste el contenido el ${formatZonedDate(new Date(outcome.contentCompletedAt))}`
+					: `Avance del contenido: ${outcome.progressPercent} %`}
+				{enrollment.result !== "PENDING" && outcome.grade !== null
+					? ` · nota ${outcome.grade}`
+					: ""}
+			</p>
+		);
+	}
+
 	return (
 		<p className="text-muted-foreground text-xs">
 			Asististe a {outcome.attendedSessions} de {course.sessions.length}{" "}
@@ -139,20 +173,58 @@ function OutcomeDetail({ entry }: { entry: MyCourseEntry }) {
 	);
 }
 
+/** La barra solo donde el contenido cuenta para completar el curso. */
+function ContentProgress({ entry }: { entry: MyCourseEntry }) {
+	return (
+		<div className="flex flex-col gap-1">
+			<div className="flex items-baseline justify-between text-xs">
+				<span className="text-muted-foreground">Avance</span>
+				<span className="tabular-nums">{entry.outcome.progressPercent} %</span>
+			</div>
+			<ProgressBar
+				value={entry.outcome.progressPercent}
+				label={`Avance en ${entry.course.title}`}
+			/>
+		</div>
+	);
+}
+
+/** «Continuar» si ya empezó; «Repasar» si para quien lo cursa ya terminó. */
+function ClassroomLink({ entry }: { entry: MyCourseEntry }) {
+	const label = isOverFor(entry)
+		? "Repasar"
+		: entry.outcome.progressPercent > 0
+			? "Continuar"
+			: "Entrar al aula";
+
+	return (
+		<Button size="sm" asChild>
+			<Link to={`/dashboard/mis-cursos/${entry.course.documentId}/aula`}>
+				<BookOpen />
+				{label}
+			</Link>
+		</Button>
+	);
+}
+
 function MyCourseCard({
 	entry,
 	layout,
 	actions,
 	note,
+	hasClassroom = false,
 }: {
 	entry: MyCourseEntry;
 	layout: ViewMode;
 	actions?: React.ReactNode;
 	note?: string;
+	hasClassroom?: boolean;
 }) {
 	const { course } = entry;
-	const isFinished = course.status === "FINISHED";
+	const isFinished = isOverFor(entry);
 	const footer = <EntryFooter entry={entry} />;
+	const showsProgress =
+		hasClassroom && !isFinished && countsContent(course.completionRule);
 
 	return (
 		<CourseCardFrame
@@ -171,19 +243,28 @@ function MyCourseCard({
 				)
 			}
 			actions={
-				actions ??
-				(entry.canRate && (
-					<RateCourseDialog
-						courseDocumentId={course.documentId}
-						courseTitle={course.title}
-					/>
-				))
+				actions ?? (
+					<>
+						{hasClassroom && <ClassroomLink entry={entry} />}
+						{entry.canRate && (
+							<RateCourseDialog
+								courseDocumentId={course.documentId}
+								courseTitle={course.title}
+							/>
+						)}
+					</>
+				)
 			}
 			details={
 				isFinished ? (
 					<OutcomeDetail entry={entry} />
 				) : (
-					<CourseSessionsList sessions={course.sessions} />
+					<>
+						{showsProgress && <ContentProgress entry={entry} />}
+						{course.sessions.length > 0 && (
+							<CourseSessionsList sessions={course.sessions} />
+						)}
+					</>
 				)
 			}
 		/>
@@ -194,10 +275,12 @@ function CourseList({
 	entries,
 	layout,
 	emptyMessage,
+	classrooms,
 }: {
 	entries: readonly MyCourseEntry[];
 	layout: ViewMode;
 	emptyMessage: string;
+	classrooms: ReadonlySet<string>;
 }) {
 	if (entries.length === 0) return <EmptyList message={emptyMessage} />;
 
@@ -205,7 +288,11 @@ function CourseList({
 		<CourseCardList layout={layout}>
 			{entries.map((entry) => (
 				<li key={entry.enrollment.documentId}>
-					<MyCourseCard entry={entry} layout={layout} />
+					<MyCourseCard
+						entry={entry}
+						layout={layout}
+						hasClassroom={classrooms.has(entry.course.documentId)}
+					/>
 				</li>
 			))}
 		</CourseCardList>
@@ -215,6 +302,7 @@ function CourseList({
 export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 	const { data } = loaderData;
 	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.mine, data.view);
+	const classrooms = new Set(data.classrooms);
 	const fetcher = useFetcher<EnrollmentActionData>();
 	useFetcherToast(fetcher);
 
@@ -295,6 +383,7 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 					<CourseList
 						entries={data.upcoming}
 						layout={layout}
+						classrooms={classrooms}
 						emptyMessage="No tienes cursos por empezar."
 					/>
 				</TabsContent>
@@ -302,6 +391,7 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 					<CourseList
 						entries={data.inProgress}
 						layout={layout}
+						classrooms={classrooms}
 						emptyMessage="No tienes cursos en curso."
 					/>
 				</TabsContent>
@@ -317,6 +407,7 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 					<CourseList
 						entries={data.finished}
 						layout={layout}
+						classrooms={classrooms}
 						emptyMessage="Todavía no tienes cursos finalizados."
 					/>
 				</TabsContent>

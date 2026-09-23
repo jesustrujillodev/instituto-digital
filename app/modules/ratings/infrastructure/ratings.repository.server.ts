@@ -18,7 +18,11 @@ export const createRatingRepository = ({
 			select: {
 				id: true,
 				status: true,
-				enrollments: { where: { userId }, select: { status: true } },
+				format: true,
+				enrollments: {
+					where: { userId },
+					select: { status: true, completed: true },
+				},
 				ratings: { where: { userId }, select: { id: true } },
 				_count: {
 					select: {
@@ -34,8 +38,10 @@ export const createRatingRepository = ({
 		return {
 			courseId: course.id,
 			courseStatus: course.status,
+			courseFormat: course.format,
 			enrollmentStatus: course.enrollments.at(0)?.status ?? null,
 			attendedSessions: course._count.sessions,
+			completed: course.enrollments.at(0)?.completed ?? false,
 			alreadyRated: course.ratings.length > 0,
 		};
 	},

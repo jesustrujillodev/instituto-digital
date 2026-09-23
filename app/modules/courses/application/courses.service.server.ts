@@ -47,11 +47,13 @@ import {
 import {
 	assertCapacityCovers,
 	assertCompletionRuleCoherent,
+	assertCompletionSettingsEditable,
 	assertDeadlineBeforeStart,
 	assertFormatEditable,
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
+	type CourseCompletionRule,
 	type CourseContentFacts,
 	type CourseFormat,
 	canCancel,
@@ -125,14 +127,15 @@ export const createCourseService = ({
 	/**
 	 * Lo que el temario aporta a la publicación.
 	 *
-	 * Solo se consulta cuando el formato lo exige: un curso con sesiones no mira
-	 * sus lecciones, y una consulta de más por publicación no se paga por nada.
+	 * Solo se consulta cuando el curso lo exige: uno que se completa solo por
+	 * asistencia no mira sus lecciones, y una consulta de más no se paga por nada.
 	 */
 	const contentFactsOf = async (course: {
 		id: number;
 		format: CourseFormat;
+		completionRule: CourseCompletionRule;
 	}): Promise<CourseContentFacts> =>
-		requiresContent(course.format)
+		requiresContent(course)
 			? { lessonCount: await contentRepository.countActiveLessons(course.id) }
 			: { lessonCount: 0 };
 
@@ -219,11 +222,7 @@ export const createCourseService = ({
 		const completionRule = dto.completionRule ?? COURSE_DEFAULTS.completionRule;
 		const requiresEvaluation = dto.requiresEvaluation ?? false;
 
-		assertCompletionRuleCoherent({
-			format,
-			completionRule,
-			requiresEvaluation,
-		});
+		assertCompletionRuleCoherent({ format, completionRule });
 
 		// Un autogestivo no se reúne: las sesiones que el formulario haya dejado
 		// atrás se descartan aquí, y su modalidad deja de tener a qué referirse.
@@ -509,6 +508,12 @@ export const createCourseService = ({
 					course.status,
 					(dto.format ?? course.format) !== course.format,
 				);
+				// Con los mismos defaults que `buildWriteData`: se compara lo que se
+				// va a escribir, no lo que llegó.
+				assertCompletionSettingsEditable(course, {
+					completionRule: dto.completionRule ?? COURSE_DEFAULTS.completionRule,
+					requiresEvaluation: dto.requiresEvaluation ?? false,
+				});
 
 				const data = await buildWriteData(dto, scope);
 				// Tres estados, no dos: archivo nuevo sustituye, `removeCover` quita,

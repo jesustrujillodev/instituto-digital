@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { classroomRules } from "./classroom.rules";
 import { contentRules } from "./content.rules";
 
 export const validateFindContentCourse = (data: unknown) =>
@@ -23,3 +24,9 @@ export const validateUploadUrl = (data: unknown) =>
 	v.parse(contentRules.uploadUrl, data);
 export const validateSaveMaterial = (data: unknown) =>
 	v.parse(contentRules.saveMaterial, data);
+export const validateFindClassroom = (data: unknown) =>
+	v.parse(classroomRules.find, data);
+export const validateFindClassroomLesson = (data: unknown) =>
+	v.parse(classroomRules.findLesson, data);
+export const validateRecordProgress = (data: unknown) =>
+	v.parse(classroomRules.record, data);

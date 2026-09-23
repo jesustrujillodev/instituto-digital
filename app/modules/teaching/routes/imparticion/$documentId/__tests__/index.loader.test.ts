@@ -21,14 +21,18 @@ const okReply = (data: unknown) => ({
 	timestamp: new Date().toISOString(),
 });
 
-const createHarness = (status: string, requiresEvaluation = false) => {
+const createHarness = (
+	status: string,
+	requiresEvaluation = false,
+	format = "SCHEDULED",
+) => {
 	const calls = { ratings: 0, evaluations: 0 };
 	const context = {
 		authPayload,
 		teachingService: {
 			findById: async () =>
 				okReply({
-					course: { status, requiresEvaluation },
+					course: { status, requiresEvaluation, format },
 					participants: [],
 				}),
 		},
@@ -66,6 +70,15 @@ describe("ficha de impartición loader", () => {
 
 		expect(result.data.ratings).toBeNull();
 		expect(calls.ratings).toBe(0);
+	});
+
+	// docs/adr/0014: no se finaliza nunca, y cada quien valora al completarlo.
+	test("un autogestivo publicado ya trae sus valoraciones", async () => {
+		const { context, calls } = createHarness("PUBLISHED", false, "SELF_PACED");
+
+		await run(context);
+
+		expect(calls.ratings).toBe(1);
 	});
 
 	test("un curso finalizado trae su resumen de valoraciones", async () => {

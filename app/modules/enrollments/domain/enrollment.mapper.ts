@@ -1,5 +1,6 @@
 import type {
 	CourseAccessType,
+	CourseCompletionRule,
 	CourseFormat,
 	CourseModality,
 	CourseStatus,
@@ -38,10 +39,12 @@ export interface EnrollmentCourseRaw {
 	coverImageUrl: string | null;
 	modality: CourseModality;
 	format: CourseFormat;
+	completionRule: CourseCompletionRule;
 	access: CourseAccessType;
 	status: CourseStatus;
 	capacity: number | null;
 	enrollmentDeadline: Date | null;
+	enrollmentClosedAt: Date | null;
 	finishedAt: Date | null;
 	dependency: { name: string };
 	_count: { enrollments: number };
@@ -73,11 +76,13 @@ export const toEnrollmentCourse = (
 		coverUrl: resolveCover(raw.coverImageUrl),
 		modality: raw.modality,
 		format: raw.format,
+		completionRule: raw.completionRule,
 		access: raw.access,
 		status: raw.status,
 		capacity: raw.capacity,
 		enrolledCount: raw._count.enrollments,
 		enrollmentDeadline: raw.enrollmentDeadline,
+		enrollmentClosedAt: raw.enrollmentClosedAt,
 		finishedAt: raw.finishedAt,
 		sessions,
 		trainers: raw.trainers.map(({ user }) => ({ ...user })),

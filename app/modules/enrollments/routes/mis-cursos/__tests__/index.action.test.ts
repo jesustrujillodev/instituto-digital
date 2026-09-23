@@ -31,6 +31,9 @@ const contextOf = (calls: { method: string; courseId: unknown }[]) =>
 					finished: [],
 				}),
 		},
+		classroomService: {
+			listMine: async () => okReply([]),
+		},
 	}) as unknown as ActionArgs["context"];
 
 describe("mis-cursos action", () => {
@@ -80,6 +83,7 @@ describe("mis-cursos loader", () => {
 			"upcoming",
 			"inProgress",
 			"finished",
+			"classrooms",
 			"view",
 		]);
 	});

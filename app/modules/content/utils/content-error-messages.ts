@@ -88,5 +88,14 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "El enlace debe empezar por http:// o https://.",
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
+	[CONTENT_ERROR_CODES.NOT_ENROLLED]: {
+		message: "Solo quien está inscrito al curso puede entrar a su aula.",
+		status: HTTP_STATUS.FORBIDDEN,
+	},
+	[CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY]: {
+		message:
+			"El curso ya terminó: puedes repasar sus lecciones, pero ya no se registra avance.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

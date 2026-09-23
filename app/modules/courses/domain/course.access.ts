@@ -267,9 +267,12 @@ type AudienceBranch =
  *
  * Es la unión de lo que administra, lo que imparte, lo publicado que le toca por
  * audiencia y aquello en lo que tiene una invitación pendiente o una inscripción
- * activa. Esa última rama es la única que abre un curso por invitación, y
- * también mantiene visible un curso para quien salió de su audiencia después de
- * inscribirse (§6.4).
+ * activa. Para quien no lo administra ni lo imparte, esa última rama es la
+ * única que abre un curso por invitación, y también mantiene visible un curso
+ * para quien salió de su audiencia después de inscribirse (§6.4).
+ *
+ * Ver no es poder inscribirse: el catálogo y `enroll` exigen además la
+ * invitación pendiente en un curso por invitación (`canSelfEnroll`).
  */
 export const courseVisibilityWhere = (
 	viewer: CourseViewer,

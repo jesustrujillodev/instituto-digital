@@ -45,10 +45,13 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 			"Un curso autogestivo no tiene sesiones, así que no puede completarse por asistencia.",
 		fieldErrors: { completionRule: "Elige otra regla" },
 	},
-	[COURSE_ERROR_CODES.COMPLETION_RULE_WITHOUT_EVALUATION]: {
+	[COURSE_ERROR_CODES.COMPLETION_LOCKED]: {
 		message:
-			"Completar por contenido exige evaluación: es lo que distingue a quien terminó el curso.",
-		fieldErrors: { requiresEvaluation: "Actívala para esta regla" },
+			"Un curso autogestivo publicado ya otorga créditos: su regla de completado y su evaluación no se pueden cambiar.",
+		fieldErrors: {
+			completionRule: "No se puede cambiar",
+			requiresEvaluation: "No se puede cambiar",
+		},
 	},
 	[COURSE_ERROR_CODES.INVALID_TRANSITION]:
 		"El curso ya no está en un estado que permita esta acción.",

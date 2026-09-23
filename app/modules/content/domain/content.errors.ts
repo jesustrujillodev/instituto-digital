@@ -15,6 +15,8 @@ export const CONTENT_ERROR_CODES = {
 	UPLOAD_NOT_FOUND: "CONTENT_UPLOAD_NOT_FOUND",
 	UPLOAD_TOO_LARGE: "CONTENT_UPLOAD_TOO_LARGE",
 	LINK_INVALID: "CONTENT_LINK_INVALID",
+	NOT_ENROLLED: "CONTENT_NOT_ENROLLED",
+	CLASSROOM_READ_ONLY: "CONTENT_CLASSROOM_READ_ONLY",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -135,5 +137,21 @@ export class ContentLinkInvalidError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.LINK_INVALID;
 	constructor() {
 		super("External link must be http or https");
+	}
+}
+
+/** El aula es de quien está inscrito: el avance se impone en el servidor. */
+export class ContentNotEnrolledError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.NOT_ENROLLED;
+	constructor() {
+		super("Only an active enrollment can open the classroom");
+	}
+}
+
+/** Un curso finalizado se sigue leyendo, pero ya no registra avance. */
+export class ContentClassroomReadOnlyError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY;
+	constructor() {
+		super("The course no longer records progress");
 	}
 }

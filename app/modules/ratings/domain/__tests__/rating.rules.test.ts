@@ -11,8 +11,10 @@ import { validateRateCourse } from "../rating.validators";
 describe("canRateCourse", () => {
 	const eligible = {
 		courseStatus: "FINISHED" as const,
+		courseFormat: "SCHEDULED" as const,
 		enrollmentStatus: "ENROLLED" as const,
 		attendedSessions: 1,
+		completed: false,
 	};
 
 	test("valora quien estuvo inscrito y asistió al menos a una sesión", () => {
@@ -28,6 +30,26 @@ describe("canRateCourse", () => {
 			false,
 		);
 		expect(canRateCourse({ ...eligible, enrollmentStatus: null })).toBe(false);
+	});
+
+	// docs/adr/0014: no se finaliza ni tiene sesiones; se valora al completarlo.
+	test("un autogestivo se valora al completarlo, aunque siga publicado", () => {
+		const selfPaced = {
+			...eligible,
+			courseStatus: "PUBLISHED" as const,
+			courseFormat: "SELF_PACED" as const,
+			attendedSessions: 0,
+		};
+
+		expect(canRateCourse({ ...selfPaced, completed: true })).toBe(true);
+		expect(canRateCourse(selfPaced)).toBe(false);
+		expect(
+			canRateCourse({
+				...selfPaced,
+				completed: true,
+				enrollmentStatus: "WITHDRAWN",
+			}),
+		).toBe(false);
 	});
 });
 

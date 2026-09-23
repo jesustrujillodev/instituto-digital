@@ -22,6 +22,8 @@ export interface ContentLessonRef {
 	id: number;
 	moduleId: number;
 	type: LessonType;
+	/** Cambiarlo mueve el porcentaje de avance de todo inscrito. */
+	isRequired: boolean;
 }
 
 export interface IContentRepository {

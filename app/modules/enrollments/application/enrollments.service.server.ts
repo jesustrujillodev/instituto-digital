@@ -42,7 +42,9 @@ import type { CourseFilter } from "../domain/enrollment.repository";
 import {
 	acceptsInvitations,
 	assertSeatsFor,
+	assertSelfEnrollable,
 	canParticipate,
+	canSelfEnroll,
 	canTransition,
 	canWithdraw,
 	classifyMyCourse,
@@ -275,11 +277,17 @@ export const createEnrollmentService = ({
 						now,
 						userId: actor.userId,
 					}),
-					enrollmentRepository.countAvailable({ filters, filter, now }),
+					enrollmentRepository.countAvailable({
+						filters,
+						filter,
+						now,
+						userId: actor.userId,
+					}),
 					enrollmentRepository.findAvailableOrganizers({
 						filters,
 						filter,
 						now,
+						userId: actor.userId,
 					}),
 				]);
 
@@ -333,8 +341,13 @@ export const createEnrollmentService = ({
 					},
 					can: {
 						enroll:
-							detail.isOpen && status !== "ENROLLED" && status !== "INVITED",
-						withdraw: status === "ENROLLED" && canWithdraw(course, now),
+							detail.isOpen &&
+							status !== "ENROLLED" &&
+							status !== "INVITED" &&
+							canSelfEnroll(course, status),
+						withdraw:
+							status === "ENROLLED" &&
+							canWithdraw(course, now, enrollment?.completed ?? false),
 						accept: status === "INVITED" && detail.isOpen,
 						decline: status === "INVITED",
 						assign: detail.isOpen && visibleToDependency !== null,
@@ -363,8 +376,10 @@ export const createEnrollmentService = ({
 							record.outcome.myRating === null &&
 							canRateCourse({
 								courseStatus: record.course.status,
+								courseFormat: record.course.format,
 								enrollmentStatus: record.enrollment.status,
 								attendedSessions: record.outcome.attendedSessions,
+								completed: record.outcome.completed,
 							}),
 					};
 					if (entry.enrollment.status === "INVITED") {
@@ -373,7 +388,9 @@ export const createEnrollmentService = ({
 						}
 						continue;
 					}
-					mine[classifyMyCourse(entry.course, now)].push(entry);
+					mine[
+						classifyMyCourse(entry.course, now, entry.outcome.completed)
+					].push(entry);
 				}
 
 				return ok(mine);
@@ -462,6 +479,7 @@ export const createEnrollmentService = ({
 					if (current?.status === "ENROLLED") {
 						throw new EnrollmentAlreadyEnrolledError();
 					}
+					assertSelfEnrollable(course, current?.status ?? null);
 					assertSeatsFor(seats.capacity, seats.enrolled, 1);
 
 					await persist(
@@ -502,7 +520,7 @@ export const createEnrollmentService = ({
 				}
 
 				const now = clock.now();
-				if (!canWithdraw(course, now)) {
+				if (!canWithdraw(course, now, current.completed)) {
 					throw new EnrollmentWithdrawClosedError();
 				}
 

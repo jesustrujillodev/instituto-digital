@@ -41,7 +41,7 @@ import {
 	previousStep,
 	stepPath,
 	stepPosition,
-	stepsForFormat,
+	stepsFor,
 	stepsWithErrors,
 	stepsWithPending,
 } from "../utils/course-wizard-steps";
@@ -181,7 +181,8 @@ export function CourseWizard({
 	// este mismo árbol, así que aquí todavía no hay contexto que consultar.
 	const modality = watch("modality");
 	const format = watch("format");
-	const steps = stepsForFormat(format);
+	const completionRule = watch("completionRule");
+	const steps = stepsFor({ format, completionRule });
 	const following = nextStep(steps, step);
 	const preceding = previousStep(steps, step);
 

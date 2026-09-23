@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	CONTENT_ERROR_CODES,
+	ContentClassroomReadOnlyError,
 	ContentCourseNotEditableError,
 	ContentCourseNotFoundError,
 	ContentInvalidOrderError,
@@ -9,6 +10,7 @@ import {
 	ContentMaterialMismatchError,
 	ContentModuleNotEmptyError,
 	ContentModuleNotFoundError,
+	ContentNotEnrolledError,
 	ContentTooManyLessonsError,
 	ContentTooManyModulesError,
 	ContentUploadInvalidError,
@@ -20,6 +22,12 @@ describe("errores de contenido", () => {
 	test("cada error expone su código estable", () => {
 		expect(new ContentCourseNotFoundError().code).toBe(
 			CONTENT_ERROR_CODES.COURSE_NOT_FOUND,
+		);
+		expect(new ContentNotEnrolledError().code).toBe(
+			CONTENT_ERROR_CODES.NOT_ENROLLED,
+		);
+		expect(new ContentClassroomReadOnlyError().code).toBe(
+			CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY,
 		);
 		expect(new ContentCourseNotEditableError("FINISHED").code).toBe(
 			CONTENT_ERROR_CODES.COURSE_NOT_EDITABLE,

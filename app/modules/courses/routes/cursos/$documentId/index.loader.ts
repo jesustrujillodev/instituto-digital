@@ -42,9 +42,9 @@ export const loader = async ({
 
 	const { status } = course.data;
 
-	// El temario solo se consulta cuando el formato lo pide: un curso con
-	// sesiones no mira sus lecciones.
-	const content = requiresContent(course.data.format)
+	// El temario solo se consulta cuando el curso lo pide: uno que se completa
+	// solo por asistencia no mira sus lecciones.
+	const content = requiresContent(course.data)
 		? await context.contentService.summarize(documentId, auth)
 		: null;
 	if (content && !content.success)

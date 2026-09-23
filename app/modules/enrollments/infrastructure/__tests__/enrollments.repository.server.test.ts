@@ -65,3 +65,48 @@ describe("setCompletion", () => {
 		]);
 	});
 });
+
+describe("catálogo", () => {
+	const NOW = new Date("2026-09-22T17:00:00.000Z");
+	const INVITATION_BRANCH = {
+		OR: [
+			{ access: { not: "INVITATION" } },
+			{ enrollments: { some: { userId: 50, status: "INVITED" } } },
+		],
+	};
+
+	// Quien administra o imparte un curso por invitación lo ve, pero el
+	// catálogo no se lo ofrece si no está invitado (docs/adr/0004).
+	test("un curso por invitación solo sale con una invitación pendiente", async () => {
+		const wheres: unknown[] = [];
+		const record = async (args: { where: unknown }) => {
+			wheres.push(args.where);
+			return [];
+		};
+		const repository = createEnrollmentRepository({
+			prisma: {
+				course: {
+					findMany: record,
+					count: async (args: { where: unknown }) => {
+						wheres.push(args.where);
+						return 0;
+					},
+				},
+				enrollment: { findMany: async () => [] },
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
+		});
+		const params = { filters: {}, filter: { OR: [] }, now: NOW, userId: 50 };
+
+		await repository.findAvailable(params);
+		await repository.countAvailable(params);
+		await repository.findAvailableOrganizers(params);
+
+		expect(wheres).toHaveLength(3);
+		for (const where of wheres) {
+			expect((where as { AND: unknown[] }).AND).toContainEqual(
+				INVITATION_BRANCH,
+			);
+		}
+	});
+});

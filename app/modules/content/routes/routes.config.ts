@@ -1,4 +1,4 @@
-import { type RouteConfigEntry, route } from "@react-router/dev/routes";
+import { index, type RouteConfigEntry, route } from "@react-router/dev/routes";
 
 /**
  * El temario de un curso.
@@ -15,5 +15,20 @@ export const contentRoutes = [
 	route(
 		"cursos/:documentId/contenido/:lessonDocumentId",
 		"modules/content/routes/cursos/$documentId.contenido.$lessonDocumentId/index.ts",
+	),
+	// El aula del participante (docs/adr/0014): el índice lateral es el layout y
+	// su índice redirige a la lección donde se quedó.
+	route(
+		"mis-cursos/:documentId/aula",
+		"modules/content/routes/mis-cursos/$documentId.aula/index.tsx",
+		[
+			index(
+				"modules/content/routes/mis-cursos/$documentId.aula._index/index.tsx",
+			),
+			route(
+				":lessonDocumentId",
+				"modules/content/routes/mis-cursos/$documentId.aula.$lessonDocumentId/index.tsx",
+			),
+		],
 	),
 ] satisfies RouteConfigEntry[];

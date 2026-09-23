@@ -10,7 +10,7 @@ import {
 	stepOfKey,
 	stepPath,
 	stepPosition,
-	stepsForFormat,
+	stepsFor,
 	stepsWithErrors,
 	stepsWithPending,
 } from "../course-wizard-steps";
@@ -52,15 +52,21 @@ describe("stepOfCheck", () => {
 	});
 });
 
-describe("stepsForFormat", () => {
+const SCHEDULED = {
+	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
+} as const;
+const SELF_PACED = { format: "SELF_PACED", completionRule: "CONTENT" } as const;
+
+describe("stepsFor", () => {
 	test("un calendarizado salta del 4 al 6: no ve el contenido", () => {
-		expect(stepsForFormat("SCHEDULED").map((step) => step.number)).toEqual([
+		expect(stepsFor(SCHEDULED).map((step) => step.number)).toEqual([
 			1, 2, 3, 4, 6,
 		]);
 	});
 
 	test("un autogestivo los recorre todos", () => {
-		expect(stepsForFormat("SELF_PACED").map((step) => step.number)).toEqual([
+		expect(stepsFor(SELF_PACED).map((step) => step.number)).toEqual([
 			1, 2, 3, 4, 5, 6,
 		]);
 	});
@@ -68,7 +74,7 @@ describe("stepsForFormat", () => {
 	// El número es la URL; la posición es lo que se enseña. Un curso con sesiones
 	// lee "Paso 5 de 5" en la revisión aunque viva en /nuevo/6.
 	test("la posición visible no es el número del paso", () => {
-		const steps = stepsForFormat("SCHEDULED");
+		const steps = stepsFor(SCHEDULED);
 
 		expect(stepPosition(steps, stepOfKey("review"))).toEqual({
 			position: 5,
@@ -77,7 +83,7 @@ describe("stepsForFormat", () => {
 	});
 
 	test("el siguiente y el anterior saltan el paso que no aplica", () => {
-		const steps = stepsForFormat("SCHEDULED");
+		const steps = stepsFor(SCHEDULED);
 
 		expect(nextStep(steps, stepOfKey("rules"))).toBe(stepOfKey("review"));
 		expect(previousStep(steps, stepOfKey("review"))).toBe(stepOfKey("rules"));
@@ -85,8 +91,16 @@ describe("stepsForFormat", () => {
 		expect(previousStep(steps, stepOfKey("identity"))).toBeNull();
 	});
 
+	test("un calendarizado que también se completa por contenido ve su temario", () => {
+		expect(
+			stepsFor({ format: "SCHEDULED", completionRule: "BOTH" }).map(
+				(step) => step.number,
+			),
+		).toEqual([1, 2, 3, 4, 5, 6]);
+	});
+
 	test("en un autogestivo el contenido va entre reglas y revisión", () => {
-		const steps = stepsForFormat("SELF_PACED");
+		const steps = stepsFor(SELF_PACED);
 
 		expect(nextStep(steps, stepOfKey("rules"))).toBe(stepOfKey("content"));
 		expect(nextStep(steps, stepOfKey("content"))).toBe(stepOfKey("review"));
@@ -123,7 +137,7 @@ describe("firstPendingStep", () => {
 					{ check: "places", done: true },
 					{ check: "trainer", done: false },
 				],
-				"SCHEDULED",
+				SCHEDULED,
 			),
 		).toBe(3);
 	});
@@ -135,14 +149,14 @@ describe("firstPendingStep", () => {
 					{ check: "trainer", done: false },
 					{ check: "sessions", done: false },
 				],
-				"SCHEDULED",
+				SCHEDULED,
 			),
 		).toBe(2);
 	});
 
 	test("sin pendientes lleva a la revisión", () => {
 		expect(
-			firstPendingStep([{ check: "sessions", done: true }], "SCHEDULED"),
+			firstPendingStep([{ check: "sessions", done: true }], SCHEDULED),
 		).toBe(LAST_STEP_NUMBER);
 	});
 
@@ -153,7 +167,7 @@ describe("firstPendingStep", () => {
 					{ check: "trainer", done: true },
 					{ check: "content", done: false },
 				],
-				"SELF_PACED",
+				SELF_PACED,
 			),
 		).toBe(stepOfKey("content").number);
 	});

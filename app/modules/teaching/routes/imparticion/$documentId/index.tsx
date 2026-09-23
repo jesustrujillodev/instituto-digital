@@ -1,17 +1,23 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Flag } from "lucide-react";
+import { DoorClosed, DoorOpen, Flag } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
+import { ProgressBar } from "@/modules/content/components/progress-bar";
 import {
 	CourseFormatBadge,
 	CourseModalityBadge,
 	CourseStatusBadge,
 } from "@/modules/courses/components/course-badges";
-import { requiresSessions } from "@/modules/courses/domain/course.rules";
+import {
+	countsAttendance,
+	requiresContent,
+	requiresSessions,
+} from "@/modules/courses/domain/course.rules";
+import { COMPLETION_RULE_LABELS } from "@/modules/courses/utils/course-labels";
 import {
 	ENROLLMENT_RESULT_LABELS,
 	personNameOf,
@@ -37,6 +43,7 @@ import { ResultsPanel } from "../../../components/results-panel";
 import type { TeachingDetail } from "../../../domain/teaching.types";
 import {
 	INTENT_FIELD,
+	PAYLOAD_FIELD,
 	TEACHING_INTENTS,
 	type TeachingActionData,
 } from "../../../utils/parse-teaching-form-data";
@@ -105,18 +112,119 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 	);
 }
 
+/**
+ * El cierre del autogestivo: no se finaliza, deja de admitir gente. Quien ya
+ * está inscrito sigue avanzando y completa cuando termine (docs/adr/0014).
+ */
+function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
+	const fetcher = useFetcher<TeachingActionData>();
+	useFetcherToast(fetcher);
+	const [confirming, setConfirming] = useState(false);
+
+	const closedAt = detail.course.enrollmentClosedAt;
+	const open = closedAt === null;
+
+	const submit = (nextOpen: boolean) =>
+		fetcher.submit(
+			{
+				[INTENT_FIELD]: TEACHING_INTENTS.enrollmentWindow,
+				[PAYLOAD_FIELD]: JSON.stringify({ open: nextOpen }),
+			},
+			{ method: "post" },
+		);
+
+	return (
+		<Card>
+			<CardContent className="flex flex-wrap items-center justify-between gap-3">
+				<div className="min-w-0">
+					<h3 className="font-medium text-sm">
+						{open ? "Inscripciones abiertas" : "Inscripciones cerradas"}
+					</h3>
+					<p className="text-muted-foreground text-xs">
+						{open
+							? "Un curso autogestivo no se finaliza: cada participante lo completa al terminarlo y recibe su crédito en ese momento."
+							: `Cerradas el ${formatZonedDate(new Date(closedAt))}. Quien ya está inscrito puede seguir avanzando.`}
+					</p>
+				</div>
+				<Button
+					variant={open ? "outline" : "default"}
+					disabled={!detail.can.toggleEnrollment || fetcher.state !== "idle"}
+					onClick={() => (open ? setConfirming(true) : submit(true))}
+				>
+					{open ? <DoorClosed /> : <DoorOpen />}
+					{open ? "Cerrar inscripciones" : "Reabrir inscripciones"}
+				</Button>
+			</CardContent>
+
+			<ConfirmDialog
+				open={confirming}
+				onOpenChange={setConfirming}
+				title="¿Cerrar las inscripciones?"
+				description="El curso deja de aparecer en el catálogo y nadie nuevo puede inscribirse. Quien ya está inscrito sigue avanzando. Puedes reabrirlas cuando quieras."
+				confirmLabel="Cerrar inscripciones"
+				cancelLabel="Volver"
+				onConfirm={() => {
+					submit(false);
+					setConfirming(false);
+				}}
+			/>
+		</Card>
+	);
+}
+
+/** El avance por lección de cada participante, junto al pase de lista. */
+function ProgressList({ detail }: { detail: TeachingDetail }) {
+	return (
+		<Card>
+			<CardContent className="flex flex-col gap-3">
+				<h3 className="font-medium text-sm">Avance en el contenido</h3>
+				<ul className="flex flex-col divide-y divide-border">
+					{detail.participants.map((participant) => (
+						<li
+							key={participant.userDocumentId}
+							className="grid items-center gap-2 py-2 sm:grid-cols-[minmax(0,1fr)_12rem]"
+						>
+							<div className="min-w-0">
+								<p className="truncate text-sm">{personNameOf(participant)}</p>
+								<p className="truncate text-muted-foreground text-xs">
+									{participant.contentCompletedAt
+										? `Terminó el contenido el ${formatZonedDate(new Date(participant.contentCompletedAt))}`
+										: "Sin terminar"}
+								</p>
+							</div>
+							<div className="flex items-center gap-2">
+								<ProgressBar
+									value={participant.progressPercent}
+									label={`Avance de ${personNameOf(participant)}`}
+								/>
+								<span className="w-10 text-right text-muted-foreground text-xs tabular-nums">
+									{participant.progressPercent} %
+								</span>
+							</div>
+						</li>
+					))}
+				</ul>
+			</CardContent>
+		</Card>
+	);
+}
+
 function CompletionList({ detail }: { detail: TeachingDetail }) {
-	const finished = detail.course.status === "FINISHED";
+	// Un autogestivo completa en vivo: lo guardado ya es el hecho, no una
+	// previsión del cierre.
+	const live =
+		detail.course.status === "FINISHED" ||
+		!requiresSessions(detail.course.format);
 
 	return (
 		<Card>
 			<CardContent className="flex flex-col gap-3">
 				<h3 className="font-medium text-sm">
-					{finished ? "Quién completó" : "Avance hacia el cierre"}
+					{live ? "Quién completó" : "Avance hacia el cierre"}
 				</h3>
 				<ul className="flex flex-col divide-y divide-border">
 					{detail.participants.map((participant) => {
-						const completed = finished
+						const completed = live
 							? participant.completed
 							: participant.wouldComplete;
 
@@ -131,8 +239,10 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 									</p>
 									<p className="truncate text-muted-foreground text-xs">
 										{participant.dependencyName ?? "Sin dependencia"}
-										{detail.course.completionRule === "ATTENDANCE" &&
+										{countsAttendance(detail.course.completionRule) &&
 											` · asistencia ${participant.attendancePercent} %`}
+										{requiresContent(detail.course) &&
+											` · contenido ${participant.progressPercent} %`}
 										{detail.course.requiresEvaluation &&
 											` · ${ENROLLMENT_RESULT_LABELS[participant.result]}`}
 										{participant.grade !== null && ` (${participant.grade})`}
@@ -140,10 +250,12 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 								</div>
 								<Badge variant={completed ? "default" : "outline"}>
 									{completed
-										? finished
+										? live
 											? "Completó"
 											: "Completaría"
-										: "No completa"}
+										: live
+											? "Sin completar"
+											: "No completa"}
 								</Badge>
 							</li>
 						);
@@ -163,16 +275,13 @@ export default function ImparticionDetallePage({
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
 	const scheduled = requiresSessions(course.format);
+	const withContent = requiresContent(course);
 
 	return (
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
-				description={
-					course.completionRule === "ATTENDANCE"
-						? `Organiza ${course.dependencyName}. Asistencia mínima ${course.minAttendance} %${course.requiresEvaluation ? ", con evaluación" : ""}.`
-						: `Organiza ${course.dependencyName}. Se completa al aprobar la evaluación.`
-				}
+				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? ", con evaluación" : ""}.`}
 				goBack="/dashboard/imparticion"
 			/>
 
@@ -193,7 +302,12 @@ export default function ImparticionDetallePage({
 				</Alert>
 			)}
 
-			{!finished && <FinishCard detail={detail} />}
+			{!finished &&
+				(scheduled ? (
+					<FinishCard detail={detail} />
+				) : (
+					<EnrollmentWindowCard detail={detail} />
+				))}
 
 			<Tabs defaultValue={scheduled ? "attendance" : "completion"}>
 				<TabsList>
@@ -209,6 +323,7 @@ export default function ImparticionDetallePage({
 					{evaluations && (
 						<TabsTrigger value="evaluations">Evaluaciones</TabsTrigger>
 					)}
+					{withContent && <TabsTrigger value="progress">Avance</TabsTrigger>}
 					<TabsTrigger value="completion">Completado</TabsTrigger>
 					{scheduled && detail.qr && (
 						<TabsTrigger value="qr">Código QR</TabsTrigger>
@@ -233,6 +348,11 @@ export default function ImparticionDetallePage({
 							sessions={detail.sessions}
 							participants={detail.participants}
 						/>
+					</TabsContent>
+				)}
+				{withContent && (
+					<TabsContent value="progress">
+						<ProgressList detail={detail} />
 					</TabsContent>
 				)}
 				<TabsContent value="completion">

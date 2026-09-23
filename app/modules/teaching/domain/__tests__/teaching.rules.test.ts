@@ -16,6 +16,7 @@ import {
 	meetsAttendance,
 	resolveAttendanceMarks,
 	resolveResultEntries,
+	syncsOnWrite,
 } from "../teaching.rules";
 import {
 	ANA_DOC,
@@ -92,21 +93,45 @@ describe("isCompleted", () => {
 		expect(isCompleted(course, withAttendance([0, 1]))).toBe(false);
 	});
 
-	// docs/adr/0011: el autogestivo no tiene asistencia que medir.
-	test("por contenido completa quien aprueba, sin pisar un aula", () => {
+	// docs/adr/0014: el contenido se lee de `contentCompletedAt`, y la
+	// evaluación solo cuenta si el curso la exige.
+	const DONE = new Date("2026-09-02T15:00:00Z");
+
+	test("por contenido completa quien terminó las obligatorias, sin pisar un aula", () => {
 		const course = {
 			...base,
-			format: "SELF_PACED" as const,
+			completionRule: "CONTENT" as const,
+			requiresEvaluation: false,
+			sessionCount: 0,
+		};
+
+		expect(
+			isCompleted(course, participantOf({ contentCompletedAt: DONE })),
+		).toBe(true);
+		expect(isCompleted(course, participantOf())).toBe(false);
+	});
+
+	test("por contenido con evaluación exige además aprobar", () => {
+		const course = {
+			...base,
 			completionRule: "CONTENT" as const,
 			requiresEvaluation: true,
 			sessionCount: 0,
 		};
 
-		expect(isCompleted(course, participantOf({ result: "PASSED" }))).toBe(true);
-		expect(isCompleted(course, participantOf({ result: "PENDING" }))).toBe(
-			false,
-		);
-		expect(isCompleted(course, participantOf({ result: "FAILED" }))).toBe(
+		expect(
+			isCompleted(
+				course,
+				participantOf({ contentCompletedAt: DONE, result: "PASSED" }),
+			),
+		).toBe(true);
+		expect(
+			isCompleted(
+				course,
+				participantOf({ contentCompletedAt: DONE, result: "FAILED" }),
+			),
+		).toBe(false);
+		expect(isCompleted(course, participantOf({ result: "PASSED" }))).toBe(
 			false,
 		);
 	});
@@ -115,14 +140,43 @@ describe("isCompleted", () => {
 		const course = {
 			...base,
 			completionRule: "CONTENT" as const,
-			requiresEvaluation: true,
 			minAttendance: 100,
 			sessionCount: 3,
 		};
 
 		expect(
-			isCompleted(course, participantOf({ result: "PASSED", attendance: [] })),
+			isCompleted(
+				course,
+				participantOf({ contentCompletedAt: DONE, attendance: [] }),
+			),
 		).toBe(true);
+	});
+
+	const attending = (attended: number[], contentCompletedAt: Date | null) =>
+		participantOf({
+			attendance: attendanceOf(base, attended),
+			contentCompletedAt,
+		});
+
+	test("asistencia y contenido piden las dos cosas", () => {
+		const course = {
+			...base,
+			sessionCount: 3,
+			completionRule: "BOTH" as const,
+		};
+
+		expect(isCompleted(course, attending([0, 1, 2], DONE))).toBe(true);
+		expect(isCompleted(course, attending([0, 1, 2], null))).toBe(false);
+		expect(isCompleted(course, attending([0], DONE))).toBe(false);
+	});
+
+	// La rama de siempre no mira el contenido: un avance guardado no puede
+	// cambiar quién completa un curso por asistencia.
+	test("por asistencia el contenido no cuenta", () => {
+		const course = { ...base, sessionCount: 3 };
+
+		expect(isCompleted(course, attending([0, 1, 2], null))).toBe(true);
+		expect(isCompleted(course, attending([0], DONE))).toBe(false);
 	});
 });
 
@@ -218,33 +272,18 @@ describe("finishBlockerOf / assertFinishable", () => {
 		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
 	});
 
-	test("un autogestivo se finaliza sin esperar a ninguna sesión", () => {
+	// docs/adr/0014: cada participante lo completa; el curso no se cierra.
+	test("un autogestivo no se finaliza nunca", () => {
 		const course = courseOf({
 			format: "SELF_PACED",
 			completionRule: "CONTENT",
-			requiresEvaluation: true,
 			sessions: [],
-			participants: [participantOf({ result: "PASSED" })],
 		});
 
-		expect(finishBlockerOf(course, onLastDay)).toBeNull();
-		expect(() => assertFinishable(course, onLastDay)).not.toThrow();
-	});
-
-	test("un autogestivo con resultados sin capturar sigue bloqueado", () => {
-		expect(
-			codeOf(() =>
-				assertFinishable(
-					courseOf({
-						format: "SELF_PACED",
-						completionRule: "CONTENT",
-						requiresEvaluation: true,
-						sessions: [],
-					}),
-					onLastDay,
-				),
-			),
-		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
+		expect(finishBlockerOf(course, onLastDay)).toBe("SELF_PACED");
+		expect(codeOf(() => assertFinishable(course, onLastDay))).toBe(
+			TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE,
+		);
 	});
 
 	test("sin evaluación, un resultado pendiente no bloquea", () => {
@@ -349,5 +388,30 @@ describe("resolveResultEntries", () => {
 				]),
 			),
 		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
+	});
+});
+
+describe("syncsOnWrite", () => {
+	test.each([
+		[
+			"un calendarizado publicado espera a su cierre",
+			"SCHEDULED",
+			"PUBLISHED",
+			false,
+		],
+		[
+			"un calendarizado finalizado se corrige en el acto",
+			"SCHEDULED",
+			"FINISHED",
+			true,
+		],
+		[
+			"un autogestivo publicado completa en vivo",
+			"SELF_PACED",
+			"PUBLISHED",
+			true,
+		],
+	] as const)("%s", (_, format, status, expected) => {
+		expect(syncsOnWrite({ format, status })).toBe(expected);
 	});
 });

@@ -6,19 +6,15 @@
 uno con sus lecciones ordenadas. Es lo que un curso autogestivo da a recorrer
 cuando no se reúne con nadie.
 
+También es el **aula**: donde el participante recorre ese temario y su avance
+cuenta para completar el curso (§8).
+
 Las decisiones están en
 [ADR 0012](../adr/0012-estructura-de-contenido-y-modulo-propio.md) para la
-estructura y [ADR 0013](../adr/0013-material-de-la-leccion.md) para el material.
-El formato de curso que lo hace necesario, en
+estructura, [ADR 0013](../adr/0013-material-de-la-leccion.md) para el material y
+[ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md) para
+el avance. El formato de curso que lo hace necesario, en
 [ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md).
-
-Lo que **no** es todavía:
-
-- No registra avance. Nadie marca una lección como vista, y el completado del
-  curso sigue saliendo del resultado capturado a mano. El reproductor de video ya
-  emite `ended`, pero de momento no lo escucha nadie.
-- No lo ve el participante. Por ahora solo lo edita quien administra el curso; el
-  renderizador y el reproductor están listos para el aula.
 
 ## 2. El modelo
 
@@ -27,6 +23,7 @@ Lo que **no** es todavía:
 | `org.course_modules` | Una fila por módulo: `course_id`, `title`, `description?`, `order`, `archived_at` |
 | `org.lessons` | Una fila por lección: `module_id`, `title`, `type`, `order`, `is_required`, `estimated_minutes?`, `archived_at` |
 | `org.lesson_contents` | El material, uno por lección: `body?`, `file_url?`, `file_name?`, `file_size?`, `mime_type?`, `external_url?` |
+| `org.lesson_progress` | El avance: PK `(lesson_id, user_id)`, `status` (`IN_PROGRESS \| COMPLETED`), `started_at`, `completed_at?`. Sin fila = sin empezar |
 
 `LessonType` es `TEXT | FILE | VIDEO | LINK`. Se elige al crear la lección porque
 decide qué editor se abre, no solo cómo se pinta. `VIDEO` está aparte de `FILE`
@@ -39,7 +36,7 @@ falta un PDF junto a un video, son dos lecciones.
 Tres convenciones que hay que tener presentes:
 
 - **Borrar no existe.** Se archiva (`archived_at`), porque el avance por lección
-  colgará de estas filas.
+  cuelga de estas filas.
 - **Un módulo con lecciones activas no se archiva.** Se vacían primero, a mano.
   Archivar en cascada escondería lecciones que nadie pidió esconder.
 - **`order` es contiguo desde 1 entre los activos**, y no tiene `@@unique`.
@@ -54,10 +51,11 @@ Tres convenciones que hay que tener presentes:
 | Editar el de un curso publicado | `/dashboard/cursos/:documentId/contenido` |
 | Escribir el temario | `POST /dashboard/cursos/:documentId/contenido` |
 | Leer y escribir el material de una lección | `/dashboard/cursos/:documentId/contenido/:lessonDocumentId` |
+| Recorrer el temario (participante) | `/dashboard/mis-cursos/:documentId/aula` y `…/aula/:lessonDocumentId` |
 
-Las dos pantallas montan el **mismo panel** y escriben contra la misma ruta. El
-paso del alta solo existe cuando el formato es `SELF_PACED`; un curso con
-sesiones salta del paso 4 al 6.
+Las dos pantallas de edición montan el **mismo panel** y escriben contra la misma
+ruta. El paso del alta existe cuando el curso pide temario (`requiresContent`: un
+`SELF_PACED` o un curso con regla `BOTH`); el resto salta del paso 4 al 6.
 
 No hay rol de capacitador: quién puede tocar el temario sale de
 `requireCourseScope` sobre el curso concreto, igual que editar su ficha. El
@@ -89,14 +87,14 @@ operación.
 
 ## 5. Lo que aporta a la publicación
 
-Un curso `SELF_PACED` no se publica sin al menos una lección activa
-(`COURSE_WITHOUT_LESSONS`), y el pendiente aparece en el checklist como `content`.
-En un curso `SCHEDULED` ese pendiente **no se enseña**: se omite, igual que
-`sessions` y `places` cuando el formato no los pide.
+Un curso que pide temario (`SELF_PACED`, o `SCHEDULED` con regla `BOTH`) no se
+publica sin al menos una lección activa (`COURSE_WITHOUT_LESSONS`), y el
+pendiente aparece en el checklist como `content`. En el resto ese pendiente **no
+se enseña**: se omite, igual que `sessions` y `places` cuando el formato no los
+pide.
 
 El conteo llega a `courses` por inyección del puerto `contentRepository`, y solo
-se consulta cuando el formato lo exige: un curso con sesiones nunca mira sus
-lecciones.
+se consulta cuando el curso lo exige.
 
 ## 6. Límites
 
@@ -193,3 +191,63 @@ Lo que sube el capacitador es lo que reproduce el navegador. Eso significa:
 
 La profundidad se comprueba **antes** del parseo estructural y sin recursión, para
 que un documento absurdamente anidado se rechace en vez de agotar la pila.
+
+## 8. El aula y el avance
+
+El participante recorre el temario en `/dashboard/mis-cursos/:documentId/aula`: un
+índice lateral con el estado de cada lección y la lección abierta con su
+material, anterior y siguiente. Entrar sin lección lleva a «Continuar»: la primera
+obligatoria sin completar; si no queda ninguna, la primera sin completar; con
+todo hecho, la primera del temario.
+
+### 8.1 Quién entra
+
+| Situación | Resultado |
+| --- | --- |
+| Inscripción activa, curso publicado | Lee y registra avance |
+| Inscripción activa, curso finalizado | Lee; registrar avance responde `CONTENT_CLASSROOM_READ_ONLY` |
+| Sin inscripción activa | `CONTENT_NOT_ENROLLED`, también en un POST directo |
+| Borrador o cancelado | `CONTENT_COURSE_NOT_FOUND` |
+
+El guard de ruta es `requireParticipant`; la inscripción la exige el servicio. El
+aula existe siempre que el curso tenga lecciones activas: en un curso por
+asistencia es **material de apoyo** y la pantalla dice que no cuenta.
+
+### 8.2 Marcar una lección
+
+| Clase | Cómo se completa |
+| --- | --- |
+| `VIDEO` | Al dispararse `ended` en el reproductor |
+| `TEXT`, `FILE`, `LINK` | Botón «Marcar como completada» |
+| `VIDEO` sin archivo | Botón, o no terminaría nunca |
+
+Abrir una lección la deja `IN_PROGRESS` con un POST al montarla: el loader no
+escribe, porque precargar un enlace no es haberlo abierto. No se desmarca:
+`nextProgressStatus` nunca baja de `COMPLETED`.
+
+### 8.3 El porcentaje
+
+- Mide las lecciones **obligatorias**; sin ninguna, el temario entero. Temario
+  vacío: 0, y nunca completa.
+- Entero y hacia abajo (`progressPercentOf`): solo vale 100 cuando no falta nada.
+- `enrollments.progress_percent` es **caché**. Solo lo escribe
+  `progressSync.recalculate` (`application/progress-sync.server.ts`), dentro de la
+  transacción de quien escribe y con la fila del curso bloqueada. El aula
+  recalcula en vivo; el caché es para los listados.
+- La primera vez que llega a 100 fija `enrollments.content_completed_at`, que
+  **no se borra**: una lección obligatoria añadida después baja el porcentaje pero
+  no quita el completado a quien ya terminó.
+
+### 8.4 Qué lo mueve
+
+| Escritura | Recalcula |
+| --- | --- |
+| Completar una lección en el aula | A esa persona |
+| Crear una lección, archivarla o cambiar su `isRequired` (curso publicado) | A todo inscrito |
+| Reordenar, cambiar título o material | Nada: no cambia qué cuenta |
+
+Si alguien termina el contenido y el curso completa en vivo —un autogestivo
+publicado—, el recálculo llama a `completionSync` y la persona recibe su crédito
+en ese mismo momento (docs/teaching/00-imparticion-creditos-y-valoracion.md §4.2).
+En un curso con sesiones y regla `BOTH`, el contenido queda guardado y cuenta en
+el cierre.

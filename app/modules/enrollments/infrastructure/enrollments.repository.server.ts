@@ -38,10 +38,12 @@ const COURSE_SELECT = {
 	coverImageUrl: true,
 	modality: true,
 	format: true,
+	completionRule: true,
 	access: true,
 	status: true,
 	capacity: true,
 	enrollmentDeadline: true,
+	enrollmentClosedAt: true,
 	finishedAt: true,
 	dependency: { select: { name: true } },
 	_count: {
@@ -92,10 +94,19 @@ const availableWhere = (
 	filters: ListAvailableCoursesDto,
 	filter: CourseFilter,
 	now: Date,
+	userId: number,
 ): Prisma.CourseWhereInput => ({
 	AND: [
 		asWhere(filter),
 		{ status: "PUBLISHED" },
+		// La visibilidad incluye lo que se administra o se imparte; el catálogo
+		// no. Uno por invitación solo lo ofrece a quien tiene una pendiente.
+		{
+			OR: [
+				{ access: { not: "INVITATION" as const } },
+				{ enrollments: { some: { userId, status: "INVITED" as const } } },
+			],
+		},
 		// Un calendarizado entra al catálogo mientras tenga sesiones y ninguna haya
 		// empezado; un autogestivo no tiene ninguna que mirar (docs/adr/0011).
 		{
@@ -105,6 +116,7 @@ const availableWhere = (
 			],
 		},
 		{ OR: [{ enrollmentDeadline: null }, { enrollmentDeadline: { gt: now } }] },
+		{ enrollmentClosedAt: null },
 		...(filters.dependency
 			? [{ dependency: { documentId: filters.dependency } }]
 			: []),
@@ -173,7 +185,7 @@ export const createEnrollmentRepository = ({
 			const pageSize = filters.pageSize ?? AVAILABLE_LIST_DEFAULTS.pageSize;
 
 			const courses = await prisma.course.findMany({
-				where: availableWhere(filters, filter, now),
+				where: availableWhere(filters, filter, now, userId),
 				orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
 				skip: (page - 1) * pageSize,
 				take: pageSize,
@@ -189,9 +201,9 @@ export const createEnrollmentRepository = ({
 			}));
 		},
 
-		async countAvailable({ filters, filter, now }) {
+		async countAvailable({ filters, filter, now, userId }) {
 			return prisma.course.count({
-				where: availableWhere(filters, filter, now),
+				where: availableWhere(filters, filter, now, userId),
 			});
 		},
 
@@ -204,6 +216,7 @@ export const createEnrollmentRepository = ({
 					origin: true,
 					status: true,
 					result: true,
+					completed: true,
 				},
 			});
 
@@ -285,6 +298,37 @@ export const createEnrollmentRepository = ({
 			}
 		},
 
+		async findProgressStates(courseId) {
+			return prisma.enrollment.findMany({
+				where: { courseId, status: "ENROLLED" },
+				select: {
+					userId: true,
+					progressPercent: true,
+					contentCompletedAt: true,
+				},
+			});
+		},
+
+		async saveProgress(courseId, writes) {
+			for (const write of writes) {
+				await prisma.enrollment.updateMany({
+					where: { courseId, userId: write.userId, status: "ENROLLED" },
+					data: { progressPercent: write.percent },
+				});
+				if (write.completedAt) {
+					await prisma.enrollment.updateMany({
+						where: {
+							courseId,
+							userId: write.userId,
+							status: "ENROLLED",
+							contentCompletedAt: null,
+						},
+						data: { contentCompletedAt: write.completedAt },
+					});
+				}
+			}
+		},
+
 		async setCompletion(courseId, completedUserIds) {
 			const ids = [...completedUserIds];
 
@@ -324,6 +368,8 @@ export const createEnrollmentRepository = ({
 					result: true,
 					grade: true,
 					completed: true,
+					progressPercent: true,
+					contentCompletedAt: true,
 					course: {
 						select: {
 							...COURSE_SELECT,
@@ -354,6 +400,8 @@ export const createEnrollmentRepository = ({
 					course: { ratings, ...course },
 					grade,
 					completed,
+					progressPercent,
+					contentCompletedAt,
 					...enrollment
 				}) => ({
 					enrollment: toOwnEnrollment(enrollment),
@@ -361,6 +409,8 @@ export const createEnrollmentRepository = ({
 					outcome: {
 						grade,
 						completed,
+						progressPercent,
+						contentCompletedAt,
 						attendedSessions: attendedByCourse.get(course.id) ?? 0,
 						myRating: ratings.at(0)?.score ?? null,
 					},
@@ -485,7 +535,7 @@ export const createEnrollmentRepository = ({
 			);
 		},
 
-		async findAvailableOrganizers({ filters, filter, now }) {
+		async findAvailableOrganizers({ filters, filter, now, userId }) {
 			// El filtro de dependencia se deja FUERA a propósito: si entrara, elegir
 			// una dependencia dejaría el selector con esa sola opción y no habría
 			// forma de volver. `distinct` sobre el resto da justo las que ofrecer.
@@ -494,6 +544,7 @@ export const createEnrollmentRepository = ({
 					{ ...filters, dependency: undefined },
 					filter,
 					now,
+					userId,
 				),
 				distinct: ["dependencyId"],
 				select: { dependency: { select: { documentId: true, name: true } } },

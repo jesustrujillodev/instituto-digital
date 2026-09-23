@@ -1,6 +1,7 @@
 # ADR 0011 · Formato de curso y regla de completado
 
-**Estado:** aceptado · 2026-09-21
+**Estado:** aceptado · 2026-09-21 · §2.3 (`BOTH`), §2.4 y §2.8 sustituidos por
+[ADR-0014](./0014-avance-por-leccion-y-completado-por-participante.md)
 **Contexto del cambio:** MVP-02 · F-01, el cimiento del curso autogestivo
 
 ## 1. Contexto

@@ -6,6 +6,7 @@ import {
 	validateFindTeachingCourse,
 	validateSaveAttendance,
 	validateSaveResults,
+	validateSetEnrollmentOpen,
 } from "../../../domain/teaching.validators";
 import {
 	parseTeachingFormData,
@@ -22,7 +23,10 @@ const savedMessage = (affected: number, what: string) =>
 		? "No había cambios que guardar."
 		: `${what}: ${plural(affected, "cambio", "cambios")}.`;
 
-/** POST /dashboard/imparticion/:documentId — lista, resultados o cierre. */
+/**
+ * POST /dashboard/imparticion/:documentId — lista, resultados, cierre o, en un
+ * autogestivo, abrir y cerrar sus inscripciones.
+ */
 export const action = async ({
 	request,
 	context,
@@ -81,6 +85,27 @@ export const action = async ({
 
 			return ok(null, {
 				message: `Curso finalizado: ${plural(result.data.completed, "persona completó", "personas completaron")} y se ${result.data.credits === 1 ? "otorgó 1 crédito" : `otorgaron ${result.data.credits} créditos`}.`,
+			});
+		}
+		case TEACHING_INTENTS.enrollmentWindow: {
+			const input = parseInput(() => ({
+				documentId: documentId(),
+				dto: validateSetEnrollmentOpen(form.payload),
+			}));
+			if (!input.success) return localizeError(input, TEACHING_ERROR_MESSAGES);
+
+			const result = await context.teachingService.setEnrollmentOpen(
+				input.data.documentId,
+				input.data.dto,
+				auth,
+			);
+			if (!result.success)
+				return localizeError(result, TEACHING_ERROR_MESSAGES);
+
+			return ok(null, {
+				message: input.data.dto.open
+					? "Inscripciones abiertas."
+					: "Inscripciones cerradas: quien ya está inscrito puede seguir avanzando.",
 			});
 		}
 		case TEACHING_INTENTS.rotateQr: {

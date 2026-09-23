@@ -13,6 +13,8 @@ export const TEACHING_ERROR_CODES = {
 	FINISH_TOO_EARLY: "TEACHING_FINISH_TOO_EARLY",
 	PENDING_RESULTS: "TEACHING_PENDING_RESULTS",
 	STATE_CHANGED: "TEACHING_STATE_CHANGED",
+	SELF_PACED_NOT_FINISHABLE: "TEACHING_SELF_PACED_NOT_FINISHABLE",
+	NOT_SELF_PACED: "TEACHING_NOT_SELF_PACED",
 } as const;
 
 export abstract class TeachingError extends DomainError {}
@@ -101,6 +103,22 @@ export class TeachingPendingResultsError extends TeachingError {
 	constructor(pending: number) {
 		super("Some participants still have a pending result");
 		this.details = { pending };
+	}
+}
+
+/** Un autogestivo no se cierra: cada quien lo completa (docs/adr/0014). */
+export class TeachingSelfPacedNotFinishableError extends TeachingError {
+	readonly code = TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE;
+	constructor() {
+		super("A self-paced course is never finished");
+	}
+}
+
+/** Abrir y cerrar inscripciones a mano es el cierre del autogestivo, no de otro. */
+export class TeachingNotSelfPacedError extends TeachingError {
+	readonly code = TEACHING_ERROR_CODES.NOT_SELF_PACED;
+	constructor() {
+		super("Only a self-paced course opens and closes its enrollment by hand");
 	}
 }
 

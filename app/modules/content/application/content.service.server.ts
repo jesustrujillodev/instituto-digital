@@ -14,7 +14,6 @@ import { bucketForKey } from "@/shared/storage/storage.policy";
 import { getKeyFromUrl } from "@/shared/storage/storage.utils";
 import {
 	LESSON_MATERIAL_PREFIX,
-	LESSON_PLAYBACK_TTL_S,
 	LESSON_UPLOAD_TTL_S,
 } from "../domain/content.config";
 import {
@@ -61,6 +60,8 @@ type Dependencies = {
 	storageProvider: ICradle["storageProvider"];
 	storageBucket: ICradle["storageBucket"];
 	storagePublicBucket: ICradle["storagePublicBucket"];
+	lessonMaterialReader: ICradle["lessonMaterialReader"];
+	progressSync: ICradle["progressSync"];
 };
 
 export const createContentService = ({
@@ -71,6 +72,8 @@ export const createContentService = ({
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
+	lessonMaterialReader,
+	progressSync,
 }: Dependencies): IContentService => {
 	const log = logger.child({ module: "content" });
 	const run = createOperationRunner(log);
@@ -150,6 +153,20 @@ export const createContentService = ({
 		);
 		if (!lesson) throw new ContentLessonNotFoundError();
 		return lesson;
+	};
+
+	/**
+	 * Un cambio en qué lecciones cuentan mueve el porcentaje de todo inscrito:
+	 * se recalcula en la misma transacción, o el caché mentiría. Solo en un
+	 * curso publicado, que es el único que tiene avance en curso.
+	 */
+	const recalculateProgress = async (
+		course: ContentCourseRef,
+		actor: AuthContext,
+		at: Date,
+	) => {
+		if (course.status !== "PUBLISHED") return;
+		await progressSync.recalculate(course, actor.userId, at);
 	};
 
 	const readTree = async (courseId: number) =>
@@ -279,12 +296,15 @@ export const createContentService = ({
 				const siblings = await contentRepository.findLessonSiblings(module.id);
 				assertLessonLimit(siblings.length);
 
-				await contentRepository.createLesson(module.id, {
-					title: dto.title,
-					type: dto.type,
-					isRequired: dto.isRequired,
-					estimatedMinutes: dto.estimatedMinutes,
-					order: nextOrderOf(siblings),
+				await runInTransaction(async () => {
+					await contentRepository.createLesson(module.id, {
+						title: dto.title,
+						type: dto.type,
+						isRequired: dto.isRequired,
+						estimatedMinutes: dto.estimatedMinutes,
+						order: nextOrderOf(siblings),
+					});
+					await recalculateProgress(course, actor, clock.now());
 				});
 
 				return ok(null);
@@ -299,11 +319,16 @@ export const createContentService = ({
 				const course = await requireEditableCourse(courseDocumentId, actor);
 				const lesson = await requireLesson(course.id, dto.lessonDocumentId);
 
-				await contentRepository.updateLesson(lesson.id, {
-					title: dto.title,
-					type: dto.type,
-					isRequired: dto.isRequired,
-					estimatedMinutes: dto.estimatedMinutes,
+				await runInTransaction(async () => {
+					await contentRepository.updateLesson(lesson.id, {
+						title: dto.title,
+						type: dto.type,
+						isRequired: dto.isRequired,
+						estimatedMinutes: dto.estimatedMinutes,
+					});
+					if (lesson.isRequired !== dto.isRequired) {
+						await recalculateProgress(course, actor, clock.now());
+					}
 				});
 
 				return ok(null);
@@ -322,13 +347,16 @@ export const createContentService = ({
 				);
 				const material = await contentRepository.findMaterialFileUrl(lesson.id);
 
-				await runInTransaction(() =>
-					contentRepository.archiveLesson(
+				const now = clock.now();
+
+				await runInTransaction(async () => {
+					await contentRepository.archiveLesson(
 						lesson.id,
-						clock.now(),
+						now,
 						resolveArchiveOrder(lessonDocumentId, siblings),
-					),
-				);
+					);
+					await recalculateProgress(course, actor, now);
+				});
 
 				discardObject(material);
 
@@ -362,22 +390,7 @@ export const createContentService = ({
 				);
 				if (!raw) throw new ContentLessonNotFoundError();
 
-				const material = toLessonMaterial(raw);
-				const key = material.fileUrl ? getKeyFromUrl(material.fileUrl) : null;
-				if (!key) return ok(material);
-
-				// Se firma aquí y en cada carga: la key cruda no viaja al cliente, y
-				// el reproductor recibe una URL que aguanta el video entero sin
-				// volver a pasar por el servidor en cada salto.
-				const bucket = requireBucketOf(key);
-				const [fileUrl, downloadUrl] = await Promise.all([
-					storageProvider.getPresignedUrl(bucket, key, LESSON_PLAYBACK_TTL_S),
-					storageProvider.getPresignedUrl(bucket, key, LESSON_PLAYBACK_TTL_S, {
-						disposition: "attachment",
-					}),
-				]);
-
-				return ok({ ...material, fileUrl, downloadUrl });
+				return ok(await lessonMaterialReader.sign(toLessonMaterial(raw)));
 			});
 		},
 		async createUploadUrl(

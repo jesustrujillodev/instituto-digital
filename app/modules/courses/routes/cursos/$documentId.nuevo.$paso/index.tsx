@@ -7,7 +7,7 @@ import { useCourseFormIds } from "../../../hooks/use-course-form-ids";
 import {
 	stepOfNumber,
 	stepPosition,
-	stepsForFormat,
+	stepsFor,
 } from "../../../utils/course-wizard-steps";
 import type { Route } from "./+types/index";
 
@@ -32,7 +32,7 @@ export function meta({ data }: Route.MetaArgs) {
 
 	if (!course || !step) return [{ title: "Alta de curso" }];
 
-	const { position, total } = stepPosition(stepsForFormat(course.format), step);
+	const { position, total } = stepPosition(stepsFor(course), step);
 
 	return [{ title: `Paso ${position} de ${total} · ${course.title}` }];
 }

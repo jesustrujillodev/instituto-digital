@@ -17,6 +17,12 @@ import type { ICalendarRepository } from "@/modules/calendar/domain/calendar.rep
 import type { ICalendarService } from "@/modules/calendar/domain/calendar.service";
 import type { ICheckInService } from "@/modules/check-in/domain/check-in.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
+import type { IClassroomRepository } from "@/modules/content/domain/classroom.repository";
+import type {
+	IClassroomService,
+	ILessonMaterialReader,
+	IProgressSync,
+} from "@/modules/content/domain/classroom.service";
 import type { IContentRepository } from "@/modules/content/domain/content.repository";
 import type { IContentService } from "@/modules/content/domain/content.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
@@ -36,7 +42,10 @@ import type { INotificationService } from "@/modules/notifications/domain/notifi
 import type { IRatingRepository } from "@/modules/ratings/domain/rating.repository";
 import type { IRatingService } from "@/modules/ratings/domain/rating.service";
 import type { ITeachingRepository } from "@/modules/teaching/domain/teaching.repository";
-import type { ITeachingService } from "@/modules/teaching/domain/teaching.service";
+import type {
+	ICompletionSync,
+	ITeachingService,
+} from "@/modules/teaching/domain/teaching.service";
 import type { IThemeRepository } from "@/modules/theme/domain/theme.repository";
 import type { IThemeService } from "@/modules/theme/domain/theme.service";
 import type { ITrainerRepository } from "@/modules/trainers/domain/trainer.repository";
@@ -104,12 +113,21 @@ export interface ICradle {
 	courseService: ICourseService;
 	contentRepository: IContentRepository;
 	contentService: IContentService;
+	// El aula del participante (docs/adr/0014). `progressSync` es la única vía
+	// que escribe el caché del avance; la usan el aula y los cambios del temario.
+	lessonMaterialReader: ILessonMaterialReader;
+	progressSync: IProgressSync;
+	classroomRepository: IClassroomRepository;
+	classroomService: IClassroomService;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
 	calendarRepository: ICalendarRepository;
 	calendarService: ICalendarService;
 	teachingRepository: ITeachingRepository;
 	teachingService: ITeachingService;
+	// Recalcula completado y créditos de un curso. Lo comparten la impartición y
+	// el avance por lección, que es quien completa un autogestivo (docs/adr/0014).
+	completionSync: ICompletionSync;
 	checkInService: ICheckInService;
 	creditRepository: ICreditRepository;
 	creditService: ICreditService;

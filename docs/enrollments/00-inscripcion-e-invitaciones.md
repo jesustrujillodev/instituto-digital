@@ -22,6 +22,7 @@ Lo que ya añadieron los PRD siguientes:
 | `result`, `grade`, `completed` y quién capturó el resultado | PRD-06: los escribe `teaching` por `saveResults` y `setCompletion` |
 | "Mis cursos" enseña asistencia, nota, si completó y el diálogo para valorar | PRD-06 (`MyCourseEntry.outcome` y `canRate`) |
 | Correos de invitación, inscripción y asignación | PRD-08 (`docs/notifications/00-notificaciones.md`) |
+| Avance por lección en caché, entrada al aula y cierre a mano del autogestivo | MVP-02 · F-05 ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)) |
 
 ## 2. El modelo
 
@@ -33,6 +34,8 @@ Lo que ya añadieron los PRD siguientes:
 | `origin` | `SELF`, `ASSIGNED` o `INVITATION` |
 | `status` | `INVITED`, `ENROLLED`, `DECLINED` o `WITHDRAWN` |
 | `result`, `grade`, `completed` | Resultado, nota y si completó. Los escribe la impartición (PRD-06) |
+| `progress_percent` | Caché del avance por lección. Solo lo escribe `content` por `saveProgress`, dentro de su transacción |
+| `content_completed_at` | Cuándo terminó el contenido. Se fija una vez y no se borra |
 | `acted_by_id` | Quién hizo el último cambio: la persona, quien asignó o quien invitó |
 | `invited_at`, `enrolled_at`, `responded_at`, `withdrawn_at` | Marca del último evento de cada tipo |
 
@@ -55,9 +58,11 @@ del servicio pasa por ella antes de llegar al repositorio.
 | --- | --- |
 | La inscripción cierra en la fecha límite o, sin ella, al empezar la primera sesión | `enrollmentClosesAt`, `isEnrollmentOpen` |
 | Un curso autogestivo sin fecha límite **no cierra**: no hay primera sesión que lo alcance | `enrollmentClosesAt` ramifica por `requiresSessions` ([ADR 0011](../adr/0011-formato-de-curso-y-regla-de-completado.md)) |
+| Un autogestivo con `courses.enrollment_closed_at` no admite a nadie nuevo, y sale del catálogo. Quien imparte lo cierra y lo reabre | `isEnrollmentOpen`, `availableWhere` ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)) |
 | Solo cursos `PUBLISHED` admiten inscribirse, aceptar, asignar o invitar | `isEnrollmentOpen` |
-| La baja se permite hasta que empiece la primera sesión; en un autogestivo, siempre | `canWithdraw` |
-| Un autogestivo cae en **En curso**, no en Próximos: se recorre desde el día uno | `classifyMyCourse` |
+| La baja se permite hasta que empiece la primera sesión; en un autogestivo, mientras no lo haya completado | `canWithdraw` |
+| Un autogestivo cae en **En curso**, no en Próximos: se recorre desde el día uno. Al completarlo pasa a **Finalizados**, porque no se cierra nunca | `classifyMyCourse` |
+| En un curso por invitación solo se inscribe quien tiene una pendiente. Quien lo administra o lo imparte lo **ve**, pero ni el catálogo se lo ofrece ni `enroll` lo acepta (`ENROLLMENT_INVITATION_REQUIRED`); a su personal se le asigna | `canSelfEnroll`, `availableWhere` |
 | Inscribirse, aceptar y asignar ocupan lugar; invitar no | `assertSeatsFor` en `enroll`, `accept` y `assign` |
 | Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos y `SUPERADMIN` quedan fuera) |
 | Asignar es todo o nada: si no hay cupo para el lote, nadie entra | `assign` |
@@ -91,7 +96,7 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 | --- | --- | --- |
 | `/dashboard/cursos-disponibles` | `requireParticipant` | Cuadrícula de tarjetas con portada. Publicados, visibles y con la inscripción abierta |
 | `/dashboard/cursos-disponibles/:documentId` | `requireParticipant` | Detalle con sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`. Si la dependencia puede asignar, enlaza a Inscripciones con "Inscribir a mi personal" |
-| `/dashboard/mis-cursos` | `requireParticipant` | Invitaciones pendientes, más próximos, en curso y finalizados. Intents `accept`, `decline` |
+| `/dashboard/mis-cursos` | `requireParticipant` | Invitaciones pendientes, más próximos, en curso y finalizados. Intents `accept`, `decline`. Con aula, cada tarjeta enseña «Entrar al aula», «Continuar» o «Repasar», y la barra de avance cuando el contenido cuenta |
 | `/dashboard/mis-cursos/finalizados.xlsx` | `requireParticipant` | Ruta de recurso: descarga los finalizados en Excel, con una hoja "Cursos" y otra "Sesiones". El libro lo arma `spreadsheetWriter` (exceljs), y las fechas salen en la hora del instituto |
 | `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign` e `invite`. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
 

@@ -1,6 +1,10 @@
 import * as v from "valibot";
 import { startOfZonedDay, zonedYearOf } from "@/lib/date-utils";
-import { requiresSessions } from "@/modules/courses/domain/course.rules";
+import {
+	countsAttendance,
+	countsContent,
+	requiresSessions,
+} from "@/modules/courses/domain/course.rules";
 import type { CreditCandidate } from "@/modules/credits/domain/credit.types";
 import { ENROLLMENT_RESULTS } from "@/modules/enrollments/domain/enrollment.config";
 import type { ResultWrite } from "@/modules/enrollments/domain/enrollment.types";
@@ -18,7 +22,9 @@ import {
 	TeachingEvaluationNotRequiredError,
 	TeachingFinishTooEarlyError,
 	TeachingNotPublishedError,
+	TeachingNotSelfPacedError,
 	TeachingPendingResultsError,
+	TeachingSelfPacedNotFinishableError,
 	TeachingUnknownParticipantError,
 	TeachingWithoutSessionsError,
 } from "./teaching.errors";
@@ -108,11 +114,16 @@ export const saveResultsRule = v.object({
 	),
 });
 
+export const setEnrollmentOpenRule = v.object({
+	open: v.boolean("Indica si la inscripción queda abierta o cerrada."),
+});
+
 export const teachingRules = {
 	find: findTeachingCourseRule,
 	list: listTeachingCoursesRule,
 	attendance: saveAttendanceRule,
 	results: saveResultsRule,
+	enrollmentWindow: setEnrollmentOpenRule,
 } as const;
 
 // ── Asistencia y completado (§6.8) ────────────────────────────────────────────
@@ -135,13 +146,13 @@ export const meetsAttendance = (
 ): boolean => total > 0 && attended * 100 >= minAttendance * total;
 
 /**
- * Qué cuenta como completado, según la regla del curso (docs/adr/0011).
+ * Qué cuenta como completado, según la regla del curso (docs/adr/0011, 0014).
  *
- * `ATTENDANCE` es la de siempre: `% asistencia ≥ mínimo Y (aprobado O sin
- * evaluación)`, y con una sola sesión el mínimo es de hecho 100 %, sin caso
- * especial. `CONTENT` es la de un autogestivo, que no tiene asistencia que
- * medir y se apoya en el resultado capturado; `assertCompletionRuleCoherent`
- * garantiza que ese curso exige evaluación.
+ * Cada regla es una conjunción de términos: asistencia si la cuenta, contenido
+ * si lo cuenta, y aprobado si el curso exige evaluación. `ATTENDANCE` queda
+ * así idéntica a la de siempre —`% asistencia ≥ mínimo Y (aprobado O sin
+ * evaluación)`—, y con una sola sesión el mínimo es de hecho 100 %, sin caso
+ * especial. El contenido se lee de `contentCompletedAt`, que no se borra.
  */
 export const isCompleted = (
 	course: Pick<
@@ -152,19 +163,20 @@ export const isCompleted = (
 	},
 	participant: TeachingParticipant,
 ): boolean => {
-	switch (course.completionRule) {
-		case "ATTENDANCE":
-			return (
-				meetsAttendance(
-					attendedSessionsOf(participant),
-					course.sessionCount,
-					course.minAttendance,
-				) &&
-				(!course.requiresEvaluation || participant.result === "PASSED")
-			);
-		case "CONTENT":
-			return participant.result === "PASSED";
-	}
+	const attendanceOk =
+		!countsAttendance(course.completionRule) ||
+		meetsAttendance(
+			attendedSessionsOf(participant),
+			course.sessionCount,
+			course.minAttendance,
+		);
+	const contentOk =
+		!countsContent(course.completionRule) ||
+		participant.contentCompletedAt !== null;
+	const evaluationOk =
+		!course.requiresEvaluation || participant.result === "PASSED";
+
+	return attendanceOk && contentOk && evaluationOk;
 };
 
 export const completedParticipantsOf = (
@@ -217,7 +229,11 @@ export const finishOpensAt = (
 	return last ? startOfZonedDay(last.startsAt) : null;
 };
 
-/** El ejercicio del crédito: año de la última sesión (§6.9). */
+/**
+ * El ejercicio del crédito: año de la última sesión (§6.9). Un autogestivo no
+ * tiene sesiones y cae en `fallback`, que es el momento en que la persona
+ * completó (docs/adr/0014).
+ */
 export const fiscalYearOf = (
 	course: Pick<TeachingCourse, "sessions">,
 	fallback: Date,
@@ -235,18 +251,40 @@ export const finishBlockerOf = (
 	now: Date,
 ): FinishBlocker | null => {
 	if (course.status !== "PUBLISHED") return "NOT_PUBLISHED";
+	if (!requiresSessions(course.format)) return "SELF_PACED";
 
-	// Un autogestivo no espera a ninguna fecha: no hay última sesión que aguardar
-	// y su ejercicio sale de la propia fecha de cierre (`fiscalYearOf`).
-	if (requiresSessions(course.format)) {
-		const opensAt = finishOpensAt(course);
-		if (!opensAt) return "WITHOUT_SESSIONS";
-		if (now < opensAt) return "TOO_EARLY";
-	}
+	const opensAt = finishOpensAt(course);
+	if (!opensAt) return "WITHOUT_SESSIONS";
+	if (now < opensAt) return "TOO_EARLY";
 
 	if (pendingResultsOf(course) > 0) return "PENDING_RESULTS";
 
 	return null;
+};
+
+/**
+ * Si una escritura recalcula el completado en el acto.
+ *
+ * Un finalizado, porque escribir en él es corregirlo. Un autogestivo publicado,
+ * porque no tiene cierre: cada quien completa cuando cumple, y el último dato
+ * que falte —el resultado o el contenido— es el que otorga el crédito.
+ */
+export const syncsOnWrite = (
+	course: Pick<TeachingCourse, "status" | "format">,
+): boolean =>
+	course.status === "FINISHED" ||
+	(course.status === "PUBLISHED" && !requiresSessions(course.format));
+
+export const canToggleEnrollment = (
+	course: Pick<TeachingCourse, "status" | "format">,
+): boolean => course.status === "PUBLISHED" && !requiresSessions(course.format);
+
+/** Abrir y cerrar a mano es la forma en que un autogestivo deja de recibir gente. */
+export const assertEnrollmentTogglable = (
+	course: Pick<TeachingCourse, "status" | "format">,
+): void => {
+	if (requiresSessions(course.format)) throw new TeachingNotSelfPacedError();
+	if (course.status !== "PUBLISHED") throw new TeachingNotPublishedError();
 };
 
 export const assertFinishable = (course: TeachingCourse, now: Date): void => {
@@ -255,6 +293,8 @@ export const assertFinishable = (course: TeachingCourse, now: Date): void => {
 			return;
 		case "NOT_PUBLISHED":
 			throw new TeachingNotPublishedError();
+		case "SELF_PACED":
+			throw new TeachingSelfPacedNotFinishableError();
 		case "WITHOUT_SESSIONS":
 			throw new TeachingWithoutSessionsError();
 		case "TOO_EARLY":

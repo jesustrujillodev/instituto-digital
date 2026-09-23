@@ -5,6 +5,7 @@ import type {
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
+import type { CreditDiff } from "@/modules/credits/domain/credit.types";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import type { AppResponse } from "@/shared/response/response.types";
 import type { FinishBlocker } from "./teaching.config";
@@ -12,6 +13,7 @@ import type {
 	listTeachingCoursesRule,
 	saveAttendanceRule,
 	saveResultsRule,
+	setEnrollmentOpenRule,
 } from "./teaching.rules";
 
 export type ListTeachingCoursesDto = v.InferOutput<
@@ -19,6 +21,7 @@ export type ListTeachingCoursesDto = v.InferOutput<
 >;
 export type SaveAttendanceDto = v.InferOutput<typeof saveAttendanceRule>;
 export type SaveResultsDto = v.InferOutput<typeof saveResultsRule>;
+export type SetEnrollmentOpenDto = v.InferOutput<typeof setEnrollmentOpenRule>;
 
 // ── Lo que el repositorio lee ─────────────────────────────────────────────────
 
@@ -48,6 +51,10 @@ export interface TeachingParticipant extends TeachingPerson {
 	result: EnrollmentResult;
 	grade: number | null;
 	completed: boolean;
+	/** Caché del avance por lección: solo para mostrar. */
+	progressPercent: number;
+	/** Lo que la regla lee: se fija al terminar las obligatorias y no se borra. */
+	contentCompletedAt: Date | null;
 	attendance: { sessionId: number; attended: boolean }[];
 }
 
@@ -64,6 +71,7 @@ export interface TeachingCourse {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	finishedAt: Date | null;
+	enrollmentClosedAt: Date | null;
 	/** Nulo mientras nadie genere el QR de asistencia (§6.8). */
 	qrToken: string | null;
 	qrTokenRotatedAt: Date | null;
@@ -121,6 +129,8 @@ export interface TeachingParticipantView extends TeachingPerson {
 	attendedSessions: number;
 	/** Porcentaje entero, 0 si el curso no tiene sesiones. */
 	attendancePercent: number;
+	progressPercent: number;
+	contentCompletedAt: Date | null;
 	/** `null` si todavía no se pasó lista en esa sesión. */
 	marks: Record<string, boolean | null>;
 }
@@ -138,6 +148,7 @@ export interface TeachingDetail {
 		requiresEvaluation: boolean;
 		finishedAt: Date | null;
 		finishOpensAt: Date | null;
+		enrollmentClosedAt: Date | null;
 		trainers: TeachingPerson[];
 	};
 	/** Solo para quien puede escribir: el QR es una credencial, no un adorno. */
@@ -152,6 +163,8 @@ export interface TeachingDetail {
 		finish: boolean;
 		/** El curso está finalizado y quien mira puede corregirlo. */
 		correct: boolean;
+		/** Abrir o cerrar las inscripciones de un autogestivo publicado. */
+		toggleEnrollment: boolean;
 	};
 }
 
@@ -170,6 +183,11 @@ export interface TeachingWriteResult {
 export interface FinishResult {
 	completed: number;
 	credits: number;
+}
+
+export interface CompletionSyncResult {
+	completed: number;
+	diff: CreditDiff;
 }
 
 export type TeachingCourseListResponse = AppResponse<TeachingCourseSummary[]>;

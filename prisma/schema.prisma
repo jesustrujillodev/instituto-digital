@@ -79,6 +79,7 @@ model User {
   enrollmentsActed   Enrollment[]       @relation("EnrollmentActor")
   resultsRecorded    Enrollment[]       @relation("EnrollmentResultRecorder")
   attendance         CourseAttendance[] @relation("AttendanceParticipant")
+  lessonProgress     LessonProgress[]   @relation("LessonProgressParticipant")
   attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
   evaluationsCreated CourseEvaluation[] @relation("EvaluationCreator")
   evaluationResults  EvaluationResult[] @relation("EvaluationParticipant")
@@ -371,6 +372,7 @@ enum CourseStatus {
 enum CourseCompletionRule {
   ATTENDANCE
   CONTENT
+  BOTH
 
   @@schema("org")
 }
@@ -448,6 +450,11 @@ model Course {
   publishedAt DateTime? @map("published_at")
   cancelledAt DateTime? @map("cancelled_at")
   finishedAt  DateTime? @map("finished_at")
+
+  /// Interruptor de inscripciones del autogestivo, que no se finaliza nunca:
+  /// cerrado, quien ya está inscrito sigue avanzando y nadie nuevo entra
+  /// (docs/adr/0014).
+  enrollmentClosedAt DateTime? @map("enrollment_closed_at")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -571,7 +578,8 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  content LessonContent?
+  content  LessonContent?
+  progress LessonProgress[]
 
   @@index([moduleId, order])
   @@map("lessons")
@@ -711,6 +719,12 @@ model Enrollment {
   grade     Int?
   /// Lo escribe el cierre del curso y cada corrección posterior (docs/adr/0006).
   completed Boolean @default(false)
+
+  /// Caché del avance por lección: se recalcula, no se confía (docs/adr/0014).
+  progressPercent    Int       @default(0) @map("progress_percent")
+  /// Se fija una vez y no se borra: añadir una lección obligatoria después no
+  /// le quita el completado a quien ya terminó el temario de entonces.
+  contentCompletedAt DateTime? @map("content_completed_at")
 
   resultRecordedById Int?      @map("result_recorded_by_id")
   resultRecordedBy   User?     @relation("EnrollmentResultRecorder", fields: [resultRecordedById], references: [id], onDelete: Restrict)
@@ -979,5 +993,31 @@ model EmailOutbox {
 
   @@index([status, nextAttemptAt])
   @@map("email_outbox")
+  @@schema("org")
+}
+
+enum LessonProgressStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@schema("org")
+}
+
+/// Sin fila = sin empezar, igual que `CourseAttendance`: no hay valor centinela.
+model LessonProgress {
+  lessonId Int    @map("lesson_id")
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  userId Int  @map("user_id")
+  user   User @relation("LessonProgressParticipant", fields: [userId], references: [id], onDelete: Restrict)
+
+  status      LessonProgressStatus
+  startedAt   DateTime             @map("started_at")
+  completedAt DateTime?            @map("completed_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  @@id([lessonId, userId])
+  @@index([userId])
+  @@map("lesson_progress")
   @@schema("org")
 }

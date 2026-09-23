@@ -1,10 +1,11 @@
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { TextInput } from "@/shared/components/common/text-input";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Label } from "@/shared/components/ui/label";
 import {
 	COURSE_COMPLETION_RULES,
+	countsAttendance,
 	requiresSessions,
 } from "../domain/course.rules";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
@@ -24,19 +25,22 @@ const RULE_OPTIONS = COURSE_COMPLETION_RULES.map((value) => ({
 const RULE_HINTS: Record<(typeof COURSE_COMPLETION_RULES)[number], string> = {
 	ATTENDANCE:
 		"Completa quien alcanza la asistencia mínima y, si hay evaluación, aprueba.",
-	CONTENT: "Completa quien aprueba la evaluación, sin contar asistencia.",
+	CONTENT:
+		"Completa quien termina las lecciones obligatorias y, si hay evaluación, aprueba.",
+	BOTH: "Completa quien alcanza la asistencia mínima, termina las lecciones obligatorias y, si hay evaluación, aprueba.",
 };
 
 /** Lo que decide si alguien completa el curso y obtiene su crédito. */
 export const CourseRulesFields = memo(function CourseRulesFields({
 	ids,
+	isPublished = false,
 }: {
 	ids: CourseFormIds;
+	isPublished?: boolean;
 }) {
 	const {
 		register,
 		control,
-		setValue,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 	const format = useWatch<CourseFormValues, "format">({ name: "format" });
@@ -45,17 +49,10 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 	});
 
 	const scheduled = requiresSessions(format);
-	const byAttendance = completionRule === "ATTENDANCE";
-
-	// Sin contenido que recorrer todavía, la evaluación es lo único que
-	// distingue a quien completó: la regla la exige y el servidor la rechaza sin
-	// ella (docs/adr/0011).
-	const applyRule = useCallback(
-		(value: string) => {
-			if (value === "CONTENT") setValue("requiresEvaluation", true);
-		},
-		[setValue],
-	);
+	const byAttendance = countsAttendance(completionRule);
+	// Un autogestivo publicado ya otorga créditos: cambiar cómo se completa
+	// mediría a unos con un criterio y a otros con otro (docs/adr/0014).
+	const locked = isPublished && !scheduled;
 
 	return (
 		<>
@@ -70,7 +67,7 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 							? RULE_OPTIONS
 							: RULE_OPTIONS.filter((option) => option.value === "CONTENT")
 					}
-					onChanged={applyRule}
+					disabled={locked}
 					helperText={RULE_HINTS[completionRule]}
 				/>
 			</div>
@@ -99,7 +96,7 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 						<Checkbox
 							id={ids.requiresEvaluation}
 							checked={field.value}
-							disabled={!byAttendance}
+							disabled={locked}
 							onCheckedChange={(checked) => field.onChange(checked === true)}
 							onBlur={field.onBlur}
 							className="mt-0.5"
@@ -110,9 +107,9 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 						>
 							<span>Requiere evaluación</span>
 							<span className="text-muted-foreground text-xs">
-								{byAttendance
-									? "Quien imparte captura aprobado o no aprobado de cada participante."
-									: "Obligatoria con esta regla: es lo que decide quién completó."}
+								{locked
+									? "El curso ya está publicado y otorga créditos: no se puede cambiar."
+									: "Quien imparte captura aprobado o no aprobado de cada participante."}
 							</span>
 						</Label>
 					</div>
@@ -155,10 +152,16 @@ export const CourseRulesFields = memo(function CourseRulesFields({
 	);
 });
 
-export function CourseAttendanceSection({ ids }: { ids: CourseFormIds }) {
+export function CourseAttendanceSection({
+	ids,
+	isPublished,
+}: {
+	ids: CourseFormIds;
+	isPublished: boolean;
+}) {
 	return (
 		<CourseFormSection section="attendance" description={RULES_DESCRIPTION}>
-			<CourseRulesFields ids={ids} />
+			<CourseRulesFields ids={ids} isPublished={isPublished} />
 		</CourseFormSection>
 	);
 }

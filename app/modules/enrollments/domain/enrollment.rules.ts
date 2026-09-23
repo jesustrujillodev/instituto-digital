@@ -14,7 +14,10 @@ import {
 	ENROLLMENT_CLOSING_SOON_DAYS,
 	type EnrollmentStatus,
 } from "./enrollment.config";
-import { EnrollmentFullError } from "./enrollment.errors";
+import {
+	EnrollmentFullError,
+	EnrollmentInvitationRequiredError,
+} from "./enrollment.errors";
 
 // ── Reglas de entrada ─────────────────────────────────────────────────────────
 
@@ -103,6 +106,7 @@ interface EnrollmentWindow {
 	status: CourseStatus;
 	format: CourseFormat;
 	enrollmentDeadline: Date | null;
+	enrollmentClosedAt: Date | null;
 	firstSessionAt: Date | null;
 }
 
@@ -121,6 +125,8 @@ export const isEnrollmentOpen = (
 	now: Date,
 ): boolean => {
 	if (course.status !== "PUBLISHED") return false;
+	// El cierre a mano del autogestivo manda sobre cualquier fecha (docs/adr/0014).
+	if (course.enrollmentClosedAt !== null) return false;
 
 	const closesAt = enrollmentClosesAt(course);
 	// Sin cierre, un calendarizado está incompleto —le faltan sesiones— y un
@@ -138,13 +144,38 @@ export const acceptsInvitations = (course: {
 	access: CourseAccessType;
 }): boolean => course.access === "INVITATION";
 
-/** Hasta que el curso arranca. Un autogestivo no arranca: se deja cuando sea. */
+/**
+ * En un curso por invitación solo se inscribe quien tiene una pendiente.
+ *
+ * Verlo no basta: quien lo administra o lo imparte lo ve sin estar invitado
+ * (`courseVisibilityWhere`), y a su personal se le asigna, no se inscribe solo.
+ */
+export const canSelfEnroll = (
+	course: { access: CourseAccessType },
+	current: EnrollmentStatus | null,
+): boolean => course.access !== "INVITATION" || current === "INVITED";
+
+export const assertSelfEnrollable = (
+	course: { access: CourseAccessType },
+	current: EnrollmentStatus | null,
+): void => {
+	if (!canSelfEnroll(course, current)) {
+		throw new EnrollmentInvitationRequiredError();
+	}
+};
+
+/**
+ * Hasta que el curso arranca. Un autogestivo no arranca: se deja cuando sea,
+ * salvo que ya se haya completado, porque su crédito quedaría sin inscripción
+ * que lo respalde.
+ */
 export const canWithdraw = (
 	course: Pick<EnrollmentWindow, "status" | "format" | "firstSessionAt">,
 	now: Date,
+	completed: boolean,
 ): boolean => {
 	if (course.status !== "PUBLISHED") return false;
-	if (!requiresSessions(course.format)) return true;
+	if (!requiresSessions(course.format)) return !completed;
 
 	return course.firstSessionAt !== null && now < course.firstSessionAt;
 };
@@ -192,12 +223,16 @@ export const classifyMyCourse = (
 		lastSessionEndsAt: Date | null;
 	},
 	now: Date,
+	completed: boolean,
 ): MyCourseBucket => {
 	if (course.status === "FINISHED" || course.status === "CANCELLED") {
 		return "finished";
 	}
-	// Un autogestivo publicado se recorre desde ya: nada está por venir.
-	if (!requiresSessions(course.format)) return "inProgress";
+	// Un autogestivo publicado se recorre desde ya y termina, para quien lo
+	// cursa, cuando lo completa: el curso no se cierra nunca.
+	if (!requiresSessions(course.format)) {
+		return completed ? "finished" : "inProgress";
+	}
 
 	if (course.lastSessionEndsAt && course.lastSessionEndsAt < now) {
 		return "finished";

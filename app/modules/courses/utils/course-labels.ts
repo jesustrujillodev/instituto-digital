@@ -21,8 +21,9 @@ export const FORMAT_LABELS: Record<CourseFormat, string> = {
 };
 
 export const COMPLETION_RULE_LABELS: Record<CourseCompletionRule, string> = {
-	ATTENDANCE: "Asistencia y evaluación",
-	CONTENT: "Evaluación",
+	ATTENDANCE: "Asistencia",
+	CONTENT: "Contenido",
+	BOTH: "Asistencia y contenido",
 };
 
 export const ACCESS_LABELS: Record<CourseAccessType, string> = {

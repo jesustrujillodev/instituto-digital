@@ -16,11 +16,13 @@ const courseOf = (
 	coverUrl: null,
 	modality: "HYBRID",
 	format: "SCHEDULED",
+	completionRule: "ATTENDANCE",
 	access: "INVITATION",
 	status: "FINISHED",
 	capacity: 20,
 	enrolledCount: 12,
 	enrollmentDeadline: null,
+	enrollmentClosedAt: null,
 	finishedAt: new Date("2026-10-22T20:00:00.000Z"),
 	sessions: [
 		{

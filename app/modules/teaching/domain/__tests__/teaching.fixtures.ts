@@ -44,6 +44,8 @@ export const participantOf = (
 	result: "PENDING",
 	grade: null,
 	completed: false,
+	progressPercent: 0,
+	contentCompletedAt: null,
 	attendance: [],
 	...overrides,
 });
@@ -64,6 +66,7 @@ export const courseOf = (
 	minAttendance: 80,
 	requiresEvaluation: false,
 	finishedAt: null,
+	enrollmentClosedAt: null,
 	qrToken: null,
 	qrTokenRotatedAt: null,
 	qrOpensBeforeMinutes: 15,

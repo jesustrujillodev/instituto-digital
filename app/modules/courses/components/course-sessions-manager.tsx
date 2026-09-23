@@ -70,15 +70,14 @@ export function CourseProgramFields({
 
 	/**
 	 * El formato arrastra la regla de completado: sin sesiones no hay asistencia
-	 * que medir, así que el curso se acredita por su evaluación y esta deja de
-	 * ser opcional. Se corrige al elegir y no en el paso de Reglas porque el
-	 * wizard guarda cada paso por separado.
+	 * que medir, así que el curso se completa por su contenido. Se corrige al
+	 * elegir y no en el paso de Reglas porque el wizard guarda cada paso por
+	 * separado y el servidor rechazaría el guardado intermedio.
 	 */
 	const applyFormat = useCallback(
 		(value: string) => {
 			if (requiresSessions(value as CourseFormat)) return;
 			setValue("completionRule", "CONTENT");
-			setValue("requiresEvaluation", true);
 		},
 		[setValue],
 	);
@@ -108,8 +107,8 @@ export function CourseProgramFields({
 
 			{!requiresSessions(format) ? (
 				<p className="text-muted-foreground text-sm">
-					Sin sesiones que programar. Quien se inscriba recorre el curso a su
-					ritmo y se acredita con su evaluación.
+					Sin sesiones que programar. Quien se inscriba recorre las lecciones a
+					su ritmo y obtiene su crédito en cuanto las termina.
 				</p>
 			) : (
 				<>

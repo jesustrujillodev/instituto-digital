@@ -164,7 +164,10 @@ export function CourseForm({ ids, fetcher, options, course }: CourseFormProps) {
 						isPublished={course.status === "PUBLISHED"}
 					/>
 					<CoursePeopleSection ids={ids} options={options} />
-					<CourseAttendanceSection ids={ids} />
+					<CourseAttendanceSection
+						ids={ids}
+						isPublished={course.status === "PUBLISHED"}
+					/>
 				</form>
 			</div>
 		</FormProvider>
