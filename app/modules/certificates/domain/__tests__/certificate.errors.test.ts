@@ -11,6 +11,7 @@ import {
 	CertificateNotEditableError,
 	CertificateSignatureInvalidError,
 	CertificateSignatureNotOwnedError,
+	CertificateVerifyRateLimitedError,
 } from "../certificate.errors";
 
 describe("errores del certificado", () => {
@@ -47,6 +48,10 @@ describe("errores del certificado", () => {
 		[
 			new CertificateExportFailedError("timeout"),
 			CERTIFICATE_ERROR_CODES.EXPORT_FAILED,
+		],
+		[
+			new CertificateVerifyRateLimitedError(1500),
+			CERTIFICATE_ERROR_CODES.VERIFY_RATE_LIMITED,
 		],
 	])("%s lleva su código estable", (error, code) => {
 		expect(isDomainError(error)).toBe(true);

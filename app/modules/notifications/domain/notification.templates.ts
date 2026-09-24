@@ -228,6 +228,28 @@ export const renderNotification = (
 				},
 			]);
 
+		case "CERTIFICATE_ISSUED":
+			return build(`Tu certificado de «${event.course.title}» está listo`, [
+				greeting,
+				{
+					kind: "paragraph",
+					text: `Completaste el curso «${event.course.title}», organizado por ${event.course.dependencyName}, y se emitió tu certificado con el folio ${event.folio}.`,
+				},
+				...(event.message
+					? [{ kind: "paragraph", text: event.message } satisfies Block]
+					: []),
+				event.downloadable
+					? {
+							kind: "action",
+							label: "Ver mis certificados",
+							url: `${context.appUrl}/dashboard/mis-certificados`,
+						}
+					: {
+							kind: "paragraph",
+							text: "La dependencia organizadora te lo entregará. Puedes consultarlo en «Mis certificados».",
+						},
+			]);
+
 		default: {
 			const exhaustive: never = event;
 			return exhaustive;

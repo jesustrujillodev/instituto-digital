@@ -9,6 +9,7 @@ export const CERTIFICATE_INTENTS = {
 	publish: "publish",
 	discard: "discard",
 	uploadSignature: "upload-signature",
+	saveDelivery: "save-delivery",
 } as const;
 
 export type CertificateActionData = AppResponse<{

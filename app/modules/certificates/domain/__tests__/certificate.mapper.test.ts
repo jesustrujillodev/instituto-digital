@@ -8,6 +8,7 @@ import {
 	formatCertificateHours,
 	toCertificateDesign,
 	toCertificateRenderData,
+	toCertificateVerification,
 	toIssueRenderData,
 	toSampleRenderData,
 } from "../certificate.mapper";
@@ -77,7 +78,17 @@ describe("toSampleRenderData", () => {
 			hours: "20 horas",
 			issuedOn: "23 de septiembre de 2026",
 			folio: "2026-09-0001",
+			verificationUrl: "/verificar/00000000-0000-4000-8000-000000000000",
 		});
+	});
+
+	test("el QR de muestra apunta a la verificación del origen dado", () => {
+		expect(
+			toSampleRenderData(course, "{seq}", today, "https://capacitacion.test")
+				.verificationUrl,
+		).toBe(
+			"https://capacitacion.test/verificar/00000000-0000-4000-8000-000000000000",
+		);
 	});
 
 	test("sin horas ni descripción no inventa nada", () => {
@@ -121,12 +132,19 @@ describe("folioPartsOf", () => {
 });
 
 describe("toCertificateRenderData", () => {
-	test("los datos congelados vuelven idénticos", () => {
-		const data = toSampleRenderData(course, "{seq}", new Date());
-
-		expect(toCertificateRenderData(JSON.parse(JSON.stringify(data)))).toEqual(
-			data,
+	// La dirección del QR se calcula al descargar: no forma parte de lo congelado.
+	test("los datos congelados vuelven idénticos, sin la dirección del QR", () => {
+		const { verificationUrl: _, ...data } = toSampleRenderData(
+			course,
+			"{seq}",
+			new Date(),
 		);
+
+		expect(
+			toCertificateRenderData(
+				JSON.parse(JSON.stringify({ ...data, verificationUrl: "https://x" })),
+			),
+		).toEqual(data);
 	});
 
 	test.each([
@@ -135,5 +153,51 @@ describe("toCertificateRenderData", () => {
 		["corrupto", "no es un objeto"],
 	])("un blob %s devuelve null sin lanzar", (_case, blob) => {
 		expect(toCertificateRenderData(blob)).toBeNull();
+	});
+});
+
+describe("toCertificateVerification", () => {
+	const data = {
+		recipientName: "Ana Ruiz",
+		courseTitle: "Seguridad en obra",
+		courseDescription: "Prevención de riesgos.",
+		dependencyName: "Secretaría de Obras Públicas",
+		hours: "20 horas",
+		issuedOn: "10 de marzo de 2026",
+		folio: "2026-0042",
+	};
+
+	// La forma exacta: cualquier campo nuevo en el snapshot tiene que añadirse
+	// aquí a mano, no publicarse solo.
+	test("un válido responde solo lo impreso", () => {
+		const verification = toCertificateVerification({
+			folio: "2026-0042",
+			revokedAt: null,
+			data,
+		});
+
+		expect(Object.keys(verification).sort()).toEqual([
+			"courseTitle",
+			"dependencyName",
+			"folio",
+			"hours",
+			"issuedOn",
+			"recipientName",
+			"status",
+		]);
+		expect(verification).toMatchObject({
+			status: "valid",
+			recipientName: "Ana Ruiz",
+		});
+	});
+
+	test("un revocado no dice de quién era ni de qué curso", () => {
+		expect(
+			toCertificateVerification({
+				folio: "2026-0042",
+				revokedAt: new Date("2026-04-01T00:00:00.000Z"),
+				data,
+			}),
+		).toEqual({ status: "revoked", folio: "2026-0042" });
 	});
 });

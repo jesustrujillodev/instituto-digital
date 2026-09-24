@@ -4,10 +4,13 @@ import type { UploadInput } from "@/shared/storage/upload-validation";
 import type {
 	CertificateEditor,
 	CertificateFile,
+	CertificateVerification,
 	DownloadCertificateDto,
 	DownloadSampleDto,
 	IssuanceResult,
 	IssueCandidate,
+	MyCertificate,
+	SaveCertificateDeliveryDto,
 	SaveCertificateDraftDto,
 } from "./certificate.types";
 
@@ -57,6 +60,29 @@ export interface ICertificateService {
 	/** El diseño guardado (borrador o publicado) con datos de muestra. */
 	downloadSample(
 		dto: DownloadSampleDto,
+		actor: AuthContext,
+	): Promise<AppResponse<CertificateFile>>;
+
+	/**
+	 * La verificación pública de una emisión. Sin `actor` a propósito: la
+	 * consulta quien tenga el papel, sin cuenta en la plataforma.
+	 */
+	verify(
+		issueDocumentId: string,
+	): Promise<AppResponse<CertificateVerification>>;
+
+	/** Descarga y mensaje del correo; no toca el diseño. */
+	saveDelivery(
+		dto: SaveCertificateDeliveryDto,
+		actor: AuthContext,
+	): Promise<AppResponse<null>>;
+
+	/** Los certificados vigentes de quien está en sesión, y solo esos. */
+	listMine(actor: AuthContext): Promise<AppResponse<MyCertificate[]>>;
+
+	/** La descarga de un certificado propio, si el curso la permite. */
+	downloadMine(
+		dto: DownloadCertificateDto,
 		actor: AuthContext,
 	): Promise<AppResponse<CertificateFile>>;
 }

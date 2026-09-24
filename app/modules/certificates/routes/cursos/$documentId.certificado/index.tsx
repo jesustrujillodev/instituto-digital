@@ -20,6 +20,7 @@ import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CertificateColorPanel } from "../../../components/certificate-color-panel";
 import { CertificateContentPanel } from "../../../components/certificate-content-panel";
+import { CertificateDeliveryPanel } from "../../../components/certificate-delivery-panel";
 import { CertificateExportPanel } from "../../../components/certificate-export-panel";
 import { CertificatePreview } from "../../../components/certificate-preview";
 import { CertificateSignaturesPanel } from "../../../components/certificate-signatures-panel";
@@ -66,7 +67,7 @@ export default function CursoCertificadoPage({
 	const {
 		data: { editor, canEdit, today },
 	} = loaderData;
-	const { course, record, state } = editor;
+	const { course, record, state, delivery } = editor;
 
 	const draft = useCertificateDraft(record.draft);
 	const fetcher = useFetcher<CertificateActionData>();
@@ -207,6 +208,14 @@ export default function CursoCertificadoPage({
 							courseDocumentId={course.documentId}
 							hasPublished={record.published !== null}
 							isDirty={draft.isDirty}
+						/>
+					</div>
+					<div className="rounded-lg border bg-card p-4">
+						<h2 className="mb-3 font-medium text-sm">Entrega</h2>
+						<CertificateDeliveryPanel
+							key={JSON.stringify(delivery)}
+							delivery={delivery}
+							disabled={!canEdit}
 						/>
 					</div>
 				</div>

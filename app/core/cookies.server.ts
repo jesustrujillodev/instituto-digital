@@ -103,3 +103,33 @@ export const clearAuthCookies = async (): Promise<string[]> => {
 		refreshTokenCookie.serialize("", { maxAge: 0, expires: new Date(0) }),
 	]);
 };
+
+const AUTH_COOKIE_PREFIXES = [
+	`${accessTokenCookie.name}=`,
+	`${refreshTokenCookie.name}=`,
+];
+
+/**
+ * Anexa a la respuesta las cookies del refresco silencioso, salvo que el handler
+ * ya haya fijado las de auth.
+ *
+ * El navegador aplica el ÚLTIMO Set-Cookie de cada nombre: si el refresco se
+ * anexara detrás del logout, resucitaría la sesión que el logout acaba de borrar
+ * (y detrás de un login, pisaría la sesión nueva con la vieja). Quien decide la
+ * sesión en la respuesta es el handler.
+ */
+export const appendRefreshedCookies = (
+	headers: Headers,
+	refreshedCookies: string[],
+): void => {
+	const handlerSetsAuthCookies = headers
+		.getSetCookie()
+		.some((cookie) =>
+			AUTH_COOKIE_PREFIXES.some((prefix) => cookie.startsWith(prefix)),
+		);
+	if (handlerSetsAuthCookies) return;
+
+	for (const cookie of refreshedCookies) {
+		headers.append("Set-Cookie", cookie);
+	}
+};

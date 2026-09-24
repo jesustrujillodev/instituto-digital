@@ -112,3 +112,33 @@ export const CERTIFICATE_EXPORT = {
 	maxConcurrentPages: 2,
 	contentTypes: { pdf: "application/pdf", png: "image/png" },
 } as const;
+
+// ── Verificación pública (F-10) ───────────────────────────────────────────────
+
+/**
+ * La ruta pública que codifica el QR, relativa al origen. Lleva el `documentId`
+ * de la emisión y no el folio: el folio es consecutivo y se podría recorrer.
+ */
+export const verificationPathOf = (issueDocumentId: string): string =>
+	`/verificar/${issueDocumentId}`;
+
+/** Lo que codifica el QR de la vista previa y de la muestra: no verifica nada. */
+export const CERTIFICATE_SAMPLE_VERIFICATION_PATH = verificationPathOf(
+	"00000000-0000-4000-8000-000000000000",
+);
+
+/** Por IP. Frena a quien pruebe UUID a ciegas sin molestar a quien escanea. */
+export const CERTIFICATE_VERIFY_RATE_LIMIT = {
+	limit: 30,
+	windowMs: 60_000,
+} as const;
+
+/** Lado del QR en el lienzo: ~2 cm impreso, legible con cualquier teléfono. */
+export const CERTIFICATE_QR_SIZE = 80;
+
+// ── Entrega al participante (F-11) ────────────────────────────────────────────
+
+/** Tope del mensaje que el curso añade al correo de la emisión. */
+export const CERTIFICATE_EMAIL_MESSAGE_MAX = 500;
+
+export const MY_CERTIFICATES_PATH = "/dashboard/mis-certificados";

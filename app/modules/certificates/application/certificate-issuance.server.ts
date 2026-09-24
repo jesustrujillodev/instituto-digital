@@ -6,10 +6,12 @@ import type { ICertificateIssuance } from "../domain/certificate.service";
 
 type Dependencies = {
 	certificateRepository: ICradle["certificateRepository"];
+	notificationService: ICradle["notificationService"];
 };
 
 export const createCertificateIssuance = ({
 	certificateRepository,
+	notificationService,
 }: Dependencies): ICertificateIssuance => ({
 	/**
 	 * Emite con el diseño PUBLICADO, o con el de por defecto si nunca se publicó:
@@ -30,22 +32,40 @@ export const createCertificateIssuance = ({
 				diff.issue.length,
 			);
 			const parts = folioPartsOf(at);
+			const issues = diff.issue.map((candidate, index) => {
+				const folio = resolveFolio(design.folioFormat, {
+					seq: firstSeq + index,
+					...parts,
+				});
+				return {
+					userId: candidate.userId,
+					folio,
+					design,
+					data: toIssueRenderData(course, candidate.recipientName, folio, at),
+				};
+			});
 
-			await certificateRepository.createIssues(
-				courseId,
-				diff.issue.map((candidate, index) => {
-					const folio = resolveFolio(design.folioFormat, {
-						seq: firstSeq + index,
-						...parts,
-					});
-					return {
-						userId: candidate.userId,
-						folio,
-						design,
-						data: toIssueRenderData(course, candidate.recipientName, folio, at),
-					};
-				}),
-				at,
+			await certificateRepository.createIssues(courseId, issues, at);
+
+			// En la misma transacción que la emisión (docs/adr/0008): si la emisión
+			// revierte, el correo no sale. Solo la primera vez; restaurar no avisa.
+			const delivery = await certificateRepository.findDelivery(courseId);
+			await notificationService.notify(
+				diff.issue.map((candidate, index) => ({
+					template: "CERTIFICATE_ISSUED",
+					to: {
+						email: candidate.email,
+						firstName: candidate.firstName,
+						lastName: candidate.lastName,
+					},
+					course: {
+						title: course.title,
+						dependencyName: course.dependencyName,
+					},
+					folio: issues[index].folio,
+					downloadable: delivery.isDownloadable,
+					message: delivery.emailMessage,
+				})),
 			);
 		}
 

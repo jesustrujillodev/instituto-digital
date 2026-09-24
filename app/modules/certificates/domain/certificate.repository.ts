@@ -2,11 +2,15 @@ import type { CourseScopeWriteWhere } from "@/modules/courses/domain/course.acce
 import type { TeachingCourseWhere } from "@/modules/teaching/domain/teaching.access";
 import type {
 	CertificateCourse,
+	CertificateDelivery,
 	CertificateDesign,
 	CertificateIssueRecord,
 	CertificateRecord,
+	CertificateRenderData,
+	MyIssueRecord,
 	NewCertificateIssue,
 	StoredIssue,
+	VerifiableIssue,
 } from "./certificate.types";
 
 /** El diseño guardado de un curso, para la fuente de referencias de firmas. */
@@ -83,4 +87,32 @@ export interface ICertificateRepository {
 		issueDocumentId: string,
 		where: TeachingCourseWhere,
 	): Promise<CertificateIssueRecord | null>;
+
+	/**
+	 * Una emisión para la verificación pública, SIN guarda de alcance: quien
+	 * verifica no tiene sesión. Lee solo folio, revocación y datos congelados.
+	 */
+	findIssueForVerification(
+		issueDocumentId: string,
+	): Promise<VerifiableIssue | null>;
+
+	/** Sin fila de certificado: descarga permitida y sin mensaje. */
+	findDelivery(courseId: number): Promise<CertificateDelivery>;
+	saveDelivery(courseId: number, delivery: CertificateDelivery): Promise<void>;
+
+	/** Las emisiones VIGENTES de una persona, de la más reciente a la más vieja. */
+	findMine(userId: number): Promise<MyCertificateRow[]>;
+
+	/** Una emisión vigente de esa persona; ajena, revocada o inexistente da null. */
+	findMyIssue(
+		issueDocumentId: string,
+		userId: number,
+	): Promise<MyIssueRecord | null>;
+}
+
+/** Lo que el repositorio lee para «Mis certificados», antes de proyectarlo. */
+export interface MyCertificateRow {
+	documentId: string;
+	data: CertificateRenderData;
+	downloadable: boolean;
 }

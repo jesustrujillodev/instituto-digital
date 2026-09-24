@@ -4,6 +4,7 @@ import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
 	validateCertificateCourse,
+	validateSaveCertificateDelivery,
 	validateSaveCertificateDraft,
 } from "../../../domain/certificate.validators";
 import { CERTIFICATE_ERROR_MESSAGES } from "../../../utils/certificate-error-messages";
@@ -67,6 +68,24 @@ export const action = async ({
 				return localizeError(result, CERTIFICATE_ERROR_MESSAGES);
 			}
 			return ok(null, { message: "Se restauró el certificado publicado." });
+		}
+		case CERTIFICATE_INTENTS.saveDelivery: {
+			// El curso sale de la URL y se pone al final: el cuerpo no lo cambia.
+			const input = parseInput(() =>
+				validateSaveCertificateDelivery({
+					...(form.payload as object | null),
+					documentId: course.data,
+				}),
+			);
+			if (!input.success) {
+				return localizeError(input, CERTIFICATE_ERROR_MESSAGES);
+			}
+
+			const result = await service.saveDelivery(input.data, auth);
+			if (!result.success) {
+				return localizeError(result, CERTIFICATE_ERROR_MESSAGES);
+			}
+			return ok(null, { message: "Entrega guardada." });
 		}
 		case CERTIFICATE_INTENTS.uploadSignature: {
 			if (!form.file) {

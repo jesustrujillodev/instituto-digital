@@ -10,10 +10,13 @@ import {
 } from "../../domain/certificate.errors";
 import type {
 	CertificateCourse,
+	CertificateDelivery,
 	CertificateDesign,
 	CertificateExportFormat,
 	CertificateIssueRecord,
 	CertificateRecord,
+	MyIssueRecord,
+	VerifiableIssue,
 } from "../../domain/certificate.types";
 import { createCertificateService } from "../certificates.service.server";
 
@@ -108,6 +111,8 @@ const createHarness = (
 		record?: CertificateRecord;
 		bucket?: string | null;
 		issue?: CertificateIssueRecord | null;
+		verifiable?: VerifiableIssue | null;
+		mine?: MyIssueRecord | null;
 		exporterUnavailable?: boolean;
 	} = {},
 ) => {
@@ -123,6 +128,9 @@ const createHarness = (
 		findIssue: [] as { documentId: string; where: unknown }[],
 		assets: [] as (readonly string[])[],
 		exported: [] as { html: string; format: CertificateExportFormat }[],
+		deliveries: [] as { courseId: number; delivery: CertificateDelivery }[],
+		mineFor: [] as number[],
+		myIssueFor: [] as { documentId: string; userId: number }[],
 	};
 
 	const certificateRepository = {
@@ -131,6 +139,31 @@ const createHarness = (
 			return options.course === undefined ? courseOf() : options.course;
 		},
 		findRecord: async () => options.record ?? recordOf(),
+		findDelivery: async () => ({ isDownloadable: true, emailMessage: null }),
+		saveDelivery: async (courseId: number, delivery: CertificateDelivery) => {
+			calls.deliveries.push({ courseId, delivery });
+		},
+		findMine: async (userId: number) => {
+			calls.mineFor.push(userId);
+			return [
+				{ documentId: ISSUE_DOC, data: issueOf().data, downloadable: true },
+			];
+		},
+		findMyIssue: async (documentId: string, userId: number) => {
+			calls.myIssueFor.push({ documentId, userId });
+			return options.mine === undefined
+				? {
+						documentId: ISSUE_DOC,
+						design: issueOf().design,
+						data: issueOf().data,
+						downloadable: true,
+					}
+				: options.mine;
+		},
+		findIssueForVerification: async () =>
+			options.verifiable === undefined
+				? { folio: "2026-0042", revokedAt: null, data: issueOf().data }
+				: options.verifiable,
 		findIssue: async (documentId: string, where: unknown) => {
 			calls.findIssue.push({ documentId, where });
 			return options.issue === undefined ? issueOf() : options.issue;
@@ -187,6 +220,7 @@ const createHarness = (
 		certificateRepository,
 		certificateAssetSource,
 		certificateExporter,
+		appBaseUrl: "https://capacitacion.test",
 		clock: { now: () => NOW },
 		logger: silentLogger,
 		storageProvider,
@@ -471,6 +505,7 @@ describe("certificateService.downloadIssue", () => {
 		expect(html).toContain("2026-0042");
 		expect(html).toContain("data:image/png;base64,RklSTUE=");
 		expect(html).not.toContain("/api/storage");
+		expect(html).toContain('<div class="qr"><svg');
 		expect(calls.assets).toEqual([
 			[toProxyRef(`documentos/firmas/${COURSE_DOC}/firma-1.png`)],
 		]);
@@ -591,6 +626,164 @@ describe("certificateService.downloadSample", () => {
 			),
 		).toMatchObject({
 			error: { code: CERTIFICATE_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+		expect(calls.exported).toEqual([]);
+	});
+});
+
+describe("certificateService.verify", () => {
+	test("un válido responde solo lo impreso", async () => {
+		const { service } = createHarness();
+
+		const result = await service.verify(ISSUE_DOC);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				status: "valid",
+				folio: "2026-0042",
+				recipientName: "Ana Ruiz",
+				courseTitle: "Seguridad en obra",
+			},
+		});
+		expect(JSON.stringify(result)).not.toMatch(/@|userId|courseId/);
+	});
+
+	test("un revocado responde no válido, sin datos de la persona", async () => {
+		const { service } = createHarness({
+			verifiable: { folio: "2026-0042", revokedAt: NOW, data: issueOf().data },
+		});
+
+		expect(await service.verify(ISSUE_DOC)).toMatchObject({
+			success: true,
+			data: { status: "revoked", folio: "2026-0042" },
+		});
+	});
+
+	test("uno inexistente responde ISSUE_NOT_FOUND", async () => {
+		const { service } = createHarness({ verifiable: null });
+
+		expect(await service.verify(ISSUE_DOC)).toMatchObject({
+			success: false,
+			error: { code: CERTIFICATE_ERROR_CODES.ISSUE_NOT_FOUND },
+		});
+	});
+});
+
+describe("certificateService.saveDelivery", () => {
+	test("guarda la descarga y el mensaje; un mensaje vacío queda nulo", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.saveDelivery(
+			{ documentId: COURSE_DOC, isDownloadable: false, emailMessage: "" },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({ success: true, data: null });
+		expect(calls.deliveries).toEqual([
+			{ courseId: 7, delivery: { isDownloadable: false, emailMessage: null } },
+		]);
+	});
+
+	test("fuera de alcance responde como inexistente", async () => {
+		const { service, calls } = createHarness({ course: null });
+
+		expect(
+			await service.saveDelivery(
+				{ documentId: COURSE_DOC, isDownloadable: true, emailMessage: null },
+				actorOf(),
+			),
+		).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+		expect(calls.deliveries).toEqual([]);
+	});
+
+	test("un curso cancelado ya no cambia su entrega", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "CANCELLED" }),
+		});
+
+		expect(
+			await service.saveDelivery(
+				{ documentId: COURSE_DOC, isDownloadable: true, emailMessage: null },
+				actorOf(),
+			),
+		).toMatchObject({ error: { code: CERTIFICATE_ERROR_CODES.NOT_EDITABLE } });
+		expect(calls.deliveries).toEqual([]);
+	});
+});
+
+describe("certificateService.listMine", () => {
+	test("pide solo los de quien está en sesión y los proyecta", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.listMine(actorOf({ userId: 42 }));
+
+		expect(calls.mineFor).toEqual([42]);
+		expect(result).toMatchObject({
+			success: true,
+			data: [
+				{
+					documentId: ISSUE_DOC,
+					folio: "2026-0042",
+					courseTitle: "Seguridad en obra",
+					downloadable: true,
+					verificationPath: `/verificar/${ISSUE_DOC}`,
+				},
+			],
+		});
+	});
+});
+
+describe("certificateService.downloadMine", () => {
+	test("dibuja lo congelado de la propia emisión, con su QR", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.downloadMine(
+			{ documentId: ISSUE_DOC, format: "png" },
+			actorOf({ userId: 42 }),
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { contentType: "image/png" },
+		});
+		expect(calls.myIssueFor).toEqual([{ documentId: ISSUE_DOC, userId: 42 }]);
+		expect(calls.exported[0].html).toContain('<div class="qr"><svg');
+	});
+
+	test("ajena, revocada o inexistente responde como inexistente", async () => {
+		const { service, calls } = createHarness({ mine: null });
+
+		expect(
+			await service.downloadMine(
+				{ documentId: ISSUE_DOC, format: "pdf" },
+				actorOf(),
+			),
+		).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.ISSUE_NOT_FOUND },
+		});
+		expect(calls.exported).toEqual([]);
+	});
+
+	test("con la descarga apagada no se genera el archivo", async () => {
+		const { service, calls } = createHarness({
+			mine: {
+				documentId: ISSUE_DOC,
+				design: issueOf().design,
+				data: issueOf().data,
+				downloadable: false,
+			},
+		});
+
+		expect(
+			await service.downloadMine(
+				{ documentId: ISSUE_DOC, format: "pdf" },
+				actorOf(),
+			),
+		).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.DOWNLOAD_DISABLED },
 		});
 		expect(calls.exported).toEqual([]);
 	});

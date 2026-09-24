@@ -132,8 +132,16 @@ describe("completionSync", () => {
 		]);
 		expect(calls.issued).toEqual([
 			[
-				{ userId: 50, recipientName: "Ana Ruiz" },
-				{ userId: 51, recipientName: "luis@universidad.mx" },
+				expect.objectContaining({
+					userId: 50,
+					recipientName: "Ana Ruiz",
+					email: "ana@instituto.gob.mx",
+				}),
+				expect.objectContaining({
+					userId: 51,
+					recipientName: "luis@universidad.mx",
+					email: "luis@universidad.mx",
+				}),
 			],
 		]);
 		expect(result.certificates.issued).toBe(2);

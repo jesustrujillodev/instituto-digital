@@ -12,6 +12,7 @@ import {
 	NotebookPen,
 	Palette,
 	Presentation,
+	ScrollText,
 	Users,
 	UsersRound,
 } from "lucide-react";
@@ -71,6 +72,11 @@ export const navigationSections: readonly NavSection[] = [
 				label: "Mis créditos",
 				path: "/dashboard/mis-creditos",
 				icon: Award,
+			},
+			{
+				label: "Mis certificados",
+				path: "/dashboard/mis-certificados",
+				icon: ScrollText,
 			},
 			{
 				label: "Calendario",

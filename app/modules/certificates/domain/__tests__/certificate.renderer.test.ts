@@ -270,3 +270,27 @@ describe("con recursos incrustados", () => {
 		expect(document).toContain(ref.replaceAll("&", "&amp;"));
 	});
 });
+
+describe.each(CERTIFICATE_TEMPLATE_IDS)(
+	"QR de verificación en %s",
+	(templateId) => {
+		test("con dirección, el pie lleva el QR como SVG sobre el folio", () => {
+			const { html } = renderCertificate(
+				designOf(templateId),
+				{ ...data, verificationUrl: "https://capacitacion.test/verificar/abc" },
+				OPTIONS,
+			);
+
+			expect(html).toContain('<div class="qr"><svg');
+			expect(html.indexOf('class="qr"')).toBeLessThan(
+				html.indexOf("2026-0001"),
+			);
+		});
+
+		test("sin dirección no se pinta", () => {
+			const { html } = renderCertificate(designOf(templateId), data, OPTIONS);
+
+			expect(html).not.toContain('class="qr"');
+		});
+	},
+);

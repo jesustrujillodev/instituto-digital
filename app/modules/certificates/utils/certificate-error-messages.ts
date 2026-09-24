@@ -47,6 +47,22 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 			"No se pudo generar el archivo del certificado. Inténtalo de nuevo.",
 		status: HTTP_STATUS.BAD_GATEWAY,
 	},
+	[CERTIFICATE_ERROR_CODES.VERIFY_RATE_LIMITED]: {
+		message: (error) => {
+			const ms = (error.details as { retryAfterMs?: number } | undefined)
+				?.retryAfterMs;
+			if (!ms) return "Demasiadas consultas. Intenta de nuevo en un momento.";
+
+			const seconds = Math.ceil(ms / 1000);
+			return `Demasiadas consultas. Intenta de nuevo en ${seconds} ${seconds === 1 ? "segundo" : "segundos"}.`;
+		},
+		status: HTTP_STATUS.TOO_MANY_REQUESTS,
+	},
+	[CERTIFICATE_ERROR_CODES.DOWNLOAD_DISABLED]: {
+		message:
+			"La descarga de este certificado no está habilitada: la dependencia organizadora te lo entregará.",
+		status: HTTP_STATUS.FORBIDDEN,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: {
 		message:
 			"No se pudo completar la operación con el certificado. Inténtalo de nuevo.",

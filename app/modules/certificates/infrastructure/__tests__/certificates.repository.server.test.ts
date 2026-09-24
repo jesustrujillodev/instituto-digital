@@ -19,7 +19,7 @@ const withRefs = (first: string | null, second: string | null) =>
 
 const createHarness = (
 	row: unknown = null,
-	options: { counter?: number; issue?: unknown } = {},
+	options: { counter?: number; issue?: unknown; issues?: unknown[] } = {},
 ) => {
 	const errors: unknown[] = [];
 	const writes: unknown[] = [];
@@ -58,8 +58,16 @@ const createHarness = (
 				writes.push({ findIssue: args });
 				return options.issue ?? null;
 			},
+			findUnique: async (args: unknown) => {
+				writes.push({ findForVerification: args });
+				return options.issue ?? null;
+			},
 			createMany: async (args: unknown) => {
 				writes.push({ createMany: args });
+			},
+			findMany: async (args: unknown) => {
+				writes.push({ findMany: args });
+				return options.issues ?? [];
 			},
 		},
 	} as unknown as ICradle["prisma"];
@@ -298,6 +306,131 @@ describe("createIssues", () => {
 							dataSnapshot: { folio: "2026-0001" },
 						},
 					],
+				},
+			},
+		]);
+	});
+});
+
+describe("findIssueForVerification", () => {
+	test("sin alcance, lee solo folio, revocación y datos", async () => {
+		const data = {
+			recipientName: "Ana Ruiz",
+			courseTitle: "Seguridad en obra",
+			courseDescription: "",
+			dependencyName: "Obras Públicas",
+			hours: null,
+			issuedOn: "10 de marzo de 2026",
+			folio: "2026-0001",
+		};
+		const { repository, writes } = createHarness(null, {
+			issue: { folio: "2026-0001", revokedAt: null, dataSnapshot: data },
+		});
+
+		expect(await repository.findIssueForVerification("c")).toEqual({
+			folio: "2026-0001",
+			revokedAt: null,
+			data,
+		});
+		expect(writes[0]).toEqual({
+			findForVerification: {
+				where: { documentId: "c" },
+				select: { folio: true, revokedAt: true, dataSnapshot: true },
+			},
+		});
+	});
+
+	test("inexistente devuelve null", async () => {
+		const { repository } = createHarness(null);
+
+		expect(await repository.findIssueForVerification("c")).toBeNull();
+	});
+});
+
+describe("entrega al participante", () => {
+	const data = {
+		recipientName: "Ana Ruiz",
+		courseTitle: "Seguridad en obra",
+		courseDescription: "",
+		dependencyName: "Obras Públicas",
+		hours: "20 horas",
+		issuedOn: "10 de marzo de 2026",
+		folio: "2026-0001",
+	};
+
+	test("findMine pide solo las vigentes de esa persona", async () => {
+		const { repository, writes } = createHarness(null, {
+			issues: [
+				{
+					documentId: "c",
+					dataSnapshot: data,
+					course: { certificate: { isDownloadable: false } },
+				},
+				{
+					documentId: "d",
+					dataSnapshot: { roto: true },
+					course: { certificate: null },
+				},
+			],
+		});
+
+		const mine = await repository.findMine(42);
+
+		expect(writes[0]).toMatchObject({
+			findMany: { where: { userId: 42, revokedAt: null } },
+		});
+		// La fila ilegible se omite en vez de inventar un certificado.
+		expect(mine).toEqual([{ documentId: "c", data, downloadable: false }]);
+	});
+
+	test("findMyIssue exige que sea de esa persona y vigente", async () => {
+		const { repository, writes } = createHarness(null, {
+			issue: {
+				documentId: "c",
+				courseId: 7,
+				designSnapshot: withRefs(null, null),
+				dataSnapshot: data,
+				course: { certificate: null },
+			},
+		});
+
+		const issue = await repository.findMyIssue("c", 42);
+
+		expect(writes[0]).toMatchObject({
+			findIssue: { where: { documentId: "c", userId: 42, revokedAt: null } },
+		});
+		// Sin fila de certificado, la descarga está permitida.
+		expect(issue).toMatchObject({ documentId: "c", downloadable: true });
+	});
+
+	test("sin fila, la entrega por defecto permite descargar y no lleva mensaje", async () => {
+		const { repository } = createHarness(null);
+
+		expect(await repository.findDelivery(7)).toEqual({
+			isDownloadable: true,
+			emailMessage: null,
+		});
+	});
+
+	test("saveDelivery crea la fila si hace falta, con el diseño por defecto", async () => {
+		const { repository, writes } = createHarness();
+
+		await repository.saveDelivery(7, {
+			isDownloadable: false,
+			emailMessage: "Hola",
+		});
+
+		expect(writes).toEqual([
+			{
+				upsert: {
+					where: { courseId: 7 },
+					create: {
+						courseId: 7,
+						draftDesign: DEFAULT_CERTIFICATE_DESIGN,
+						isDownloadable: false,
+						emailMessage: "Hola",
+					},
+					update: { isDownloadable: false, emailMessage: "Hola" },
 				},
 			},
 		]);

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { MyCertificateMenu } from "@/modules/certificates/components/my-certificate-menu";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
 import { CourseStatusBadge } from "@/modules/courses/components/course-badges";
 import {
@@ -255,6 +256,12 @@ function MyCourseCard({
 				actions ?? (
 					<>
 						{hasClassroom && <ClassroomLink entry={entry} />}
+						{isFinished && entry.outcome.certificate && (
+							<MyCertificateMenu
+								documentId={entry.outcome.certificate.documentId}
+								downloadable={entry.outcome.certificate.downloadable}
+							/>
+						)}
 						{entry.canRate && (
 							<RateCourseDialog
 								courseDocumentId={course.documentId}

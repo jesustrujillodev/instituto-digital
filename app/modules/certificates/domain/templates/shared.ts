@@ -3,6 +3,7 @@ import {
 	CERTIFICATE_CANVAS,
 	CERTIFICATE_FONT_DIR,
 	CERTIFICATE_FONT_FILES,
+	CERTIFICATE_QR_SIZE,
 } from "../certificate.config";
 import type {
 	CertificateAssets,
@@ -10,6 +11,7 @@ import type {
 	CertificateRenderData,
 	CertificateSignatory,
 } from "../certificate.types";
+import { certificateQrSvg } from "./qr";
 
 /** Lo que recibe una plantilla, ya saneado por el renderer. */
 export interface TemplateContext {
@@ -103,11 +105,18 @@ export const renderSignatory = (
 	</div>`;
 };
 
-export const renderMeta = (label: string, value: string): string =>
+export const renderMeta = (label: string, value: string, extra = ""): string =>
 	`<div class="cell meta">
+		${extra}
 		<div class="meta-label">${escapeHtml(label)}</div>
 		<div class="meta-value">${escapeHtml(value)}</div>
 	</div>`;
+
+/** El QR de verificación, sobre el folio. Sin dirección no se pinta nada. */
+const renderQr = (url: string | null | undefined): string =>
+	url
+		? `<div class="qr">${certificateQrSvg(url, CERTIFICATE_QR_SIZE)}</div>`
+		: "";
 
 /**
  * El pie de las tres plantillas: dos firmas, fecha y folio, en cuatro columnas
@@ -122,7 +131,7 @@ export const renderFooter = ({
 		${renderSignatory(design.signatories[0], signatureSrc)}
 		${renderSignatory(design.signatories[1], signatureSrc)}
 		${renderMeta("Fecha de emisión", data.issuedOn)}
-		${renderMeta("Folio", data.folio)}
+		${renderMeta("Folio", data.folio, renderQr(data.verificationUrl))}
 	</div>`;
 
 /**
@@ -140,7 +149,9 @@ ${root} .sig-slot img { max-height: 48px; max-width: 100%; object-fit: contain; 
 ${root} .sig-name, ${root} .meta-value { font-size: 13px; font-weight: 600; color: #383838; overflow-wrap: anywhere; }
 ${root} .sig-role, ${root} .meta-label { font-size: 11px; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.08em; overflow-wrap: anywhere; }
 ${root} .sig-name, ${root} .sig-role { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-${root} .meta { padding-top: 60px; }
+${root} .meta { padding-top: 60px; position: relative; }
+${root} .qr { position: absolute; left: 50%; bottom: calc(100% - 56px); transform: translateX(-50%); width: ${CERTIFICATE_QR_SIZE}px; height: ${CERTIFICATE_QR_SIZE}px; }
+${root} .qr svg { display: block; }
 ${root} .meta-label { margin-bottom: 6px; }
 `;
 

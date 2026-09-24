@@ -114,4 +114,50 @@ describe("renderNotification", () => {
 
 		expect(text).toContain("Sin sesiones programadas por ahora.");
 	});
+
+	describe("CERTIFICATE_ISSUED", () => {
+		const issued = (
+			overrides: Partial<{
+				downloadable: boolean;
+				message: string | null;
+			}> = {},
+		) =>
+			render({
+				template: "CERTIFICATE_ISSUED",
+				to,
+				course: {
+					title: "Primeros auxilios",
+					dependencyName: "Secretaría de Obras Públicas",
+				},
+				folio: "2026-0001",
+				downloadable: true,
+				message: null,
+				...overrides,
+			});
+
+		test("dice el curso y el folio, y lleva a «Mis certificados»", () => {
+			const { subject, text } = issued();
+
+			expect(subject).toBe("Tu certificado de «Primeros auxilios» está listo");
+			expect(text).toContain("2026-0001");
+			expect(text).toContain(`${APP_URL}/dashboard/mis-certificados`);
+		});
+
+		test("el mensaje del curso va como párrafo, escapado en el HTML", () => {
+			const { text, html } = issued({
+				message: '<img src=x onerror="alert(1)"> ¡Felicidades!',
+			});
+
+			expect(text).toContain("¡Felicidades!");
+			expect(html).not.toContain("<img src=x");
+			expect(html).toContain("&lt;img src=x");
+		});
+
+		test("con la descarga apagada dice quién lo entrega y no ofrece el botón", () => {
+			const { text, html } = issued({ downloadable: false });
+
+			expect(text).toContain("La dependencia organizadora te lo entregará");
+			expect(html).not.toContain("Ver mis certificados");
+		});
+	});
 });

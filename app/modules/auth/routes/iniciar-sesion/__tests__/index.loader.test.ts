@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { serializeAuthCookies } from "@/core/cookies.server";
 import type { VerifiedAccessTokenPayload } from "../../../domain/auth.types";
 import { loader } from "../index.loader";
 
@@ -17,34 +16,11 @@ const PAYLOAD: VerifiedAccessTokenPayload = {
 
 const TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
-const requestWithCookies = async (accessToken: string | null, search = "") => {
-	const headers: Record<string, string> = {};
-	if (accessToken !== null) {
-		const cookies = await serializeAuthCookies({
-			accessToken,
-			refreshToken: null,
-		});
-		headers.Cookie = cookies.map((c) => c.split(";")[0]).join("; ");
-	}
-	return new Request(`https://app.example.com/iniciar-sesion${search}`, {
-		headers,
-	});
-};
+const loginRequest = (search = "") =>
+	new Request(`https://app.example.com/iniciar-sesion${search}`);
 
-const createHarness = (payload: VerifiedAccessTokenPayload | null) => {
-	const calls = { verify: [] as string[] };
-
-	const context = {
-		authService: {
-			verifyAccessToken: async (token: string) => {
-				calls.verify.push(token);
-				return payload;
-			},
-		},
-	} as unknown as LoaderArgs["context"];
-
-	return { context, calls };
-};
+const contextWith = (authPayload: VerifiedAccessTokenPayload | null) =>
+	({ authPayload }) as unknown as LoaderArgs["context"];
 
 const run = (request: Request, context: LoaderArgs["context"]) =>
 	loader({ request, context } as LoaderArgs);
@@ -52,76 +28,47 @@ const run = (request: Request, context: LoaderArgs["context"]) =>
 describe("iniciar-sesion loader", () => {
 	// Quien ya tiene sesión no debería ver el formulario: entrar y volver a
 	// autenticarse crearía una segunda sesión sin motivo.
-	test("redirects away when the visitor already has a valid token", async () => {
-		const { context } = createHarness(PAYLOAD);
-
-		const thrown = await run(
-			await requestWithCookies("token-valido"),
-			context,
-		).catch((e) => e);
+	test("con sesión, redirige al dashboard", async () => {
+		const thrown = await run(loginRequest(), contextWith(PAYLOAD)).catch(
+			(e) => e,
+		);
 
 		expect(thrown).toBeInstanceOf(Response);
-		expect(thrown.headers.get("Location")).toBe("/");
+		expect(thrown.headers.get("Location")).toBe("/dashboard");
 	});
 
-	test("renders the form when there is no cookie at all", async () => {
-		const { context, calls } = createHarness(PAYLOAD);
-
-		expect(await run(await requestWithCookies(null), context)).toMatchObject({
+	// Sin payload cae todo lo que el middleware no aceptó: sin cookie, token
+	// caducado sin refresh válido, firma manipulada o token revocado por epoch.
+	test("sin sesión, pinta el formulario", async () => {
+		expect(await run(loginRequest(), contextWith(null))).toMatchObject({
 			success: true,
 			data: { redirectTo: "" },
 		});
-		expect(calls.verify).toEqual([]);
-	});
-
-	// Cookie presente pero token caducado o manipulado: el formulario se pinta,
-	// que es justo lo que necesita quien viene a renovar su sesión.
-	test("renders the form when the token does not verify", async () => {
-		const { context } = createHarness(null);
-
-		expect(
-			await run(await requestWithCookies("token-caducado"), context),
-		).toMatchObject({ success: true, data: { redirectTo: "" } });
 	});
 
 	// El escaneo del QR es el único destino que el login acepta conservar.
 	test("con sesión y un redirectTo de asistencia, vuelve al escaneo", async () => {
-		const { context } = createHarness(PAYLOAD);
-
 		const thrown = await run(
-			await requestWithCookies(
-				"token-valido",
-				`?redirectTo=${encodeURIComponent(`/asistencia/${TOKEN}`)}`,
-			),
-			context,
+			loginRequest(`?redirectTo=${encodeURIComponent(`/asistencia/${TOKEN}`)}`),
+			contextWith(PAYLOAD),
 		).catch((e) => e);
 
 		expect(thrown.headers.get("Location")).toBe(`/asistencia/${TOKEN}`);
 	});
 
 	test("con sesión y un redirectTo hostil, lo ignora", async () => {
-		const { context } = createHarness(PAYLOAD);
-
 		const thrown = await run(
-			await requestWithCookies(
-				"token-valido",
-				"?redirectTo=https%3A%2F%2Fevil.com",
-			),
-			context,
+			loginRequest("?redirectTo=https%3A%2F%2Fevil.com"),
+			contextWith(PAYLOAD),
 		).catch((e) => e);
 
-		expect(thrown.headers.get("Location")).toBe("/");
+		expect(thrown.headers.get("Location")).toBe("/dashboard");
 	});
 
 	test("sin sesión, el redirectTo válido llega al formulario", async () => {
-		const { context } = createHarness(null);
-
 		const result = await run(
-			await requestWithCookies(
-				null,
-				`?redirectTo=${encodeURIComponent(`/asistencia/${TOKEN}`)}`,
-			),
-			context,
+			loginRequest(`?redirectTo=${encodeURIComponent(`/asistencia/${TOKEN}`)}`),
+			contextWith(null),
 		);
 
 		expect(result).toMatchObject({
@@ -130,23 +77,11 @@ describe("iniciar-sesion loader", () => {
 	});
 
 	test("sin sesión, un redirectTo hostil no llega al formulario", async () => {
-		const { context } = createHarness(null);
-
 		const result = await run(
-			await requestWithCookies(null, "?redirectTo=%2F%2Fevil.com"),
-			context,
+			loginRequest("?redirectTo=%2F%2Fevil.com"),
+			contextWith(null),
 		);
 
 		expect(result).toMatchObject({ data: { redirectTo: "" } });
-	});
-
-	test("verifies the token that came in the cookie", async () => {
-		const { context, calls } = createHarness(PAYLOAD);
-
-		await run(await requestWithCookies("token-valido"), context).catch(
-			() => {},
-		);
-
-		expect(calls.verify).toEqual(["token-valido"]);
 	});
 });

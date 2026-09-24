@@ -4,6 +4,7 @@ import { toProxyRef } from "@/shared/storage/public-url";
 import { getKeyFromUrl } from "@/shared/storage/storage.utils";
 import {
 	CERTIFICATE_ACCENTS,
+	CERTIFICATE_EMAIL_MESSAGE_MAX,
 	CERTIFICATE_EXPORT_FORMATS,
 	CERTIFICATE_SIGNATURE,
 	CERTIFICATE_TEXT_LIMITS,
@@ -128,6 +129,27 @@ export const certificateRules = {
 			v.uuid("El identificador del certificado no es válido."),
 		),
 		format: exportFormat,
+	}),
+	/** Un identificador malformado se trata como inexistente: no hay 400 que distinga. */
+	verify: v.object({
+		documentId: v.pipe(
+			v.string("Falta el identificador del certificado."),
+			v.uuid("El identificador del certificado no es válido."),
+		),
+	}),
+	delivery: v.object({
+		documentId: courseDocumentId,
+		isDownloadable: v.boolean("Indica si el participante puede descargarlo."),
+		emailMessage: v.nullable(
+			v.pipe(
+				v.string("El mensaje del correo debe ser texto."),
+				v.trim(),
+				v.maxLength(
+					CERTIFICATE_EMAIL_MESSAGE_MAX,
+					`El mensaje del correo no puede superar los ${CERTIFICATE_EMAIL_MESSAGE_MAX} caracteres.`,
+				),
+			),
+		),
 	}),
 	sample: v.object({
 		documentId: courseDocumentId,

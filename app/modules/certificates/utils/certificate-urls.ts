@@ -9,6 +9,13 @@ export const certificateDownloadUrl = (
 	format: CertificateExportFormat,
 ) => `/dashboard/certificados/${issueDocumentId}/descargar?formato=${format}`;
 
+/** Descarga del propio certificado, desde «Mis certificados» o «Mis cursos». */
+export const myCertificateDownloadUrl = (
+	issueDocumentId: string,
+	format: CertificateExportFormat,
+) =>
+	`/dashboard/mis-certificados/${issueDocumentId}/descargar?formato=${format}`;
+
 /** El diseño guardado con datos de muestra. */
 export const certificateSampleUrl = (
 	courseDocumentId: string,

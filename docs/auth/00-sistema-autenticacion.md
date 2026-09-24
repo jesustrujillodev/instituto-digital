@@ -63,7 +63,7 @@ app/
 │   │   ├── session-monitor-error-messages.ts  diccionario del monitor (explícito)
 │   │   └── session-monitor-form.ts            intents del action del monitor
 │   └── routes/                    ← adaptadores de entrada (React Router)
-│       ├── iniciar-sesion/        página + action (login) + loader (skip si ya autenticado)
+│       ├── iniciar-sesion/        página + action (login) + loader (con sesión → /dashboard)
 │       ├── cerrar-sesion/         action: cierra LA sesión actual
 │       ├── cerrar-sesiones/       action: cierra TODAS las sesiones del usuario
 │       └── sesiones/              página SUPERADMIN: monitor de sesiones (§6.5)
@@ -159,7 +159,10 @@ Petición entrante
   │      · rutas protegidas: requireAuth / requireRole leen el authPayload
   │        YA verificado — nunca re-verifican cookies ni tocan la DB
   │
-  └─ 3. Si hubo refresh, anexa los Set-Cookie a la respuesta
+  └─ 3. Si hubo refresh, anexa los Set-Cookie a la respuesta — salvo que el
+         handler ya fijara las cookies de auth (login/logout): el navegador
+         aplica el último Set-Cookie de cada nombre, y anexar el refresco
+         detrás de un logout resucitaría la sesión recién cerrada
 ```
 
 Claves del diseño:

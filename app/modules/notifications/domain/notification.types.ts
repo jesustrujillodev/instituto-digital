@@ -44,7 +44,17 @@ export type NotificationEvent =
 			course: NotifiedCourse;
 			sessions: readonly NotifiedSession[];
 	  }
-	| { template: "COURSE_CANCELLED"; to: Recipient; course: NotifiedCourse };
+	| { template: "COURSE_CANCELLED"; to: Recipient; course: NotifiedCourse }
+	| {
+			template: "CERTIFICATE_ISSUED";
+			to: Recipient;
+			course: { title: string; dependencyName: string };
+			folio: string;
+			/** Con la descarga apagada, el correo dice quién lo entrega. */
+			downloadable: boolean;
+			/** El mensaje que el curso configuró para este correo. */
+			message: string | null;
+	  };
 
 export interface RenderedEmail {
 	subject: string;

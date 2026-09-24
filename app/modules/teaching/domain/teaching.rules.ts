@@ -309,6 +309,9 @@ export const issueCandidatesOf = (
 ): IssueCandidate[] =>
 	completed.map((participant) => ({
 		userId: participant.userId,
+		email: participant.email,
+		firstName: participant.firstName,
+		lastName: participant.lastName,
 		recipientName:
 			[participant.firstName, participant.lastName]
 				.filter(Boolean)

@@ -328,5 +328,102 @@ export const createCertificateRepository = ({
 				data,
 			};
 		},
+
+		async findDelivery(courseId) {
+			const row = await prisma.courseCertificate.findUnique({
+				where: { courseId },
+				select: { isDownloadable: true, emailMessage: true },
+			});
+			return row ?? { isDownloadable: true, emailMessage: null };
+		},
+
+		async saveDelivery(courseId, delivery) {
+			await prisma.courseCertificate.upsert({
+				where: { courseId },
+				create: {
+					courseId,
+					draftDesign: asJson(DEFAULT_CERTIFICATE_DESIGN),
+					...delivery,
+				},
+				update: delivery,
+			});
+		},
+
+		async findMine(userId) {
+			const rows = await prisma.certificateIssue.findMany({
+				where: { userId, revokedAt: null },
+				orderBy: { issuedAt: "desc" },
+				select: {
+					documentId: true,
+					dataSnapshot: true,
+					course: {
+						select: { certificate: { select: { isDownloadable: true } } },
+					},
+				},
+			});
+
+			// Una fila ilegible se omite de la lista: no se inventa un certificado.
+			return rows.flatMap((row) => {
+				const data = toCertificateRenderData(row.dataSnapshot);
+				if (!data) {
+					log.error("certificate data snapshot is unreadable", {
+						issue: row.documentId,
+					});
+					return [];
+				}
+				return [
+					{
+						documentId: row.documentId,
+						data,
+						downloadable: row.course.certificate?.isDownloadable ?? true,
+					},
+				];
+			});
+		},
+
+		async findMyIssue(issueDocumentId, userId) {
+			const row = await prisma.certificateIssue.findFirst({
+				where: { documentId: issueDocumentId, userId, revokedAt: null },
+				select: {
+					documentId: true,
+					courseId: true,
+					designSnapshot: true,
+					dataSnapshot: true,
+					course: {
+						select: { certificate: { select: { isDownloadable: true } } },
+					},
+				},
+			});
+			if (!row) return null;
+
+			const data = toCertificateRenderData(row.dataSnapshot);
+			if (!data) {
+				throw new Error(
+					`certificate issue ${row.documentId} has an unreadable data snapshot`,
+				);
+			}
+			return {
+				documentId: row.documentId,
+				design: readDesign(row.designSnapshot, row.courseId),
+				data,
+				downloadable: row.course.certificate?.isDownloadable ?? true,
+			};
+		},
+
+		async findIssueForVerification(issueDocumentId) {
+			const row = await prisma.certificateIssue.findUnique({
+				where: { documentId: issueDocumentId },
+				select: { folio: true, revokedAt: true, dataSnapshot: true },
+			});
+			if (!row) return null;
+
+			const data = toCertificateRenderData(row.dataSnapshot);
+			if (!data) {
+				throw new Error(
+					`certificate issue ${issueDocumentId} has an unreadable data snapshot`,
+				);
+			}
+			return { folio: row.folio, revokedAt: row.revokedAt, data };
+		},
 	};
 };

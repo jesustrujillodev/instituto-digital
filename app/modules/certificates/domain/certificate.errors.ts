@@ -11,6 +11,8 @@ export const CERTIFICATE_ERROR_CODES = {
 	ISSUE_REVOKED: "CERTIFICATE_ISSUE_REVOKED",
 	EXPORT_UNAVAILABLE: "CERTIFICATE_EXPORT_UNAVAILABLE",
 	EXPORT_FAILED: "CERTIFICATE_EXPORT_FAILED",
+	VERIFY_RATE_LIMITED: "CERTIFICATE_VERIFY_RATE_LIMITED",
+	DOWNLOAD_DISABLED: "CERTIFICATE_DOWNLOAD_DISABLED",
 } as const;
 
 export abstract class CertificateError extends DomainError {}
@@ -92,5 +94,23 @@ export class CertificateExportFailedError extends CertificateError {
 	constructor(reason: string) {
 		super(`Certificate export failed: ${reason}`);
 		this.details = { reason };
+	}
+}
+
+/** Demasiadas verificaciones desde la misma IP: el UUID no se prueba a ciegas. */
+export class CertificateVerifyRateLimitedError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.VERIFY_RATE_LIMITED;
+	readonly details: { retryAfterMs: number };
+	constructor(retryAfterMs: number) {
+		super("Too many certificate verifications");
+		this.details = { retryAfterMs };
+	}
+}
+
+/** El curso no deja que el participante lo descargue: se lo entrega la dependencia. */
+export class CertificateDownloadDisabledError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.DOWNLOAD_DISABLED;
+	constructor() {
+		super("Certificate download is disabled for this course");
 	}
 }

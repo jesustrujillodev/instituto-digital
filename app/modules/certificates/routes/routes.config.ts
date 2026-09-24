@@ -17,4 +17,24 @@ export const certificatesRoutes = [
 		"certificados/:documentId/descargar",
 		"modules/certificates/routes/certificados/$documentId.descargar/index.ts",
 	),
+	/** Los certificados propios de quien está en sesión (`requireAuth`). */
+	route(
+		"mis-certificados",
+		"modules/certificates/routes/mis-certificados/index.tsx",
+	),
+	route(
+		"mis-certificados/:documentId/descargar",
+		"modules/certificates/routes/mis-certificados/$documentId.descargar/index.ts",
+	),
+] satisfies RouteConfigEntry[];
+
+/**
+ * La verificación pública, en la ZONA 1: sin sesión a propósito, porque la
+ * consulta quien tiene el papel (docs/adr/0020).
+ */
+export const certificateVerificationRoutes = [
+	route(
+		"verificar/:documentId",
+		"modules/certificates/routes/verificar/$documentId/index.tsx",
+	),
 ] satisfies RouteConfigEntry[];

@@ -248,8 +248,20 @@ describe("folioFormat", () => {
 });
 
 describe("diffIssues", () => {
-	const ana = { userId: 50, recipientName: "Ana Ruiz" };
-	const luis = { userId: 51, recipientName: "Luis Peña" };
+	const ana = {
+		userId: 50,
+		recipientName: "Ana Ruiz",
+		email: "ana@instituto.gob.mx",
+		firstName: "Ana",
+		lastName: "Ruiz",
+	};
+	const luis = {
+		userId: 51,
+		recipientName: "Luis Peña",
+		email: "luis@universidad.mx",
+		firstName: "Luis",
+		lastName: "Peña",
+	};
 
 	test("emite a quien completó y no tiene emisión", () => {
 		expect(diffIssues([], [ana, luis])).toEqual({
@@ -314,5 +326,18 @@ describe("certificateFileName", () => {
 		["///", "pdf", "certificado-sin-folio.pdf"],
 	] as const)("%s → %s", (folio, format, expected) => {
 		expect(certificateFileName(folio, format)).toBe(expected);
+	});
+});
+
+describe("certificateRules.verify", () => {
+	test("solo un UUID pasa", () => {
+		expect(
+			v.safeParse(certificateRules.verify, {
+				documentId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+			}).success,
+		).toBe(true);
+		expect(
+			v.safeParse(certificateRules.verify, { documentId: "2026-0001" }).success,
+		).toBe(false);
 	});
 });

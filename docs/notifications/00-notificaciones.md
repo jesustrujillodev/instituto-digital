@@ -19,10 +19,19 @@ enviados de forma asíncrona sin bloquear ninguna operación. El transporte vive
 | `ENROLLMENT_ASSIGNED` | Cada asignado | `enrollments#assign` | — |
 | `COURSE_UPDATED` | `ENROLLED` + `INVITED` activos | `courses#update` | Curso publicado y `hasScheduleChanges` |
 | `COURSE_CANCELLED` | `ENROLLED` + `INVITED` activos | `courses#cancel` | Solo si estaba publicado |
+| `CERTIFICATE_ISSUED` | Cada persona con emisión **nueva** | `certificateIssuance#sync` (dentro de `completionSync`) | Al emitirse por primera vez. Restaurar o revocar no avisa. Lleva el mensaje del curso (`email_message`) y, con la descarga apagada, dice que la dependencia lo entrega |
 
 `hasScheduleChanges` avisa si se añade o quita una sesión, o si cambia su
 horario, su sede o su enlace. Editar título, descripción, cupo o audiencia no
 avisa.
+
+`CERTIFICATE_ISSUED` se encola en la misma transacción que escribe la emisión:
+- al finalizar un curso;
+- al completar un autogestivo;
+- al pulsar «Emitir certificados».
+
+Si la emisión revierte, el correo no sale
+([02-emision.md](../certificates/02-emision.md) §9).
 
 ## 3. Ciclo de vida de un mensaje
 

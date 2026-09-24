@@ -37,6 +37,11 @@ export interface CertificateRenderData {
 	hours: string | null;
 	issuedOn: string;
 	folio: string;
+	/**
+	 * La dirección que codifica el QR del pie. No se congela: se calcula al
+	 * descargar, así que también los certificados emitidos antes la llevan.
+	 */
+	verificationUrl?: string | null;
 }
 
 export interface CertificateRenderOptions {
@@ -92,6 +97,16 @@ export interface CertificateEditor {
 	course: CertificateCourse;
 	record: CertificateRecord;
 	state: CertificateState;
+	delivery: CertificateDelivery;
+}
+
+/**
+ * Cómo llega el certificado a quien lo recibe. No es diseño: rige desde que se
+ * guarda, también para lo ya emitido.
+ */
+export interface CertificateDelivery {
+	isDownloadable: boolean;
+	emailMessage: string | null;
 }
 
 export type SaveCertificateDraftDto = v.InferOutput<
@@ -103,10 +118,16 @@ export type SaveCertificateDraftDto = v.InferOutput<
 export type CertificateExportFormat =
 	(typeof CERTIFICATE_EXPORT_FORMATS)[number];
 
-/** A quién se emite: quien completó, con el nombre que se imprime. */
+/**
+ * A quién se emite: quien completó, con el nombre que se imprime y los datos
+ * del correo que avisa de la emisión.
+ */
 export interface IssueCandidate {
 	userId: number;
 	recipientName: string;
+	email: string;
+	firstName: string | null;
+	lastName: string | null;
 }
 
 /** Lo que el diff necesita de una emisión ya guardada. */
@@ -159,3 +180,54 @@ export type DownloadCertificateDto = v.InferOutput<
 	typeof certificateRules.download
 >;
 export type DownloadSampleDto = v.InferOutput<typeof certificateRules.sample>;
+
+// ── Verificación pública (F-10) ───────────────────────────────────────────────
+
+/**
+ * Lo que responde la verificación pública. Solo lo que ya está impreso en el
+ * certificado: ni correo, ni ids internos. Un revocado no dice de quién era.
+ */
+export type CertificateVerification =
+	| {
+			status: "valid";
+			folio: string;
+			recipientName: string;
+			courseTitle: string;
+			dependencyName: string;
+			hours: string | null;
+			issuedOn: string;
+	  }
+	| { status: "revoked"; folio: string };
+
+/** Lo que el repositorio lee para verificar, sin guarda de alcance. */
+export interface VerifiableIssue {
+	folio: string;
+	revokedAt: Date | null;
+	data: CertificateRenderData;
+}
+
+// ── Entrega al participante (F-11) ────────────────────────────────────────────
+
+/** Un certificado vigente de quien está en sesión, tal como lo lista. */
+export interface MyCertificate {
+	documentId: string;
+	folio: string;
+	courseTitle: string;
+	dependencyName: string;
+	hours: string | null;
+	issuedOn: string;
+	downloadable: boolean;
+	verificationPath: string;
+}
+
+/** Una emisión propia para descargar: lo congelado y si el curso lo permite. */
+export interface MyIssueRecord {
+	documentId: string;
+	design: CertificateDesign;
+	data: CertificateRenderData;
+	downloadable: boolean;
+}
+
+export type SaveCertificateDeliveryDto = v.InferOutput<
+	typeof certificateRules.delivery
+>;

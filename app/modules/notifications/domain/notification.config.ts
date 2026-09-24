@@ -7,6 +7,7 @@ export const NOTIFICATION_TEMPLATES = [
 	"ENROLLMENT_ASSIGNED",
 	"COURSE_UPDATED",
 	"COURSE_CANCELLED",
+	"CERTIFICATE_ISSUED",
 ] as const;
 export type NotificationTemplate = (typeof NOTIFICATION_TEMPLATES)[number];
 

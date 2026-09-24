@@ -11,7 +11,11 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import "@/shared/rules/messages.rules";
-import { themeModeCookie, themePreviewCookie } from "@/core/cookies.server";
+import {
+	appendRefreshedCookies,
+	themeModeCookie,
+	themePreviewCookie,
+} from "@/core/cookies.server";
 import { ThemePreviewBar } from "@/modules/theme/components/theme-preview-bar";
 import { DEFAULT_THEME_TOKENS } from "@/modules/theme/domain/theme.config";
 import {
@@ -74,13 +78,12 @@ export const middleware: Route.MiddlewareFunction[] = [
 		// 4. Run the actual loader / action
 		const response = await next();
 
-		// 5. Append new cookies if tokens were silently refreshed
+		// 5. Append new cookies if tokens were silently refreshed — unless the
+		// handler (login/logout) already decided the auth cookies itself.
 		// (shouldRedirectToLogin solo puede activarse ANTES de next() — el refresh
 		// ocurre íntegro en configureContainer; no hay caso post-next que cubrir)
 		if (apiContext.newCookies) {
-			for (const cookie of apiContext.newCookies) {
-				response.headers.append("Set-Cookie", cookie);
-			}
+			appendRefreshedCookies(response.headers, apiContext.newCookies);
 		}
 
 		return response;

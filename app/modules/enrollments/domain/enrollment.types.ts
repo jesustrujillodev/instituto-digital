@@ -139,6 +139,8 @@ export interface MyCourseOutcome {
 	attendedSessions: number;
 	/** Su puntuación si ya valoró; los comentarios no vuelven a la persona. */
 	myRating: number | null;
+	/** Su certificado vigente del curso, si se emitió (F-11). */
+	certificate: { documentId: string; downloadable: boolean } | null;
 }
 
 export interface MyCourseRecord {

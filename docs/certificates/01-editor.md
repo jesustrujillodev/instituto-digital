@@ -99,3 +99,10 @@ lo publicado, con datos de muestra y el mismo exportador que la emisión. Con ca
 guardar, lo guardado no se exporta.
 
 El formato del folio debe incluir `{seq}` (ver [02-emision.md](./02-emision.md) §4).
+
+La tarjeta «Entrega» guarda con su propio intent (`save-delivery`), aparte del diseño:
+- si el participante puede descargarlo (`is_downloadable`);
+- el mensaje opcional del correo (`email_message`, hasta 500 caracteres).
+
+Rige desde que se guarda, también para lo ya emitido
+([02-emision.md](./02-emision.md) §9).

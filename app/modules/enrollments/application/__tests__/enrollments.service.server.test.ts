@@ -940,6 +940,7 @@ describe("enrollmentService.listMine", () => {
 			contentCompletedAt: null,
 			attendedSessions: 0,
 			myRating: null,
+			certificate: null,
 			...outcome,
 		},
 	});

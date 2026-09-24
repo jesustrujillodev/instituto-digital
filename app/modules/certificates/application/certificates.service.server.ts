@@ -17,9 +17,11 @@ import { validateUploadInput } from "@/shared/storage/upload-validation";
 import {
 	CERTIFICATE_EXPORT,
 	CERTIFICATE_SIGNATURE,
+	verificationPathOf,
 } from "../domain/certificate.config";
 import {
 	CertificateCourseNotFoundError,
+	CertificateDownloadDisabledError,
 	CertificateIssueNotFoundError,
 	CertificateIssueRevokedError,
 	CertificateNeverPublishedError,
@@ -27,7 +29,11 @@ import {
 	CertificateSignatureInvalidError,
 	CertificateSignatureNotOwnedError,
 } from "../domain/certificate.errors";
-import { toSampleRenderData } from "../domain/certificate.mapper";
+import {
+	toCertificateVerification,
+	toMyCertificate,
+	toSampleRenderData,
+} from "../domain/certificate.mapper";
 import { renderCertificateDocument } from "../domain/certificate.renderer";
 import {
 	canEditCertificate,
@@ -49,6 +55,7 @@ type Dependencies = {
 	certificateRepository: ICradle["certificateRepository"];
 	certificateExporter: ICradle["certificateExporter"];
 	certificateAssetSource: ICradle["certificateAssetSource"];
+	appBaseUrl: ICradle["appBaseUrl"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
 	storageProvider: ICradle["storageProvider"];
@@ -60,6 +67,7 @@ export const createCertificateService = ({
 	certificateRepository,
 	certificateExporter,
 	certificateAssetSource,
+	appBaseUrl,
 	clock,
 	logger,
 	storageProvider,
@@ -143,8 +151,14 @@ export const createCertificateService = ({
 			return run("getEditor", async () => {
 				const course = await requireCourse(courseDocumentId, actor);
 				const record = await certificateRepository.findRecord(course.id);
+				const delivery = await certificateRepository.findDelivery(course.id);
 
-				return ok({ course, record, state: certificateStateOf(record) });
+				return ok({
+					course,
+					record,
+					state: certificateStateOf(record),
+					delivery,
+				});
 			});
 		},
 
@@ -222,7 +236,67 @@ export const createCertificateService = ({
 				if (!issue) throw new CertificateIssueNotFoundError();
 				if (issue.revokedAt) throw new CertificateIssueRevokedError();
 
-				return ok(await exportCertificate(issue.design, issue.data, format));
+				return ok(
+					await exportCertificate(
+						issue.design,
+						{
+							...issue.data,
+							verificationUrl: `${appBaseUrl}${verificationPathOf(issue.documentId)}`,
+						},
+						format,
+					),
+				);
+			});
+		},
+
+		async saveDelivery({ documentId, isDownloadable, emailMessage }, actor) {
+			return run("saveDelivery", async () => {
+				const course = await requireEditableCourse(documentId, actor);
+
+				await certificateRepository.saveDelivery(course.id, {
+					isDownloadable,
+					emailMessage: emailMessage || null,
+				});
+				return ok(null);
+			});
+		},
+
+		async listMine(actor) {
+			return run("listMine", async () => {
+				const rows = await certificateRepository.findMine(actor.userId);
+				return ok(rows.map(toMyCertificate));
+			});
+		},
+
+		async downloadMine({ documentId, format }, actor) {
+			return run("downloadMine", async () => {
+				const issue = await certificateRepository.findMyIssue(
+					documentId,
+					actor.userId,
+				);
+				if (!issue) throw new CertificateIssueNotFoundError();
+				if (!issue.downloadable) throw new CertificateDownloadDisabledError();
+
+				return ok(
+					await exportCertificate(
+						issue.design,
+						{
+							...issue.data,
+							verificationUrl: `${appBaseUrl}${verificationPathOf(issue.documentId)}`,
+						},
+						format,
+					),
+				);
+			});
+		},
+
+		async verify(issueDocumentId) {
+			return run("verify", async () => {
+				const issue =
+					await certificateRepository.findIssueForVerification(issueDocumentId);
+				if (!issue) throw new CertificateIssueNotFoundError();
+
+				return ok(toCertificateVerification(issue));
 			});
 		},
 
@@ -240,7 +314,12 @@ export const createCertificateService = ({
 				return ok(
 					await exportCertificate(
 						design,
-						toSampleRenderData(course, design.folioFormat, clock.now()),
+						toSampleRenderData(
+							course,
+							design.folioFormat,
+							clock.now(),
+							appBaseUrl,
+						),
 						format,
 					),
 				);

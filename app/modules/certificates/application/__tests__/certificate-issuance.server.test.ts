@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
 import { DEFAULT_CERTIFICATE_DESIGN } from "../../domain/certificate.config";
 import type {
@@ -27,8 +28,20 @@ const PUBLISHED: CertificateDesign = {
 	folioFormat: "SOP-{year}-{seq}",
 };
 
-const ana = { userId: 50, recipientName: "Ana Ruiz" };
-const luis = { userId: 51, recipientName: "Luis Peña" };
+const ana = {
+	userId: 50,
+	recipientName: "Ana Ruiz",
+	email: "ana@instituto.gob.mx",
+	firstName: "Ana",
+	lastName: "Ruiz",
+};
+const luis = {
+	userId: 51,
+	recipientName: "Luis Peña",
+	email: "luis@universidad.mx",
+	firstName: "Luis",
+	lastName: "Peña",
+};
 
 /**
  * Doble en memoria: lo emitido en una llamada es lo que la siguiente encuentra,
@@ -38,6 +51,8 @@ const createHarness = (
 	options: {
 		published?: CertificateDesign | null;
 		stored?: StoredIssue[];
+		delivery?: { isDownloadable: boolean; emailMessage: string | null };
+		failCreate?: boolean;
 	} = {},
 ) => {
 	let stored = [...(options.stored ?? [])];
@@ -46,6 +61,7 @@ const createHarness = (
 		created: [] as NewCertificateIssue[],
 		restored: [] as number[][],
 		revoked: [] as number[][],
+		emails: [] as NotificationEvent[],
 	};
 
 	const certificateRepository = {
@@ -63,7 +79,10 @@ const createHarness = (
 			counter += count;
 			return first;
 		},
+		findDelivery: async () =>
+			options.delivery ?? { isDownloadable: true, emailMessage: null },
 		createIssues: async (_courseId: number, issues: NewCertificateIssue[]) => {
+			if (options.failCreate) throw new Error("unique violation");
 			log.created.push(...issues);
 			stored = [
 				...stored,
@@ -84,8 +103,18 @@ const createHarness = (
 		},
 	} as unknown as ICradle["certificateRepository"];
 
+	const notificationService = {
+		notify: async (events: NotificationEvent[]) => {
+			log.emails.push(...events);
+			return { success: true, data: { queued: events.length } };
+		},
+	} as unknown as ICradle["notificationService"];
+
 	return {
-		issuance: createCertificateIssuance({ certificateRepository }),
+		issuance: createCertificateIssuance({
+			certificateRepository,
+			notificationService,
+		}),
 		log,
 	};
 };
@@ -159,5 +188,54 @@ describe("certificateIssuance.sync", () => {
 			revoked: 0,
 		});
 		expect(log.created).toEqual([]);
+	});
+
+	test("avisa por correo a cada emisión nueva, con el mensaje del curso", async () => {
+		const { issuance, log } = createHarness({
+			delivery: { isDownloadable: false, emailMessage: "¡Felicidades!" },
+		});
+
+		await issuance.sync(7, [ana, luis], AT);
+
+		expect(log.emails).toEqual([
+			{
+				template: "CERTIFICATE_ISSUED",
+				to: {
+					email: "ana@instituto.gob.mx",
+					firstName: "Ana",
+					lastName: "Ruiz",
+				},
+				course: {
+					title: "Seguridad en obra",
+					dependencyName: "Secretaría de Obras Públicas",
+				},
+				folio: "SOP-2026-0042",
+				downloadable: false,
+				message: "¡Felicidades!",
+			},
+			expect.objectContaining({
+				to: expect.objectContaining({ email: "luis@universidad.mx" }),
+				folio: "SOP-2026-0043",
+			}),
+		]);
+	});
+
+	test("restaurar o revocar no manda correo", async () => {
+		const { issuance, log } = createHarness();
+
+		await issuance.sync(7, [ana], AT);
+		await issuance.sync(7, [], AT);
+		await issuance.sync(7, [ana], AT);
+
+		expect(log.emails).toHaveLength(1);
+	});
+
+	// El correo se encola después de escribir la emisión: si la emisión falla,
+	// no llega a encolarse y la transacción revierte lo demás.
+	test("si la emisión falla no se encola nada", async () => {
+		const { issuance, log } = createHarness({ failCreate: true });
+
+		await expect(issuance.sync(7, [ana], AT)).rejects.toThrow();
+		expect(log.emails).toEqual([]);
 	});
 });

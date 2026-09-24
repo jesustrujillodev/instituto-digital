@@ -27,6 +27,7 @@ const createHarness = (reply: unknown = okReply(null)) => {
 			publish: record("publish"),
 			discardDraft: record("discardDraft"),
 			uploadSignature: record("uploadSignature"),
+			saveDelivery: record("saveDelivery"),
 		},
 	} as unknown as ActionArgs["context"];
 
@@ -159,6 +160,56 @@ describe("certificado action", () => {
 		expect(!result.success && result.error.message).toBe(
 			"Una de las firmas no se subió a este curso. Vuelve a subirla.",
 		);
+	});
+
+	test("guardar la entrega toma el curso de la URL, no del cuerpo", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			context,
+			formOf({
+				intent: "save-delivery",
+				payload: JSON.stringify({
+					isDownloadable: false,
+					emailMessage: "¡Felicidades!",
+					documentId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+				}),
+			}),
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			message: "Entrega guardada.",
+		});
+		expect(calls[0]).toMatchObject({
+			method: "saveDelivery",
+			args: [
+				{
+					documentId: COURSE_ID,
+					isDownloadable: false,
+					emailMessage: "¡Felicidades!",
+				},
+				expect.anything(),
+			],
+		});
+	});
+
+	test("una entrega con un mensaje demasiado largo no llega al servicio", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			context,
+			formOf({
+				intent: "save-delivery",
+				payload: JSON.stringify({
+					isDownloadable: true,
+					emailMessage: "x".repeat(501),
+				}),
+			}),
+		);
+
+		expect(!result.success && result.error.code).toBe("VALIDATION_ERROR");
+		expect(calls).toEqual([]);
 	});
 
 	test("una intención desconocida se rechaza", async () => {

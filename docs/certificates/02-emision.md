@@ -114,6 +114,9 @@ error en un toast, cosa que un `<a download>` no puede hacer.
 Una firma que no se puede leer detiene la exportación: nunca sale un certificado sin una de
 sus firmas.
 
+Cada certificado lleva en el pie un QR hacia su verificación pública. La dirección se calcula
+al descargar y no se congela ([03-verificacion.md](./03-verificacion.md)).
+
 ## 7. Firmas y gestor de nube
 
 La fuente de referencias de firmas cuenta también las que imprimen los snapshots emitidos
@@ -131,3 +134,32 @@ reescribe.
 En desarrollo basta con apuntar `CHROMIUM_PATH` al Chrome instalado (ver `.env.example`).
 `vite.config.ts` excluye `puppeteer-core` del preempaquetado: el escaneo de dependencias
 recorre los `.server` y fallaría con `yargs`.
+
+## 9. Entrega al participante
+
+| Superficie | Quién | Qué hace |
+| --- | --- | --- |
+| `/dashboard/mis-certificados` | Cualquiera con sesión (`requireAuth`) | Lista **sus** certificados vigentes: curso, dependencia, fecha, horas, folio, PDF/PNG y «Verificar» |
+| `GET /dashboard/mis-certificados/:documentId/descargar?formato=pdf\|png` | La persona que lo recibió | El archivo propio, dibujado desde los snapshots y con QR |
+| «Certificado» en la tarjeta de un curso finalizado de «Mis cursos» | La persona | El mismo archivo, en un menú PDF/PNG |
+| Correo `CERTIFICATE_ISSUED` | La persona, al emitirse por primera vez | Aviso con el folio, el mensaje del curso y el enlace a «Mis certificados» |
+
+- **Basta la sesión, no `requireParticipant`.** Un externo sin dependencia no cursa por el
+  catálogo, pero sí recibe certificado y su correo lo trae aquí. La lista y la descarga solo
+  leen por el `userId` de la sesión.
+- **Solo vigentes.** Un certificado revocado no se lista. Pedir su descarga responde 404,
+  igual que uno ajeno o inexistente. Si se restaura, vuelve con su folio.
+- **`is_downloadable`** se guarda en la tarjeta «Entrega» del editor, fuera del borrador y
+  el publicado, y rige desde que se guarda, también para lo ya emitido. Apagado:
+  - el certificado se lista sin botones y con «La dependencia organizadora te lo
+    entregará»;
+  - la URL directa responde `CERTIFICATE_DOWNLOAD_DISABLED` (403);
+  - el correo lo dice en lugar de ofrecer el botón.
+
+  Quien imparte lo sigue descargando desde la impartición.
+- **`email_message`** es un mensaje opcional de hasta 500 caracteres. Entra al correo
+  como párrafo propio, escapado.
+- **El correo sale en la misma transacción que la emisión**
+  (`certificateIssuance.sync` → `notificationService.notify`). Si la emisión revierte, no se
+  encola nada. Restaurar un certificado revocado no manda otro correo.
+

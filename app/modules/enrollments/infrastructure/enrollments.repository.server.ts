@@ -387,6 +387,11 @@ export const createEnrollmentRepository = ({
 						select: {
 							...COURSE_SELECT,
 							ratings: { where: { userId }, select: { score: true } },
+							certificateIssues: {
+								where: { userId, revokedAt: null },
+								select: { documentId: true },
+							},
+							certificate: { select: { isDownloadable: true } },
 						},
 					},
 				},
@@ -410,7 +415,7 @@ export const createEnrollmentRepository = ({
 
 			return rows.map(
 				({
-					course: { ratings, ...course },
+					course: { ratings, certificateIssues, certificate, ...course },
 					grade,
 					completed,
 					progressPercent,
@@ -426,6 +431,12 @@ export const createEnrollmentRepository = ({
 						contentCompletedAt,
 						attendedSessions: attendedByCourse.get(course.id) ?? 0,
 						myRating: ratings.at(0)?.score ?? null,
+						certificate: certificateIssues[0]
+							? {
+									documentId: certificateIssues[0].documentId,
+									downloadable: certificate?.isDownloadable ?? true,
+								}
+							: null,
 					},
 				}),
 			);

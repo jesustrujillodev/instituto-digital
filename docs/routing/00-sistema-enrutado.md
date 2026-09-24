@@ -110,6 +110,22 @@ Puntos de diseño:
   una línea.
 - **Un módulo se añade tocando dos sitios**: su `routes.config.ts` y un spread en
   la zona correcta.
+- **Rutas públicas con datos.** Casi toda la ZONA 1 es landing y autenticación.
+  Hay dos excepciones:
+  - `/asistencia/:token`: el escaneo del QR de asistencia, que se impone la sesión
+    él mismo para conservar el token.
+  - `/verificar/:documentId`: la verificación de un certificado, **sin sesión a
+    propósito**, porque la consulta quien tiene el papel.
+
+  La segunda no confía en quién pregunta, sino en qué responde:
+  - solo lo impreso en el certificado;
+  - un UUID imposible de adivinar en lugar del folio consecutivo;
+  - rate limit por IP antes de validar nada;
+  - `noindex` y `Cache-Control: private, no-store`.
+
+  Su loader lo dice en su JSDoc
+  ([ADR 0020](../adr/0020-ruta-publica-de-verificacion.md)). Una ruta pública
+  nueva con datos de personas sigue ese mismo patrón.
 - No se crean archivos vacíos "de reserva" para zonas futuras. El repo arrastró
   siete archivos de ruta de 0 bytes precisamente por esa práctica; los marcadores
   de zona comentados cumplen la misma función sin código muerto.

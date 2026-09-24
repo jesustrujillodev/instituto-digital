@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	accessTokenCookie,
+	appendRefreshedCookies,
 	clearAuthCookies,
 	parseTokenCookies,
 	refreshTokenCookie,
@@ -105,6 +106,53 @@ describe("clearAuthCookies", () => {
 
 		expect(parsed.accessToken).toBeFalsy();
 		expect(parsed.refreshToken).toBeFalsy();
+	});
+});
+
+describe("appendRefreshedCookies", () => {
+	const refreshed = () =>
+		serializeAuthCookies({ accessToken: "at-nuevo", refreshToken: "rt-nuevo" });
+
+	// El bug: logout con el access caducado. El middleware refresca ANTES del
+	// action, el action limpia las cookies y el refresco se anexaba detrás. El
+	// navegador se queda con el último Set-Cookie de cada nombre → sesión viva.
+	test("no pisa las cookies que el logout acaba de limpiar", async () => {
+		const cleared = await clearAuthCookies();
+		const headers = new Headers();
+		for (const cookie of cleared) {
+			headers.append("Set-Cookie", cookie);
+		}
+
+		appendRefreshedCookies(headers, await refreshed());
+
+		expect(headers.getSetCookie()).toEqual(cleared);
+	});
+
+	test("no pisa la sesión nueva que emite un login", async () => {
+		const login = await serializeAuthCookies({
+			accessToken: "at-login",
+			refreshToken: "rt-login",
+		});
+		const headers = new Headers();
+		for (const cookie of login) {
+			headers.append("Set-Cookie", cookie);
+		}
+
+		appendRefreshedCookies(headers, await refreshed());
+
+		expect(headers.getSetCookie()).toEqual(login);
+	});
+
+	test("anexa el refresco cuando el handler no toca la sesión", async () => {
+		const headers = new Headers();
+		headers.append("Set-Cookie", await themeModeCookie.serialize("dark"));
+
+		appendRefreshedCookies(headers, await refreshed());
+
+		expect(headers.getSetCookie()).toHaveLength(3);
+		expect(
+			await parseTokenCookies(asCookieHeader(headers.getSetCookie())),
+		).toEqual({ accessToken: "at-nuevo", refreshToken: "rt-nuevo" });
 	});
 });
 

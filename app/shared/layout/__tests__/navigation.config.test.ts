@@ -142,6 +142,7 @@ describe("navigationSections — filtrado por rol", () => {
 		"/dashboard/cursos-disponibles",
 		"/dashboard/mis-cursos",
 		"/dashboard/mis-creditos",
+		"/dashboard/mis-certificados",
 	];
 
 	test("un SUPERADMIN ve todo lo que ve un USER salvo lo de participante, y además lo suyo", () => {
@@ -253,6 +254,16 @@ describe("navigationSections — filtrado por rol", () => {
 
 		expect(mainPathsFor("USER")).toContain("/dashboard/mis-creditos");
 		expect(mainPathsFor("SUPERADMIN")).not.toContain("/dashboard/mis-creditos");
+	});
+
+	test("los certificados propios los ve quien cursa, junto a sus créditos", () => {
+		expect(mainPathsFor("USER")).toContain("/dashboard/mis-certificados");
+		expect(mainPathsFor("DEPENDENCY_DEPUTY")).toContain(
+			"/dashboard/mis-certificados",
+		);
+		expect(mainPathsFor("SUPERADMIN")).not.toContain(
+			"/dashboard/mis-certificados",
+		);
 	});
 
 	test("el plan anual lo ven la gestión de dependencia y el superadministrador", () => {

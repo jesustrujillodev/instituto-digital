@@ -221,8 +221,20 @@ describe("issueCandidatesOf", () => {
 		]);
 
 		expect(candidates).toEqual([
-			{ userId: 50, recipientName: "Ana Ruiz" },
-			{ userId: 51, recipientName: "elena@universidad.mx" },
+			{
+				userId: 50,
+				recipientName: "Ana Ruiz",
+				email: "ana@instituto.gob.mx",
+				firstName: "Ana",
+				lastName: "Ruiz",
+			},
+			{
+				userId: 51,
+				recipientName: "elena@universidad.mx",
+				email: "elena@universidad.mx",
+				firstName: null,
+				lastName: null,
+			},
 		]);
 	});
 });

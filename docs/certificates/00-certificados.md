@@ -18,6 +18,7 @@ app/modules/certificates/domain/
 ├── certificate.renderer.ts   # renderCertificate y renderCertificateDocument
 └── templates/
     ├── shared.ts             # estilos base, fuentes, pie, cuerpo común
+    ├── qr.ts                 # el QR de verificación como SVG puro (F-10)
     ├── institucional.ts
     ├── minima.ts
     └── marco.ts
@@ -58,6 +59,8 @@ plantilla.
 4. **CSS bajo `.t-<id>`.** La raíz de toda plantilla es `<div class="cert t-<id>">`.
 5. **El pie tiene cuatro celdas siempre**: una firma apagada deja la suya vacía. Las
    celdas se alinean arriba y el hueco de la firma mide 52 px con imagen o sin ella.
+   Con `data.verificationUrl`, el QR de verificación se posiciona sobre el folio sin mover
+   las celdas ([03-verificacion.md](./03-verificacion.md)).
 6. **Textos largos**: el nombre y el título bajan de cuerpo por largo con las clases
    `is-long`/`is-longer` (`lengthClass`), la descripción se corta a tres líneas (dos en
    `marco`) y los nombres y cargos de firma a dos.
