@@ -45,6 +45,11 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 			"Un curso autogestivo no tiene sesiones, así que no puede completarse por asistencia.",
 		fieldErrors: { completionRule: "Elige otra regla" },
 	},
+	[COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD]: {
+		message:
+			"Un curso autogestivo no tiene capacitador que capture resultados: se evalúa con examen en línea.",
+		fieldErrors: { evaluationMethod: "Elige examen en línea" },
+	},
 	[COURSE_ERROR_CODES.COMPLETION_LOCKED]: {
 		message:
 			"Un curso autogestivo publicado ya otorga créditos: su regla de completado y su evaluación no se pueden cambiar.",

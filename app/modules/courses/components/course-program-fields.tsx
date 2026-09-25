@@ -1,51 +1,43 @@
-import { CalendarPlus, CalendarRange } from "lucide-react";
+import { Info } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { Button } from "@/shared/components/ui/button";
+import { useFormContext, useWatch } from "react-hook-form";
 import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from "@/shared/components/ui/empty";
-import { COURSE_MAX_SESSIONS } from "../domain/course.config";
-import {
-	COURSE_FORMATS,
 	COURSE_MODALITIES,
 	type CourseFormat,
 	type CourseModality,
-	requiresLink,
 	requiresSessions,
-	requiresVenue,
 } from "../domain/course.rules";
 import type { CourseFormOptions } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
-import {
-	type CourseFormValues,
-	nextSessionValues,
-} from "../utils/build-course-form-defaults";
+import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { FORMAT_LABELS, MODALITY_LABELS } from "../utils/course-labels";
 import { CourseChecklistField } from "./course-checklist-field";
-import { CourseSelectField } from "./course-select-field";
-import { CourseSessionRow } from "./course-session-row";
+import { CourseChoiceField } from "./course-choice-field";
+import { CourseSessionsField } from "./course-sessions-field";
+
+const FORMAT_DESCRIPTIONS: Record<CourseFormat, string> = {
+	SELF_PACED: "A su ritmo, sin sesiones",
+	SCHEDULED: "Con sesiones en fechas fijas",
+};
+
+const MODALITY_DESCRIPTIONS: Record<CourseModality, string> = {
+	IN_PERSON: "Sesiones en una sede",
+	ONLINE: "Sesiones por videollamada",
+	HYBRID: "Sede y enlace en cada sesión",
+};
+
+// Autogestivo primero: es el que no pide nada más en este paso.
+const FORMAT_OPTIONS = (["SELF_PACED", "SCHEDULED"] as const).map((value) => ({
+	value,
+	label: FORMAT_LABELS[value],
+	description: FORMAT_DESCRIPTIONS[value],
+}));
 
 const MODALITY_OPTIONS = COURSE_MODALITIES.map((value) => ({
 	value,
 	label: MODALITY_LABELS[value],
+	description: MODALITY_DESCRIPTIONS[value],
 }));
-
-const FORMAT_OPTIONS = COURSE_FORMATS.map((value) => ({
-	value,
-	label: FORMAT_LABELS[value],
-}));
-
-const placeOf = (modality: CourseModality) =>
-	requiresVenue(modality) && requiresLink(modality)
-		? "sede y enlace"
-		: requiresVenue(modality)
-			? "sede"
-			: "enlace";
 
 interface CourseProgramFieldsProps {
 	ids: CourseFormIds;
@@ -57,41 +49,32 @@ interface CourseProgramFieldsProps {
 /**
  * El programa: formato, modalidad y sesiones van juntos porque el formato
  * decide si hay sesiones y la modalidad qué lugar pide cada una. Quién imparte
- * va entre medias: se decide junto con cuándo y dónde.
+ * va entre medias, y solo si hay sesiones: un autogestivo no tiene capacitador.
  */
 export function CourseProgramFields({
 	ids,
 	options,
 	isPublished,
 }: CourseProgramFieldsProps) {
-	const { getValues, setValue } = useFormContext<CourseFormValues>();
-	const { fields, append, remove } = useFieldArray<
-		CourseFormValues,
-		"sessions"
-	>({ name: "sessions" });
+	const { setValue } = useFormContext<CourseFormValues>();
 	const modality = useWatch<CourseFormValues, "modality">({ name: "modality" });
 	const format = useWatch<CourseFormValues, "format">({ name: "format" });
 
 	/**
-	 * El formato arrastra la regla de completado: sin sesiones no hay asistencia
-	 * que medir, así que el curso se completa por su contenido. Se corrige al
-	 * elegir y no en el paso de Reglas porque el wizard guarda cada paso por
-	 * separado y el servidor rechazaría el guardado intermedio.
+	 * El formato arrastra la regla de completado y el método de evaluación: sin
+	 * sesiones no hay asistencia que medir, y sin capacitador nadie captura
+	 * resultados a mano. Se corrige al elegir y no en el paso Evaluación porque
+	 * el wizard guarda cada paso por separado y el servidor rechazaría el
+	 * guardado intermedio.
 	 */
 	const applyFormat = useCallback(
 		(value: string) => {
 			if (requiresSessions(value as CourseFormat)) return;
 			setValue("completionRule", "CONTENT");
+			setValue("evaluationMethod", "QUIZ");
 		},
 		[setValue],
 	);
-
-	const addSession = useCallback(() => {
-		const sessions = getValues("sessions");
-		append(nextSessionValues(sessions.at(-1)), {
-			focusName: `sessions.${sessions.length}.date`,
-		});
-	}, [append, getValues]);
 
 	const trainerOptions = useMemo(
 		() =>
@@ -105,105 +88,61 @@ export function CourseProgramFields({
 		[options.trainers],
 	);
 
-	const canAdd = fields.length < COURSE_MAX_SESSIONS;
 	const scheduled = requiresSessions(format);
 
 	return (
 		<>
-			<div className="grid items-start gap-4 sm:grid-cols-2">
-				<CourseSelectField
+			<div className="flex flex-col gap-3">
+				<CourseChoiceField
 					id={ids.format}
 					name="format"
-					label="Formato"
+					legend="Formato"
 					required
 					options={FORMAT_OPTIONS}
 					onChanged={applyFormat}
-					helperText="Un autogestivo se recorre a ritmo propio, sin sesiones."
+					disabled={isPublished}
+					helperText={
+						isPublished ? "El formato no cambia una vez publicado." : undefined
+					}
 				/>
-				{scheduled && (
-					<CourseSelectField
-						id={ids.modality}
-						name="modality"
-						label="Modalidad"
-						required
-						options={MODALITY_OPTIONS}
-					/>
+				{!scheduled && (
+					<p className="flex items-start gap-2 text-muted-foreground text-sm">
+						<Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+						Sin sesiones que programar ni capacitador que asignar: cada persona
+						recorre las lecciones a su ritmo y obtiene su crédito al
+						terminarlas.
+					</p>
 				)}
 			</div>
 
-			<CourseChecklistField
-				id={ids.trainers}
-				name="trainers"
-				legend="Capacitadores"
-				options={trainerOptions}
-				emptyText="No hay capacitadores activos en el catálogo."
-			/>
+			{scheduled && (
+				<>
+					<CourseChoiceField
+						id={ids.modality}
+						name="modality"
+						legend="Modalidad"
+						required
+						options={MODALITY_OPTIONS}
+					/>
 
-			{scheduled ? (
-				<fieldset id={ids.sessions} className="flex flex-col gap-4">
-					<legend className="mb-1 font-medium text-sm">Sesiones</legend>
-					<p className="text-muted-foreground text-sm">
-						Horario de Tijuana. Para publicar hace falta al menos una, y cada
-						una con {placeOf(modality)}.
-						{isPublished &&
-							" Si cambias horario o lugar, se avisa por correo a inscritos e invitados."}
-					</p>
+					<CourseChecklistField
+						id={ids.trainers}
+						name="trainers"
+						legend="Capacitadores"
+						options={trainerOptions}
+						emptyText="No hay capacitadores activos en el catálogo."
+						searchPlaceholder="Buscar por nombre o área"
+						withInitials
+					/>
+				</>
+			)}
 
-					{fields.length === 0 ? (
-						<Empty className="border border-border border-dashed p-8">
-							<EmptyHeader>
-								<EmptyMedia variant="icon">
-									<CalendarRange aria-hidden="true" />
-								</EmptyMedia>
-								<EmptyTitle>Sin sesiones todavía</EmptyTitle>
-								<EmptyDescription>
-									Una sesión es una fecha con su horario y su{" "}
-									{placeOf(modality)}. Puedes guardar el borrador así y
-									programarlas más adelante.
-								</EmptyDescription>
-							</EmptyHeader>
-							<Button type="button" variant="outline" onClick={addSession}>
-								<CalendarPlus aria-hidden="true" />
-								Agregar la primera sesión
-							</Button>
-						</Empty>
-					) : (
-						<>
-							<ol className="flex flex-col gap-5">
-								{fields.map((field, index) => (
-									<CourseSessionRow
-										key={field.id}
-										index={index}
-										modality={modality}
-										onRemove={remove}
-									/>
-								))}
-							</ol>
-
-							<div className="flex flex-wrap items-center gap-3">
-								<Button
-									type="button"
-									variant="outline"
-									onClick={addSession}
-									disabled={!canAdd}
-								>
-									<CalendarPlus aria-hidden="true" />
-									Agregar sesión
-								</Button>
-								<span className="text-muted-foreground text-xs">
-									{canAdd
-										? "La nueva repite el horario y el lugar de la última."
-										: `Máximo ${COURSE_MAX_SESSIONS} sesiones.`}
-								</span>
-							</div>
-						</>
-					)}
-				</fieldset>
-			) : (
-				<p className="text-muted-foreground text-sm">
-					Sin sesiones que programar. Quien se inscriba recorre las lecciones a
-					su ritmo y obtiene su crédito en cuanto las termina.
-				</p>
+			{scheduled && (
+				<CourseSessionsField
+					id={ids.sessions}
+					modality={modality}
+					isPublished={isPublished}
+				/>
 			)}
 		</>
 	);

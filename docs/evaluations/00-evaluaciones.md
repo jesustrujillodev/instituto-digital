@@ -16,7 +16,14 @@ Tienen dos momentos, y cada uno vive en su pantalla:
 
 - **Definirlas** (alta, cambio de nombre o sesión, baja) es parte de crear o
   editar el curso: paso **Evaluación** del wizard, debajo de "Requiere
-  evaluación".
+  evaluación final".
+
+**Solo existen en cursos calendarizados.** Las captura quien imparte, y un
+autogestivo no tiene capacitador ni sesiones a las que anclarlas: el alta se
+rechaza con `EVALUATION_SELF_PACED` (`assertFollowUpsAllowed`), el wizard no las
+ofrece y la ficha de impartición no carga su tablero. Para evaluar dentro del
+recorrido de un autogestivo está la evaluación del módulo
+([ADR 0016](../adr/0016-evaluacion-por-modulo.md)).
 - **Capturar sus resultados** es parte de impartirlo: pestaña **Evaluaciones**
   de la ficha de impartición. Ahí no se crean ni se renombran.
 
@@ -57,8 +64,8 @@ evaluación sin día, nunca la borra.
 | Escribir la captura | `POST /dashboard/imparticion/:documentId/evaluaciones` (solo action: `results`) |
 
 La pestaña aparece con la misma condición que Resultados: el curso debe tener
-`requiresEvaluation`. El loader de impartición carga el tablero solo en ese
-caso. Sin evaluaciones, la pestaña lleva al paso Evaluación del curso si quien
+`requiresEvaluation` y, además, ser calendarizado. El loader de impartición
+carga el tablero solo en ese caso. Sin evaluaciones, la pestaña lleva al paso Evaluación del curso si quien
 mira puede editarlo.
 
 Quién **define**, igual que quien edita el curso (`resolveCourseScope` +

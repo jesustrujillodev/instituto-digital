@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
 	COURSE_WIZARD_STEPS,
 	editReturnPath,
+	finishReturnPath,
 	firstPendingStep,
 	LAST_STEP_NUMBER,
 	nextStep,
@@ -221,6 +222,18 @@ describe("stepPath", () => {
 	test("la edición tiene su propia ruta", () => {
 		expect(stepPath(COURSE_ID, 4, "edit")).toBe(
 			`/dashboard/cursos/${COURSE_ID}/editar/4`,
+		);
+	});
+});
+
+describe("finishReturnPath", () => {
+	test("terminar lleva a la lista de cursos", () => {
+		expect(finishReturnPath(COURSE_ID, null)).toBe("/dashboard/cursos");
+	});
+
+	test("si se entró desde impartición, regresa ahí", () => {
+		expect(finishReturnPath(COURSE_ID, "imparticion")).toBe(
+			`/dashboard/imparticion/${COURSE_ID}`,
 		);
 	});
 });

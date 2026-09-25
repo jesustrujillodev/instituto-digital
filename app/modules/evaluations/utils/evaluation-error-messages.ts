@@ -30,6 +30,11 @@ export const EVALUATION_ERROR_MESSAGES: ErrorMessageMap = {
 			"Alguien de la lista ya no está inscrito. Vuelve a cargar la página.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[EVALUATION_ERROR_CODES.SELF_PACED]: {
+		message:
+			"Un curso autogestivo no tiene evaluaciones de seguimiento: no hay capacitador que las capture.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[EVALUATION_ERROR_CODES.TOO_MANY]: {
 		message: "Este curso ya llegó al máximo de evaluaciones.",
 		status: HTTP_STATUS.CONFLICT,

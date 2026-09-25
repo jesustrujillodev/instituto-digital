@@ -9,6 +9,7 @@ import {
 	CourseAccessBadge,
 	CourseModalityBadge,
 } from "@/modules/courses/components/course-badges";
+import { requiresTrainer } from "@/modules/courses/domain/course.rules";
 import { formatHours } from "@/modules/courses/utils/course-labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -168,25 +169,33 @@ export default function CursoDisponiblePage({
 					</CardContent>
 				</Card>
 
-				<Card>
-					<CardContent className="flex flex-col gap-3">
-						{course.description && (
-							<p className="text-sm whitespace-pre-line">
-								{course.description}
-							</p>
-						)}
-						<h3 className="font-medium text-sm">Capacitadores</h3>
-						{course.trainers.length === 0 ? (
-							<p className="text-muted-foreground text-sm">Sin asignar.</p>
-						) : (
-							<ul className="text-sm">
-								{course.trainers.map((trainer) => (
-									<li key={trainer.email}>{personNameOf(trainer)}</li>
-								))}
-							</ul>
-						)}
-					</CardContent>
-				</Card>
+				{(course.description || requiresTrainer(course.format)) && (
+					<Card>
+						<CardContent className="flex flex-col gap-3">
+							{course.description && (
+								<p className="text-sm whitespace-pre-line">
+									{course.description}
+								</p>
+							)}
+							{requiresTrainer(course.format) && (
+								<>
+									<h3 className="font-medium text-sm">Capacitadores</h3>
+									{course.trainers.length === 0 ? (
+										<p className="text-muted-foreground text-sm">
+											Sin asignar.
+										</p>
+									) : (
+										<ul className="text-sm">
+											{course.trainers.map((trainer) => (
+												<li key={trainer.email}>{personNameOf(trainer)}</li>
+											))}
+										</ul>
+									)}
+								</>
+							)}
+						</CardContent>
+					</Card>
+				)}
 			</div>
 
 			<ConfirmDialog

@@ -1,10 +1,6 @@
-import { FileUp, Loader2 } from "lucide-react";
+import { FileUp, Loader2, Upload } from "lucide-react";
 import { useState } from "react";
-import {
-	Dropzone,
-	DropzoneContent,
-	DropzoneEmptyState,
-} from "@/shared/components/ui/dropzone";
+import { Dropzone } from "@/shared/components/ui/dropzone";
 import { validateUploadInput } from "@/shared/storage/upload-validation";
 import { type LessonUploadKind, uploadLimitsOf } from "../domain/content.rules";
 
@@ -111,9 +107,27 @@ export function LessonUploadField({
 
 	if (busy) {
 		return (
-			<div className="flex items-center gap-3 rounded-md border border-input p-4 text-sm">
-				<Loader2 className="size-4 animate-spin" />
-				<span className="flex-1">Subiendo… {progress}%</span>
+			<div className="flex flex-col gap-2 rounded-xl border border-border border-dashed p-5 text-sm">
+				<span className="flex items-center gap-2">
+					<Loader2 className="size-4 animate-spin" aria-hidden="true" />
+					<span className="flex-1">Subiendo…</span>
+					<span className="text-muted-foreground tabular-nums">
+						{progress}%
+					</span>
+				</span>
+				<span
+					className="h-1 overflow-hidden rounded-full bg-muted"
+					role="progressbar"
+					aria-valuenow={progress ?? 0}
+					aria-valuemin={0}
+					aria-valuemax={100}
+					aria-label="Avance de la subida"
+				>
+					<span
+						className="block h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+						style={{ width: `${progress}%` }}
+					/>
+				</span>
 			</div>
 		);
 	}
@@ -121,8 +135,11 @@ export function LessonUploadField({
 	return (
 		<div className="flex flex-col gap-2">
 			{current ? (
-				<div className="flex items-center gap-3 rounded-md border border-input p-3 text-sm">
-					<FileUp className="size-4 shrink-0 text-muted-foreground" />
+				<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-sm">
+					<FileUp
+						className="size-4 shrink-0 text-muted-foreground"
+						aria-hidden="true"
+					/>
 					<span className="flex-1 truncate">{current.fileName}</span>
 					{current.fileSize === null ? null : (
 						<span className="text-muted-foreground text-xs">
@@ -142,16 +159,32 @@ export function LessonUploadField({
 					const file = files.at(0);
 					if (file) void upload(file);
 				}}
+				className="gap-3 rounded-xl border-dashed bg-transparent py-8 hover:bg-muted/40"
 			>
-				<DropzoneEmptyState />
-				<DropzoneContent />
+				<span className="flex size-10 items-center justify-center rounded-full bg-muted text-foreground">
+					<Upload className="size-4" aria-hidden="true" />
+				</span>
+				<span className="font-normal text-sm">
+					{current
+						? "Arrastra otro archivo para reemplazarlo"
+						: "Arrastra el archivo aquí"}
+				</span>
+				{/* La zona entera es el botón: esto solo lo señala. */}
+				<span className="rounded-lg border border-border bg-background px-3 py-1.5 font-medium text-sm">
+					Elegir archivo
+				</span>
+				<span className="font-normal text-muted-foreground text-xs">
+					{kind === "VIDEO"
+						? `MP4 o WEBM · hasta ${megabytes(limits.maxBytes)} MB`
+						: `PDF, imagen, Word, Excel o PowerPoint · hasta ${megabytes(limits.maxBytes)} MB`}
+				</span>
 			</Dropzone>
 
-			<p className="text-muted-foreground text-xs">
-				{kind === "VIDEO"
-					? `MP4 o WEBM · máximo ${megabytes(limits.maxBytes)} MB. No se convierte: lo que subas es lo que se reproduce.`
-					: `PDF, imagen u ofimática · máximo ${megabytes(limits.maxBytes)} MB.`}
-			</p>
+			{kind === "VIDEO" ? (
+				<p className="text-muted-foreground text-xs">
+					No se convierte: lo que subas es lo que se reproduce.
+				</p>
+			) : null}
 
 			{error ? <p className="text-destructive text-xs">{error}</p> : null}
 		</div>

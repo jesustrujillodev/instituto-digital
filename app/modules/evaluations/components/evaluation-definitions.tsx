@@ -110,7 +110,7 @@ export function EvaluationDefinitions({
 					onClick={() => setEditing("new")}
 				>
 					<Plus aria-hidden="true" />
-					Agregar evaluación
+					Agregar evaluación de seguimiento
 				</Button>
 				{!canAdd && (
 					<span className="text-muted-foreground text-xs">

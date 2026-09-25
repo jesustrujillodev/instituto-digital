@@ -203,13 +203,13 @@ export const createContentService = ({
 				const siblings = await contentRepository.findModuleSiblings(course.id);
 				assertModuleLimit(siblings.length);
 
-				await contentRepository.createModule(course.id, {
+				const created = await contentRepository.createModule(course.id, {
 					title: dto.title,
 					description: dto.description,
 					order: nextOrderOf(siblings),
 				});
 
-				return ok(null);
+				return ok(created);
 			});
 		},
 		async updateModule(
@@ -263,8 +263,8 @@ export const createContentService = ({
 				const siblings = await contentRepository.findLessonSiblings(module.id);
 				assertLessonLimit(siblings.length);
 
-				await runInTransaction(async () => {
-					await contentRepository.createLesson(module.id, {
+				const created = await runInTransaction(async () => {
+					const lesson = await contentRepository.createLesson(module.id, {
 						title: dto.title,
 						type: dto.type,
 						isRequired: dto.isRequired,
@@ -272,9 +272,11 @@ export const createContentService = ({
 						order: nextOrderOf(siblings),
 					});
 					await recalculateProgress(course, actor, clock.now());
+
+					return lesson;
 				});
 
-				return ok(null);
+				return ok(created);
 			});
 		},
 		async updateLesson(

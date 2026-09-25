@@ -24,7 +24,10 @@ import {
 } from "../domain/evaluation.errors";
 import { toEvaluationBoard } from "../domain/evaluation.mapper";
 import type { EvaluationCourseWhere } from "../domain/evaluation.repository";
-import { resolveCaptureWrites } from "../domain/evaluation.rules";
+import {
+	assertFollowUpsAllowed,
+	resolveCaptureWrites,
+} from "../domain/evaluation.rules";
 import type { IEvaluationService } from "../domain/evaluation.service";
 import type {
 	EvaluationCourseRef,
@@ -165,6 +168,7 @@ export const createEvaluationService = ({
 					definitionWhereOf(actor),
 				);
 				assertDefinable(course);
+				assertFollowUpsAllowed(course.format);
 
 				if (course.evaluationCount >= EVALUATIONS_PER_COURSE_LIMIT) {
 					throw new EvaluationTooManyError(EVALUATIONS_PER_COURSE_LIMIT);

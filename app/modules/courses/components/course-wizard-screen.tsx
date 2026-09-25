@@ -6,6 +6,7 @@ import type { loadCourseWizard } from "../routes/course-wizard.server";
 import {
 	type CourseWizardMode,
 	editReturnPath,
+	finishReturnPath,
 	RETURN_PARAM,
 	stepOfNumber,
 } from "../utils/course-wizard-steps";
@@ -46,18 +47,20 @@ export function CourseWizardScreen({
 					? editReturnPath(course.documentId, returnTo)
 					: undefined
 			}
+			finishTo={finishReturnPath(course.documentId, returnTo)}
 			search={
 				returnTo ? `?${RETURN_PARAM}=${encodeURIComponent(returnTo)}` : ""
 			}
 			evaluationTitles={evaluations.map((evaluation) => evaluation.title)}
 			quizQuestionCount={quiz?.questions.length ?? 0}
-			quiz={
+			quiz={(bindings) => (
 				<QuizEditor
 					courseDocumentId={course.documentId}
 					bank={quiz}
 					defaultTitle={`Examen final · ${course.title}`}
+					{...bindings}
 				/>
-			}
+			)}
 			evaluations={
 				<EvaluationDefinitions
 					courseDocumentId={course.documentId}

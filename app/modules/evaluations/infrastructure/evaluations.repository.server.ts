@@ -36,6 +36,7 @@ export const createEvaluationRepository = ({
 			select: {
 				id: true,
 				status: true,
+				format: true,
 				dependencyId: true,
 				_count: { select: { evaluations: true } },
 			},
@@ -45,6 +46,7 @@ export const createEvaluationRepository = ({
 		return {
 			id: course.id,
 			status: course.status,
+			format: course.format,
 			dependencyId: course.dependencyId,
 			evaluationCount: course._count.evaluations,
 		};

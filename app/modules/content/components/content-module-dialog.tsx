@@ -39,7 +39,9 @@ export function ContentModuleDialog({
 	module: ContentModule | null;
 }) {
 	const fetcher = useFetcher<ContentActionData>();
-	useFetcherToast(fetcher);
+	// Una vez por respuesta: un efecto sobre `fetcher.data` volvería a cerrar el
+	// diálogo al reabrirlo, porque el éxito anterior sigue ahí.
+	useFetcherToast(fetcher, { onSuccess: () => onOpenChange(false) });
 	const id = useId();
 
 	const [title, setTitle] = useState("");
@@ -50,10 +52,6 @@ export function ContentModuleDialog({
 		setTitle(module?.title ?? "");
 		setDescription(module?.description ?? "");
 	}, [open, module]);
-
-	useEffect(() => {
-		if (fetcher.state === "idle" && fetcher.data?.success) onOpenChange(false);
-	}, [fetcher.state, fetcher.data, onOpenChange]);
 
 	const busy = fetcher.state !== "idle";
 

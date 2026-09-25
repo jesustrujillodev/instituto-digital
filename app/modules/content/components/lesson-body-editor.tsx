@@ -34,15 +34,44 @@ const EXTENSIONS = [
 	}),
 ];
 
+/**
+ * Lo mismo que `LessonBodyView` pinta, para que capturar y leer se vean igual.
+ * Tiptap no trae estilos y el reset de Tailwind deja cada bloque en texto plano.
+ */
+const CONTENT_STYLES =
+	"space-y-3 text-sm leading-relaxed [&_h1]:font-semibold [&_h1]:text-xl [&_h2]:font-semibold [&_h2]:text-lg [&_h3]:font-semibold [&_h3]:text-base [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_hr]:border-border";
+
+const VARIANTS = {
+	/** Dentro de un panel con otros campos: caja propia y altura acotada. */
+	boxed: {
+		toolbar:
+			"flex flex-wrap items-center gap-1 rounded-md border border-input p-1",
+		content:
+			"min-h-64 max-h-[26rem] overflow-y-auto rounded-md border border-input bg-transparent px-3 py-2 outline-none focus-visible:ring-1 focus-visible:ring-ring",
+		root: "flex flex-col gap-2",
+	},
+	/** Ocupa el área de la lección de borde a borde; el panel es quien desplaza. */
+	flush: {
+		toolbar:
+			"sticky top-0 z-10 flex flex-wrap items-center gap-1 border-border border-b bg-card px-4 py-2 sm:px-6",
+		content: "min-h-72 px-4 py-5 outline-none sm:px-6",
+		root: "flex flex-col",
+	},
+} as const;
+
 export default function LessonBodyEditor({
 	value,
 	onChange,
 	disabled,
+	variant = "boxed",
 }: {
 	value: LessonBody;
 	onChange: (body: LessonBody) => void;
 	disabled?: boolean;
+	variant?: keyof typeof VARIANTS;
 }) {
+	const styles = VARIANTS[variant];
+
 	const editor = useEditor({
 		extensions: EXTENSIONS,
 		// ProseMirror exige al menos un bloque en el documento, y el documento
@@ -52,8 +81,8 @@ export default function LessonBodyEditor({
 		immediatelyRender: false,
 		editorProps: {
 			attributes: {
-				class:
-					"min-h-64 max-h-[26rem] overflow-y-auto rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring",
+				class: `${styles.content} ${CONTENT_STYLES}`,
+				"aria-label": "Texto de la lección",
 			},
 		},
 		onUpdate: ({ editor: current }) => {
@@ -96,8 +125,8 @@ export default function LessonBodyEditor({
 	};
 
 	return (
-		<div className="flex flex-col gap-2">
-			<div className="flex flex-wrap items-center gap-1 rounded-md border border-input p-1">
+		<div className={styles.root}>
+			<div className={styles.toolbar}>
 				{([1, 2, 3] as const).map((level) =>
 					toggle(
 						`Título ${level}`,

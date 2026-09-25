@@ -22,6 +22,7 @@ import { CourseFacts } from "../../../components/course-facts";
 import { CourseProgram } from "../../../components/course-program";
 import { CourseStatusPanel } from "../../../components/course-status-panel";
 import { CourseTrainers } from "../../../components/course-trainers";
+import { requiresTrainer } from "../../../domain/course.rules";
 import {
 	COURSE_INTENTS,
 	type CourseActionData,
@@ -159,9 +160,11 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						/>
 					</DetailSection>
 
-					<DetailSection title="Capacitadores">
-						<CourseTrainers trainers={course.trainers} />
-					</DetailSection>
+					{requiresTrainer(course.format) && (
+						<DetailSection title="Capacitadores">
+							<CourseTrainers trainers={course.trainers} />
+						</DetailSection>
+					)}
 
 					<DetailSection title="Audiencia">
 						<CourseAudience access={course.access} audience={course.audience} />

@@ -1,4 +1,4 @@
-import { utcToZonedInput } from "@/lib/date-utils";
+import { DATE_INPUT_PATTERN, utcToZonedInput } from "@/lib/date-utils";
 import { COURSE_DEFAULTS } from "../domain/course.config";
 import type {
 	CourseAccessType,
@@ -57,9 +57,19 @@ export const emptySessionValues = (): CourseSessionFormValues => ({
 	link: "",
 });
 
+/** El día siguiente a una fecha `AAAA-MM-DD`, o vacío si no hay fecha. */
+const followingDate = (date: string): string => {
+	if (!DATE_INPUT_PATTERN.test(date)) return "";
+
+	const [year, month, day] = date.split("-").map(Number);
+	return new Date(Date.UTC(year, month - 1, day + 1))
+		.toISOString()
+		.slice(0, 10);
+};
+
 /**
- * La sesión que sigue a `previous`: mismo horario y mismo lugar, fecha por
- * elegir. Casi todos los cursos repiten sala y hora de una sesión a otra.
+ * La sesión que sigue a `previous`: al día siguiente, con el mismo horario y el
+ * mismo lugar. Casi todos los cursos repiten sala y hora de una sesión a otra.
  */
 export const nextSessionValues = (
 	previous?: CourseSessionFormValues,
@@ -67,6 +77,7 @@ export const nextSessionValues = (
 	previous
 		? {
 				...emptySessionValues(),
+				date: followingDate(previous.date),
 				startTime: previous.startTime,
 				endTime: previous.endTime,
 				venue: previous.venue,

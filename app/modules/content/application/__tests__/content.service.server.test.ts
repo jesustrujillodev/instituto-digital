@@ -152,6 +152,7 @@ const createHarness = (
 				: null,
 		createModule: async (courseId: number, data: unknown) => {
 			calls.created.push({ courseId, data });
+			return { documentId: "modulo-nuevo" };
 		},
 		updateModule: async (moduleId: number, data: unknown) => {
 			calls.updated.push({ moduleId, data });
@@ -161,6 +162,7 @@ const createHarness = (
 		},
 		createLesson: async (moduleId: number, data: unknown) => {
 			calls.created.push({ moduleId, data });
+			return { documentId: "leccion-nueva" };
 		},
 		updateLesson: async (lessonId: number, data: unknown) => {
 			calls.updated.push({ lessonId, data });
@@ -307,7 +309,7 @@ describe("createModule", () => {
 
 		expect(
 			await service.createModule(COURSE_DOC, moduleDto, actorOf()),
-		).toMatchObject({ success: true });
+		).toMatchObject({ success: true, data: { documentId: "modulo-nuevo" } });
 		expect(calls.created).toEqual([
 			{ courseId: 7, data: { ...moduleDto, order: 3 } },
 		]);
@@ -408,7 +410,7 @@ describe("lecciones", () => {
 
 		expect(
 			await service.createLesson(COURSE_DOC, lessonDto, actorOf()),
-		).toMatchObject({ success: true });
+		).toMatchObject({ success: true, data: { documentId: "leccion-nueva" } });
 		expect(calls.created).toEqual([
 			{
 				moduleId: 21,

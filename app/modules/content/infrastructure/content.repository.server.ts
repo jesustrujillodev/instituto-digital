@@ -169,7 +169,10 @@ export const createContentRepository = ({
 		},
 
 		async createModule(courseId, data) {
-			await prisma.courseModule.create({ data: { courseId, ...data } });
+			return prisma.courseModule.create({
+				data: { courseId, ...data },
+				select: { documentId: true },
+			});
 		},
 
 		async updateModule(moduleId, data) {
@@ -196,7 +199,10 @@ export const createContentRepository = ({
 		},
 
 		async createLesson(moduleId, data) {
-			await prisma.lesson.create({ data: { moduleId, ...data } });
+			return prisma.lesson.create({
+				data: { moduleId, ...data },
+				select: { documentId: true },
+			});
 		},
 
 		async updateLesson(lessonId, data) {

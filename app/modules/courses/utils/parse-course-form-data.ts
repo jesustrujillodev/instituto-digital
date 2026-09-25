@@ -31,6 +31,27 @@ export const COURSE_INTENTS = {
 	cancel: "cancel",
 } as const;
 
+/**
+ * Tras publicar, el paso del alta no se vuelve a cargar: el curso ya no es
+ * borrador y su loader mandaría a la edición antes de que el wizard llegue a
+ * la lista. Un fallo sí recarga, para enseñar el estado real.
+ */
+export const shouldRevalidateAfterPublish = ({
+	formData,
+	actionResult,
+	defaultShouldRevalidate,
+}: {
+	formData?: FormData;
+	actionResult?: unknown;
+	defaultShouldRevalidate: boolean;
+}): boolean => {
+	const published =
+		formData?.get(INTENT_FIELD) === COURSE_INTENTS.publish &&
+		(actionResult as { success?: unknown } | undefined)?.success === true;
+
+	return published ? false : defaultShouldRevalidate;
+};
+
 export type CourseIntent = (typeof COURSE_INTENTS)[keyof typeof COURSE_INTENTS];
 
 /** Respuesta común de los actions del módulo: envelope estándar sin dato. */

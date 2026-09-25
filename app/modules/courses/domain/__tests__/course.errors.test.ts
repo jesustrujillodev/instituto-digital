@@ -12,6 +12,7 @@ import {
 	CourseForbiddenScopeError,
 	CourseFormatLockedError,
 	CourseIncompatibleCompletionRuleError,
+	CourseIncompatibleEvaluationMethodError,
 	CourseInvalidTransitionError,
 	CourseNotEditableError,
 	CourseNotFoundError,
@@ -51,6 +52,10 @@ describe("códigos estables", () => {
 		[
 			new CourseIncompatibleCompletionRuleError("SELF_PACED", "ATTENDANCE"),
 			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,
+		],
+		[
+			new CourseIncompatibleEvaluationMethodError("SELF_PACED", "MANUAL"),
+			COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD,
 		],
 		[new CourseCompletionLockedError(), COURSE_ERROR_CODES.COMPLETION_LOCKED],
 		[

@@ -8,6 +8,7 @@ import {
 	FINAL_QUIZ_OWNER,
 	gradeAttempt,
 	nextAttemptNumberOf,
+	pointsToPass,
 	quizAvailabilityOf,
 	quizKindOf,
 	saveQuizRule,
@@ -78,6 +79,39 @@ const codeOf = (run: () => unknown) => {
 	}
 	return null;
 };
+
+describe("pointsToPass", () => {
+	test.each([
+		[5, 70, 4],
+		[10, 70, 7],
+		[3, 70, 3],
+		[5, 0, 0],
+		[5, 100, 5],
+	])(
+		"con %i puntos y mínima de %i se aprueba con %i",
+		(total, passing, points) => {
+			expect(pointsToPass(total, passing)).toBe(points);
+		},
+	);
+
+	// La misma cuenta que califica: con esos puntos la nota alcanza la mínima, y
+	// con uno menos no.
+	test("coincide con la nota que se calcula al presentarlo", () => {
+		for (const total of [1, 3, 5, 7, 12]) {
+			for (const passing of [0, 33, 50, 67, 70, 99, 100]) {
+				const needed = pointsToPass(total, passing);
+				expect(Math.floor((needed * 100) / total)).toBeGreaterThanOrEqual(
+					passing,
+				);
+				if (needed > 0) {
+					expect(Math.floor(((needed - 1) * 100) / total)).toBeLessThan(
+						passing,
+					);
+				}
+			}
+		}
+	});
+});
 
 describe("gradeAttempt", () => {
 	test("todas correctas da 100 y aprueba", () => {

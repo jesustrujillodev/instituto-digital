@@ -17,6 +17,7 @@ import {
 	CourseDeadlineAfterStartError,
 	CourseFormatLockedError,
 	CourseIncompatibleCompletionRuleError,
+	CourseIncompatibleEvaluationMethodError,
 	CourseInvalidTransitionError,
 	CourseSessionInvalidRangeError,
 	CourseSessionMissingLinkError,
@@ -391,6 +392,13 @@ export const canCancel = (status: CourseStatus): boolean =>
 export const requiresSessions = (format: CourseFormat): boolean =>
 	format === "SCHEDULED";
 
+/**
+ * Solo un curso que se reúne tiene quién lo imparta. El autogestivo lo opera
+ * la dependencia organizadora, que ya pasa por Impartición sin asignación.
+ */
+export const requiresTrainer = (format: CourseFormat): boolean =>
+	requiresSessions(format);
+
 export const countsAttendance = (rule: CourseCompletionRule): boolean =>
 	rule === "ATTENDANCE" || rule === "BOTH";
 
@@ -504,6 +512,30 @@ export const assertCompletionRuleCoherent = (course: {
 };
 
 /**
+ * Con qué se evalúa, tal como se guarda.
+ *
+ * Un autogestivo no tiene capacitador: nadie capturaría su resultado a mano y
+ * quien terminó todo se quedaría sin crédito. Solo se evalúa con examen. Si no
+ * pide evaluación, el método no se usa y se guarda como examen, igual que su
+ * modalidad deja de referirse a nada: así el formulario y lo guardado coinciden.
+ */
+export const resolveEvaluationMethod = (course: {
+	format: CourseFormat;
+	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
+}): EvaluationMethod => {
+	if (requiresSessions(course.format)) return course.evaluationMethod;
+
+	if (course.requiresEvaluation && course.evaluationMethod === "MANUAL") {
+		throw new CourseIncompatibleEvaluationMethodError(
+			course.format,
+			course.evaluationMethod,
+		);
+	}
+	return "QUIZ";
+};
+
+/**
  * Lo que se congela al publicar.
  *
  * En cualquier curso, el método de evaluación: pasar de captura a examen a
@@ -601,7 +633,10 @@ export const assertPublishable = (
 		throw new CourseWithoutQuizError();
 	}
 
-	if (!course.trainers.some((trainer) => trainer.isActive)) {
+	if (
+		requiresTrainer(course.format) &&
+		!course.trainers.some((trainer) => trainer.isActive)
+	) {
 		throw new CourseWithoutActiveTrainerError();
 	}
 
@@ -636,9 +671,9 @@ export type PublishCheck =
  * Las mismas condiciones de `assertPublishable`, pero todas a la vez y sin
  * lanzar: es lo que la ficha de un borrador enseña como lista de pendientes.
  *
- * La audiencia solo aparece si el acceso es restringido, las sesiones si el
- * formato las pide y el temario si no; en los demás casos no hay nada que
- * cumplir.
+ * La audiencia solo aparece si el acceso es restringido, las sesiones y el
+ * capacitador si el formato las pide y el temario si no; en los demás casos no
+ * hay nada que cumplir.
  */
 export const publishChecklist = (
 	course: {
@@ -677,10 +712,12 @@ export const publishChecklist = (
 		checks.push({ check: "quiz", done: content.finalQuizQuestionCount > 0 });
 	}
 
-	checks.push({
-		check: "trainer",
-		done: course.trainers.some((trainer) => trainer.isActive),
-	});
+	if (requiresTrainer(course.format)) {
+		checks.push({
+			check: "trainer",
+			done: course.trainers.some((trainer) => trainer.isActive),
+		});
+	}
 
 	if (course.access === "RESTRICTED") {
 		checks.push({

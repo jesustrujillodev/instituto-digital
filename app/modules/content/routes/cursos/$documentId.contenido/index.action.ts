@@ -46,7 +46,7 @@ export const action = async ({
 			);
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
-			return ok(null, { message: "Módulo añadido." });
+			return ok(result.data, { message: "Módulo añadido." });
 		}
 		case CONTENT_INTENTS.updateModule: {
 			const input = parseInput(() => ({
@@ -94,7 +94,7 @@ export const action = async ({
 			);
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
-			return ok(null, { message: "Lección añadida." });
+			return ok(result.data, { message: "Lección añadida." });
 		}
 		case CONTENT_INTENTS.updateLesson: {
 			const input = parseInput(() => ({

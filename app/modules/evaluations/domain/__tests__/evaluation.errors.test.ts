@@ -4,6 +4,7 @@ import {
 	EvaluationCourseNotFoundError,
 	EvaluationForbiddenError,
 	EvaluationNotFoundError,
+	EvaluationSelfPacedError,
 	EvaluationSessionNotFoundError,
 	EvaluationTooManyError,
 	EvaluationUnknownParticipantError,
@@ -25,6 +26,9 @@ describe("errores de evaluaciones", () => {
 		);
 		expect(new EvaluationUnknownParticipantError().code).toBe(
 			EVALUATION_ERROR_CODES.UNKNOWN_PARTICIPANT,
+		);
+		expect(new EvaluationSelfPacedError().code).toBe(
+			EVALUATION_ERROR_CODES.SELF_PACED,
 		);
 	});
 

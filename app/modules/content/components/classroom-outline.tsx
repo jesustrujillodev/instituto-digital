@@ -149,7 +149,7 @@ export function ClassroomOutline({
 			{finalQuiz && (
 				<section className="flex flex-col gap-1.5">
 					<h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						Evaluación
+						Examen final
 					</h2>
 					<QuizLink to={examPath(courseDocumentId)} quiz={finalQuiz} />
 				</section>

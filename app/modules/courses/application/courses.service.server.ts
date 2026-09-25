@@ -63,6 +63,8 @@ import {
 	hasScheduleChanges,
 	requiresContent,
 	requiresSessions,
+	requiresTrainer,
+	resolveEvaluationMethod,
 } from "../domain/course.rules";
 import type { ICourseService } from "../domain/course.service";
 import type {
@@ -227,6 +229,15 @@ export const createCourseService = ({
 	 * los lotes incompletos, como hace el alta de miembros de un grupo: asignar
 	 * solo lo válido dejaría un curso silenciosamente distinto del que se pidió.
 	 */
+	/** El método que se escribirá, con los mismos defaults que `buildWriteData`. */
+	const evaluationMethodOf = (dto: CreateCourseDto | UpdateCourseDto) =>
+		resolveEvaluationMethod({
+			format: dto.format ?? COURSE_DEFAULTS.format,
+			requiresEvaluation: dto.requiresEvaluation ?? false,
+			evaluationMethod:
+				dto.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod,
+		});
+
 	const buildWriteData = async (
 		dto: CreateCourseDto | UpdateCourseDto,
 		scope: CourseScope,
@@ -234,10 +245,9 @@ export const createCourseService = ({
 		const format = dto.format ?? COURSE_DEFAULTS.format;
 		const completionRule = dto.completionRule ?? COURSE_DEFAULTS.completionRule;
 		const requiresEvaluation = dto.requiresEvaluation ?? false;
-		const evaluationMethod =
-			dto.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod;
 
 		assertCompletionRuleCoherent({ format, completionRule });
+		const evaluationMethod = evaluationMethodOf(dto);
 
 		// Un autogestivo no se reúne: las sesiones que el formulario haya dejado
 		// atrás se descartan aquí, y su modalidad deja de tener a qué referirse.
@@ -278,7 +288,10 @@ export const createCourseService = ({
 		const groupDocumentIds = wantsAudience
 			? unique(dto.audienceGroups ?? [])
 			: [];
-		const trainerDocumentIds = unique(dto.trainers);
+		// Igual que las sesiones: un autogestivo no tiene quién lo imparta.
+		const trainerDocumentIds = requiresTrainer(format)
+			? unique(dto.trainers)
+			: [];
 
 		const [trainers, dependencies, groups] = await Promise.all([
 			courseRepository.findEligibleTrainers(trainerDocumentIds),
@@ -530,8 +543,7 @@ export const createCourseService = ({
 				assertCompletionSettingsEditable(course, {
 					completionRule: dto.completionRule ?? COURSE_DEFAULTS.completionRule,
 					requiresEvaluation: dto.requiresEvaluation ?? false,
-					evaluationMethod:
-						dto.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod,
+					evaluationMethod: evaluationMethodOf(dto),
 				});
 
 				const data = await buildWriteData(dto, scope);

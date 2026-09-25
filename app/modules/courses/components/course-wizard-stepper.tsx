@@ -39,6 +39,13 @@ const stateOf = (
 	return "done";
 };
 
+const stateLabel = (state: StepState) =>
+	state === "error"
+		? " (con errores)"
+		: state === "pending"
+			? " (pendiente)"
+			: "";
+
 /**
  * Marca del paso: su número mientras algo falta, una palomita cuando no.
  *
@@ -119,13 +126,7 @@ function StepRow({
 				</span>
 				<span className="text-muted-foreground text-xs">{step.summary}</span>
 			</span>
-			<span className="sr-only">
-				{state === "error"
-					? " (con errores)"
-					: state === "pending"
-						? " (pendiente)"
-						: ""}
-			</span>
+			<span className="sr-only">{stateLabel(state)}</span>
 		</>
 	);
 
@@ -182,6 +183,91 @@ function StepList({
 	);
 }
 
+/**
+ * El índice en escritorio: una sola fila con los pasos unidos por un trazo.
+ *
+ * Solo el paso actual conserva su nombre en pantallas medianas; los demás lo
+ * recuperan cuando hay ancho para los seis sin encimarse.
+ */
+function StepBar({
+	hrefOf,
+	tracksProgress,
+	steps,
+	current,
+	pending,
+	errors,
+}: CourseWizardStepperProps) {
+	return (
+		<ol className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3">
+			{steps.map((step, index) => {
+				const state = stateOf(step, pending, errors, tracksProgress);
+				const isCurrent = step.number === current;
+				const isLast = index === steps.length - 1;
+				const to = hrefOf(step.number);
+
+				const body = (
+					<>
+						<StepMark
+							position={index + 1}
+							isLast={isLast}
+							state={state}
+							isCurrent={isCurrent}
+						/>
+						<span
+							className={cn(
+								"whitespace-nowrap text-sm",
+								isCurrent
+									? "font-medium text-foreground"
+									: "sr-only xl:not-sr-only",
+							)}
+						>
+							{step.title}
+						</span>
+						<span className="sr-only">{stateLabel(state)}</span>
+					</>
+				);
+
+				const className = cn(
+					"flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 text-muted-foreground transition-colors duration-150",
+					to &&
+						"hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+				);
+
+				return (
+					<li
+						key={step.key}
+						className={cn("flex items-center gap-2", !isLast && "flex-1")}
+					>
+						{to ? (
+							<Link
+								to={to}
+								aria-current={isCurrent ? "step" : undefined}
+								title={step.summary}
+								className={className}
+							>
+								{body}
+							</Link>
+						) : (
+							<span
+								className={cn(className, "opacity-60")}
+								aria-disabled="true"
+							>
+								{body}
+							</span>
+						)}
+						{!isLast && (
+							<span
+								aria-hidden="true"
+								className="h-px min-w-3 flex-1 bg-border"
+							/>
+						)}
+					</li>
+				);
+			})}
+		</ol>
+	);
+}
+
 /** Índice del alta: dónde vas, qué falta y cómo volver a cualquier paso. */
 export function CourseWizardStepper(props: CourseWizardStepperProps) {
 	const { current, steps } = props;
@@ -193,14 +279,11 @@ export function CourseWizardStepper(props: CourseWizardStepperProps) {
 
 	return (
 		<>
-			<nav
-				aria-label="Pasos del curso"
-				className="sticky top-24 hidden lg:block"
-			>
-				<StepList {...props} />
+			<nav aria-label="Pasos del curso" className="hidden lg:block">
+				<StepBar {...props} />
 			</nav>
 
-			{/* En móvil el índice no cabe como columna: se reduce a la posición, una
+			{/* En móvil el índice no cabe como fila: se reduce a la posición, una
 			    barra de avance y un desplegable con los mismos pasos. */}
 			<nav
 				aria-label="Pasos del curso"

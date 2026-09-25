@@ -2,9 +2,8 @@ export { action } from "./index.action";
 export { loader } from "./index.loader";
 
 import { PageHeader } from "@/shared/components/common/page-header";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
-import { CourseContentManager } from "../../../components/course-content-manager";
+import { CourseContentPanel } from "../../../components/course-content-panel";
 import type { Route } from "./+types/index";
 
 const LIST_PATH = "/dashboard/cursos";
@@ -41,19 +40,15 @@ export default function CursoContenidoPage({
 		<div className="flex flex-col">
 			<PageHeader
 				title="Contenido"
-				description="Los módulos y las lecciones que se recorren. Cada cambio se guarda al momento."
+				description="Los módulos y las lecciones que se recorren."
 				goBack={`${LIST_PATH}/${course.documentId}`}
 			/>
 
-			<Card>
-				<CardContent>
-					<CourseContentManager
-						courseDocumentId={course.documentId}
-						tree={tree}
-						canWrite={canWrite}
-					/>
-				</CardContent>
-			</Card>
+			<CourseContentPanel
+				courseDocumentId={course.documentId}
+				tree={tree}
+				canWrite={canWrite}
+			/>
 		</div>
 	);
 }

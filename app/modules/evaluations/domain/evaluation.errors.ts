@@ -7,6 +7,7 @@ export const EVALUATION_ERROR_CODES = {
 	FORBIDDEN: "EVALUATION_FORBIDDEN",
 	UNKNOWN_PARTICIPANT: "EVALUATION_UNKNOWN_PARTICIPANT",
 	TOO_MANY: "EVALUATION_TOO_MANY",
+	SELF_PACED: "EVALUATION_SELF_PACED",
 } as const;
 
 export abstract class EvaluationError extends DomainError {}
@@ -51,6 +52,17 @@ export class EvaluationUnknownParticipantError extends EvaluationError {
 	readonly code = EVALUATION_ERROR_CODES.UNKNOWN_PARTICIPANT;
 	constructor() {
 		super("Unknown participant in submission");
+	}
+}
+
+/**
+ * Las de seguimiento las captura quien imparte, y un autogestivo no tiene
+ * capacitador ni sesiones a las que anclarlas.
+ */
+export class EvaluationSelfPacedError extends EvaluationError {
+	readonly code = EVALUATION_ERROR_CODES.SELF_PACED;
+	constructor() {
+		super("Self-paced courses have no follow-up evaluations");
 	}
 }
 

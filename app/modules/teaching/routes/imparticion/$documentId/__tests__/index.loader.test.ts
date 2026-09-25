@@ -137,6 +137,15 @@ describe("ficha de impartición loader", () => {
 		expect(calls.evaluations).toBe(1);
 	});
 
+	test("un autogestivo evaluado no trae evaluaciones de seguimiento", async () => {
+		const { context, calls } = createHarness("PUBLISHED", true, "SELF_PACED");
+
+		const result = await run(context);
+
+		expect(result.data.evaluations).toBeNull();
+		expect(calls.evaluations).toBe(0);
+	});
+
 	// docs/adr/0016: las evaluaciones de módulo viven donde cuenta el temario.
 	test("un autogestivo con evaluaciones de módulo trae su tablero", async () => {
 		const { context, calls } = createHarness("PUBLISHED", false, "SELF_PACED", [

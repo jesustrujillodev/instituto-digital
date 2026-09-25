@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import { Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFetcher } from "react-router";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -39,15 +39,13 @@ export function RateCourseDialog({
 	courseTitle: string;
 }) {
 	const fetcher = useFetcher<RatingActionData>();
-	useFetcherToast(fetcher);
+	// Una vez por respuesta: un efecto sobre `fetcher.data` volvería a cerrar el
+	// diálogo al reabrirlo, porque el éxito anterior sigue ahí.
+	useFetcherToast(fetcher, { onSuccess: () => setOpen(false) });
 
 	const [open, setOpen] = useState(false);
 	const [score, setScore] = useState<number | null>(null);
 	const [comment, setComment] = useState("");
-
-	useEffect(() => {
-		if (fetcher.state === "idle" && fetcher.data?.success) setOpen(false);
-	}, [fetcher.state, fetcher.data]);
 
 	const submit = () => {
 		if (score === null) return;

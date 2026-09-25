@@ -77,6 +77,27 @@ describe("contenido action", () => {
 		]);
 	});
 
+	test("crear devuelve el documentId de lo creado, para seleccionarlo", async () => {
+		const { context } = createHarness({
+			...okReply(),
+			data: { documentId: "leccion-nueva" },
+		});
+
+		const result = await run(context, {
+			intent: "create-lesson",
+			payload: JSON.stringify({
+				moduleDocumentId: MODULE_A,
+				title: "Nueva",
+				type: "TEXT",
+			}),
+		});
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { documentId: "leccion-nueva" },
+		});
+	});
+
 	test("archivar un módulo viaja por su documentId", async () => {
 		const { context, calls } = createHarness();
 

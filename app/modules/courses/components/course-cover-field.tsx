@@ -1,6 +1,5 @@
-import { ImageUp, Loader2, X } from "lucide-react";
+import { ImageIcon, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/ui/button";
 import { Dropzone } from "@/shared/components/ui/dropzone";
 import { Label } from "@/shared/components/ui/label";
@@ -123,44 +122,40 @@ export function CourseCoverField({
 				onDrop={handleDrop}
 				onError={(dropError) => setError(coverRejectionMessage(dropError))}
 				aria-labelledby={id}
-				className={cn(
-					"group w-full overflow-hidden p-0",
-					// La vista previa guarda la proporción de la tarjeta del catálogo; el
-					// hueco vacío es solo un blanco donde soltar, y ocupa el ancho entero.
-					shownUrl && "aspect-video sm:max-w-md",
-				)}
+				className="h-auto w-full flex-row items-center justify-start gap-5 whitespace-normal rounded-xl border-dashed bg-transparent p-5 text-left hover:bg-muted/40"
 			>
-				{shownUrl ? (
-					<>
+				<span className="relative flex aspect-video w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground sm:w-40">
+					{isProcessing ? (
+						<Loader2 className="size-5 animate-spin" aria-hidden="true" />
+					) : shownUrl ? (
 						<img
 							src={shownUrl}
 							alt="Portada del curso"
 							className="size-full object-cover"
 						/>
-						{/* El velo sube a 80%: al 60% sobre una foto clara el texto se
-						    queda por debajo de 4.5:1 en modo claro. Y se revela también
-						    con el foco: con solo `group-hover` quien navega con teclado
-						    no ve nunca que la portada se puede cambiar. */}
-						<span className="absolute inset-0 flex items-center justify-center gap-2 bg-foreground/80 text-background opacity-0 transition-opacity duration-200 group-focus-visible:opacity-100 group-hover:opacity-100">
-							<ImageUp className="size-5" aria-hidden="true" />
-							Cambiar portada
-						</span>
-					</>
-				) : (
-					<span className="flex flex-col items-center gap-2 p-8 text-muted-foreground">
+					) : (
+						<ImageIcon className="size-5" aria-hidden="true" />
+					)}
+				</span>
+				<span className="flex min-w-0 flex-col gap-1">
+					<span className="font-medium text-foreground text-sm">
 						{isProcessing ? (
-							<Loader2 className="size-6 animate-spin" aria-hidden="true" />
+							"Preparando la imagen…"
 						) : (
-							<ImageUp className="size-6" aria-hidden="true" />
+							<>
+								{shownUrl
+									? "Arrastra otra imagen o "
+									: "Arrastra una imagen o "}
+								<span className="text-primary underline underline-offset-4">
+									elige un archivo
+								</span>
+							</>
 						)}
-						<span className="font-medium text-foreground text-sm">
-							{isProcessing
-								? "Preparando la imagen…"
-								: "Arrastra una imagen o haz clic"}
-						</span>
-						<span className="text-xs">{COURSE_COVER_HINT}</span>
 					</span>
-				)}
+					<span className="font-normal text-muted-foreground text-xs">
+						{COURSE_COVER_HINT}
+					</span>
+				</span>
 			</Dropzone>
 
 			<div className="flex min-h-8 flex-wrap items-center gap-2">

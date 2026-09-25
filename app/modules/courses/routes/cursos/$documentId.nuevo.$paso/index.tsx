@@ -1,6 +1,7 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
+import type { ShouldRevalidateFunction } from "react-router";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizardScreen } from "../../../components/course-wizard-screen";
 import {
@@ -8,7 +9,11 @@ import {
 	stepPosition,
 	stepsFor,
 } from "../../../utils/course-wizard-steps";
+import { shouldRevalidateAfterPublish } from "../../../utils/parse-course-form-data";
 import type { Route } from "./+types/index";
+
+export const shouldRevalidate: ShouldRevalidateFunction =
+	shouldRevalidateAfterPublish;
 
 const LIST_PATH = "/dashboard/cursos";
 

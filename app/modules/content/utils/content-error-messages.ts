@@ -10,9 +10,26 @@ const limitOf = (error: ResponseError): number | null => {
 	return typeof limit === "number" ? limit : null;
 };
 
+const VALIDATION_FALLBACK = "Revisa los datos del temario antes de guardar.";
+
+/**
+ * El primer problema concreto de la validación, en vez de un aviso genérico:
+ * los paneles del temario solo enseñan el mensaje, no marcan campos. En un
+ * cuestionario se dice además de qué pregunta se trata.
+ */
+export const validationMessageOf = (error: ResponseError): string => {
+	const [entry] = Object.entries(error.fieldErrors ?? {});
+	if (!entry) return VALIDATION_FALLBACK;
+
+	const [path, message] = entry;
+	const question = /^questions\.(\d+)\./.exec(path);
+
+	return question ? `Pregunta ${Number(question[1]) + 1}: ${message}` : message;
+};
+
 export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 	[RESPONSE_ERROR_CODES.VALIDATION]: {
-		message: "Revisa los datos del temario antes de guardar.",
+		message: validationMessageOf,
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[CONTENT_ERROR_CODES.COURSE_NOT_FOUND]: {

@@ -1,10 +1,17 @@
 import * as v from "valibot";
 import {
+	type CourseFormat,
+	requiresSessions,
+} from "@/modules/courses/domain/course.rules";
+import {
 	EVALUATION_BATCH_LIMIT,
 	EVALUATION_NOTE_MAX_LENGTH,
 	EVALUATION_TITLE_MAX_LENGTH,
 } from "./evaluation.config";
-import { EvaluationUnknownParticipantError } from "./evaluation.errors";
+import {
+	EvaluationSelfPacedError,
+	EvaluationUnknownParticipantError,
+} from "./evaluation.errors";
 import type {
 	EvaluationResultWrite,
 	EvaluationTarget,
@@ -15,6 +22,11 @@ const documentId = v.pipe(
 	v.string("Falta el identificador del registro."),
 	v.uuid("El identificador del registro no es válido."),
 );
+
+/** Solo un curso con sesiones tiene quién capture evaluaciones de seguimiento. */
+export const assertFollowUpsAllowed = (format: CourseFormat): void => {
+	if (!requiresSessions(format)) throw new EvaluationSelfPacedError();
+};
 
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 import type { AppResponse } from "@/shared/response/response.types";
 import type { ClassroomStop } from "../domain/classroom.types";
+import type { ContentCreated } from "../domain/content.types";
 import { FINAL_QUIZ_OWNER } from "../domain/quiz.rules";
 import type { QuizOwnerRef } from "../domain/quiz.types";
 
@@ -23,7 +24,7 @@ export const CONTENT_INTENTS = {
 	grantRetake: "grant-retake",
 } as const;
 
-export type ContentActionData = AppResponse<null>;
+export type ContentActionData = AppResponse<ContentCreated | null>;
 
 export const contentPath = (courseDocumentId: string) =>
 	`/dashboard/cursos/${courseDocumentId}/contenido`;

@@ -42,10 +42,12 @@ export const loader = async ({
 		throw toRouteError(ratings.error, RATING_ERROR_MESSAGES);
 	}
 
-	// Las evaluaciones solo existen si el curso evalua, igual que los resultados.
-	const evaluations = detail.data.course.requiresEvaluation
-		? await context.evaluationService.findCourseBoard(documentId, auth)
-		: null;
+	// Las de seguimiento solo existen si el curso evalúa y tiene quién las
+	// capture: un autogestivo no tiene capacitador.
+	const evaluations =
+		course.requiresEvaluation && requiresSessions(course.format)
+			? await context.evaluationService.findCourseBoard(documentId, auth)
+			: null;
 	if (evaluations && !evaluations.success) {
 		throw toRouteError(evaluations.error, EVALUATION_ERROR_MESSAGES);
 	}

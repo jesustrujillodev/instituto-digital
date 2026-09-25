@@ -1,66 +1,62 @@
 import { memo, type ReactNode } from "react";
-import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { TextInput } from "@/shared/components/common/text-input";
-import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Label } from "@/shared/components/ui/label";
-import {
-	COURSE_COMPLETION_RULES,
-	countsAttendance,
-	EVALUATION_METHODS,
-	requiresSessions,
-} from "../domain/course.rules";
+import { requiresSessions } from "../domain/course.rules";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
+import { EVALUATION_METHOD_LABELS } from "../utils/course-labels";
+import { type ChoiceOption, CourseChoiceField } from "./course-choice-field";
 import {
-	COMPLETION_RULE_LABELS,
-	EVALUATION_METHOD_LABELS,
-} from "../utils/course-labels";
-import { CourseSelectField } from "./course-select-field";
+	type CompletionContentFacts,
+	CourseCompletionChecklist,
+} from "./course-completion-checklist";
 
-const RULE_OPTIONS = COURSE_COMPLETION_RULES.map((value) => ({
-	value,
-	label: COMPLETION_RULE_LABELS[value],
-}));
-
-const METHOD_OPTIONS = EVALUATION_METHODS.map((value) => ({
-	value,
-	label: EVALUATION_METHOD_LABELS[value],
-}));
-
-const RULE_HINTS: Record<(typeof COURSE_COMPLETION_RULES)[number], string> = {
-	ATTENDANCE:
-		"Completa quien alcanza la asistencia mínima y, si hay evaluación, aprueba.",
-	CONTENT:
-		"Completa quien termina las lecciones obligatorias y, si hay evaluación, aprueba.",
-	BOTH: "Completa quien alcanza la asistencia mínima, termina las lecciones obligatorias y, si hay evaluación, aprueba.",
-};
+const methodOptions = (scheduled: boolean): ChoiceOption[] => [
+	{
+		value: "QUIZ",
+		label: EVALUATION_METHOD_LABELS.QUIZ,
+		description: "Un intento. La calificación se asigna sola.",
+	},
+	{
+		value: "MANUAL",
+		label: EVALUATION_METHOD_LABELS.MANUAL,
+		description: scheduled
+			? "Quien imparte captura aprobado o no aprobado de cada participante."
+			: "Un autogestivo no tiene capacitador que capture resultados.",
+		disabled: !scheduled,
+	},
+];
 
 /**
  * Lo que decide si alguien completa el curso y obtiene su crédito, y cómo se le
- * evalúa. Las evaluaciones de seguimiento se guardan por su cuenta y llegan ya
- * pintadas desde su módulo.
+ * evalúa. El examen y las evaluaciones de seguimiento se guardan por su cuenta
+ * y llegan ya pintados desde su módulo.
  */
 export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	ids,
 	isPublished = false,
 	evaluations,
 	quiz,
+	quizSummary,
+	content,
+	contentHref,
 }: {
 	ids: CourseFormIds;
 	isPublished?: boolean;
 	evaluations?: ReactNode;
-	/** El editor del examen: se guarda por su cuenta, como las evaluaciones. */
+	/** El editor del examen: se guarda al continuar, fuera del formulario. */
 	quiz?: ReactNode;
+	/** "5 preguntas · 5 puntos · se aprueba con 4". */
+	quizSummary?: string | null;
+	/** Lo que el temario aporta; `null` si el curso todavía no tiene. */
+	content: CompletionContentFacts | null;
+	contentHref: string | null;
 }) {
 	const {
 		register,
-		control,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 	const format = useWatch<CourseFormValues, "format">({ name: "format" });
-	const completionRule = useWatch<CourseFormValues, "completionRule">({
-		name: "completionRule",
-	});
 	const requiresEvaluation = useWatch<CourseFormValues, "requiresEvaluation">({
 		name: "requiresEvaluation",
 	});
@@ -69,41 +65,20 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	});
 
 	const scheduled = requiresSessions(format);
-	const byAttendance = countsAttendance(completionRule);
 	// Un autogestivo publicado ya otorga créditos: cambiar cómo se completa
 	// mediría a unos con un criterio y a otros con otro (docs/adr/0014).
 	const locked = isPublished && !scheduled;
+	const byQuiz = evaluationMethod === "QUIZ";
 
 	return (
 		<>
-			<div className="grid items-start gap-4 sm:grid-cols-2">
-				<CourseSelectField
-					id={ids.completionRule}
-					name="completionRule"
-					label="Se completa con"
-					required
-					options={
-						scheduled
-							? RULE_OPTIONS
-							: RULE_OPTIONS.filter((option) => option.value === "CONTENT")
-					}
-					disabled={locked}
-					helperText={RULE_HINTS[completionRule]}
-				/>
-				{byAttendance && (
-					<TextInput
-						id={ids.minAttendance}
-						label="Asistencia mínima (%)"
-						type="number"
-						min={1}
-						max={100}
-						required
-						helperText="Sobre el total de sesiones del curso."
-						error={errors.minAttendance?.message}
-						{...register("minAttendance")}
-					/>
-				)}
-			</div>
+			<CourseCompletionChecklist
+				ids={ids}
+				scheduled={scheduled}
+				locked={locked}
+				content={content}
+				contentHref={contentHref}
+			/>
 
 			{scheduled && (
 				<fieldset className="flex flex-col gap-3">
@@ -139,62 +114,46 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 				</fieldset>
 			)}
 
-			<div className="flex flex-col gap-4 border-border border-t pt-6">
-				<Controller
-					control={control}
-					name="requiresEvaluation"
-					render={({ field }) => (
-						<div className="flex items-start gap-3">
-							<Checkbox
-								id={ids.requiresEvaluation}
-								checked={field.value}
-								disabled={locked}
-								onCheckedChange={(checked) => field.onChange(checked === true)}
-								onBlur={field.onBlur}
-								className="mt-0.5"
-							/>
-							<Label
-								htmlFor={ids.requiresEvaluation}
-								className="flex flex-col items-start gap-0.5 font-normal"
-							>
-								<span>Requiere evaluación</span>
-								<span className="text-muted-foreground text-xs">
-									{locked
-										? "El curso ya está publicado y otorga créditos: no se puede cambiar."
-										: "El resultado de cada participante: aprobado o no aprobado, con su nota."}
-								</span>
-							</Label>
-						</div>
-					)}
-				/>
+			{requiresEvaluation && (
+				<section
+					className="flex flex-col gap-5"
+					aria-labelledby={`${ids.evaluationMethod}-title`}
+				>
+					<div className="flex flex-wrap items-baseline justify-between gap-2">
+						<h3
+							id={`${ids.evaluationMethod}-title`}
+							className="font-bold text-lg"
+						>
+							Evaluación final
+						</h3>
+						{byQuiz && quizSummary && (
+							<span className="text-muted-foreground text-xs tabular-nums">
+								{quizSummary}
+							</span>
+						)}
+					</div>
 
-				{requiresEvaluation && (
-					<CourseSelectField
+					<CourseChoiceField
 						id={ids.evaluationMethod}
 						name="evaluationMethod"
-						label="Se evalúa con"
+						legend="Se evalúa con"
 						required
-						options={METHOD_OPTIONS}
+						options={methodOptions(scheduled)}
 						disabled={isPublished}
 						helperText={
 							isPublished
 								? "El curso ya está publicado: la vía de evaluación no se puede cambiar."
-								: evaluationMethod === "QUIZ"
-									? "Cada participante presenta un examen, con un solo intento. Su nota y su resultado se escriben solos."
-									: "Quien imparte captura aprobado o no aprobado de cada participante."
+								: undefined
 						}
 					/>
-				)}
 
-				{requiresEvaluation && evaluationMethod === "QUIZ" && quiz && (
-					<fieldset className="flex flex-col gap-3">
-						<legend className="mb-1 font-medium text-sm">Examen final</legend>
-						{quiz}
-					</fieldset>
-				)}
+					{byQuiz && quiz}
+				</section>
+			)}
 
-				{requiresEvaluation && evaluations}
-			</div>
+			{/* Las de seguimiento las captura quien imparte, y un autogestivo no
+			    tiene capacitador. */}
+			{requiresEvaluation && scheduled && evaluations}
 		</>
 	);
 });

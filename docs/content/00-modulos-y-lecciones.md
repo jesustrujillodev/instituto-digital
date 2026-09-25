@@ -55,8 +55,25 @@ Tres convenciones que hay que tener presentes:
 | Leer y escribir el material de una lección | `/dashboard/cursos/:documentId/contenido/:lessonDocumentId` |
 | Recorrer el temario (participante) | `/dashboard/mis-cursos/:documentId/aula` y `…/aula/:lessonDocumentId` |
 
-Las dos pantallas de edición montan el **mismo panel** y escriben contra la misma
-ruta. El paso del alta existe cuando el curso pide temario (`requiresContent`: un
+Las dos pantallas de edición montan el **mismo panel** (`CourseContentPanel`) y
+escriben contra la misma ruta. El panel tiene dos vistas, con un selector
+**Lista | Editor** que se recuerda en el navegador:
+
+- **Lista** (`CourseContentManager`): módulos plegables con sus lecciones. Una
+  lección se nombra en la propia lista (Enter para crear, Esc para cancelar) y se
+  abre en un panel lateral (`LessonEditorSheet`) con su ficha y su material, que
+  se guardan al cerrarlo, al pasar a la siguiente o con **Listo**. Ordenar,
+  archivar y crear módulos se guarda en el acto; el orden se cambia con
+  Subir/Bajar del menú de cada fila, sin arrastre. Es la única vista en móvil.
+- **Editor** (`CourseContentWorkspace`), la vista por omisión en escritorio: la
+  estructura a la izquierda y el elemento abierto a la derecha. Módulos y
+  lecciones se crean al instante (`create-module` y `create-lesson` devuelven el
+  `documentId` para seleccionarlo). Lo que se escribe en el panel derecho es
+  borrador y se guarda al abrir otro elemento, al cambiar de vista y al pulsar
+  **Continuar** o **Guardar y salir** en el wizard. En la pantalla del curso
+  publicado hay un botón **Guardar cambios** y un aviso si sales con cambios
+  pendientes. El tipo de la lección es la excepción: se guarda en el momento,
+  porque cambia qué material se captura. El paso del alta existe cuando el curso pide temario (`requiresContent`: un
 `SELF_PACED` o un curso con regla `BOTH`); el resto salta del paso 4 al 6.
 
 No hay rol de capacitador: quién puede tocar el temario sale de
@@ -73,8 +90,8 @@ Un `intent` y un `payload` JSON, como el resto de paneles del proyecto:
 
 | Intent | Qué hace |
 | --- | --- |
-| `create-module` · `update-module` · `archive-module` | El módulo y su descripción |
-| `create-lesson` · `update-lesson` · `archive-lesson` | La lección, su tipo, si es obligatoria y sus minutos |
+| `create-module` · `update-module` · `archive-module` | El módulo y su descripción. El alta devuelve `{ documentId }` |
+| `create-lesson` · `update-lesson` · `archive-lesson` | La lección, su tipo, si es obligatoria y sus minutos. El alta devuelve `{ documentId }` |
 | `reorder` | El árbol entero |
 | `upload-url` · `save-material` | El material de una lección (en su propia ruta) |
 

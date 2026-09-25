@@ -112,11 +112,21 @@ describe("emptySessionValues", () => {
 });
 
 describe("nextSessionValues", () => {
+	test("cruza el fin de mes", () => {
+		expect(
+			nextSessionValues({ ...emptySessionValues(), date: "2026-09-30" }).date,
+		).toBe("2026-10-01");
+	});
+
+	test("sin fecha previa deja la fecha por elegir", () => {
+		expect(nextSessionValues(emptySessionValues()).date).toBe("");
+	});
+
 	test("sin sesión previa es una fila vacía", () => {
 		expect(nextSessionValues()).toEqual(emptySessionValues());
 	});
 
-	test("repite horario y lugar, pero no la fecha ni la identidad", () => {
+	test("va al día siguiente con el mismo horario y lugar, sin la identidad", () => {
 		const next = nextSessionValues({
 			documentId: "existente",
 			date: "2026-10-05",
@@ -128,7 +138,7 @@ describe("nextSessionValues", () => {
 
 		expect(next).toEqual({
 			documentId: "",
-			date: "",
+			date: "2026-10-06",
 			startTime: "09:00",
 			endTime: "13:00",
 			venue: "Sala A",

@@ -5,6 +5,7 @@ import type {
 	CourseCompletionRule,
 	CourseFormat,
 	CourseStatus,
+	EvaluationMethod,
 } from "./course.rules";
 
 export const COURSE_ERROR_CODES = {
@@ -15,6 +16,7 @@ export const COURSE_ERROR_CODES = {
 	NOT_EDITABLE: "COURSE_NOT_EDITABLE",
 	FORMAT_LOCKED: "COURSE_FORMAT_LOCKED",
 	INCOMPATIBLE_COMPLETION_RULE: "COURSE_INCOMPATIBLE_COMPLETION_RULE",
+	INCOMPATIBLE_EVALUATION_METHOD: "COURSE_INCOMPATIBLE_EVALUATION_METHOD",
 	COMPLETION_LOCKED: "COURSE_COMPLETION_LOCKED",
 	INVALID_TRANSITION: "COURSE_INVALID_TRANSITION",
 	WITHOUT_SESSIONS: "COURSE_WITHOUT_SESSIONS",
@@ -115,6 +117,19 @@ export class CourseIncompatibleCompletionRuleError extends CourseError {
 	constructor(format: CourseFormat, completionRule: CourseCompletionRule) {
 		super(`Format ${format} cannot be completed by ${completionRule}`);
 		this.details = { format, completionRule };
+	}
+}
+
+/** Un autogestivo no tiene quién capture su resultado a mano. */
+export class CourseIncompatibleEvaluationMethodError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD;
+	readonly details: {
+		format: CourseFormat;
+		evaluationMethod: EvaluationMethod;
+	};
+	constructor(format: CourseFormat, evaluationMethod: EvaluationMethod) {
+		super(`Format ${format} cannot be evaluated by ${evaluationMethod}`);
+		this.details = { format, evaluationMethod };
 	}
 }
 

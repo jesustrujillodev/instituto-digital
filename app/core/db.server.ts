@@ -9,8 +9,20 @@ const adapter = new PrismaPg({
 	connectionString: process.env.DATABASE_URL as string,
 });
 
+/**
+ * Las transacciones que cierran un curso (avance, completado, créditos,
+ * certificado y su aviso) encadenan decenas de consultas por una sola
+ * conexión, y cada una paga un viaje completo a la base. Contra una base
+ * remota eso rebasa los 5 s por defecto de Prisma sin que haya nada mal en la
+ * operación. El tope se sube; la espera por conexión se deja como estaba.
+ */
+const TRANSACTION_TIMEOUT_MS = 20_000;
+
 const prismaClientSingleton = () => {
-	return new PrismaClient({ adapter });
+	return new PrismaClient({
+		adapter,
+		transactionOptions: { timeout: TRANSACTION_TIMEOUT_MS },
+	});
 };
 
 type GlobalWithPrisma = typeof globalThis & {

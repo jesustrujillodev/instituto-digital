@@ -30,7 +30,9 @@ import {
 	requiresContent,
 	requiresLink,
 	requiresSessions,
+	requiresTrainer,
 	requiresVenue,
+	resolveEvaluationMethod,
 } from "../course.rules";
 
 type PublishableCourse = Parameters<typeof assertPublishable>[0];
@@ -292,6 +294,20 @@ describe("assertPublishable", () => {
 		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER));
 	});
 
+	test("solo el calendarizado pide capacitador", () => {
+		expect(requiresTrainer("SCHEDULED")).toBe(true);
+		expect(requiresTrainer("SELF_PACED")).toBe(false);
+	});
+
+	test("un autogestivo se publica sin capacitador", () => {
+		expect(() =>
+			assertPublishable(
+				courseOf({ format: "SELF_PACED", sessions: [], trainers: [] }),
+				CONTENT,
+			),
+		).not.toThrow();
+	});
+
 	test("basta uno activo aunque haya otros desactivados", () => {
 		expect(() =>
 			assertPublishable(
@@ -416,7 +432,7 @@ describe("publishChecklist", () => {
 
 		expect(checks).not.toContain("sessions");
 		expect(checks).not.toContain("places");
-		expect(checks).toContain("trainer");
+		expect(checks).not.toContain("trainer");
 		expect(checks).toContain("content");
 	});
 
@@ -519,6 +535,51 @@ describe("formato y regla de completado", () => {
 			assertCompletionRuleCoherent({ format, completionRule }),
 		).not.toThrow();
 	});
+
+	test("un autogestivo no se evalúa con captura manual: no tiene capacitador", () => {
+		expect(() =>
+			resolveEvaluationMethod({
+				format: "SELF_PACED",
+				requiresEvaluation: true,
+				evaluationMethod: "MANUAL",
+			}),
+		).toThrowError(codeOf(COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD));
+	});
+
+	test("un autogestivo evaluado se evalúa con examen", () => {
+		expect(
+			resolveEvaluationMethod({
+				format: "SELF_PACED",
+				requiresEvaluation: true,
+				evaluationMethod: "QUIZ",
+			}),
+		).toBe("QUIZ");
+	});
+
+	// Sin evaluación el método no se usa: se guarda como examen para que el
+	// formulario, que solo ofrece esa vía, y lo guardado coincidan.
+	test("un autogestivo sin evaluación guarda el método como examen", () => {
+		expect(
+			resolveEvaluationMethod({
+				format: "SELF_PACED",
+				requiresEvaluation: false,
+				evaluationMethod: "MANUAL",
+			}),
+		).toBe("QUIZ");
+	});
+
+	test.each<EvaluationMethod>(["MANUAL", "QUIZ"])(
+		"un calendarizado conserva su método: %s",
+		(evaluationMethod) => {
+			expect(
+				resolveEvaluationMethod({
+					format: "SCHEDULED",
+					requiresEvaluation: true,
+					evaluationMethod,
+				}),
+			).toBe(evaluationMethod);
+		},
+	);
 
 	test("qué cuenta cada regla", () => {
 		expect(COURSE_COMPLETION_RULES.filter(countsAttendance)).toEqual([

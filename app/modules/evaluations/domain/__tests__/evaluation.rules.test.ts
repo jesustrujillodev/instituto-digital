@@ -5,7 +5,11 @@ import {
 	EVALUATION_TITLE_MAX_LENGTH,
 } from "../evaluation.config";
 import { EVALUATION_ERROR_CODES } from "../evaluation.errors";
-import { recordedOf, resolveCaptureWrites } from "../evaluation.rules";
+import {
+	assertFollowUpsAllowed,
+	recordedOf,
+	resolveCaptureWrites,
+} from "../evaluation.rules";
 import {
 	validateCreateEvaluation,
 	validateSaveEvaluationResults,
@@ -35,6 +39,18 @@ const entry = (
 const resultsPayload = (entries: unknown[]) => ({
 	evaluationDocumentId: EVALUATION_DOC,
 	entries,
+});
+
+describe("assertFollowUpsAllowed", () => {
+	test("un autogestivo no tiene evaluaciones de seguimiento", () => {
+		expect(codeOf(() => assertFollowUpsAllowed("SELF_PACED"))).toBe(
+			EVALUATION_ERROR_CODES.SELF_PACED,
+		);
+	});
+
+	test("un calendarizado sí", () => {
+		expect(() => assertFollowUpsAllowed("SCHEDULED")).not.toThrow();
+	});
 });
 
 describe("validateCreateEvaluation", () => {

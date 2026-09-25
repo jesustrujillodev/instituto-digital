@@ -3,6 +3,7 @@ import type { ContentModuleRaw, LessonMaterialRaw } from "./content.mapper";
 import type { LessonType } from "./content.rules";
 import type {
 	ContentCourseRef,
+	ContentCreated,
 	ContentOrderWrites,
 	LessonMaterialWrite,
 	LessonWrite,
@@ -49,7 +50,7 @@ export interface IContentRepository {
 		courseId: number,
 		moduleDocumentId: string,
 	): Promise<ContentModuleRef | null>;
-	createModule(courseId: number, data: ModuleWrite): Promise<void>;
+	createModule(courseId: number, data: ModuleWrite): Promise<ContentCreated>;
 	updateModule(
 		moduleId: number,
 		data: Pick<ModuleWrite, "title" | "description">,
@@ -66,7 +67,7 @@ export interface IContentRepository {
 		courseId: number,
 		lessonDocumentId: string,
 	): Promise<ContentLessonRef | null>;
-	createLesson(moduleId: number, data: LessonWrite): Promise<void>;
+	createLesson(moduleId: number, data: LessonWrite): Promise<ContentCreated>;
 	updateLesson(
 		lessonId: number,
 		data: Omit<LessonWrite, "order">,

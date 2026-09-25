@@ -48,6 +48,18 @@ Decisiones que el schema no dice por sí solo:
   `requires_evaluation`, se congela al publicar en cualquier formato, y un curso
   que evalúa por examen no se publica sin examen con preguntas
   (`COURSE_WITHOUT_QUIZ`).
+- **Un autogestivo solo se evalúa con examen.** No tiene capacitador, así que
+  nadie capturaría su resultado a mano y quien terminó todo se quedaría sin
+  crédito. `resolveEvaluationMethod` rechaza `requires_evaluation` con `MANUAL`
+  (`COURSE_INCOMPATIBLE_EVALUATION_METHOD`) y, sin evaluación, guarda el método
+  como `QUIZ` para que el formulario —que en un autogestivo solo ofrece esa vía—
+  y lo guardado coincidan. Al elegir Autogestivo en Programa, el formulario pasa
+  el método a examen igual que pasa la regla a `CONTENT`.
+- **El examen se guarda al continuar.** En el paso Evaluación el editor no tiene
+  botón propio: el wizard lo guarda antes que los campos del paso y, si le falta
+  algo, no avanza y dice qué (`quizProblemsOf`, las mismas reglas que
+  `saveQuizRule`). Fuera del wizard —la práctica de una lección y la evaluación
+  de un módulo— el editor conserva su botón.
 - **En un autogestivo publicado se congelan la regla y la evaluación.** Sus
   créditos se otorgan conforme cada quien completa, así que cambiar el criterio
   a mitad dejaría medidos a unos con una regla y a otros con otra.
@@ -151,7 +163,9 @@ no organiza cursos nuevos.
 ### 4.4 · Audiencia y capacitadores elegibles
 
 - **Capacitadores:** catálogo global (§4). Cualquier organizador asigna a
-  cualquier capacitador con perfil y cuenta activos.
+  cualquier capacitador con perfil y cuenta activos. Un `SELF_PACED` no tiene
+  capacitadores (`requiresTrainer`): el formulario y el servicio descartan los
+  que lleguen, como las sesiones, y lo opera la dependencia organizadora.
 - **Dependencias de audiencia:** cualquiera activa. Abrir un curso a otras
   dependencias es de lo que trata §1.
 - **Grupos de audiencia:** los del alcance de quien elige. Un grupo es una lista
@@ -204,13 +218,13 @@ capacitador o sin sede. Lo que §6.5 exige se comprueba al **publicar**
 | Al menos una sesión (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_SESSIONS` |
 | Al menos una lección (solo si el curso pide temario: `SELF_PACED` o regla `BOTH`) | `COURSE_WITHOUT_LESSONS` |
 | Un examen con al menos una pregunta (solo si se evalúa con examen en línea) | `COURSE_WITHOUT_QUIZ` |
-| Al menos un capacitador con perfil activo | `COURSE_WITHOUT_ACTIVE_TRAINER` |
+| Al menos un capacitador con perfil activo (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_ACTIVE_TRAINER` |
 | Sede en cada sesión (presencial, híbrida) | `COURSE_SESSION_MISSING_VENUE` + `sessionNumber` |
 | Enlace en cada sesión (en línea, híbrida) | `COURSE_SESSION_MISSING_LINK` + `sessionNumber` |
 | Audiencia si es restringido | `COURSE_AUDIENCE_REQUIRED` |
 
 Un curso `SELF_PACED` se publica sin una sola sesión, y `publishChecklist` omite
-de la lista los pendientes `sessions` y `places` en vez de marcarlos cumplidos
+de la lista los pendientes `sessions`, `places` y `trainer` en vez de marcarlos cumplidos
 —el mismo criterio que `audience` cuando el acceso no es restringido—. A cambio
 enseña `content`, que un curso con sesiones no ve. Las dos funciones describen la
 misma regla y una prueba cruzada las obliga a coincidir.
@@ -292,7 +306,7 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 | 1 | General | Dependencia (solo superadmin), título, descripción, horas, portada |
 | 2 | Programa | Formato, modalidad, capacitadores, sesiones |
 | 3 | Contenido | Módulos y lecciones; solo si `requiresContent` |
-| 4 | Evaluación | Se completa con, asistencia mínima, ventana del QR, "Requiere evaluación" y las evaluaciones de seguimiento |
+| 4 | Evaluación | "Para completar el curso hay que…": asistir (con la asistencia mínima), terminar las lecciones obligatorias (cuenta también las evaluaciones de módulo, que se editan en Contenido) y aprobar una evaluación final; son `completionRule` y `requiresEvaluation`. Luego la ventana del QR, la evaluación final con su examen y las evaluaciones de seguimiento (solo calendarizados) |
 | 5 | Inscripción | Acceso, audiencia, cupo, fecha límite |
 | 6 | Revisión | Pendientes y publicar; solo en el alta |
 

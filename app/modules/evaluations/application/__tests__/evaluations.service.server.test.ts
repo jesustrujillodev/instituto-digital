@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import type {
+	CourseFormat,
+	CourseStatus,
+} from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import {
@@ -42,6 +45,7 @@ const CREATOR = actorOf();
 const createHarness = (
 	options: {
 		status?: CourseStatus;
+		format?: CourseFormat;
 		evaluationCount?: number;
 		target?: EvaluationTarget | null;
 		board?: EvaluationRaw[];
@@ -69,6 +73,7 @@ const createHarness = (
 				? {
 						id: 10,
 						status,
+						format: options.format ?? "SCHEDULED",
 						dependencyId: 3,
 						evaluationCount: options.evaluationCount ?? 0,
 					}
@@ -224,6 +229,22 @@ describe("create", () => {
 		expect(result).toMatchObject({
 			success: false,
 			error: { code: EVALUATION_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+		expect(log.created).toEqual([]);
+	});
+
+	test("un autogestivo no tiene evaluaciones de seguimiento", async () => {
+		const { service, log } = createHarness({ format: "SELF_PACED" });
+
+		const result = await service.create(
+			COURSE_DOC,
+			{ title: "Revisión intermedia", sessionDocumentId: null },
+			CREATOR,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: EVALUATION_ERROR_CODES.SELF_PACED },
 		});
 		expect(log.created).toEqual([]);
 	});

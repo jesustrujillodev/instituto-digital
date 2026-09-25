@@ -107,6 +107,13 @@ export type ContentTreeResponse = AppResponse<CourseContentTree>;
 export type ContentSummaryResponse = AppResponse<ContentSummary>;
 export type ContentMutationResponse = AppResponse<null>;
 
+/** Lo que un alta devuelve: con qué se selecciona lo recién creado. */
+export interface ContentCreated {
+	documentId: string;
+}
+
+export type ContentCreatedResponse = AppResponse<ContentCreated>;
+
 // ── El cuerpo de una lección de texto ─────────────────────────────────────────
 //
 // Lista blanca cerrada de nodos, declarada a mano porque el esquema valibot es

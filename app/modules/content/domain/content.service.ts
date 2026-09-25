@@ -1,5 +1,6 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
+	ContentCreatedResponse,
 	ContentMutationResponse,
 	ContentSummaryResponse,
 	ContentTreeResponse,
@@ -30,7 +31,7 @@ export interface IContentService {
 		courseDocumentId: string,
 		dto: CreateModuleDto,
 		actor: AuthContext,
-	): Promise<ContentMutationResponse>;
+	): Promise<ContentCreatedResponse>;
 	updateModule(
 		courseDocumentId: string,
 		dto: UpdateModuleDto,
@@ -47,7 +48,7 @@ export interface IContentService {
 		courseDocumentId: string,
 		dto: CreateLessonDto,
 		actor: AuthContext,
-	): Promise<ContentMutationResponse>;
+	): Promise<ContentCreatedResponse>;
 	updateLesson(
 		courseDocumentId: string,
 		dto: UpdateLessonDto,

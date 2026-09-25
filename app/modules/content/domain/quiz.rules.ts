@@ -362,6 +362,14 @@ export const toQuizSheet = (quiz: StoredQuiz, seed: string): QuizSheet => {
 };
 
 /**
+ * Los puntos mínimos para aprobar: el menor acierto cuya nota, calculada como
+ * en `gradeAttempt`, alcanza la mínima. Con la nota hacia abajo, eso es
+ * redondear hacia arriba `mínima × total / 100`.
+ */
+export const pointsToPass = (totalPoints: number, passingScore: number) =>
+	Math.ceil((passingScore * totalPoints) / 100);
+
+/**
  * La nota en enteros y hacia abajo: `floor(acertados × 100 / total)`. Cada
  * pregunta necesita exactamente una respuesta, y la opción tiene que ser suya.
  */

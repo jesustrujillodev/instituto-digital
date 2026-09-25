@@ -5,13 +5,14 @@ import { Link, useFetcher, useNavigate } from "react-router";
 import { sileo } from "sileo";
 import { toFormData } from "@/lib/form-data";
 import { scrollIntoView } from "@/lib/motion";
-import { CourseContentManager } from "@/modules/content/components/course-content-manager";
+import { CourseContentPanel } from "@/modules/content/components/course-content-panel";
+import type { ContentSaveRef } from "@/modules/content/components/course-content-workspace";
+import type { QuizSaveRef } from "@/modules/content/components/quiz-editor";
 import { toContentSummary } from "@/modules/content/domain/content.mapper";
 import type { CourseContentTree } from "@/modules/content/domain/content.types";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { AppResponse } from "@/shared/response/response.types";
 import { requiresContent } from "../domain/course.rules";
@@ -28,6 +29,7 @@ import {
 	updateCourseFormRule,
 } from "../utils/build-course-payload";
 import {
+	COURSE_LIST_PATH,
 	type CourseStep,
 	type CourseStepKey,
 	type CourseWizardMode,
@@ -59,7 +61,7 @@ import { CourseReviewStep } from "./course-review-step";
 import { CourseWizardFooter } from "./course-wizard-footer";
 import { CourseWizardStepper } from "./course-wizard-stepper";
 
-const LIST_PATH = "/dashboard/cursos";
+const LIST_PATH = COURSE_LIST_PATH;
 
 const NO_PENDING: ReadonlySet<CourseStepKey> = new Set();
 
@@ -72,7 +74,7 @@ const describeStep = (step: CourseStep, mode: CourseWizardMode): string => {
 		case "program":
 			return "Quién lo imparte, cuándo y dónde.";
 		case "content":
-			return "Los módulos y las lecciones que se recorren. Cada cambio se guarda solo, sin salir del paso.";
+			return "Los módulos y las lecciones que se recorren. Lo que escribes en una lección se guarda al pasar a otra o al continuar.";
 		case "rules":
 			return "Qué hace falta para completar el curso y obtener el crédito, y cómo se evalúa a quien lo toma.";
 		case "access":
@@ -98,15 +100,27 @@ interface CourseWizardProps {
 	ids: CourseFormIds;
 	/** A dónde lleva salir de la edición. En el alta es siempre la ficha. */
 	exitTo?: string;
+	/** A dónde lleva terminar: publicar o guardar el último paso. */
+	finishTo?: string;
 	/** Query que viaja entre pasos, para no perder a dónde se vuelve. */
 	search?: string;
 	/** Las evaluaciones de seguimiento, ya pintadas, para el paso Evaluación. */
 	evaluations?: ReactNode;
 	evaluationTitles?: readonly string[];
-	/** El editor del examen, ya pintado, para el paso Evaluación. */
-	quiz?: ReactNode;
+	/**
+	 * El editor del examen para el paso Evaluación. Es función porque el wizard
+	 * lo guarda al continuar y lo cuenta como cambio sin guardar.
+	 */
+	quiz?: (bindings: QuizBindings) => ReactNode;
 	/** Preguntas del examen guardado, para la revisión. */
 	quizQuestionCount?: number;
+}
+
+/** Lo que el wizard le pasa al editor del examen. */
+export interface QuizBindings {
+	saveRef: QuizSaveRef;
+	onDirtyChange: (dirty: boolean) => void;
+	onSummaryChange: (summary: string | null) => void;
 }
 
 /**
@@ -127,6 +141,7 @@ export function CourseWizard({
 	notice,
 	ids,
 	exitTo,
+	finishTo,
 	search = "",
 	evaluations,
 	evaluationTitles = [],
@@ -223,7 +238,8 @@ export function CourseWizard({
 	 * quede atrás: sin él no se puede publicar.
 	 */
 	const destinationAfterSave = (): string => {
-		if (targetRef.current === "exit" || isReview || !following) return exitPath;
+		if (targetRef.current === "exit") return exitPath;
+		if (isReview || !following) return finishTo ?? COURSE_LIST_PATH;
 
 		const contentBecameRequired =
 			step.key === "rules" &&
@@ -262,8 +278,19 @@ export function CourseWizard({
 	}, [leavingTo, navigate]);
 
 	const coverTouched = cover !== null || coverRemoved;
+	// El temario no vive en react-hook-form: su editor avisa de lo pendiente y
+	// entrega con qué guardarlo antes de avanzar.
+	const contentSaveRef: ContentSaveRef = useRef(null);
+	const [contentDirty, setContentDirty] = useState(false);
+	// El examen tampoco: se guarda entero, por su ruta, antes que el paso.
+	const quizSaveRef: QuizSaveRef = useRef(null);
+	const [quizDirty, setQuizDirty] = useState(false);
+	const [quizSummary, setQuizSummary] = useState<string | null>(null);
+
 	const hasUnsavedChanges =
-		(isDirty || coverTouched) && !isSubmitting && leavingTo === null;
+		(isDirty || coverTouched || contentDirty || quizDirty) &&
+		!isSubmitting &&
+		leavingTo === null;
 
 	const submitStep = async (target: "next" | "exit") => {
 		targetRef.current = target;
@@ -279,6 +306,11 @@ export function CourseWizard({
 		// Un paso sin campos del curso no tiene nada que guardar aquí: el temario
 		// ya se persistió por su propio fetcher, lección a lección.
 		if (step.fields.length === 0 && documentId) {
+			const saveContent = contentSaveRef.current;
+			if (saveContent && !(await saveContent())) return;
+			// En el mismo render que la salida: si no, el aviso de cambios sin
+			// guardar todavía la bloquearía.
+			setContentDirty(false);
 			setLeavingTo(destinationAfterSave());
 			return;
 		}
@@ -288,6 +320,9 @@ export function CourseWizard({
 			reportStepErrors();
 			return;
 		}
+
+		const saveQuiz = quizSaveRef.current;
+		if (saveQuiz && !(await saveQuiz())) return;
 
 		const { dependency, ...rest } = buildCoursePayload(getValues());
 		const payload = isCreate ? { dependency, ...rest } : rest;
@@ -370,7 +405,7 @@ export function CourseWizard({
 
 				{notice && <div className="mb-4">{notice}</div>}
 
-				<div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+				<div className="flex flex-col gap-6 lg:gap-8">
 					<CourseWizardStepper
 						hrefOf={hrefOf}
 						tracksProgress={!isEdit}
@@ -383,59 +418,65 @@ export function CourseWizard({
 					<div className="flex flex-col">
 						<form
 							id={ids.form}
+							className="flex flex-col gap-8"
 							onSubmit={(event) => {
 								event.preventDefault();
 								void submitStep("next");
 							}}
 						>
-							<Card>
-								<CardContent className="flex flex-col gap-6">
-									<header className="flex flex-col gap-1">
-										<h2
-											ref={headingRef}
-											tabIndex={-1}
-											className="font-medium text-base outline-none"
-										>
-											{step.title}
-										</h2>
-										<p className="text-muted-foreground text-sm">
-											{describeStep(step, mode)}
-										</p>
-									</header>
+							<header className="flex flex-col gap-1">
+								<h2
+									ref={headingRef}
+									tabIndex={-1}
+									className="font-bold text-xl outline-none"
+								>
+									{step.title}
+								</h2>
+								<p className="text-muted-foreground text-sm">
+									{describeStep(step, mode)}
+								</p>
+							</header>
 
-									<StepFields
-										step={step}
-										ids={ids}
-										options={options}
-										course={course}
-										isPublished={course?.status === "PUBLISHED"}
-										checklist={checklist ?? []}
-										content={content ?? null}
-										evaluations={evaluations}
-										evaluationTitles={evaluationTitles}
-										quiz={quiz}
-										quizQuestionCount={quizQuestionCount}
-										cover={{
-											value: cover,
-											existingUrl: course?.coverImageUrl ?? null,
-											removed: coverRemoved,
-											onChange: (file) => {
-												setCover(file);
-												if (file) setCoverRemoved(false);
-											},
-											onRemove: () => {
-												setCover(null);
-												setCoverRemoved(true);
-											},
-										}}
-									/>
-								</CardContent>
-							</Card>
+							<StepFields
+								step={step}
+								ids={ids}
+								options={options}
+								course={course}
+								isPublished={course?.status === "PUBLISHED"}
+								checklist={checklist ?? []}
+								content={content ?? null}
+								evaluations={evaluations}
+								evaluationTitles={evaluationTitles}
+								quiz={quiz?.({
+									saveRef: quizSaveRef,
+									onDirtyChange: setQuizDirty,
+									onSummaryChange: setQuizSummary,
+								})}
+								quizSummary={quizSummary}
+								quizQuestionCount={quizQuestionCount}
+								contentSaveRef={contentSaveRef}
+								onContentDirtyChange={setContentDirty}
+								contentHref={hrefOf(stepOfKey("content").number)}
+								cover={{
+									value: cover,
+									existingUrl: course?.coverImageUrl ?? null,
+									removed: coverRemoved,
+									onChange: (file) => {
+										setCover(file);
+										if (file) setCoverRemoved(false);
+									},
+									onRemove: () => {
+										setCover(null);
+										setCoverRemoved(true);
+									},
+								}}
+							/>
 						</form>
 
 						<CourseWizardFooter
 							formId={ids.form}
 							backTo={preceding ? hrefOf(preceding.number) : null}
+							nextTitle={isReview ? null : (following?.title ?? null)}
 							isSubmitting={isSubmitting}
 							submitKind={
 								isReview ? "publish" : isEdit && !following ? "save" : "next"
@@ -461,7 +502,11 @@ function StepFields({
 	evaluations,
 	evaluationTitles,
 	quiz,
+	quizSummary,
 	quizQuestionCount,
+	contentSaveRef,
+	onContentDirtyChange,
+	contentHref,
 }: {
 	step: CourseStep;
 	ids: CourseFormIds;
@@ -474,7 +519,12 @@ function StepFields({
 	evaluations?: ReactNode;
 	evaluationTitles: readonly string[];
 	quiz?: ReactNode;
+	quizSummary: string | null;
 	quizQuestionCount: number;
+	contentSaveRef: ContentSaveRef;
+	onContentDirtyChange: (dirty: boolean) => void;
+	/** El paso Contenido, para las evaluaciones de módulo del paso Evaluación. */
+	contentHref: string | null;
 }) {
 	switch (step.key) {
 		case "identity":
@@ -485,6 +535,7 @@ function StepFields({
 						!course && options.canChooseOrganizer ? options.organizers : null
 					}
 					cover={cover}
+					documentId={course?.documentId ?? null}
 				/>
 			);
 		case "program":
@@ -497,9 +548,11 @@ function StepFields({
 			);
 		case "content":
 			return course && content ? (
-				<CourseContentManager
+				<CourseContentPanel
 					courseDocumentId={course.documentId}
 					tree={content}
+					saveRef={contentSaveRef}
+					onDirtyChange={onContentDirtyChange}
 				/>
 			) : null;
 		case "rules":
@@ -509,10 +562,28 @@ function StepFields({
 					isPublished={isPublished}
 					evaluations={evaluations}
 					quiz={quiz}
+					quizSummary={quizSummary}
+					content={
+						content
+							? {
+									requiredLessons:
+										toContentSummary(content).requiredLessonCount,
+									moduleEvaluations: content.filter((module) => module.quiz)
+										.length,
+								}
+							: null
+					}
+					contentHref={contentHref}
 				/>
 			);
 		case "access":
-			return <CourseEnrollmentFields ids={ids} options={options} />;
+			return (
+				<CourseEnrollmentFields
+					ids={ids}
+					options={options}
+					isPublished={isPublished}
+				/>
+			);
 		case "review":
 			return course ? (
 				<CourseReviewStep

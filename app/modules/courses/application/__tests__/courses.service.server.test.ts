@@ -479,6 +479,7 @@ describe("coursesService.create", () => {
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
 				requiresEvaluation: true,
+				evaluationMethod: "QUIZ",
 			}),
 			actorOf(),
 		);
@@ -490,6 +491,50 @@ describe("coursesService.create", () => {
 			modality: "ONLINE",
 			sessions: [],
 		});
+	});
+
+	test("un autogestivo no se evalúa con captura manual", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			dtoOf({
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				requiresEvaluation: true,
+				evaluationMethod: "MANUAL",
+			}),
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD },
+		});
+		expect(calls.created).toHaveLength(0);
+	});
+
+	test("un autogestivo sin evaluación guarda el método como examen", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			dtoOf({ format: "SELF_PACED", completionRule: "CONTENT" }),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.created[0]).toMatchObject({ evaluationMethod: "QUIZ" });
+	});
+
+	test("un autogestivo descarta los capacitadores que traiga", async () => {
+		const { service, calls } = createHarness({ eligibleTrainers: 0 });
+
+		const result = await service.create(
+			dtoOf({ format: "SELF_PACED", completionRule: "CONTENT" }),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.created[0]).toMatchObject({ trainerIds: [] });
 	});
 
 	test.each([
@@ -743,6 +788,7 @@ describe("coursesService.update", () => {
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
 				requiresEvaluation: false,
+				evaluationMethod: "QUIZ",
 				sessions: [],
 			}),
 		});
@@ -753,6 +799,7 @@ describe("coursesService.update", () => {
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
 				requiresEvaluation: true,
+				evaluationMethod: "QUIZ",
 			}) as UpdateCourseDto,
 			actorOf(),
 		);

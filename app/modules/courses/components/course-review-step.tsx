@@ -123,7 +123,7 @@ export function CourseReviewStep({
 					}
 				>
 					<div className="flex flex-col gap-5">
-						<CourseTrainers trainers={course.trainers} />
+						{scheduled && <CourseTrainers trainers={course.trainers} />}
 						{scheduled ? (
 							<CourseProgram
 								sessions={course.sessions}
@@ -180,7 +180,7 @@ export function CourseReviewStep({
 									]
 								: []),
 							{
-								term: "Evaluación",
+								term: "Evaluación final",
 								value: evaluationLabel(course, quizQuestionCount),
 							},
 							...(course.requiresEvaluation && evaluationTitles.length > 0

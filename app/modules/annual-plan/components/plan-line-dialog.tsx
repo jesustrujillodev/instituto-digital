@@ -71,17 +71,15 @@ export function PlanLineDialog({
 	line: PlanLineView | null;
 }) {
 	const fetcher = useFetcher<PlanActionData>();
-	useFetcherToast(fetcher);
+	// Una vez por respuesta: un efecto sobre `fetcher.data` volvería a cerrar el
+	// diálogo al reabrirlo, porque el éxito anterior sigue ahí.
+	useFetcherToast(fetcher, { onSuccess: () => onOpenChange(false) });
 	const id = useId();
 	const [draft, setDraft] = useState<Draft>(() => draftOf(line));
 
 	useEffect(() => {
 		if (open) setDraft(draftOf(line));
 	}, [open, line]);
-
-	useEffect(() => {
-		if (fetcher.state === "idle" && fetcher.data?.success) onOpenChange(false);
-	}, [fetcher.state, fetcher.data, onOpenChange]);
 
 	const set = (key: keyof Draft) => (value: string) =>
 		setDraft((previous) => ({ ...previous, [key]: value }));

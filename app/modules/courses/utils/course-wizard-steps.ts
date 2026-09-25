@@ -222,6 +222,21 @@ export const editReturnPath = (documentId: string, returnTo: string | null) =>
 		? `/dashboard/imparticion/${documentId}`
 		: `/dashboard/cursos/${documentId}`;
 
+export const COURSE_LIST_PATH = "/dashboard/cursos";
+
+/**
+ * A dónde lleva terminar —publicar el alta o guardar el último paso de la
+ * edición—: la lista de cursos, o la impartición si se entró desde ahí.
+ * Salir a medias («Guardar y salir») sigue yendo a `editReturnPath`.
+ */
+export const finishReturnPath = (
+	documentId: string,
+	returnTo: string | null,
+) =>
+	returnTo === RETURN_TO_TEACHING
+		? `/dashboard/imparticion/${documentId}`
+		: COURSE_LIST_PATH;
+
 /** Pasos con al menos un campo marcado; un error anidado cuenta por su raíz. */
 export const stepsWithErrors = (
 	errorPaths: readonly string[],

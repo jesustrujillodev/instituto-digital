@@ -2,6 +2,7 @@ import * as v from "valibot";
 import {
 	createCourseRule,
 	requiresSessions,
+	requiresTrainer,
 	updateCourseRule,
 } from "../domain/course.rules";
 import type { CreateCourseDto, UpdateCourseDto } from "../domain/course.types";
@@ -43,7 +44,7 @@ export const buildCoursePayload = (
 	evaluationMethod: values.evaluationMethod,
 	qrOpensBeforeMinutes: optionalNumber(values.qrOpensBeforeMinutes),
 	qrClosesAfterMinutes: optionalNumber(values.qrClosesAfterMinutes),
-	trainers: values.trainers,
+	trainers: requiresTrainer(values.format) ? values.trainers : [],
 	audienceDependencies: values.audienceDependencies,
 	audienceGroups: values.audienceGroups,
 	// Un autogestivo no manda sesiones: las que quedaran en el formulario tras

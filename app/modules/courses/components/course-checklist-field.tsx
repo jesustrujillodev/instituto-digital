@@ -1,8 +1,9 @@
+import { Search } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
+import { cn } from "@/lib/utils";
 import { TextInput } from "@/shared/components/common/text-input";
 import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Label } from "@/shared/components/ui/label";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 
 export interface ChecklistOption {
@@ -17,7 +18,25 @@ interface CourseChecklistFieldProps {
 	legend: string;
 	options: readonly ChecklistOption[];
 	emptyText: string;
+	searchPlaceholder?: string;
+	/** Personas: las iniciales ayudan a encontrar a alguien de un vistazo. */
+	withInitials?: boolean;
 }
+
+/** Con tan pocas opciones, el buscador estorba más de lo que ayuda. */
+const SEARCH_THRESHOLD = 3;
+
+const initialsOf = (label: string) =>
+	label
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((word) => word.at(0))
+		.join("")
+		.toUpperCase();
+
+const selectedLabel = (count: number) =>
+	count === 1 ? "1 seleccionado" : `${count} seleccionados`;
 
 /**
  * Selección múltiple sobre un catálogo corto, con filtro local.
@@ -31,13 +50,15 @@ export function CourseChecklistField({
 	legend,
 	options,
 	emptyText,
+	searchPlaceholder = "Buscar",
+	withInitials = false,
 }: CourseChecklistFieldProps) {
 	const { control } = useFormContext<CourseFormValues>();
 	const prefix = useId();
 	const [filter, setFilter] = useState("");
 
+	const term = filter.trim().toLowerCase();
 	const visible = useMemo(() => {
-		const term = filter.trim().toLowerCase();
 		if (term === "") return options;
 
 		return options.filter((option) =>
@@ -45,7 +66,7 @@ export function CourseChecklistField({
 				.toLowerCase()
 				.includes(term),
 		);
-	}, [options, filter]);
+	}, [options, term]);
 
 	return (
 		<Controller
@@ -62,55 +83,87 @@ export function CourseChecklistField({
 				};
 
 				return (
-					<fieldset id={id} className="flex flex-col gap-2">
-						<legend className="mb-1 text-sm font-medium">
-							{legend}{" "}
-							<span className="text-muted-foreground">({selected.size})</span>
+					<fieldset id={id} className="flex min-w-0 flex-col gap-3">
+						<legend className="mb-3 flex w-full items-baseline justify-between gap-3">
+							<span className="font-medium text-sm">{legend}</span>
+							<span className="text-muted-foreground text-xs tabular-nums">
+								{selectedLabel(selected.size)}
+							</span>
 						</legend>
 
-						{options.length > 6 && (
+						{options.length > SEARCH_THRESHOLD && (
 							<TextInput
+								type="search"
 								name={`${name}-filter`}
-								placeholder="Filtrar"
+								aria-label={`${searchPlaceholder} en ${legend.toLowerCase()}`}
+								placeholder={searchPlaceholder}
+								icon={<Search className="size-4" aria-hidden="true" />}
 								value={filter}
 								onChange={(event) => setFilter(event.target.value)}
 							/>
 						)}
 
-						<div className="max-h-60 overflow-y-auto rounded-md border border-border">
-							{visible.length === 0 ? (
-								<p className="text-muted-foreground p-3 text-sm">{emptyText}</p>
+						<div className="max-h-80 overflow-y-auto rounded-xl border border-border bg-card">
+							{options.length === 0 ? (
+								<p className="p-4 text-muted-foreground text-sm">{emptyText}</p>
+							) : visible.length === 0 ? (
+								<p className="p-4 text-muted-foreground text-sm">
+									Nada coincide con «{filter.trim()}».
+								</p>
 							) : (
-								visible.map((option) => {
-									const checkboxId = `${prefix}${option.value}`;
+								<ul>
+									{visible.map((option) => {
+										const checkboxId = `${prefix}${option.value}`;
+										const isSelected = selected.has(option.value);
 
-									return (
-										<div
-											key={option.value}
-											className="flex items-start gap-3 border-b border-border p-3 last:border-b-0"
-										>
-											<Checkbox
-												id={checkboxId}
-												checked={selected.has(option.value)}
-												onCheckedChange={(checked) =>
-													toggle(option.value, checked === true)
-												}
-												onBlur={field.onBlur}
-											/>
-											<Label
-												htmlFor={checkboxId}
-												className="flex flex-col items-start gap-0.5 font-normal"
+										return (
+											<li
+												key={option.value}
+												className="border-border border-b last:border-b-0"
 											>
-												<span>{option.label}</span>
-												{option.description && (
-													<span className="text-muted-foreground text-xs">
-														{option.description}
+												<label
+													htmlFor={checkboxId}
+													className={cn(
+														"flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors duration-150",
+														isSelected ? "bg-primary/5" : "hover:bg-muted/60",
+													)}
+												>
+													<Checkbox
+														id={checkboxId}
+														checked={isSelected}
+														onCheckedChange={(checked) =>
+															toggle(option.value, checked === true)
+														}
+														onBlur={field.onBlur}
+													/>
+													{withInitials && (
+														<span
+															aria-hidden="true"
+															className={cn(
+																"flex size-9 shrink-0 items-center justify-center rounded-full font-medium text-xs transition-colors duration-150",
+																isSelected
+																	? "bg-primary/15 text-foreground"
+																	: "bg-muted text-muted-foreground",
+															)}
+														>
+															{initialsOf(option.label)}
+														</span>
+													)}
+													<span className="flex min-w-0 flex-col gap-0.5">
+														<span className="truncate font-medium text-sm">
+															{option.label}
+														</span>
+														{option.description && (
+															<span className="truncate text-muted-foreground text-xs">
+																{option.description}
+															</span>
+														)}
 													</span>
-												)}
-											</Label>
-										</div>
-									);
-								})
+												</label>
+											</li>
+										);
+									})}
+								</ul>
 							)}
 						</div>
 

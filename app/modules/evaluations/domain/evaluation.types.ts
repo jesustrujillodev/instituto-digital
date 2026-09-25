@@ -1,5 +1,8 @@
 import type * as v from "valibot";
-import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import type {
+	CourseFormat,
+	CourseStatus,
+} from "@/modules/courses/domain/course.rules";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	createEvaluationRule,
@@ -41,6 +44,7 @@ export interface EvaluationCourseRef {
 }
 
 export interface EvaluationCourse extends EvaluationCourseRef {
+	format: CourseFormat;
 	evaluationCount: number;
 }
 

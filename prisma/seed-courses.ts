@@ -211,10 +211,11 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 			modality: "ONLINE",
 			format: "SELF_PACED",
 			completionRule: "CONTENT",
+			// Sin capacitador: nadie capturaría su resultado a mano.
+			evaluationMethod: "QUIZ",
 			access: "PUBLIC",
 			status: "PUBLISHED",
 			publishedAt: new Date(),
-			trainers: { create: [{ userId: trainerSds.id }] },
 			modules: {
 				create: [
 					{

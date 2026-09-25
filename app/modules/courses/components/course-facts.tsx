@@ -61,7 +61,7 @@ export function CourseFacts({
 	}
 
 	facts.push({
-		term: "Evaluación",
+		term: "Evaluación final",
 		value: course.requiresEvaluation
 			? EVALUATION_METHOD_LABELS[course.evaluationMethod]
 			: "Sin evaluación",

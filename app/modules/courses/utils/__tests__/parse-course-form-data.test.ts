@@ -5,6 +5,7 @@ import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 	parseCourseFormData,
+	shouldRevalidateAfterPublish,
 } from "../parse-course-form-data";
 
 const formDataOf = (entries: Record<string, string>) => {
@@ -86,5 +87,45 @@ describe("la portada", () => {
 
 	test("sin campo de portada, es null y el guardado la conserva", () => {
 		expect(parseCourseFormData(formDataOf({})).cover).toBeNull();
+	});
+});
+
+describe("shouldRevalidateAfterPublish", () => {
+	const formOf = (intent: string) => {
+		const form = new FormData();
+		form.set("intent", intent);
+		return form;
+	};
+
+	// El curso ya no es borrador: recargar el paso del alta lo mandaría a la
+	// edición antes de que el wizard llegue a la lista.
+	test("publicar con éxito no recarga el paso", () => {
+		expect(
+			shouldRevalidateAfterPublish({
+				formData: formOf("publish"),
+				actionResult: { success: true },
+				defaultShouldRevalidate: true,
+			}),
+		).toBe(false);
+	});
+
+	test("un fallo al publicar sí recarga, para enseñar el estado real", () => {
+		expect(
+			shouldRevalidateAfterPublish({
+				formData: formOf("publish"),
+				actionResult: { success: false },
+				defaultShouldRevalidate: true,
+			}),
+		).toBe(true);
+	});
+
+	test("guardar un paso sigue el criterio de siempre", () => {
+		expect(
+			shouldRevalidateAfterPublish({
+				formData: formOf("update"),
+				actionResult: { success: true },
+				defaultShouldRevalidate: true,
+			}),
+		).toBe(true);
 	});
 });
