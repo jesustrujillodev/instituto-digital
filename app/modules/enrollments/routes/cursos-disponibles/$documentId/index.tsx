@@ -1,7 +1,7 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Check, LogOut, Users, X } from "lucide-react";
+import { BookOpen, Check, LogOut, Users, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
@@ -9,24 +9,23 @@ import {
 	CourseAccessBadge,
 	CourseModalityBadge,
 } from "@/modules/courses/components/course-badges";
-import { requiresTrainer } from "@/modules/courses/domain/course.rules";
 import { formatHours } from "@/modules/courses/utils/course-labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
-import { CourseCover } from "../../../components/course-cover";
-import { CourseSessionsList } from "../../../components/course-sessions-list";
+import {
+	CourseDetailCards,
+	CourseDetailCover,
+} from "../../../components/course-detail";
 import {
 	EnrollmentOriginBadge,
 	EnrollmentStatusBadge,
 	SeatsBadge,
 } from "../../../components/enrollment-badges";
-import { personNameOf } from "../../../utils/enrollment-labels";
 import {
 	ENROLLMENT_INTENTS,
 	type EnrollmentActionData,
@@ -51,7 +50,7 @@ export default function CursoDisponiblePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { course, enrollment, can },
+		data: { course, enrollment, can, hasClassroom },
 	} = loaderData;
 
 	const fetcher = useFetcher<EnrollmentActionData>();
@@ -102,6 +101,14 @@ export default function CursoDisponiblePage({
 					Darme de baja
 				</Button>
 			)}
+			{hasClassroom && (
+				<Button asChild>
+					<Link to={`/dashboard/mis-cursos/${course.documentId}/aula`}>
+						<BookOpen className="h-4 w-4" />
+						Entrar al aula
+					</Link>
+				</Button>
+			)}
 			{can.enroll && (
 				<Button
 					disabled={isSubmitting}
@@ -123,18 +130,7 @@ export default function CursoDisponiblePage({
 				actions={actions}
 			/>
 
-			{/* 16:9, la misma proporción a la que se recortó al subirla: a 21:9 el
-			    `object-cover` se comía casi una cuarta parte de la imagen y quien
-			    llegó desde la cuadrícula no reconocía del todo la que acaba de tocar. */}
-			<div className="aspect-video w-full overflow-hidden rounded-4xl bg-muted ring-1 ring-foreground/5">
-				<CourseCover
-					documentId={course.documentId}
-					title={course.title}
-					modality={course.modality}
-					src={course.coverUrl}
-					eager
-				/>
-			</div>
+			<CourseDetailCover course={course} />
 
 			<div className="flex flex-wrap gap-2">
 				<CourseModalityBadge modality={course.modality} />
@@ -161,42 +157,7 @@ export default function CursoDisponiblePage({
 				</AlertDescription>
 			</Alert>
 
-			<div className="grid gap-4 lg:grid-cols-2">
-				<Card>
-					<CardContent className="flex flex-col gap-3">
-						<h3 className="font-medium text-sm">Sesiones</h3>
-						<CourseSessionsList sessions={course.sessions} />
-					</CardContent>
-				</Card>
-
-				{(course.description || requiresTrainer(course.format)) && (
-					<Card>
-						<CardContent className="flex flex-col gap-3">
-							{course.description && (
-								<p className="text-sm whitespace-pre-line">
-									{course.description}
-								</p>
-							)}
-							{requiresTrainer(course.format) && (
-								<>
-									<h3 className="font-medium text-sm">Capacitadores</h3>
-									{course.trainers.length === 0 ? (
-										<p className="text-muted-foreground text-sm">
-											Sin asignar.
-										</p>
-									) : (
-										<ul className="text-sm">
-											{course.trainers.map((trainer) => (
-												<li key={trainer.email}>{personNameOf(trainer)}</li>
-											))}
-										</ul>
-									)}
-								</>
-							)}
-						</CardContent>
-					</Card>
-				)}
-			</div>
+			<CourseDetailCards course={course} />
 
 			<ConfirmDialog
 				open={confirmingWithdraw}

@@ -118,7 +118,7 @@ describe("listSessions", () => {
 			expect.objectContaining({
 				documentId: "s1",
 				lenses: ["enrolled"],
-				courseHref: "/dashboard/cursos-disponibles/c-s1",
+				courseHref: "/dashboard/mis-cursos/c-s1",
 			}),
 		]);
 	});

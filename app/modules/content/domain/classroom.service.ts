@@ -8,6 +8,7 @@ import type {
 	ClassroomLessonResponse,
 	ClassroomModuleQuizResponse,
 	ClassroomResponse,
+	ClassroomSummariesResponse,
 	ProgressResponse,
 	ProgressState,
 	RecordProgressDto,
@@ -39,6 +40,8 @@ export interface IClassroomService {
 	): Promise<ProgressResponse>;
 	/** Los `documentId` de los cursos de la persona que tienen aula. */
 	listMine(actor: AuthContext): Promise<ClassroomCoursesResponse>;
+	/** Como `listMine`, con cuánto lleva de cada temario: lo pinta «Mis cursos». */
+	summarizeMine(actor: AuthContext): Promise<ClassroomSummariesResponse>;
 }
 
 /**

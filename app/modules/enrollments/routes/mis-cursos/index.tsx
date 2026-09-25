@@ -1,55 +1,39 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import {
-	BookOpen,
-	Building2,
-	CalendarDays,
-	Check,
-	Clock,
-	Download,
-	Layers,
-	X,
-} from "lucide-react";
+import { useState } from "react";
 import { Link, useFetcher } from "react-router";
-import { formatZonedDate } from "@/lib/date-utils";
-import { MyCertificateMenu } from "@/modules/certificates/components/my-certificate-menu";
-import { ProgressBar } from "@/modules/content/components/progress-bar";
-import { CourseStatusBadge } from "@/modules/courses/components/course-badges";
-import {
-	CourseCardFrame,
-	CourseCardList,
-	type CourseMetaItem,
-} from "@/modules/courses/components/course-card-frame";
-import {
-	countsContent,
-	requiresSessions,
-} from "@/modules/courses/domain/course.rules";
-import { formatHours } from "@/modules/courses/utils/course-labels";
-import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
+import { cn } from "@/lib/utils";
+import type { ClassroomSummary } from "@/modules/content/domain/classroom.types";
+import { CourseCardList } from "@/modules/courses/components/course-card-frame";
 import { PageHeader } from "@/shared/components/common/page-header";
-import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Empty,
+	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@/shared/components/ui/tabs";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { VIEW_MODE_SCREENS, type ViewMode } from "@/shared/view-mode/view-mode";
-import { CourseSessionsList } from "../../components/course-sessions-list";
-import { EnrollmentResultBadge } from "../../components/enrollment-badges";
+import { InvitationCard, MyCourseCard } from "../../components/my-course-card";
+import { MyCoursesToolbar } from "../../components/my-courses-toolbar";
 import type { MyCourseEntry } from "../../domain/enrollment.types";
+import {
+	activeFilterCount,
+	dependencyOptionsOf,
+	EMPTY_FILTER,
+	MY_COURSE_SECTIONS,
+	type MyCourseSection,
+	type MyCoursesFilter,
+	matchesFilter,
+	SECTION_TITLES,
+	summaryOf,
+	visibleSectionsOf,
+} from "../../utils/my-courses-filter";
 import {
 	COURSE_FIELD,
 	ENROLLMENT_INTENTS,
@@ -66,259 +50,128 @@ export function meta() {
 	return [{ title: "Mis cursos" }];
 }
 
-const detailPath = (entry: MyCourseEntry) =>
-	`/dashboard/cursos-disponibles/${entry.course.documentId}`;
+/** El historial se enseña de una fila; lo que está en marcha, completo. */
+const COLLAPSED_LIMIT = 3;
+const COLLAPSIBLE: readonly MyCourseSection[] = ["finished", "withdrawn"];
 
-/** "12 sep" o "12 sep – 3 oct": cuándo ocurre el curso, sin abrir la ficha. */
-const dateRangeOf = ({ course }: MyCourseEntry) => {
-	if (!course.firstSessionAt) return "Sin fecha";
-
-	const first = formatZonedDate(new Date(course.firstSessionAt));
-	const last = course.lastSessionEndsAt
-		? formatZonedDate(new Date(course.lastSessionEndsAt))
-		: first;
-
-	return first === last ? first : `${first} – ${last}`;
-};
-
-const metaOf = (entry: MyCourseEntry): CourseMetaItem[] => {
-	const { course } = entry;
-	const count = course.sessions.length;
-	const hours: CourseMetaItem[] =
-		course.hours === null
-			? []
-			: [{ icon: Clock, label: formatHours(course.hours) }];
-
-	if (!requiresSessions(course.format)) {
-		return [
-			{ icon: Building2, label: course.dependencyName, wide: true },
-			{ icon: BookOpen, label: "A tu ritmo" },
-			...hours,
-		];
-	}
-
-	return [
-		{ icon: Building2, label: course.dependencyName, wide: true },
-		{ icon: CalendarDays, label: dateRangeOf(entry) },
-		{ icon: Layers, label: count === 1 ? "1 sesión" : `${count} sesiones` },
-		...hours,
-	];
-};
-
-function EmptyList({ message }: { message: string }) {
+function SectionHeading({
+	id,
+	section,
+	count,
+	toggle,
+}: {
+	id: string;
+	section: MyCourseSection;
+	count: number;
+	toggle?: React.ReactNode;
+}) {
 	return (
-		<Empty>
-			<EmptyHeader>
-				<EmptyTitle>Nada por aquí</EmptyTitle>
-				<EmptyDescription>{message}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
-
-/**
- * Un autogestivo no se finaliza: para quien lo cursa termina al completarlo, y
- * ahí se enseña igual que un curso cerrado (docs/adr/0014).
- */
-const isOverFor = ({ course, outcome }: MyCourseEntry) =>
-	course.status === "FINISHED" ||
-	(!requiresSessions(course.format) && outcome.completed);
-
-/** Estado del curso, resultado y crédito: lo que cambia de un curso a otro. */
-function EntryFooter({ entry }: { entry: MyCourseEntry }) {
-	const { course, enrollment, outcome } = entry;
-
-	if (isOverFor(entry)) {
-		return (
-			<>
-				<Badge variant={outcome.completed ? "default" : "outline"}>
-					{outcome.completed ? "Completado · 1 crédito" : "No completado"}
-				</Badge>
-				{!entry.canRate && outcome.myRating !== null && (
-					<span className="text-muted-foreground text-xs">
-						Lo valoraste con {outcome.myRating} de 5
+		<div className="flex items-baseline justify-between gap-4">
+			<h2 id={id} className="flex items-center gap-2 font-bold text-lg">
+				{SECTION_TITLES[section]}
+				{section === "invitations" ? (
+					<span className="inline-flex size-5 items-center justify-center rounded-full bg-primary font-medium text-primary-foreground text-xs tabular-nums">
+						{count}
+					</span>
+				) : (
+					<span className="font-medium text-muted-foreground text-sm tabular-nums">
+						{count}
 					</span>
 				)}
-			</>
-		);
-	}
-
-	return (
-		<>
-			{course.status !== "PUBLISHED" && (
-				<CourseStatusBadge status={course.status} />
-			)}
-			{enrollment.status === "ENROLLED" && enrollment.result !== "PENDING" && (
-				<EnrollmentResultBadge result={enrollment.result} />
-			)}
-		</>
-	);
-}
-
-/** Asistencia y nota del curso finalizado; en lista, donde cabe leerla. */
-function OutcomeDetail({ entry }: { entry: MyCourseEntry }) {
-	const { course, enrollment, outcome } = entry;
-
-	if (!requiresSessions(course.format)) {
-		return (
-			<p className="text-muted-foreground text-xs">
-				{outcome.contentCompletedAt
-					? `Terminaste el contenido el ${formatZonedDate(new Date(outcome.contentCompletedAt))}`
-					: `Avance del contenido: ${outcome.progressPercent} %`}
-				{enrollment.result !== "PENDING" && outcome.grade !== null
-					? ` · nota ${outcome.grade}`
-					: ""}
-			</p>
-		);
-	}
-
-	return (
-		<p className="text-muted-foreground text-xs">
-			Asististe a {outcome.attendedSessions} de {course.sessions.length}{" "}
-			sesiones
-			{enrollment.result !== "PENDING" && outcome.grade !== null
-				? ` · nota ${outcome.grade}`
-				: ""}
-		</p>
-	);
-}
-
-/** La barra solo donde el contenido cuenta para completar el curso. */
-function ContentProgress({ entry }: { entry: MyCourseEntry }) {
-	return (
-		<div className="flex flex-col gap-1">
-			<div className="flex items-baseline justify-between text-xs">
-				<span className="text-muted-foreground">Avance</span>
-				<span className="tabular-nums">{entry.outcome.progressPercent} %</span>
-			</div>
-			<ProgressBar
-				value={entry.outcome.progressPercent}
-				label={`Avance en ${entry.course.title}`}
-			/>
+			</h2>
+			{toggle}
 		</div>
 	);
 }
 
-/** «Continuar» si ya empezó; «Repasar» si para quien lo cursa ya terminó. */
-function ClassroomLink({ entry }: { entry: MyCourseEntry }) {
-	const label = isOverFor(entry)
-		? "Repasar"
-		: entry.outcome.progressPercent > 0
-			? "Continuar"
-			: "Entrar al aula";
-
-	return (
-		<Button size="sm" asChild>
-			<Link to={`/dashboard/mis-cursos/${entry.course.documentId}/aula`}>
-				<BookOpen />
-				{label}
-			</Link>
-		</Button>
-	);
-}
-
-function MyCourseCard({
-	entry,
-	layout,
-	actions,
-	note,
-	hasClassroom = false,
-}: {
-	entry: MyCourseEntry;
-	layout: ViewMode;
-	actions?: React.ReactNode;
-	note?: string;
-	hasClassroom?: boolean;
-}) {
-	const { course } = entry;
-	const isFinished = isOverFor(entry);
-	const footer = <EntryFooter entry={entry} />;
-	const showsProgress =
-		hasClassroom && !isFinished && countsContent(course.completionRule);
-
-	return (
-		<CourseCardFrame
-			layout={layout}
-			href={detailPath(entry)}
-			course={course}
-			meta={metaOf(entry)}
-			footer={
-				note ? (
-					<>
-						{footer}
-						<span className="text-muted-foreground text-xs">{note}</span>
-					</>
-				) : (
-					footer
-				)
-			}
-			actions={
-				actions ?? (
-					<>
-						{hasClassroom && <ClassroomLink entry={entry} />}
-						{isFinished && entry.outcome.certificate && (
-							<MyCertificateMenu
-								documentId={entry.outcome.certificate.documentId}
-								downloadable={entry.outcome.certificate.downloadable}
-							/>
-						)}
-						{entry.canRate && (
-							<RateCourseDialog
-								courseDocumentId={course.documentId}
-								courseTitle={course.title}
-							/>
-						)}
-					</>
-				)
-			}
-			details={
-				isFinished ? (
-					<OutcomeDetail entry={entry} />
-				) : (
-					<>
-						{showsProgress && <ContentProgress entry={entry} />}
-						{course.sessions.length > 0 && (
-							<CourseSessionsList sessions={course.sessions} />
-						)}
-					</>
-				)
-			}
-		/>
-	);
-}
-
-function CourseList({
+function CourseSection({
+	section,
 	entries,
 	layout,
-	emptyMessage,
+	collapsible,
 	classrooms,
+	respond,
+	busy,
 }: {
+	section: MyCourseSection;
 	entries: readonly MyCourseEntry[];
 	layout: ViewMode;
-	emptyMessage: string;
-	classrooms: ReadonlySet<string>;
+	collapsible: boolean;
+	classrooms: ReadonlyMap<string, ClassroomSummary>;
+	respond: (entry: MyCourseEntry, intent: string) => void;
+	busy: boolean;
 }) {
-	if (entries.length === 0) return <EmptyList message={emptyMessage} />;
+	const [expanded, setExpanded] = useState(false);
+	const headingId = `mis-cursos-${section}`;
+	const canCollapse = collapsible && entries.length > COLLAPSED_LIMIT;
+	const shown =
+		canCollapse && !expanded ? entries.slice(0, COLLAPSED_LIMIT) : entries;
+
+	const toggle = canCollapse && (
+		<Button
+			variant="link"
+			size="sm"
+			className="h-auto px-0 text-foreground underline underline-offset-4 hover:no-underline"
+			aria-expanded={expanded}
+			onClick={() => setExpanded((open) => !open)}
+		>
+			{expanded ? "Ver menos" : `Ver todos (${entries.length})`}
+		</Button>
+	);
 
 	return (
-		<CourseCardList layout={layout}>
-			{entries.map((entry) => (
-				<li key={entry.enrollment.documentId}>
-					<MyCourseCard
-						entry={entry}
-						layout={layout}
-						hasClassroom={classrooms.has(entry.course.documentId)}
-					/>
-				</li>
-			))}
-		</CourseCardList>
+		<section aria-labelledby={headingId} className="flex flex-col gap-3">
+			<SectionHeading
+				id={headingId}
+				section={section}
+				count={entries.length}
+				toggle={toggle}
+			/>
+
+			{section === "invitations" ? (
+				<ul className="flex flex-col gap-3">
+					{shown.map((entry) => (
+						<li key={entry.enrollment.documentId}>
+							<InvitationCard
+								entry={entry}
+								busy={busy}
+								onAccept={() => respond(entry, ENROLLMENT_INTENTS.accept)}
+								onDecline={() => respond(entry, ENROLLMENT_INTENTS.decline)}
+							/>
+						</li>
+					))}
+				</ul>
+			) : (
+				<CourseCardList layout={layout}>
+					{shown.map((entry, index) => (
+						<li
+							key={entry.enrollment.documentId}
+							className={cn(
+								index >= COLLAPSED_LIMIT &&
+									"fade-in-0 slide-in-from-top-1 animate-in fill-mode-both duration-300 ease-out",
+							)}
+						>
+							<MyCourseCard
+								entry={entry}
+								section={section}
+								layout={layout}
+								classroom={classrooms.get(entry.course.documentId)}
+							/>
+						</li>
+					))}
+				</CourseCardList>
+			)}
+		</section>
 	);
 }
 
 export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 	const { data } = loaderData;
 	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.mine, data.view);
-	const classrooms = new Set(data.classrooms);
+	const [filter, setFilter] = useState<MyCoursesFilter>(EMPTY_FILTER);
+	const classrooms = new Map(
+		data.classrooms.map((classroom) => [classroom.documentId, classroom]),
+	);
 	const fetcher = useFetcher<EnrollmentActionData>();
 	useFetcherToast(fetcher);
 
@@ -328,106 +181,85 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 			{ method: "post" },
 		);
 
+	const total = MY_COURSE_SECTIONS.reduce(
+		(sum, section) => sum + data[section].length,
+		0,
+	);
+	const isFiltering =
+		filter.query.trim() !== "" || activeFilterCount(filter) > 0;
+	const sections = visibleSectionsOf(filter)
+		.map((section) => ({
+			section,
+			entries: data[section].filter((entry) => matchesFilter(entry, filter)),
+		}))
+		.filter(({ entries }) => entries.length > 0);
+
 	return (
-		<div className="flex flex-col gap-6">
+		<div className="flex flex-col gap-2 pb-8">
 			<PageHeader
 				title="Mis cursos"
-				description="Tus invitaciones pendientes y los cursos en los que estás inscrito."
-				actions={<ViewModeToggle value={layout} onChange={setLayout} />}
-				actionsClassName="items-end *:w-auto"
+				description={summaryOf(data) || "Todavía no tienes cursos."}
+				actions={
+					total > 0 && (
+						<MyCoursesToolbar
+							filter={filter}
+							onFilterChange={setFilter}
+							dependencies={dependencyOptionsOf(data)}
+							layout={layout}
+							onLayoutChange={setLayout}
+							canExport={data.finished.length > 0}
+						/>
+					)
+				}
 			/>
 
-			{data.invitations.length > 0 && (
-				<section className="flex flex-col gap-3">
-					<h2 className="font-medium">Invitaciones pendientes</h2>
-					<CourseCardList layout={layout}>
-						{data.invitations.map((entry) => (
-							<li key={entry.enrollment.documentId}>
-								<MyCourseCard
-									entry={entry}
-									layout={layout}
-									note={
-										entry.course.enrollmentDeadline
-											? `Responde antes del ${formatZonedDate(new Date(entry.course.enrollmentDeadline))}`
-											: "Aceptar ocupa un lugar si queda"
-									}
-									actions={
-										<>
-											<Button
-												size="sm"
-												disabled={fetcher.state !== "idle"}
-												onClick={() =>
-													respond(entry, ENROLLMENT_INTENTS.accept)
-												}
-											>
-												<Check />
-												Aceptar
-											</Button>
-											<Button
-												size="sm"
-												variant="outline"
-												disabled={fetcher.state !== "idle"}
-												onClick={() =>
-													respond(entry, ENROLLMENT_INTENTS.decline)
-												}
-											>
-												<X />
-												Rechazar
-											</Button>
-										</>
-									}
-								/>
-							</li>
-						))}
-					</CourseCardList>
-				</section>
-			)}
-
-			<Tabs defaultValue="upcoming">
-				<TabsList>
-					<TabsTrigger value="upcoming">
-						Próximos ({data.upcoming.length})
-					</TabsTrigger>
-					<TabsTrigger value="inProgress">
-						En curso ({data.inProgress.length})
-					</TabsTrigger>
-					<TabsTrigger value="finished">
-						Finalizados ({data.finished.length})
-					</TabsTrigger>
-				</TabsList>
-				<TabsContent value="upcoming">
-					<CourseList
-						entries={data.upcoming}
-						layout={layout}
-						classrooms={classrooms}
-						emptyMessage="No tienes cursos por empezar."
-					/>
-				</TabsContent>
-				<TabsContent value="inProgress">
-					<CourseList
-						entries={data.inProgress}
-						layout={layout}
-						classrooms={classrooms}
-						emptyMessage="No tienes cursos en curso."
-					/>
-				</TabsContent>
-				<TabsContent value="finished" className="flex flex-col gap-4">
-					{data.finished.length > 0 && (
-						<Button variant="outline" size="sm" className="self-end" asChild>
-							<a href="/dashboard/mis-cursos/finalizados.xlsx" download>
-								<Download />
-								Descargar Excel
-							</a>
+			{total === 0 ? (
+				<Empty>
+					<EmptyHeader>
+						<EmptyTitle>Aún no te inscribes a ningún curso</EmptyTitle>
+						<EmptyDescription>
+							Aquí verás tus invitaciones, los cursos que llevas y los que ya
+							terminaste.
+						</EmptyDescription>
+					</EmptyHeader>
+					<EmptyContent>
+						<Button asChild>
+							<Link to="/dashboard/cursos-disponibles">
+								Ver cursos disponibles
+							</Link>
 						</Button>
-					)}
-					<CourseList
-						entries={data.finished}
-						layout={layout}
-						classrooms={classrooms}
-						emptyMessage="Todavía no tienes cursos finalizados."
-					/>
-				</TabsContent>
-			</Tabs>
+					</EmptyContent>
+				</Empty>
+			) : sections.length === 0 ? (
+				<Empty>
+					<EmptyHeader>
+						<EmptyTitle>Ningún curso coincide</EmptyTitle>
+						<EmptyDescription>
+							Prueba con otra búsqueda o quita algún filtro.
+						</EmptyDescription>
+					</EmptyHeader>
+					<EmptyContent>
+						<Button variant="outline" onClick={() => setFilter(EMPTY_FILTER)}>
+							Limpiar búsqueda y filtros
+						</Button>
+					</EmptyContent>
+				</Empty>
+			) : (
+				<div className="flex flex-col gap-10">
+					{sections.map(({ section, entries }) => (
+						<CourseSection
+							key={section}
+							section={section}
+							entries={entries}
+							layout={layout}
+							collapsible={!isFiltering && COLLAPSIBLE.includes(section)}
+							classrooms={classrooms}
+							respond={respond}
+							busy={fetcher.state !== "idle"}
+						/>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

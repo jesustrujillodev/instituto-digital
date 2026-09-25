@@ -115,9 +115,9 @@ export const createClassroomRepository = ({
 					},
 				],
 			},
-			select: { documentId: true },
+			select: { id: true, documentId: true },
 		});
 
-		return courses.map((course) => course.documentId);
+		return courses;
 	},
 });

@@ -259,8 +259,9 @@ describe("resolveCourseHref", () => {
 	test.each([
 		[["organizing", "enrolled"], participant, "/dashboard/cursos/c1"],
 		[["global"], participant, "/dashboard/cursos/c1"],
-		[["enrolled"], participant, "/dashboard/cursos-disponibles/c1"],
-		[["invited"], participant, "/dashboard/cursos-disponibles/c1"],
+		[["enrolled"], participant, "/dashboard/mis-cursos/c1"],
+		[["invited"], participant, "/dashboard/mis-cursos/c1"],
+		[["teaching", "enrolled"], participant, "/dashboard/mis-cursos/c1"],
 		[["teaching"], participant, "/dashboard/cursos-disponibles/c1"],
 		[["teaching"], external, null],
 		[["staff"], participant, null],
@@ -281,7 +282,7 @@ describe("toCalendarSessions", () => {
 		expect(sessions[0].trainers).toEqual([
 			{ documentId: "t8", name: "Elena Torres" },
 		]);
-		expect(sessions[0].courseHref).toBe("/dashboard/cursos-disponibles/c1");
+		expect(sessions[0].courseHref).toBe("/dashboard/mis-cursos/c1");
 	});
 
 	test("sin nombre, el capacitador se muestra por su correo", () => {

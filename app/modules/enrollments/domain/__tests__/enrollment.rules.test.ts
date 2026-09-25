@@ -8,8 +8,11 @@ import {
 	canTransition,
 	canWithdraw,
 	classifyMyCourse,
+	courseTimelineOf,
 	enrollmentClosesAt,
 	isEnrollmentOpen,
+	isOverForParticipant,
+	participantPermissionsOf,
 	seatsLeftOf,
 } from "../enrollment.rules";
 
@@ -167,6 +170,76 @@ describe("canWithdraw", () => {
 	});
 });
 
+describe("participantPermissionsOf", () => {
+	const BEFORE = new Date("2026-10-01");
+	const AFTER_CLOSE = new Date("2026-10-15");
+	const publicCourse = courseOf({ enrollmentDeadline: DEADLINE });
+	const permissions = (
+		status: Parameters<typeof participantPermissionsOf>[1],
+		overrides: { access?: "PUBLIC" | "INVITATION"; completed?: boolean } = {},
+		now = BEFORE,
+	) =>
+		participantPermissionsOf(
+			{ ...publicCourse, access: overrides.access ?? "PUBLIC" },
+			status,
+			overrides.completed ?? false,
+			now,
+		);
+
+	test("de baja con la inscripción abierta puede volver a inscribirse", () => {
+		expect(permissions("WITHDRAWN")).toEqual({
+			enroll: true,
+			withdraw: false,
+			accept: false,
+			decline: false,
+		});
+	});
+
+	test("de baja de un curso por invitación ya no puede volver solo", () => {
+		expect(permissions("WITHDRAWN", { access: "INVITATION" }).enroll).toBe(
+			false,
+		);
+	});
+
+	test("inscrito puede darse de baja, no inscribirse de nuevo", () => {
+		expect(permissions("ENROLLED")).toMatchObject({
+			enroll: false,
+			withdraw: true,
+		});
+	});
+
+	test("con el autogestivo completado ya no hay baja", () => {
+		const selfPaced = {
+			...courseOf({ format: "SELF_PACED", firstSessionAt: null }),
+			access: "PUBLIC" as const,
+		};
+
+		expect(
+			participantPermissionsOf(selfPaced, "ENROLLED", true, BEFORE).withdraw,
+		).toBe(false);
+	});
+
+	test("con la inscripción cerrada, la invitación solo se rechaza", () => {
+		expect(permissions("INVITED", {}, AFTER_CLOSE)).toEqual({
+			enroll: false,
+			withdraw: false,
+			accept: false,
+			decline: true,
+		});
+	});
+});
+
+describe("isOverForParticipant", () => {
+	test.each([
+		["FINISHED", "SCHEDULED", false, true],
+		["PUBLISHED", "SCHEDULED", true, false],
+		["PUBLISHED", "SELF_PACED", true, true],
+		["PUBLISHED", "SELF_PACED", false, false],
+	] as const)("%s %s completado=%s → %s", (status, format, completed, over) => {
+		expect(isOverForParticipant({ status, format }, completed)).toBe(over);
+	});
+});
+
 describe("cupo", () => {
 	test("seatsLeftOf es null sin cupo y nunca negativo", () => {
 		expect(seatsLeftOf(null, 40)).toBeNull();
@@ -273,5 +346,59 @@ describe("classifyMyCourse", () => {
 		expect(classifyMyCourse(course, new Date("2030-01-01"), true)).toBe(
 			"finished",
 		);
+	});
+});
+
+describe("courseTimelineOf", () => {
+	const sessionOf = (startsAt: string, endsAt: string) => ({
+		documentId: startsAt,
+		startsAt: new Date(startsAt),
+		endsAt: new Date(endsAt),
+		venue: null,
+		link: null,
+	});
+	// 9:00–11:00 y 16:00–18:00 en Tijuana (UTC−7).
+	const sessions = [
+		sessionOf("2026-10-02T16:00:00Z", "2026-10-02T18:00:00Z"),
+		sessionOf("2026-10-05T23:00:00Z", "2026-10-06T01:00:00Z"),
+	];
+
+	test("antes de empezar cuenta días naturales en la zona del instituto", () => {
+		// 22:00 del 25 de septiembre en Tijuana: faltan 7 días, no 6.
+		const timeline = courseTimelineOf(
+			{ sessions },
+			new Date("2026-09-26T05:00:00Z"),
+		);
+
+		expect(timeline).toMatchObject({ sessionsHeld: 0, daysToStart: 7 });
+		expect(timeline.nextSession?.documentId).toBe(sessions[0].documentId);
+	});
+
+	test("entre sesiones cuenta las que ya terminaron y da la siguiente", () => {
+		const timeline = courseTimelineOf(
+			{ sessions },
+			new Date("2026-10-03T12:00:00Z"),
+		);
+
+		expect(timeline).toMatchObject({ sessionsHeld: 1, daysToStart: null });
+		expect(timeline.nextSession?.documentId).toBe(sessions[1].documentId);
+	});
+
+	test("una sesión en curso sigue siendo la próxima", () => {
+		const timeline = courseTimelineOf(
+			{ sessions },
+			new Date("2026-10-02T17:00:00Z"),
+		);
+
+		expect(timeline.sessionsHeld).toBe(0);
+		expect(timeline.nextSession?.documentId).toBe(sessions[0].documentId);
+	});
+
+	test("sin sesiones no hay fechas", () => {
+		expect(courseTimelineOf({ sessions: [] }, new Date())).toEqual({
+			sessionsHeld: 0,
+			nextSession: null,
+			daysToStart: null,
+		});
 	});
 });

@@ -14,6 +14,7 @@ import { myCertificateDownloadUrl } from "../utils/certificate-urls";
 interface MyCertificateMenuProps {
 	documentId: string;
 	downloadable: boolean;
+	className?: string;
 }
 
 /**
@@ -23,12 +24,13 @@ interface MyCertificateMenuProps {
 export function MyCertificateMenu({
 	documentId,
 	downloadable,
+	className,
 }: MyCertificateMenuProps) {
 	const { download, pending } = useFileDownload();
 
 	if (!downloadable) {
 		return (
-			<Button variant="outline" size="sm" asChild>
+			<Button variant="outline" size="sm" className={className} asChild>
 				<Link to={MY_CERTIFICATES_PATH}>
 					<Award aria-hidden="true" />
 					Certificado
@@ -40,7 +42,12 @@ export function MyCertificateMenu({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="outline" size="sm" disabled={pending !== null}>
+				<Button
+					variant="outline"
+					size="sm"
+					className={className}
+					disabled={pending !== null}
+				>
 					<Award aria-hidden="true" />
 					{pending ? "Generando…" : "Certificado"}
 					<ChevronDown aria-hidden="true" />

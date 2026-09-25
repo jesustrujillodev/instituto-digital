@@ -2,21 +2,23 @@ export { loader } from "./index.loader";
 
 import {
 	ArrowRight,
-	Building2,
 	CalendarDays,
+	CircleCheck,
+	CircleDot,
 	ClipboardCheck,
 	SearchX,
 	Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
-import { CourseStatusBadge } from "@/modules/courses/components/course-badges";
 import {
 	CourseCardFrame,
 	CourseCardList,
+	CourseCardStatus,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
+import { requiresSessions } from "@/modules/courses/domain/course.rules";
 import { STATUS_LABELS } from "@/modules/courses/utils/course-labels";
 import { ListPagination } from "@/shared/components/common/list-pagination";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -80,8 +82,9 @@ const dateRangeOf = (course: TeachingCourseSummary) => {
 };
 
 const metaOf = (course: TeachingCourseSummary): CourseMetaItem[] => [
-	{ icon: Building2, label: course.dependencyName, wide: true },
-	{ icon: CalendarDays, label: dateRangeOf(course) },
+	...(requiresSessions(course.format)
+		? [{ icon: CalendarDays, label: dateRangeOf(course) }]
+		: []),
 	{
 		icon: Users,
 		label:
@@ -90,6 +93,29 @@ const metaOf = (course: TeachingCourseSummary): CourseMetaItem[] => [
 				: `${course.enrolledCount} inscritos`,
 	},
 ];
+
+const detailPathOf = (course: TeachingCourseSummary) =>
+	`/dashboard/imparticion/${course.documentId}`;
+
+/** Lo que toca hacer hoy con el curso: pasar lista, seguir el avance o revisar. */
+function TeachingAction({ course }: { course: TeachingCourseSummary }) {
+	if (course.status !== "PUBLISHED") {
+		return (
+			<Button variant="outline" asChild>
+				<Link to={detailPathOf(course)}>Ver resultados</Link>
+			</Button>
+		);
+	}
+
+	return (
+		<Button asChild>
+			<Link to={detailPathOf(course)}>
+				{requiresSessions(course.format) ? "Pasar lista" : "Ver avance"}
+				<ArrowRight data-icon="inline-end" aria-hidden="true" />
+			</Link>
+		</Button>
+	);
+}
 
 export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 	const {
@@ -205,22 +231,22 @@ export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 							<li key={course.documentId}>
 								<CourseCardFrame
 									layout={layout}
-									href={`/dashboard/imparticion/${course.documentId}`}
+									href={detailPathOf(course)}
 									course={course}
 									eager={index < EAGER_COVERS}
 									meta={metaOf(course)}
-									footer={<CourseStatusBadge status={course.status} />}
-									cta={
-										<span className="inline-flex items-center gap-1 font-medium text-primary text-sm">
-											{course.status === "PUBLISHED"
-												? "Pasar lista"
-												: "Ver resultados"}
-											<ArrowRight
-												className="size-4 transition-transform duration-200 group-hover/card:translate-x-0.5"
-												aria-hidden="true"
-											/>
-										</span>
+									status={
+										course.status === "PUBLISHED" ? (
+											<CourseCardStatus icon={CircleDot}>
+												{STATUS_LABELS.PUBLISHED}
+											</CourseCardStatus>
+										) : (
+											<CourseCardStatus icon={CircleCheck} tone="muted">
+												{STATUS_LABELS[course.status]}
+											</CourseCardStatus>
+										)
 									}
+									actions={<TeachingAction course={course} />}
 								/>
 							</li>
 						))}

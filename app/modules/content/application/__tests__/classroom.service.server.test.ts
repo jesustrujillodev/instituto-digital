@@ -159,7 +159,11 @@ const createHarness = (
 				{ lessonDocumentId, status },
 			];
 		},
-		findClassroomCourses: async () => [COURSE_DOC],
+		findClassroomCourses: async () => [{ id: 7, documentId: COURSE_DOC }],
+		findCompletedLessons: async () =>
+			progress
+				.filter((row) => row.status === "COMPLETED")
+				.map((row) => ({ userId: 50, lessonDocumentId: row.lessonDocumentId })),
 	} as unknown as ICradle["classroomRepository"];
 
 	const contentRepository = {
@@ -241,6 +245,13 @@ const createHarness = (
 						}
 					: null,
 			findLatestModuleAttempts: async () => options.moduleAttempts ?? [],
+			findPassedModuleQuizzes: async () =>
+				(options.moduleAttempts ?? [])
+					.filter((attempt) => attempt.passed)
+					.map((attempt) => ({
+						userId: 50,
+						quizDocumentId: attempt.quizDocumentId,
+					})),
 		} as unknown as ICradle["quizRepository"],
 		runInTransaction,
 		clock: { now: () => NOW },
@@ -586,6 +597,46 @@ describe("evaluaciones de módulo en el aula (docs/adr/0016)", () => {
 		).toMatchObject({
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.QUIZ_NOT_FOUND },
+		});
+	});
+});
+
+describe("listMine y summarizeMine", () => {
+	test("listMine solo da los documentId de los cursos con aula", async () => {
+		const { service } = createHarness();
+
+		const result = await service.listMine(ANA);
+
+		expect(result).toMatchObject({ success: true, data: [COURSE_DOC] });
+	});
+
+	test("cuenta las obligatorias completadas sobre las medidas", async () => {
+		const { service } = createHarness({
+			progress: [
+				{ lessonDocumentId: LESSON_1, status: "COMPLETED" },
+				{ lessonDocumentId: LESSON_2, status: "IN_PROGRESS" },
+				{ lessonDocumentId: LESSON_3, status: "COMPLETED" },
+			],
+		});
+
+		const result = await service.summarizeMine(ANA);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: [{ documentId: COURSE_DOC, done: 1, total: 2, lessonsOnly: true }],
+		});
+	});
+
+	test("la evaluación de módulo aprobada cuenta como un paso más", async () => {
+		const { service } = createHarness({
+			moduleQuiz: true,
+			moduleAttempts: [moduleAttemptOf({ passed: true, score: 90 })],
+		});
+
+		const result = await service.summarizeMine(ANA);
+
+		expect(result).toMatchObject({
+			data: [{ done: 1, total: 3, lessonsOnly: false }],
 		});
 	});
 });

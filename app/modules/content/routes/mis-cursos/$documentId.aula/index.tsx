@@ -14,7 +14,12 @@ const MY_COURSES_PATH = "/dashboard/mis-cursos";
 export const handle = {
 	breadcrumb: (loaderData) => [
 		{ label: "Mis cursos", path: MY_COURSES_PATH },
-		{ label: loaderData?.data.course.title ?? "Curso" },
+		{
+			label: loaderData?.data.course.title ?? "Curso",
+			path: loaderData
+				? `${MY_COURSES_PATH}/${loaderData.data.course.documentId}`
+				: undefined,
+		},
 		{ label: "Aula" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;

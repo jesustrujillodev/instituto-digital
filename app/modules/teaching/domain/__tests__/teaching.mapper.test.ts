@@ -209,6 +209,7 @@ describe("toTeachingCourseSummary", () => {
 		coverImageUrl: "/api/storage?key=course-covers%2Fa.webp",
 		dependency: { name: "Obras Públicas" },
 		modality: "IN_PERSON" as const,
+		format: "SCHEDULED" as const,
 		status: "PUBLISHED" as const,
 		sessions: [
 			{ startsAt: new Date("2026-09-01T16:00:00.000Z") },
@@ -226,6 +227,7 @@ describe("toTeachingCourseSummary", () => {
 			`https://cdn.ejemplo.com/${raw.coverImageUrl.length}`,
 		);
 		expect(summary).toMatchObject({
+			format: "SCHEDULED",
 			sessionCount: 2,
 			firstSessionAt: raw.sessions[0].startsAt,
 			lastSessionAt: raw.sessions[1].startsAt,

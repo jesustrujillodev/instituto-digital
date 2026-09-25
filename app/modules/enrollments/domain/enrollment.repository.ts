@@ -130,8 +130,13 @@ export interface IEnrollmentRepository {
 	/** Inscritos e invitados pendientes con cuenta activa. */
 	findNotifiableRecipients(courseId: number): Promise<NotifiableParticipant[]>;
 
-	/** Invitaciones pendientes e inscripciones activas de la persona. */
+	/** Invitaciones pendientes, inscripciones activas y bajas de la persona. */
 	findMine(userId: number): Promise<MyCourseRecord[]>;
+	/** Su inscripción en el curso, si es de las que enseña «Mis cursos». */
+	findMyCourse(
+		userId: number,
+		courseDocumentId: string,
+	): Promise<MyCourseRecord | null>;
 	/** Con `dependencyId`, solo quienes se inscribieron con esa dependencia. */
 	findRoster(
 		courseId: number,

@@ -34,16 +34,25 @@ const SCORES = Array.from(
 export function RateCourseDialog({
 	courseDocumentId,
 	courseTitle,
+	open: controlledOpen,
+	onOpenChange,
+	triggerClassName,
 }: {
 	courseDocumentId: string;
 	courseTitle: string;
+	/** Con `open`, lo abre alguien más (un menú) y no lleva botón propio. */
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	triggerClassName?: string;
 }) {
 	const fetcher = useFetcher<RatingActionData>();
 	// Una vez por respuesta: un efecto sobre `fetcher.data` volvería a cerrar el
 	// diálogo al reabrirlo, porque el éxito anterior sigue ahí.
 	useFetcherToast(fetcher, { onSuccess: () => setOpen(false) });
 
-	const [open, setOpen] = useState(false);
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+	const open = controlledOpen ?? uncontrolledOpen;
+	const setOpen = onOpenChange ?? setUncontrolledOpen;
 	const [score, setScore] = useState<number | null>(null);
 	const [comment, setComment] = useState("");
 
@@ -57,12 +66,14 @@ export function RateCourseDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm" variant="outline">
-					<Star className="h-4 w-4" />
-					Valorar curso
-				</Button>
-			</DialogTrigger>
+			{controlledOpen === undefined && (
+				<DialogTrigger asChild>
+					<Button size="sm" variant="outline" className={triggerClassName}>
+						<Star className="h-4 w-4" />
+						Valorar curso
+					</Button>
+				</DialogTrigger>
+			)}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Valorar «{courseTitle}»</DialogTitle>

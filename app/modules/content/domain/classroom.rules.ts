@@ -102,6 +102,20 @@ export const progressPercentOf = (
 	return Math.floor((finished * 100) / measured.length);
 };
 
+/** Lo mismo que `progressPercentOf`, contado: «3 de 5». */
+export const progressCountOf = (
+	tree: CourseContentTree,
+	done: ReadonlySet<string>,
+): { done: number; total: number; lessonsOnly: boolean } => {
+	const measured = measuredItemsOf(tree);
+
+	return {
+		done: measured.filter((id) => done.has(id)).length,
+		total: measured.length,
+		lessonsOnly: moduleQuizzesOf(tree).length === 0,
+	};
+};
+
 /** Una parada del recorrido: qué es, si cuenta y con qué clave se da por hecha. */
 interface StopEntry {
 	stop: ClassroomStop;

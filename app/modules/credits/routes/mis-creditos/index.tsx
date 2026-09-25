@@ -1,8 +1,8 @@
 export { loader } from "./index.loader";
 
 import {
-	Building2,
 	CalendarDays,
+	CircleCheck,
 	Clock,
 	GraduationCap,
 	UserCheck,
@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 import {
 	CourseCardFrame,
 	CourseCardList,
+	CourseCardStatus,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
 import { formatHours } from "@/modules/courses/utils/course-labels";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Empty,
@@ -59,18 +59,21 @@ const dateRangeOf = ({ course }: MyCredit) => {
 
 const metaOf = (credit: MyCredit): CourseMetaItem[] => {
 	const { course } = credit;
-	const items: CourseMetaItem[] = [
-		{ icon: Building2, label: course.dependencyName, wide: true },
-		{ icon: CalendarDays, label: dateRangeOf(credit) },
-	];
+	const items: CourseMetaItem[] = [];
 
+	if (course.firstSessionAt) {
+		items.push({ icon: CalendarDays, label: dateRangeOf(credit) });
+	}
 	if (course.hours !== null) {
 		items.push({ icon: Clock, label: formatHours(course.hours) });
 	}
-	items.push({
-		icon: UserCheck,
-		label: `Asistencia ${credit.attendedSessions} de ${course.sessionCount}`,
-	});
+	// Un autogestivo no tiene sesiones: no hay asistencia que contar.
+	if (course.sessionCount > 0) {
+		items.push({
+			icon: UserCheck,
+			label: `Asistencia ${credit.attendedSessions} de ${course.sessionCount}`,
+		});
+	}
 	if (credit.grade !== null) {
 		items.push({ icon: GraduationCap, label: `Nota ${credit.grade}` });
 	}
@@ -164,21 +167,29 @@ function CreditCard({
 	layout: ViewMode;
 	showDependency: boolean;
 }) {
+	const href = `/dashboard/mis-cursos/${credit.course.documentId}`;
+
 	return (
 		<CourseCardFrame
 			layout={layout}
-			href={`/dashboard/cursos-disponibles/${credit.course.documentId}`}
+			href={href}
 			course={credit.course}
 			meta={metaOf(credit)}
-			footer={
-				<>
-					<span className="text-muted-foreground text-xs">
-						Otorgado el {formatZonedDate(new Date(credit.grantedAt))}
-					</span>
-					{showDependency && (
-						<Badge variant="outline">Cuenta para {credit.dependencyName}</Badge>
-					)}
-				</>
+			status={
+				<CourseCardStatus
+					icon={CircleCheck}
+					tone="success"
+					note={
+						showDependency ? `Cuenta para ${credit.dependencyName}` : undefined
+					}
+				>
+					1 crédito · otorgado el {formatZonedDate(new Date(credit.grantedAt))}
+				</CourseCardStatus>
+			}
+			actions={
+				<Button variant="outline" asChild>
+					<Link to={href}>Ver detalles</Link>
+				</Button>
 			}
 		/>
 	);

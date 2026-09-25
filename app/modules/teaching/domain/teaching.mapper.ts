@@ -148,6 +148,7 @@ export interface TeachingCourseSummaryRaw {
 	coverImageUrl: string | null;
 	dependency: { name: string };
 	modality: CourseModality;
+	format: CourseFormat;
 	status: CourseStatus;
 	sessions: readonly { startsAt: Date }[];
 	_count: { enrollments: number };
@@ -166,6 +167,7 @@ export const toTeachingCourseSummary = (
 	coverUrl: resolveCover(raw.coverImageUrl),
 	dependencyName: raw.dependency.name,
 	modality: raw.modality,
+	format: raw.format,
 	status: raw.status,
 	sessionCount: raw.sessions.length,
 	firstSessionAt: raw.sessions.at(0)?.startsAt ?? null,

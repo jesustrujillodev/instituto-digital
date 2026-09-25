@@ -18,6 +18,12 @@ export const ACTIVE_ENROLLMENT_STATUSES: readonly EnrollmentStatus[] = [
 	"ENROLLED",
 ];
 
+/** Lo que «Mis cursos» enseña: lo activo y aquello de lo que la persona se dio de baja. */
+export const MY_COURSE_STATUSES: readonly EnrollmentStatus[] = [
+	...ACTIVE_ENROLLMENT_STATUSES,
+	"WITHDRAWN",
+];
+
 /**
  * Valores por defecto del catálogo.
  *

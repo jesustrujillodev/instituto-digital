@@ -155,6 +155,7 @@ export const createTeachingRepository = ({
 				coverImageUrl: true,
 				dependency: { select: { name: true } },
 				modality: true,
+				format: true,
 				status: true,
 				sessions: { orderBy: { startsAt: "asc" }, select: { startsAt: true } },
 				_count: { select: { enrollments: { where: { status: "ENROLLED" } } } },

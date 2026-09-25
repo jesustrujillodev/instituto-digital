@@ -126,8 +126,9 @@ export const lensesOf = (
 /**
  * A qué detalle lleva "Ver curso".
  *
- * Quien organiza va a la edición. Quien cursa, o imparte siendo alguien que
- * puede cursar, va al detalle de participante, que ya lo deja ver su curso. El
+ * Quien organiza va a la edición. Quien cursa o está invitado va a su ficha en
+ * «Mis cursos»; quien imparte siendo alguien que puede cursar, a la del
+ * catálogo, que ya lo deja ver su curso. El
  * capacitador externo y el titular que solo mira a su personal no tienen un
  * detalle que les responda: les basta el panel.
  */
@@ -139,11 +140,10 @@ export const resolveCourseHref = (
 	if (lenses.includes("organizing") || lenses.includes("global")) {
 		return `/dashboard/cursos/${courseDocumentId}`;
 	}
-	if (
-		lenses.includes("enrolled") ||
-		lenses.includes("invited") ||
-		(lenses.includes("teaching") && plan.participates)
-	) {
+	if (lenses.includes("enrolled") || lenses.includes("invited")) {
+		return `/dashboard/mis-cursos/${courseDocumentId}`;
+	}
+	if (lenses.includes("teaching") && plan.participates) {
 		return `/dashboard/cursos-disponibles/${courseDocumentId}`;
 	}
 	return null;

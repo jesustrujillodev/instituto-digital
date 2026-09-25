@@ -8,6 +8,7 @@ import type {
 	EnrollmentMutationResponse,
 	InviteParticipantsDto,
 	ListAvailableCoursesDto,
+	MyCourseDetailResponse,
 	MyCoursesResponse,
 	RosterOptionsResponse,
 } from "./enrollment.types";
@@ -27,6 +28,11 @@ export interface IEnrollmentService {
 		actor: AuthContext,
 	): Promise<AvailableCourseDetailResponse>;
 	listMine(actor: AuthContext): Promise<MyCoursesResponse>;
+	/** `null` sin inscripción o con la invitación rechazada: no hay ficha propia. */
+	findMyCourse(
+		courseDocumentId: string,
+		actor: AuthContext,
+	): Promise<MyCourseDetailResponse>;
 	/**
 	 * Quien organiza ve a todas las personas; una dependencia que manda personal
 	 * a un curso ajeno, solo a la suya.

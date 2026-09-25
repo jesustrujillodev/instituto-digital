@@ -129,3 +129,15 @@ export type ClassroomLessonResponse = AppResponse<ClassroomLessonView>;
 export type ClassroomModuleQuizResponse = AppResponse<ClassroomModuleQuizView>;
 export type ProgressResponse = AppResponse<ProgressResult>;
 export type ClassroomCoursesResponse = AppResponse<string[]>;
+
+/** Cuánto lleva la persona del temario de un curso con aula. */
+export interface ClassroomSummary {
+	documentId: string;
+	/** Lecciones medidas completadas y evaluaciones de módulo aprobadas. */
+	done: number;
+	total: number;
+	/** Sin evaluaciones de módulo que cuenten: todo lo medido son lecciones. */
+	lessonsOnly: boolean;
+}
+
+export type ClassroomSummariesResponse = AppResponse<ClassroomSummary[]>;

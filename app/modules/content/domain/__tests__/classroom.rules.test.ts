@@ -5,6 +5,7 @@ import {
 	measuredLessonsOf,
 	neighborsOf,
 	nextProgressStatus,
+	progressCountOf,
 	progressPercentOf,
 	resumeStopOf,
 } from "../classroom.rules";
@@ -118,6 +119,22 @@ describe("progressPercentOf", () => {
 		expect(progressPercentOf(treeOf(), new Set(["archivada", LESSON_1]))).toBe(
 			50,
 		);
+	});
+});
+
+describe("progressCountOf", () => {
+	test("cuenta con el mismo criterio que el porcentaje", () => {
+		expect(progressCountOf(treeOf(), new Set([LESSON_1, LESSON_3]))).toEqual({
+			done: 1,
+			total: 2,
+			lessonsOnly: true,
+		});
+	});
+
+	test("con evaluación de módulo ya no son solo lecciones", () => {
+		expect(
+			progressCountOf(treeWithModuleQuiz(), new Set([MODULE_QUIZ_A])),
+		).toEqual({ done: 1, total: 3, lessonsOnly: false });
 	});
 });
 

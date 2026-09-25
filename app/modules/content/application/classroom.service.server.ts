@@ -12,6 +12,7 @@ import {
 	type LessonProgressStatus,
 	neighborsOf,
 	nextProgressStatus,
+	progressCountOf,
 	progressPercentOf,
 	resumeStopOf,
 } from "../domain/classroom.rules";
@@ -316,9 +317,42 @@ export const createClassroomService = ({
 		},
 
 		async listMine(actor: AuthContext) {
-			return run("listMine", async () =>
-				ok(await classroomRepository.findClassroomCourses(actor.userId)),
-			);
+			return run("listMine", async () => {
+				const courses = await classroomRepository.findClassroomCourses(
+					actor.userId,
+				);
+				return ok(courses.map((course) => course.documentId));
+			});
+		},
+
+		async summarizeMine(actor: AuthContext) {
+			return run("summarizeMine", async () => {
+				const courses = await classroomRepository.findClassroomCourses(
+					actor.userId,
+				);
+				const userIds = [actor.userId];
+
+				const summaries = await Promise.all(
+					courses.map(async (course) => {
+						const [rows, completed, passed] = await Promise.all([
+							contentRepository.findTree(course.id),
+							classroomRepository.findCompletedLessons(course.id, userIds),
+							quizRepository.findPassedModuleQuizzes(course.id, userIds),
+						]);
+						const done = new Set([
+							...completed.map((row) => row.lessonDocumentId),
+							...passed.map((row) => row.quizDocumentId),
+						]);
+
+						return {
+							documentId: course.documentId,
+							...progressCountOf(toCourseContentTree(rows), done),
+						};
+					}),
+				);
+
+				return ok(summaries);
+			});
 		},
 	};
 };

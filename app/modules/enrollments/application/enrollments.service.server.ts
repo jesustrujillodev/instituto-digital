@@ -44,12 +44,13 @@ import {
 	assertSeatsFor,
 	assertSelfEnrollable,
 	canParticipate,
-	canSelfEnroll,
 	canTransition,
 	canWithdraw,
 	classifyMyCourse,
+	courseTimelineOf,
 	enrollmentClosesAt,
 	isEnrollmentOpen,
+	participantPermissionsOf,
 } from "../domain/enrollment.rules";
 import type { IEnrollmentService } from "../domain/enrollment.service";
 import type {
@@ -58,6 +59,8 @@ import type {
 	EnrollmentWrite,
 	InviteParticipantsDto,
 	ListAvailableCoursesDto,
+	MyCourseEntry,
+	MyCourseRecord,
 	MyCourses,
 	ParticipantAccount,
 } from "../domain/enrollment.types";
@@ -159,6 +162,24 @@ export const createEnrollmentService = ({
 						sessions: toNotifiedSessions(course.sessions),
 					})),
 				);
+
+	/** Solo valora quien no lo ha hecho y cumple lo que pide el curso. */
+	const toMyCourseEntry = (
+		record: MyCourseRecord,
+		now: Date,
+	): MyCourseEntry => ({
+		...record,
+		timeline: courseTimelineOf(record.course, now),
+		canRate:
+			record.outcome.myRating === null &&
+			canRateCourse({
+				courseStatus: record.course.status,
+				courseFormat: record.course.format,
+				enrollmentStatus: record.enrollment.status,
+				attendedSessions: record.outcome.attendedSessions,
+				completed: record.outcome.completed,
+			}),
+	});
 
 	/** El `AuthContext` no trae el nombre: el saludo cae en "Hola:". */
 	const actorRecipient = (actor: AuthContext): Recipient => ({
@@ -329,8 +350,6 @@ export const createEnrollmentService = ({
 							)
 						: Promise.resolve(null),
 				]);
-				const status = enrollment?.status ?? null;
-
 				return ok({
 					course: detail,
 					enrollment: enrollment && {
@@ -340,16 +359,12 @@ export const createEnrollmentService = ({
 						result: enrollment.result,
 					},
 					can: {
-						enroll:
-							detail.isOpen &&
-							status !== "ENROLLED" &&
-							status !== "INVITED" &&
-							canSelfEnroll(course, status),
-						withdraw:
-							status === "ENROLLED" &&
-							canWithdraw(course, now, enrollment?.completed ?? false),
-						accept: status === "INVITED" && detail.isOpen,
-						decline: status === "INVITED",
+						...participantPermissionsOf(
+							course,
+							enrollment?.status ?? null,
+							enrollment?.completed ?? false,
+							now,
+						),
 						assign: detail.isOpen && visibleToDependency !== null,
 					},
 				});
@@ -367,21 +382,15 @@ export const createEnrollmentService = ({
 					upcoming: [],
 					inProgress: [],
 					finished: [],
+					withdrawn: [],
 				};
 
 				for (const record of entries) {
-					const entry = {
-						...record,
-						canRate:
-							record.outcome.myRating === null &&
-							canRateCourse({
-								courseStatus: record.course.status,
-								courseFormat: record.course.format,
-								enrollmentStatus: record.enrollment.status,
-								attendedSessions: record.outcome.attendedSessions,
-								completed: record.outcome.completed,
-							}),
-					};
+					const entry = toMyCourseEntry(record, now);
+					if (entry.enrollment.status === "WITHDRAWN") {
+						mine.withdrawn.push(entry);
+						continue;
+					}
 					if (entry.enrollment.status === "INVITED") {
 						if (entry.course.status === "PUBLISHED") {
 							mine.invitations.push(entry);
@@ -394,6 +403,29 @@ export const createEnrollmentService = ({
 				}
 
 				return ok(mine);
+			});
+		},
+
+		async findMyCourse(courseDocumentId: string, actor: AuthContext) {
+			return run("findMyCourse", async () => {
+				requireParticipant(actor);
+				const record = await enrollmentRepository.findMyCourse(
+					actor.userId,
+					courseDocumentId,
+				);
+				if (!record) return ok(null);
+
+				const now = clock.now();
+				return ok({
+					...toMyCourseEntry(record, now),
+					course: withAvailability(record.course, now),
+					can: participantPermissionsOf(
+						record.course,
+						record.enrollment.status,
+						record.outcome.completed,
+						now,
+					),
+				});
 			});
 		},
 

@@ -1,3 +1,4 @@
+import { redirect } from "react-router";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
@@ -6,7 +7,12 @@ import { ENROLLMENT_ERROR_MESSAGES } from "../../../utils/enrollment-error-messa
 import { requireParticipant } from "../../require-participant.server";
 import type { Route } from "./+types/index";
 
-/** GET /dashboard/cursos-disponibles/:documentId — 404 si quien pregunta no puede verlo. */
+/**
+ * GET /dashboard/mis-cursos/:documentId
+ *
+ * Sin una inscripción que enseñar, la ficha que responde es la del catálogo:
+ * ahí se decide si el curso se ve y si puede inscribirse.
+ */
 export const loader = async ({
 	request,
 	context,
@@ -18,7 +24,7 @@ export const loader = async ({
 	});
 
 	const [detail, classrooms] = await Promise.all([
-		context.enrollmentService.findAvailable(documentId, auth),
+		context.enrollmentService.findMyCourse(documentId, auth),
 		context.classroomService.listMine(auth),
 	]);
 	if (!detail.success) {
@@ -27,10 +33,12 @@ export const loader = async ({
 	if (!classrooms.success) {
 		throw toRouteError(classrooms.error, CONTENT_ERROR_MESSAGES);
 	}
+	if (!detail.data) {
+		throw redirect(`/dashboard/cursos-disponibles/${documentId}`);
+	}
 
 	return ok({
 		...detail.data,
-		/** Inscrito y con aula abierta: el mismo criterio que «Mis cursos». */
 		hasClassroom: classrooms.data.includes(documentId),
 	});
 };

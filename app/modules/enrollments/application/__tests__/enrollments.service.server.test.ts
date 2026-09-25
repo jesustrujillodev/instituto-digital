@@ -168,6 +168,10 @@ const createHarness = (options: HarnessOptions = {}) => {
 		},
 		findGroupParticipants: async () => options.groupMembers ?? [],
 		findMine: async () => options.mine ?? [],
+		findMyCourse: async (_userId: number, documentId: string) =>
+			(options.mine ?? []).find(
+				(record) => record.course.documentId === documentId,
+			) ?? null,
 		searchCandidates: async (params: { dependencyId: number | null }) => {
 			calls.candidateScopes.push(params.dependencyId);
 			return options.candidates ?? [];
@@ -920,30 +924,33 @@ describe("enrollmentService.findAvailable", () => {
 	});
 });
 
+const myCourseOf = (
+	status: EnrollmentStatus,
+	course: Partial<EnrollmentCourse>,
+	outcome: Partial<MyCourseRecord["outcome"]> = {},
+): MyCourseRecord => ({
+	enrollment: {
+		documentId: `e-${status}-${course.title}`,
+		origin: "SELF",
+		status,
+		result: "PENDING",
+		withdrawnAt: status === "WITHDRAWN" ? NOW : null,
+	},
+	course: courseOf(course),
+	outcome: {
+		grade: null,
+		completed: false,
+		progressPercent: 0,
+		contentCompletedAt: null,
+		attendedSessions: 0,
+		myRating: null,
+		certificate: null,
+		...outcome,
+	},
+});
+
 describe("enrollmentService.listMine", () => {
-	const entry = (
-		status: EnrollmentStatus,
-		course: Partial<EnrollmentCourse>,
-		outcome: Partial<MyCourseRecord["outcome"]> = {},
-	): MyCourseRecord => ({
-		enrollment: {
-			documentId: `e-${status}-${course.title}`,
-			origin: "SELF",
-			status,
-			result: "PENDING",
-		},
-		course: courseOf(course),
-		outcome: {
-			grade: null,
-			completed: false,
-			progressPercent: 0,
-			contentCompletedAt: null,
-			attendedSessions: 0,
-			myRating: null,
-			certificate: null,
-			...outcome,
-		},
-	});
+	const entry = myCourseOf;
 
 	test("reparte invitaciones y cursos por momento", async () => {
 		const { service } = createHarness({
@@ -970,6 +977,40 @@ describe("enrollmentService.listMine", () => {
 		expect(titles(result.data.upcoming)).toEqual(["próximo"]);
 		expect(titles(result.data.inProgress)).toEqual(["en curso"]);
 		expect(titles(result.data.finished)).toEqual(["cancelado"]);
+	});
+
+	test("cada entrada trae dónde va el curso según el reloj del servidor", async () => {
+		const { service } = createHarness({
+			mine: [entry("ENROLLED", { title: "próximo" })],
+		});
+
+		const result = await service.listMine(actorOf());
+
+		if (!result.success) throw new Error("se esperaba éxito");
+		expect(result.data.upcoming[0]?.timeline).toMatchObject({
+			sessionsHeld: 0,
+			daysToStart: 34,
+			nextSession: { documentId: "s1" },
+		});
+	});
+
+	test("las bajas van a las inscripciones canceladas, aunque el curso siga abierto", async () => {
+		const { service } = createHarness({
+			mine: [
+				entry("WITHDRAWN", { title: "baja" }),
+				entry("WITHDRAWN", { title: "baja cerrada", status: "FINISHED" }),
+				entry("ENROLLED", { title: "próximo" }),
+			],
+		});
+
+		const result = await service.listMine(actorOf());
+
+		if (!result.success) throw new Error("se esperaba éxito");
+		expect(result.data.withdrawn.map((item) => item.course.title)).toEqual([
+			"baja",
+			"baja cerrada",
+		]);
+		expect(result.data.finished).toEqual([]);
 	});
 
 	test("solo puede valorar quien asistió a un curso finalizado y no lo ha valorado", async () => {
@@ -1003,6 +1044,74 @@ describe("enrollmentService.listMine", () => {
 			.map((item) => item.course.title);
 
 		expect(rateable).toEqual(["asistió"]);
+	});
+});
+
+describe("enrollmentService.findMyCourse", () => {
+	const selfPaced = {
+		title: "autogestivo",
+		format: "SELF_PACED" as const,
+		completionRule: "CONTENT" as const,
+		sessions: [],
+		firstSessionAt: null,
+		lastSessionEndsAt: null,
+	};
+
+	test("sin inscripción que enseñar responde null", async () => {
+		const { service } = createHarness({ mine: [] });
+
+		const result = await service.findMyCourse(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({ success: true, data: null });
+	});
+
+	test("inscrito: puede darse de baja y no reinscribirse", async () => {
+		const { service } = createHarness({
+			mine: [myCourseOf("ENROLLED", selfPaced, { progressPercent: 40 })],
+		});
+
+		const result = await service.findMyCourse(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				enrollment: { status: "ENROLLED" },
+				outcome: { progressPercent: 40 },
+				course: { isOpen: true },
+				can: { enroll: false, withdraw: true, accept: false, decline: false },
+			},
+		});
+	});
+
+	test("de baja con la inscripción abierta puede volver", async () => {
+		const { service } = createHarness({
+			mine: [myCourseOf("WITHDRAWN", selfPaced)],
+		});
+
+		const result = await service.findMyCourse(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			data: {
+				enrollment: { status: "WITHDRAWN", withdrawnAt: NOW },
+				can: { enroll: true, withdraw: false },
+			},
+		});
+	});
+
+	test("quien no puede cursar no tiene ficha propia", async () => {
+		const { service } = createHarness({
+			mine: [myCourseOf("ENROLLED", selfPaced)],
+		});
+
+		const result = await service.findMyCourse(
+			COURSE_ID,
+			actorOf("USER", { dependencyId: null }),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.NOT_ELIGIBLE },
+		});
 	});
 });
 

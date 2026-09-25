@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { startOfZonedDay } from "@/lib/date-utils";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import {
 	COURSE_MODALITIES,
@@ -18,6 +19,11 @@ import {
 	EnrollmentFullError,
 	EnrollmentInvitationRequiredError,
 } from "./enrollment.errors";
+import type {
+	EnrollmentCourseSession,
+	MyCourseTimeline,
+	ParticipantPermissions,
+} from "./enrollment.types";
 
 // ── Reglas de entrada ─────────────────────────────────────────────────────────
 
@@ -178,6 +184,62 @@ export const canWithdraw = (
 	if (!requiresSessions(course.format)) return !completed;
 
 	return course.firstSessionAt !== null && now < course.firstSessionAt;
+};
+
+/** Lo que la persona puede hacer con su propia inscripción en el curso. */
+export const participantPermissionsOf = (
+	course: EnrollmentWindow & { access: CourseAccessType },
+	status: EnrollmentStatus | null,
+	completed: boolean,
+	now: Date,
+): ParticipantPermissions => {
+	const isOpen = isEnrollmentOpen(course, now);
+
+	return {
+		enroll:
+			isOpen &&
+			status !== "ENROLLED" &&
+			status !== "INVITED" &&
+			canSelfEnroll(course, status),
+		withdraw: status === "ENROLLED" && canWithdraw(course, now, completed),
+		accept: status === "INVITED" && isOpen,
+		decline: status === "INVITED",
+	};
+};
+
+/**
+ * Un autogestivo no se finaliza: para quien lo cursa termina al completarlo, y
+ * ahí se enseña igual que un curso cerrado (docs/adr/0014).
+ */
+export const isOverForParticipant = (
+	course: { status: CourseStatus; format: CourseFormat },
+	completed: boolean,
+): boolean =>
+	course.status === "FINISHED" ||
+	(!requiresSessions(course.format) && completed);
+
+export const courseTimelineOf = (
+	course: { sessions: readonly EnrollmentCourseSession[] },
+	now: Date,
+): MyCourseTimeline => {
+	const held = course.sessions.filter((session) => session.endsAt <= now);
+	const nextSession =
+		course.sessions.find((session) => session.endsAt > now) ?? null;
+	const first = course.sessions[0];
+
+	return {
+		sessionsHeld: held.length,
+		nextSession,
+		daysToStart:
+			first && first.startsAt > now
+				? // `round`: el cambio de horario deja días de 23 o 25 horas.
+					Math.round(
+						(startOfZonedDay(first.startsAt).getTime() -
+							startOfZonedDay(now).getTime()) /
+							DAY_MS,
+					)
+				: null,
+	};
 };
 
 /** `null` cuando el curso no tiene cupo. */

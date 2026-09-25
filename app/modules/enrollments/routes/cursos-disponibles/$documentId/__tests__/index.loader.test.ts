@@ -11,7 +11,9 @@ import { loader } from "../index.loader";
 
 type LoaderArgs = Parameters<typeof loader>[0];
 
-const createHarness = (options: ActorOptions & { findFails?: string } = {}) => {
+const createHarness = (
+	options: ActorOptions & { findFails?: string; classrooms?: string[] } = {},
+) => {
 	const context = {
 		authPayload: authPayloadOf(options),
 		enrollmentService: {
@@ -23,6 +25,9 @@ const createHarness = (options: ActorOptions & { findFails?: string } = {}) => {
 							enrollment: null,
 							can: { assign: true },
 						}),
+		},
+		classroomService: {
+			listMine: async () => okReply(options.classrooms ?? []),
 		},
 	} as unknown as LoaderArgs["context"];
 
@@ -57,6 +62,15 @@ describe("cursos-disponibles/:documentId loader", () => {
 			course: { documentId: COURSE_ID },
 			enrollment: null,
 			can: { assign: true },
+			hasClassroom: false,
 		});
+	});
+
+	test("inscrito en un curso con aula, la ficha ofrece entrar", async () => {
+		const { context } = createHarness({ classrooms: [COURSE_ID] });
+
+		const { data } = await run(context);
+
+		expect(data.hasClassroom).toBe(true);
 	});
 });

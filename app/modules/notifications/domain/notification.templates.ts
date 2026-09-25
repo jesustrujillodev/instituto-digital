@@ -84,7 +84,7 @@ const courseSummary = (course: NotifiedCourse): string =>
 	`«${course.title}», organizado por ${course.dependencyName} (${MODALITY_LABELS[course.modality].toLowerCase()}).`;
 
 const courseUrl = (context: RenderContext, course: NotifiedCourse) =>
-	`${context.appUrl}/dashboard/cursos-disponibles/${course.documentId}`;
+	`${context.appUrl}/dashboard/mis-cursos/${course.documentId}`;
 
 const build = (subject: string, blocks: Block[]): RenderedEmail => ({
 	subject,
@@ -165,7 +165,7 @@ export const renderNotification = (
 				{
 					kind: "action",
 					label: "Responder la invitación",
-					url: `${context.appUrl}/dashboard/mis-cursos`,
+					url: courseUrl(context, event.course),
 				},
 			]);
 

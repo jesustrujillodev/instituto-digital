@@ -248,10 +248,14 @@ Cuando un curso no tiene imagen de portada, su hueco no se deja gris: se pinta u
 - **Regla:** es geometría exacta, nunca ilustración. Ninguna forma se dibuja a mano alzada ni imita una fotografía.
 
 ### Tarjeta de curso
-La unidad del catálogo de cursos disponibles, la única pantalla del panel donde se elige en vez de administrar. `app/modules/enrollments/components/course-card.tsx`.
-- **Anatomía:** portada 16:9 al ras del borde superior (`pt-0` sobre la tarjeta), título a dos líneas, resumen a dos líneas, fila de datos y pie con el cupo y la acción.
-- **Distintivos sobre la portada:** los de contorno del proyecto no se leen sobre una fotografía cualquiera. Sobre la portada van dos píldoras sólidas: la modalidad en fondo esmerilado neutro, y el estado propio —solo cuando existe— en guinda sólido.
-- **Una parada de tabulación:** el enlace al detalle se estira con `after:absolute after:inset-0`; nada interactivo se anida dentro.
+Una sola ficha para todo listado de cursos: catálogo, «Mis cursos», impartición, administración de cursos y «Mis créditos». `app/modules/courses/components/course-card-frame.tsx`; cada pantalla solo decide qué dice.
+- **Cuadrícula:** portada 16:9 al ras del borde superior, título a dos líneas, la dependencia que organiza y una línea de datos (fecha, sesiones, horas). Al fondo, en este orden: el detalle (una barra de avance, la caja «Empieza el…»), el estado y las acciones a todo el ancho. Un botón de icono («Más acciones») conserva su cuadro.
+- **Lista:** miniatura, título, un renglón con la modalidad en texto normal y peso medio, la dependencia y los datos, y el detalle debajo. A la derecha, el estado arriba y la acción debajo. En móvil, esa columna baja a todo el ancho.
+- **Estado:** `CourseCardStatus`, un icono con una frase de 0.75rem en peso medio. Éxito en verde servicio, aviso en oro aviso y lo cerrado en gris. El color acompaña a la frase y nunca la sustituye.
+- **Acción:** una sola, con nombre de verbo: «Continuar →», «Pasar lista →» en primario cuando hay algo que hacer hoy, «Ver detalles» en contorno cuando solo se consulta.
+- **Distintivos sobre la portada:** los de contorno del proyecto no se leen sobre una fotografía cualquiera. Sobre la portada van píldoras sólidas: la modalidad (con «· A tu ritmo» si es autogestivo) en fondo esmerilado neutro, y el estado propio —solo cuando existe— en guinda sólido. Un curso cancelado o del que la persona se dio de baja apaga su portada (gris, 60%).
+- **Una parada de tabulación:** el enlace a la ficha se estira con `after:absolute after:inset-0`; las acciones, el menú y los enlaces del detalle se elevan con `z-10`.
+- **Invitación:** la misma ficha en renglón, teñida con un 7% del primario sobre la tarjeta y con el plazo para responder en oro aviso.
 - **Foco:** el mismo anillo de 3px al 30% que el resto de controles. La tarjeta no inventa el suyo.
 
 ### Inputs / Fields

@@ -12,7 +12,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 
 	const [result, classrooms] = await Promise.all([
 		context.enrollmentService.listMine(auth),
-		context.classroomService.listMine(auth),
+		context.classroomService.summarizeMine(auth),
 	]);
 	if (!result.success) {
 		throw toRouteError(result.error, ENROLLMENT_ERROR_MESSAGES);
@@ -23,7 +23,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 
 	return ok({
 		...result.data,
-		/** Los cursos con aula: los que tienen al menos una lección activa. */
+		/** Los cursos con aula, con cuánto lleva la persona de cada temario. */
 		classrooms: classrooms.data,
 		view: readViewMode(request.headers.get("Cookie"), VIEW_MODE_SCREENS.mine),
 	});

@@ -5,6 +5,7 @@ import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	AVAILABLE_LIST_DEFAULTS,
 	ENROLLMENT_CANDIDATES_LIMIT,
+	MY_COURSE_STATUSES,
 } from "../domain/enrollment.config";
 import { EnrollmentStateChangedError } from "../domain/enrollment.errors";
 import {
@@ -19,6 +20,7 @@ import type {
 import type {
 	EnrollmentWrite,
 	ListAvailableCoursesDto,
+	MyCourseRecord,
 	ParticipantAccount,
 } from "../domain/enrollment.types";
 
@@ -81,6 +83,7 @@ const CANDIDATE_SEARCHABLE_FIELDS = ["firstName", "lastName", "email"] as const;
 const COURSE_SEARCHABLE_FIELDS = ["title", "description"] as const;
 
 const activeStatuses = [...ACTIVE_ENROLLMENT_STATUSES];
+const myCourseStatuses = [...MY_COURSE_STATUSES];
 
 // Los filtros de dominio usan arreglos `readonly`, que Prisma no acepta tal cual.
 const asWhere = (filter: CourseFilter) =>
@@ -170,6 +173,84 @@ export const createEnrollmentRepository = ({
 }: Dependencies): IEnrollmentRepository => {
 	const resolveCover = (reference: string | null) =>
 		resolveAssetRef(assetUrlResolver, reference);
+
+	/** Las inscripciones de «Mis cursos», con lo que le fue a la persona en cada curso. */
+	const readMyCourses = async (
+		userId: number,
+		where: Prisma.EnrollmentWhereInput,
+	): Promise<MyCourseRecord[]> => {
+		const rows = await prisma.enrollment.findMany({
+			where: { ...where, userId, status: { in: myCourseStatuses } },
+			orderBy: { updatedAt: "desc" },
+			select: {
+				documentId: true,
+				origin: true,
+				status: true,
+				result: true,
+				grade: true,
+				completed: true,
+				progressPercent: true,
+				contentCompletedAt: true,
+				withdrawnAt: true,
+				course: {
+					select: {
+						...COURSE_SELECT,
+						ratings: { where: { userId }, select: { score: true } },
+						certificateIssues: {
+							where: { userId, revokedAt: null },
+							select: { documentId: true },
+						},
+						certificate: { select: { isDownloadable: true } },
+					},
+				},
+			},
+		});
+
+		const attended = await prisma.courseAttendance.findMany({
+			where: {
+				userId,
+				attended: true,
+				session: { courseId: { in: rows.map((row) => row.course.id) } },
+			},
+			select: { session: { select: { courseId: true } } },
+		});
+		const attendedByCourse = new Map<number, number>();
+		for (const { session } of attended) {
+			attendedByCourse.set(
+				session.courseId,
+				(attendedByCourse.get(session.courseId) ?? 0) + 1,
+			);
+		}
+
+		return rows.map(
+			({
+				course: { ratings, certificateIssues, certificate, ...course },
+				grade,
+				completed,
+				progressPercent,
+				contentCompletedAt,
+				withdrawnAt,
+				...enrollment
+			}) => ({
+				enrollment: { ...toOwnEnrollment(enrollment), withdrawnAt },
+				course: toEnrollmentCourse(course, resolveCover),
+				outcome: {
+					grade,
+					completed,
+					progressPercent,
+					contentCompletedAt,
+					attendedSessions: attendedByCourse.get(course.id) ?? 0,
+					myRating: ratings.at(0)?.score ?? null,
+					certificate: certificateIssues[0]
+						? {
+								documentId: certificateIssues[0].documentId,
+								downloadable: certificate?.isDownloadable ?? true,
+							}
+						: null,
+				},
+			}),
+		);
+	};
 
 	return {
 		async findCourse(documentId, filter) {
@@ -371,75 +452,14 @@ export const createEnrollmentRepository = ({
 		},
 
 		async findMine(userId) {
-			const rows = await prisma.enrollment.findMany({
-				where: { userId, status: { in: activeStatuses } },
-				orderBy: { updatedAt: "desc" },
-				select: {
-					documentId: true,
-					origin: true,
-					status: true,
-					result: true,
-					grade: true,
-					completed: true,
-					progressPercent: true,
-					contentCompletedAt: true,
-					course: {
-						select: {
-							...COURSE_SELECT,
-							ratings: { where: { userId }, select: { score: true } },
-							certificateIssues: {
-								where: { userId, revokedAt: null },
-								select: { documentId: true },
-							},
-							certificate: { select: { isDownloadable: true } },
-						},
-					},
-				},
-			});
+			return readMyCourses(userId, {});
+		},
 
-			const attended = await prisma.courseAttendance.findMany({
-				where: {
-					userId,
-					attended: true,
-					session: { courseId: { in: rows.map((row) => row.course.id) } },
-				},
-				select: { session: { select: { courseId: true } } },
+		async findMyCourse(userId, courseDocumentId) {
+			const [record] = await readMyCourses(userId, {
+				course: { documentId: courseDocumentId },
 			});
-			const attendedByCourse = new Map<number, number>();
-			for (const { session } of attended) {
-				attendedByCourse.set(
-					session.courseId,
-					(attendedByCourse.get(session.courseId) ?? 0) + 1,
-				);
-			}
-
-			return rows.map(
-				({
-					course: { ratings, certificateIssues, certificate, ...course },
-					grade,
-					completed,
-					progressPercent,
-					contentCompletedAt,
-					...enrollment
-				}) => ({
-					enrollment: toOwnEnrollment(enrollment),
-					course: toEnrollmentCourse(course, resolveCover),
-					outcome: {
-						grade,
-						completed,
-						progressPercent,
-						contentCompletedAt,
-						attendedSessions: attendedByCourse.get(course.id) ?? 0,
-						myRating: ratings.at(0)?.score ?? null,
-						certificate: certificateIssues[0]
-							? {
-									documentId: certificateIssues[0].documentId,
-									downloadable: certificate?.isDownloadable ?? true,
-								}
-							: null,
-					},
-				}),
-			);
+			return record ?? null;
 		},
 
 		async findRoster(courseId, dependencyId) {

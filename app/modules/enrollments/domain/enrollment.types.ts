@@ -111,20 +111,25 @@ export interface AvailableCourseList {
 	organizers: CourseOrganizerOption[];
 }
 
-export interface EnrollmentPermissions {
+export interface ParticipantPermissions {
 	enroll: boolean;
 	withdraw: boolean;
 	accept: boolean;
 	decline: boolean;
+}
+
+export interface EnrollmentPermissions extends ParticipantPermissions {
 	assign: boolean;
 }
 
+export type CourseWithAvailability = EnrollmentCourse & {
+	seatsLeft: number | null;
+	closesAt: Date | null;
+	isOpen: boolean;
+};
+
 export interface AvailableCourseDetail {
-	course: EnrollmentCourse & {
-		seatsLeft: number | null;
-		closesAt: Date | null;
-		isOpen: boolean;
-	};
+	course: CourseWithAvailability;
 	enrollment: OwnEnrollment | null;
 	can: EnrollmentPermissions;
 }
@@ -144,13 +149,27 @@ export interface MyCourseOutcome {
 }
 
 export interface MyCourseRecord {
-	enrollment: OwnEnrollment;
+	enrollment: OwnEnrollment & { withdrawnAt: Date | null };
 	course: EnrollmentCourse;
 	outcome: MyCourseOutcome;
 }
 
+/**
+ * Dónde va el curso para quien lo cursa. Lo calcula el reloj del servidor: en
+ * el navegador, «empieza en 3 días» dependería de la hora del equipo.
+ */
+export interface MyCourseTimeline {
+	/** Sesiones que ya terminaron. */
+	sessionsHeld: number;
+	/** La que sigue o la que está en curso ahora. */
+	nextSession: EnrollmentCourseSession | null;
+	/** Días naturales, en la zona del instituto, hasta la primera sesión. */
+	daysToStart: number | null;
+}
+
 export interface MyCourseEntry extends MyCourseRecord {
 	canRate: boolean;
+	timeline: MyCourseTimeline;
 }
 
 export interface MyCourses {
@@ -158,6 +177,13 @@ export interface MyCourses {
 	upcoming: MyCourseEntry[];
 	inProgress: MyCourseEntry[];
 	finished: MyCourseEntry[];
+	withdrawn: MyCourseEntry[];
+}
+
+/** La ficha del curso tal como la ve quien lo cursa. */
+export interface MyCourseDetail extends MyCourseEntry {
+	course: CourseWithAvailability;
+	can: ParticipantPermissions;
 }
 
 export interface RosterEntry {
@@ -296,6 +322,8 @@ export interface AvailableCourseRow {
 export type AvailableCourseListResponse = AppResponse<AvailableCourseList>;
 export type AvailableCourseDetailResponse = AppResponse<AvailableCourseDetail>;
 export type MyCoursesResponse = AppResponse<MyCourses>;
+/** `null`: la persona no tiene una inscripción que enseñar en su ficha. */
+export type MyCourseDetailResponse = AppResponse<MyCourseDetail | null>;
 export type CourseRosterResponse = AppResponse<CourseRoster>;
 export type RosterOptionsResponse = AppResponse<RosterOptions>;
 export type EnrollmentMutationResponse = AppResponse<null>;

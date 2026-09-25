@@ -33,5 +33,7 @@ export interface IClassroomRepository {
 	 * Los cursos de la persona que tienen aula: inscripción activa, publicados o
 	 * finalizados, y con al menos una lección activa.
 	 */
-	findClassroomCourses(userId: number): Promise<string[]>;
+	findClassroomCourses(
+		userId: number,
+	): Promise<{ id: number; documentId: string }[]>;
 }

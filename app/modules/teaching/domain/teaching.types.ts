@@ -102,6 +102,7 @@ export interface TeachingCourseSummary {
 	coverUrl: string | null;
 	dependencyName: string;
 	modality: CourseModality;
+	format: CourseFormat;
 	status: CourseStatus;
 	sessionCount: number;
 	firstSessionAt: Date | null;

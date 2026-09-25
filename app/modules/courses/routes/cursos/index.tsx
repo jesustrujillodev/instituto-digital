@@ -4,9 +4,12 @@ export { loader } from "./index.loader";
 import {
 	Ban,
 	BookOpen,
-	Building2,
 	CalendarDays,
-	Layers,
+	CircleCheck,
+	CircleDot,
+	CircleX,
+	FilePen,
+	type LucideIcon,
 	MoreHorizontal,
 	Pencil,
 	Plus,
@@ -50,23 +53,26 @@ import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { VIEW_MODE_SCREENS, type ViewMode } from "@/shared/view-mode/view-mode";
 import {
-	CourseAccessBadge,
-	CourseStatusBadge,
-} from "../../components/course-badges";
-import {
 	CourseCardFrame,
 	CourseCardList,
+	CourseCardStatus,
 	type CourseMetaItem,
 } from "../../components/course-card-frame";
 import { COURSE_PAGE_SIZES } from "../../domain/course.config";
 import {
 	COURSE_MODALITIES,
 	COURSE_STATUSES,
+	type CourseStatus,
 	canCancel,
 	canEdit,
 	canPublish,
+	requiresSessions,
 } from "../../domain/course.rules";
-import { MODALITY_LABELS, STATUS_LABELS } from "../../utils/course-labels";
+import {
+	ACCESS_LABELS,
+	MODALITY_LABELS,
+	STATUS_LABELS,
+} from "../../utils/course-labels";
 import {
 	COURSE_INTENTS,
 	type CourseActionData,
@@ -290,14 +296,28 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 								<CourseCardFrame
 									layout={layout}
 									href={detailPath(course)}
-									course={course}
+									course={{
+										...course,
+										dependencyName: canFilterByDependency
+											? course.dependencyName
+											: null,
+									}}
 									eager={index < EAGER_COVERS}
-									meta={metaOf(course, canFilterByDependency)}
-									footer={
-										<>
-											<CourseStatusBadge status={course.status} />
-											<CourseAccessBadge access={course.access} />
-										</>
+									meta={metaOf(course)}
+									dimmed={course.status === "CANCELLED"}
+									status={
+										<CourseCardStatus
+											icon={STATUS_LOOK[course.status].icon}
+											tone={STATUS_LOOK[course.status].tone}
+										>
+											{STATUS_LABELS[course.status]} ·{" "}
+											{ACCESS_LABELS[course.access]}
+										</CourseCardStatus>
+									}
+									actions={
+										<Button variant="outline" asChild>
+											<Link to={detailPath(course)}>Ver detalles</Link>
+										</Button>
 									}
 									menu={
 										<CourseMenu
@@ -349,40 +369,42 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 	);
 }
 
-const metaOf = (
-	course: CourseCard,
-	showOrganizer: boolean,
-): CourseMetaItem[] => [
-	...(showOrganizer
-		? [{ icon: Building2, label: course.dependencyName, wide: true }]
-		: []),
-	{
-		icon: CalendarDays,
-		label: course.firstSessionAt
-			? formatZonedDate(new Date(course.firstSessionAt))
-			: "Sin sesiones",
-	},
-	...(course.sessionCount > 0
-		? [
-				{
-					icon: Layers,
-					label:
+const STATUS_LOOK: Record<
+	CourseStatus,
+	{ icon: LucideIcon; tone: "success" | "neutral" | "muted" }
+> = {
+	DRAFT: { icon: FilePen, tone: "neutral" },
+	PUBLISHED: { icon: CircleDot, tone: "success" },
+	FINISHED: { icon: CircleCheck, tone: "muted" },
+	CANCELLED: { icon: CircleX, tone: "muted" },
+};
+
+const metaOf = (course: CourseCard): CourseMetaItem[] => {
+	if (!requiresSessions(course.format)) return [];
+
+	return [
+		{
+			icon: CalendarDays,
+			label: course.firstSessionAt
+				? [
+						formatZonedDate(new Date(course.firstSessionAt)),
 						course.sessionCount === 1
 							? "1 sesión"
 							: `${course.sessionCount} sesiones`,
-				},
-			]
-		: []),
-	{
-		icon: User,
-		label:
-			course.trainerCount === 0
-				? "Sin capacitador"
-				: course.trainerCount === 1
-					? "1 capacitador"
-					: `${course.trainerCount} capacitadores`,
-	},
-];
+					].join(" · ")
+				: "Sin sesiones",
+		},
+		{
+			icon: User,
+			label:
+				course.trainerCount === 0
+					? "Sin capacitador"
+					: course.trainerCount === 1
+						? "1 capacitador"
+						: `${course.trainerCount} capacitadores`,
+		},
+	];
+};
 
 /**
  * Acciones de gestión según el estado. Ver no está: es la tarjeta entera.

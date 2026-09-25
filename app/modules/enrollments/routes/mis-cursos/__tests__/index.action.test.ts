@@ -29,10 +29,14 @@ const contextOf = (calls: { method: string; courseId: unknown }[]) =>
 					upcoming: [],
 					inProgress: [],
 					finished: [],
+					withdrawn: [],
 				}),
 		},
 		classroomService: {
-			listMine: async () => okReply([]),
+			summarizeMine: async () =>
+				okReply([
+					{ documentId: COURSE_ID, done: 1, total: 2, lessonsOnly: true },
+				]),
 		},
 	}) as unknown as ActionArgs["context"];
 
@@ -71,7 +75,7 @@ describe("mis-cursos action", () => {
 });
 
 describe("mis-cursos loader", () => {
-	test("un participante recibe sus cuatro listas", async () => {
+	test("un participante recibe sus listas y el avance de cada aula", async () => {
 		const { data } = await loader({
 			request: new Request("https://app.example.com/dashboard/mis-cursos"),
 			context: contextOf([]) as unknown as LoaderArgs["context"],
@@ -83,8 +87,12 @@ describe("mis-cursos loader", () => {
 			"upcoming",
 			"inProgress",
 			"finished",
+			"withdrawn",
 			"classrooms",
 			"view",
+		]);
+		expect(data.classrooms).toEqual([
+			{ documentId: COURSE_ID, done: 1, total: 2, lessonsOnly: true },
 		]);
 	});
 

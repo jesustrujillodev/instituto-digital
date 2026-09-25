@@ -467,7 +467,7 @@ Componentes instalados para esta capa: `sidebar`, `collapsible`, `dropdown-menu`
 | `/dashboard/capacitadores/nuevo`, `/:documentId/editar` | Protegida | `requireRole(TRAINER_ADMIN_ROLES)` |
 | `/dashboard/grupos/*` | Protegida | `requireScope(GROUP_ACCESS_ROLES)` |
 | `/dashboard/cursos/*` | Protegida | `requireCourseScope` (admite al capacitador interno; ver [courses/00](../courses/00-cursos-sesiones-y-acceso.md) §4). Incluye `/:documentId/inscripciones` |
-| `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
+| `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos`, `/dashboard/mis-cursos/:documentId` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
 | `/dashboard/nube` | Protegida | `requireRole(["SUPERADMIN"])` |
 | `/dashboard/sesiones` | Protegida | `requireRole(SESSION_MONITOR_ROLES)` |
 | `/dashboard/personalizacion` | Protegida | `requireRole(["SUPERADMIN"])` |

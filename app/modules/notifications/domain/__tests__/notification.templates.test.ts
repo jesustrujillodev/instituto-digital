@@ -86,12 +86,14 @@ describe("renderNotification", () => {
 		expect(email.text).toContain('<script>alert("x")</script>');
 	});
 
-	test("los enlaces usan el origen configurado", () => {
-		expect(render(ALL_EVENTS[4]).text).toContain(
-			`${APP_URL}/dashboard/cursos-disponibles/c-1`,
-		);
-		expect(render(ALL_EVENTS[3]).text).toContain(
-			`${APP_URL}/dashboard/mis-cursos`,
+	test("los avisos del curso llevan a su ficha en «Mis cursos»", () => {
+		for (const event of ALL_EVENTS.slice(3, 7)) {
+			expect(render(event).text).toContain(
+				`${APP_URL}/dashboard/mis-cursos/c-1`,
+			);
+		}
+		expect(render(ALL_EVENTS[7]).text).toContain(
+			`${APP_URL}/dashboard/cursos-disponibles`,
 		);
 	});
 
