@@ -6,7 +6,12 @@ type LoaderArgs = Parameters<typeof loader>[0];
 
 const REQUEST = new Request("https://app.example.com/usuarios/nuevo");
 
-const contextOf = (role: Role | null) =>
+const DEPENDENCY = {
+	documentId: "22222222-2222-4222-8222-222222222222",
+	name: "Obras Públicas",
+};
+
+const contextOf = (role: Role | null, dependencyId: number | null = null) =>
 	({
 		authPayload:
 			role === null
@@ -16,7 +21,7 @@ const contextOf = (role: Role | null) =>
 						userId: 7,
 						email: "ana@empresa.com",
 						role,
-						dependencyId: null,
+						dependencyId,
 						iat: 1_800_000_000,
 					},
 		// El alta con alcance global ofrece el catálogo de ACTIVAS: una dependencia
@@ -25,6 +30,11 @@ const contextOf = (role: Role | null) =>
 			listActive: async () => ({
 				success: true as const,
 				data: [],
+				timestamp: new Date().toISOString(),
+			}),
+			findByInternalId: async () => ({
+				success: true as const,
+				data: DEPENDENCY,
 				timestamp: new Date().toISOString(),
 			}),
 		},
@@ -42,6 +52,18 @@ describe("usuarios/nuevo loader", () => {
 		expect(result.success).toBe(true);
 		expect(result.data.auth.role).toBe("SUPERADMIN");
 		expect(result.timestamp).toEqual(expect.any(String));
+	});
+
+	// La regla del formulario exige dependencia a todo interno: el campo fijo
+	// del titular tiene que llegar con la suya, no vacío.
+	test("el titular recibe su dependencia ya elegida", async () => {
+		const result = await run(contextOf("DEPENDENCY_HEAD", 3));
+
+		expect(result.data).toMatchObject({
+			canChooseDependency: false,
+			dependencies: [DEPENDENCY],
+			defaultDependency: DEPENDENCY.documentId,
+		});
 	});
 
 	// Cada ruta impone su propio guard: estar bajo /dashboard solo garantiza

@@ -123,6 +123,25 @@ describe("reglas del formulario", () => {
 		);
 	});
 
+	test("un plan elegido sin línea se marca en la línea", () => {
+		const result = v.safeParse(
+			createCourseFormRule,
+			valuesOf({ plan: "plan-1", planLine: "" }),
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.issues?.map((issue) => v.getDotPath(issue))).toContain(
+			"planLine",
+		);
+	});
+
+	test("la edición manda null para soltar la línea", () => {
+		const result = v.safeParse(updateCourseFormRule, valuesOf());
+
+		expect(result.success).toBe(true);
+		expect(result.output).toMatchObject({ planLine: null });
+	});
+
 	test("la edición descarta la organizadora antes de validar", () => {
 		const result = v.safeParse(
 			updateCourseFormRule,

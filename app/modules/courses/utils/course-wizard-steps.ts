@@ -35,7 +35,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		number: 1,
 		title: "General",
 		summary: "Cómo se llama, qué se aprende y cuánto dura",
-		fields: ["dependency", "title", "description", "hours"],
+		fields: ["dependency", "title", "description", "hours", "plan", "planLine"],
 	},
 	{
 		key: "program",

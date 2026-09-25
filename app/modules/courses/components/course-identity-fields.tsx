@@ -6,11 +6,16 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { COURSE_HOURS_LIMITS } from "../domain/course.config";
 import { requiresSessions } from "../domain/course.rules";
-import type { CourseAudienceOption } from "../domain/course.types";
+import type {
+	CourseAudienceOption,
+	CourseDetail,
+	CoursePlanOption,
+} from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { CourseCatalogPreview } from "./course-catalog-preview";
 import { CourseCoverField } from "./course-cover-field";
+import { CoursePlanLineField } from "./course-plan-line-field";
 import { CourseSelectField } from "./course-select-field";
 
 /** La portada vive fuera del esquema del formulario (guía §10.4). */
@@ -29,6 +34,8 @@ interface CourseIdentityFieldsProps {
 	cover: CourseCoverControl;
 	/** `null` en el primer paso del alta: el borrador todavía no existe. */
 	documentId: string | null;
+	plans: readonly CoursePlanOption[];
+	course?: Pick<CourseDetail, "status" | "planLine"> | null;
 }
 
 /** Lo general del curso: lo que el personal lee en el catálogo antes de inscribirse. */
@@ -37,9 +44,12 @@ export const CourseIdentityFields = memo(function CourseIdentityFields({
 	organizers,
 	cover,
 	documentId,
+	plans,
+	course,
 }: CourseIdentityFieldsProps) {
 	const {
 		register,
+		setValue,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 	const format = useWatch<CourseFormValues, "format">({ name: "format" });
@@ -59,6 +69,11 @@ export const CourseIdentityFields = memo(function CourseIdentityFields({
 							value: entry.documentId,
 							label: entry.name,
 						}))}
+						// Los planes son de cada dependencia: los de la anterior no aplican.
+						onChanged={() => {
+							setValue("plan", "");
+							setValue("planLine", "");
+						}}
 					/>
 				)}
 
@@ -126,6 +141,13 @@ export const CourseIdentityFields = memo(function CourseIdentityFields({
 					removed={cover.removed}
 					onChange={cover.onChange}
 					onRemove={cover.onRemove}
+				/>
+
+				<CoursePlanLineField
+					ids={ids}
+					plans={plans}
+					course={course}
+					filterByOrganizer={organizers !== null}
 				/>
 			</div>
 

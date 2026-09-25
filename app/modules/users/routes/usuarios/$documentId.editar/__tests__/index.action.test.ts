@@ -140,9 +140,25 @@ describe("usuarios/editar action — actualizar perfil", () => {
 	test("descarta los campos vacíos en vez de mandarlos como cadena", async () => {
 		const { context, calls } = createHarness();
 
-		await run(formRequest({ firstName: "Ana", phone: "" }), context);
+		await run(formRequest({ firstName: "Ana", employeeNumber: "" }), context);
 
 		expect(calls.update[0].dto).toEqual({ firstName: "Ana" });
+	});
+
+	test("nombre, apellido, teléfono y puesto vacíos llegan como null", async () => {
+		const { context, calls } = createHarness();
+
+		await run(
+			formRequest({ firstName: "", lastName: "", phone: "", jobTitle: "" }),
+			context,
+		);
+
+		expect(calls.update[0].dto).toEqual({
+			firstName: null,
+			lastName: null,
+			phone: null,
+			jobTitle: null,
+		});
 	});
 
 	test("un documentId malformado no llega al servicio", async () => {

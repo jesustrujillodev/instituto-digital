@@ -74,6 +74,16 @@ describe("annualPlanRepository", () => {
 		});
 	});
 
+	test("desde un ejercicio trae ese y los siguientes", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findPlans({}, { fromYear: 2026 });
+
+		expect(calls.findMany[0]).toMatchObject({
+			where: { AND: [{}, { fiscalYear: { gte: 2026 } }] },
+		});
+	});
+
 	test("una línea se busca por el alcance de su plan", async () => {
 		const { repository, calls } = createHarness();
 

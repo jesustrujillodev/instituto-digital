@@ -61,7 +61,23 @@ export const buildCoursePayload = (
 	),
 });
 
-const formValues = v.custom<CourseFormValues>(() => true);
+// Con índice: `v.forward` solo apunta a claves de un registro.
+type FormRecord = CourseFormValues & Record<string, unknown>;
+
+const formValues = v.custom<FormRecord>(() => true);
+
+/** Elegir plan y no línea no es "sin plan": se pide la línea, no se descarta. */
+const planLineChosen = v.forward<
+	FormRecord,
+	v.CheckIssue<FormRecord>,
+	["planLine"]
+>(
+	v.check(
+		(values) => values.plan === "" || values.planLine !== "",
+		"Elige la línea del plan en la que entra el curso.",
+	),
+	["planLine"],
+);
 
 /**
  * Las reglas del formulario: la MISMA regla del servidor, precedida de la
@@ -70,16 +86,19 @@ const formValues = v.custom<CourseFormValues>(() => true);
  */
 export const createCourseFormRule = v.pipe(
 	formValues,
-	v.transform(buildCoursePayload),
+	planLineChosen,
+	v.transform((values: FormRecord) => buildCoursePayload(values)),
 	createCourseRule,
 );
 
 export const updateCourseFormRule = v.pipe(
 	formValues,
+	planLineChosen,
 	v.transform((values): UpdateCourseDto => {
 		// La organizadora no se edita: se descarta antes de validar.
 		const { dependency: _dependency, ...payload } = buildCoursePayload(values);
-		return payload;
+		// Vacío aquí es soltar la línea, no dejarla como estaba.
+		return { ...payload, planLine: optionalText(values.planLine) ?? null };
 	}),
 	updateCourseRule,
 );

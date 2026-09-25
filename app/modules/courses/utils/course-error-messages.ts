@@ -106,13 +106,18 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "La línea del plan no existe o no es de tu dependencia.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
+	[COURSE_ERROR_CODES.PLAN_LINE_LOCKED]: {
+		message:
+			"El plan anual solo se puede cambiar mientras el curso es borrador.",
+		fieldErrors: { planLine: "No se puede cambiar" },
+	},
 	[COURSE_ERROR_CODES.COVER_INVALID]: {
 		// El cliente valida lo mismo antes de enviar, así que llegar aquí suele
 		// significar un envío a mano: el motivo dice qué tiene de malo el archivo.
 		message: (error) =>
 			`No se puede usar esa portada: ${String(error.details?.reason ?? "formato no admitido")}.`,
 	},
-	// Crear un curso desde una línea falla con los códigos del plan.
+	// Ocupar una línea falla con los códigos del plan.
 	...Object.fromEntries(
 		[
 			ANNUAL_PLAN_ERROR_CODES.LINE_NOT_FOUND,

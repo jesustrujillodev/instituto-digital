@@ -16,7 +16,16 @@ import { safeUserSchema, type userSchema } from "./user.rules";
 export type User = v.InferOutput<typeof userSchema>;
 export type SafeUser = v.InferOutput<typeof safeUserSchema>;
 
-export type CreateUserDto = v.InferInput<typeof createUserRule>;
+/** De entrada salvo los campos que la regla ya devuelve vacíos como `null`. */
+export type CreateUserDto = Omit<
+	v.InferInput<typeof createUserRule>,
+	"firstName" | "lastName" | "phone" | "jobTitle"
+> & {
+	firstName?: string | null;
+	lastName?: string | null;
+	phone?: string | null;
+	jobTitle?: string | null;
+};
 
 /**
  * Lo que el repositorio ESCRIBE al crear, que no es lo que llega del formulario.
@@ -33,7 +42,8 @@ export type CreateUserData = Omit<CreateUserDto, "dependency" | "password"> & {
 	password: string;
 	dependencyId?: number | null;
 };
-export type UpdateUserDto = v.InferInput<typeof updateUserRule>;
+/** Salida y no entrada: el teléfono vacío ya llega convertido en `null`. */
+export type UpdateUserDto = v.InferOutput<typeof updateUserRule>;
 export type ChangePasswordDto = v.InferInput<typeof changePasswordRule>;
 export type AdminResetPasswordDto = v.InferInput<typeof adminResetPasswordRule>;
 export type FindUserDto = v.InferInput<typeof findUserRule>;

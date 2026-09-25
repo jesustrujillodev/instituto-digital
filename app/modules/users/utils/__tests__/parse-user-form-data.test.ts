@@ -50,13 +50,27 @@ describe("parseUserFormData", () => {
 	test("descarta los campos vacíos", () => {
 		const formData = new FormData();
 		formData.append("email", "ana@empresa.com");
-		formData.append("phone", "");
-		formData.append("lastName", "");
+		formData.append("employeeNumber", "");
 
 		// "" no es un valor válido para los campos opcionales del dominio, es su
 		// ausencia: enviarlo haría fallar la validación de formato.
 		expect(parseUserFormData(formData).fields).toEqual({
 			email: "ana@empresa.com",
+		});
+	});
+
+	// Descartarlos haría imposible borrarlos al editar.
+	test("conserva vacíos los campos que se pueden borrar", () => {
+		const formData = new FormData();
+		for (const field of ["firstName", "lastName", "phone", "jobTitle"]) {
+			formData.append(field, "");
+		}
+
+		expect(parseUserFormData(formData).fields).toEqual({
+			firstName: "",
+			lastName: "",
+			phone: "",
+			jobTitle: "",
 		});
 	});
 

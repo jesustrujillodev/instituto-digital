@@ -14,6 +14,7 @@ import {
 	assertLineReactivable,
 	creatableYearsOf,
 	groupLinesByMonth,
+	isLineOpenForCourse,
 	isReadOnlyPlan,
 	planLineStatusOf,
 	planProgressOf,
@@ -183,6 +184,34 @@ describe("operaciones sobre una línea", () => {
 		expect(codeOf(() => assertLineDeletable(lineOf(["CANCELLED"])))).toBe(
 			ANNUAL_PLAN_ERROR_CODES.LINE_HAS_COURSES,
 		);
+	});
+});
+
+describe("isLineOpenForCourse", () => {
+	const lineWith = (
+		courses: { documentId: string; status: CourseStatus }[],
+		cancelledAt: Date | null = null,
+	) => ({ cancelledAt, courses });
+
+	test("una línea libre o con cursos cancelados admite curso", () => {
+		expect(isLineOpenForCourse(lineWith([]))).toBe(true);
+		expect(
+			isLineOpenForCourse(lineWith([{ documentId: "a", status: "CANCELLED" }])),
+		).toBe(true);
+	});
+
+	test("cancelada u ocupada por otro curso, no", () => {
+		expect(isLineOpenForCourse(lineWith([], CANCELLED_AT))).toBe(false);
+		expect(
+			isLineOpenForCourse(lineWith([{ documentId: "a", status: "DRAFT" }])),
+		).toBe(false);
+	});
+
+	test("el curso que se edita no se estorba a sí mismo", () => {
+		const line = lineWith([{ documentId: "a", status: "DRAFT" }]);
+
+		expect(isLineOpenForCourse(line, "a")).toBe(true);
+		expect(isLineOpenForCourse(line, "b")).toBe(false);
 	});
 });
 

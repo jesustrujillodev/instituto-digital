@@ -32,7 +32,12 @@ export interface CourseFormValues {
 	access: CourseAccessType;
 	/** Solo lo usa el superadministrador; los demás heredan la suya. */
 	dependency: string;
-	/** Línea del plan de la que nace el curso; vacío si no nace de ninguna. */
+	/**
+	 * Plan anual elegido. Solo vive en el formulario: lo que viaja es la línea,
+	 * y el plan se deduce de ella.
+	 */
+	plan: string;
+	/** Línea del plan que ocupa el curso; vacío si no forma parte del plan. */
 	planLine: string;
 	capacity: string;
 	enrollmentDeadline: string;
@@ -94,6 +99,7 @@ export interface CoursePlanPrefill {
 	lineDocumentId: string;
 	title: string;
 	plannedModality: CourseModality | null;
+	planDocumentId: string;
 }
 
 /**
@@ -119,7 +125,12 @@ export function buildCourseFormDefaults(
 		completionRule: course?.completionRule ?? COURSE_DEFAULTS.completionRule,
 		access: course?.access ?? "PUBLIC",
 		dependency: "",
-		planLine: prefill?.lineDocumentId ?? "",
+		plan: course
+			? (course.planLine?.planDocumentId ?? "")
+			: (prefill?.planDocumentId ?? ""),
+		planLine: course
+			? (course.planLine?.documentId ?? "")
+			: (prefill?.lineDocumentId ?? ""),
 		capacity: course?.capacity?.toString() ?? "",
 		enrollmentDeadline: course?.enrollmentDeadline
 			? utcToZonedInput(asDate(course.enrollmentDeadline)).date

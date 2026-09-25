@@ -83,9 +83,11 @@ Decisiones que el schema no dice por sí solo:
 - **No hay `archived_at`.** La baja de un curso es `status = CANCELLED`, que
   conserva sus sesiones, capacitadores y audiencia (§6.5). Dos mecanismos de baja
   sobre la misma fila se contradirían.
-- **`plan_line_id` apunta a la línea del plan anual** (PRD-07). Se escribe solo
-  al crear, bloqueando la línea, y un curso cancelado conserva el vínculo como
-  historial. Ver [ADR 0007](../adr/0007-plan-anual-estado-derivado.md).
+- **`plan_line_id` apunta a la línea del plan anual** (PRD-07). Es opcional y
+  se elige en el paso General. Cambia solo mientras el curso es borrador
+  (`assertPlanLineEditable`), bloqueando la línea nueva, y la de un plan cerrado
+  no se suelta. Un curso cancelado conserva el vínculo como historial. Ver
+  [ADR 0007](../adr/0007-plan-anual-estado-derivado.md).
 - **La audiencia son dos tablas y no una con dos columnas nulas.** Ver
   [ADR 0003](../adr/0003-alcance-de-cursos-y-audiencia.md) §2.2.
 - **La organizadora no cambia.** La regla de edición no la declara: moverla
@@ -385,9 +387,10 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 - **PRD-06** ya escribe `FINISHED` desde `teaching` por `ICourseRepository.finish`,
   condicionado a `PUBLISHED`. La asistencia cuelga de las sesiones y se borra en
   cascada con ellas.
-- **PRD-07** ya declaró la relación de `plan_line_id`: `create` recibe
-  `planLine` y la reclama con `claimPlanLine`. Cancelar y finalizar no tocan el
-  plan porque el estado de la línea se deriva.
+- **PRD-07** ya declaró la relación de `plan_line_id`: `create` y `update`
+  reciben `planLine` y la reclaman con `claimPlanLine`. En `update`, ausente
+  conserva y `null` suelta. Cancelar y finalizar no tocan el plan porque el
+  estado de la línea se deriva.
 
 **Limitación conocida:** el enlace "Cursos" del menú se muestra a todo
 capacitador, también al externo, porque `SessionUser` no lleva el tipo de cuenta.

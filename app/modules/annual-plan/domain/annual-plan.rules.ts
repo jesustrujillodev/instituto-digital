@@ -205,6 +205,22 @@ export const assertLineAvailableForCourse = (
 	}
 };
 
+/**
+ * Lo que el formulario de curso ofrece: sin cancelar y sin otro curso activo.
+ * `ownCourse` es el curso que se edita, que no se estorba a sí mismo.
+ */
+export const isLineOpenForCourse = (
+	line: {
+		cancelledAt: Date | null;
+		courses: readonly { documentId: string; status: CourseStatus }[];
+	},
+	ownCourse?: string,
+): boolean =>
+	line.cancelledAt === null &&
+	!activeCourseOf(
+		line.courses.filter((course) => course.documentId !== ownCourse),
+	);
+
 /** Cancelar una línea con curso vivo dejaría un curso sin plan a la vista. */
 export const assertLineCancellable = (line: LineState) => {
 	if (line.cancelledAt !== null) throw new AnnualPlanLineCancelledError();

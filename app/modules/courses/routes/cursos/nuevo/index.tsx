@@ -1,7 +1,6 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizard } from "../../../components/course-wizard";
 import { useCourseFormIds } from "../../../hooks/use-course-form-ids";
@@ -34,16 +33,6 @@ export default function NuevoCursoPage({ loaderData }: Route.ComponentProps) {
 			ids={ids}
 			options={options}
 			prefill={prefill}
-			notice={
-				prefill && (
-					<Alert>
-						<AlertDescription>
-							El curso se vinculará a la línea «{prefill.title}» del plan anual{" "}
-							{prefill.fiscalYear}.
-						</AlertDescription>
-					</Alert>
-				)
-			}
 		/>
 	);
 }

@@ -19,6 +19,7 @@ import {
 	CourseIncompatibleCompletionRuleError,
 	CourseIncompatibleEvaluationMethodError,
 	CourseInvalidTransitionError,
+	CoursePlanLineLockedError,
 	CourseSessionInvalidRangeError,
 	CourseSessionMissingLinkError,
 	CourseSessionMissingVenueError,
@@ -232,6 +233,7 @@ export const courseDetailSchema = v.object({
 			documentId: v.string(),
 			title: v.string(),
 			planDocumentId: v.string(),
+			fiscalYear: v.number(),
 		}),
 	),
 	publishedAt: v.nullable(v.date()),
@@ -328,10 +330,7 @@ export const createCourseRule = v.object({
 	 * se les ignora y se usa la de su alcance.
 	 */
 	dependency: v.optional(documentId),
-	/**
-	 * Crear curso desde una línea del plan. Solo al crear: el vínculo no cambia
-	 * al editar, y un curso cancelado lo conserva como historial.
-	 */
+	/** La línea del plan anual que el curso ocupa (§6.11). */
 	planLine: v.optional(documentId),
 });
 
@@ -341,7 +340,14 @@ export const createCourseRule = v.object({
  * Moverlo arrastraría su audiencia, sus capacitadores y, desde PRD-06, los
  * créditos que ya otorgó a nombre de la anterior.
  */
-export const updateCourseRule = v.object(courseFormShape);
+export const updateCourseRule = v.object({
+	...courseFormShape,
+	/**
+	 * Ausente conserva la línea y `null` la suelta. Solo cambia en borrador; un
+	 * curso cancelado la conserva como historial.
+	 */
+	planLine: v.optional(v.nullable(documentId)),
+});
 
 export const findCourseRule = v.object({ documentId });
 
@@ -584,6 +590,15 @@ export const assertFormatEditable = (
 	changesFormat: boolean,
 ): void => {
 	if (changesFormat && status !== "DRAFT") throw new CourseFormatLockedError();
+};
+
+export const assertPlanLineEditable = (
+	status: CourseStatus,
+	changesPlanLine: boolean,
+): void => {
+	if (changesPlanLine && status !== "DRAFT") {
+		throw new CoursePlanLineLockedError();
+	}
 };
 
 export const assertCapacityCovers = (

@@ -29,7 +29,12 @@ export function meta() {
 
 export default function NuevoUsuarioPage({ loaderData }: Route.ComponentProps) {
 	const {
-		data: { assignableRoles, dependencies, canChooseDependency },
+		data: {
+			assignableRoles,
+			dependencies,
+			canChooseDependency,
+			defaultDependency,
+		},
 	} = loaderData;
 	const navigate = useNavigate();
 	const ids = useUserFormIds();
@@ -72,6 +77,7 @@ export default function NuevoUsuarioPage({ loaderData }: Route.ComponentProps) {
 				assignableRoles={assignableRoles}
 				dependencies={dependencies}
 				canChooseDependency={canChooseDependency}
+				defaultDependency={defaultDependency}
 			/>
 
 			<FormFooter>{actions}</FormFooter>

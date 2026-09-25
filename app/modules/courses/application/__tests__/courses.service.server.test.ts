@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { ANNUAL_PLAN_ERROR_CODES } from "@/modules/annual-plan/domain/annual-plan.errors";
-import type { LockedPlanLine } from "@/modules/annual-plan/domain/annual-plan.types";
+import type {
+	LockedPlanLine,
+	StoredPlan,
+} from "@/modules/annual-plan/domain/annual-plan.types";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
@@ -141,6 +144,7 @@ const createHarness = (
 		dependencyArchived?: boolean;
 		enrolled?: number;
 		planLine?: LockedPlanLine | null;
+		plans?: StoredPlan[];
 		recipients?: {
 			email: string;
 			firstName: string | null;
@@ -160,6 +164,7 @@ const createHarness = (
 		notified: [] as { events: NotificationEvent[]; inTransaction: boolean }[],
 		transactions: 0,
 		lineLocks: [] as { documentId: string; inTransaction: boolean }[],
+		planQueries: [] as unknown[],
 		lockedCourses: [] as number[],
 		created: [] as unknown[],
 		updated: [] as unknown[],
@@ -264,6 +269,10 @@ const createHarness = (
 		lockLineForCourse: async (documentId: string) => {
 			calls.lineLocks.push({ documentId, inTransaction });
 			return options.planLine === undefined ? lineOf() : options.planLine;
+		},
+		findPlans: async (where: unknown, filters: unknown) => {
+			calls.planQueries.push({ where, filters });
+			return options.plans ?? [];
 		},
 	} as unknown as ICradle["annualPlanRepository"];
 
@@ -704,6 +713,121 @@ describe("coursesService.create", () => {
 		expect(result).toMatchObject({
 			error: { code: COURSE_ERROR_CODES.DEADLINE_AFTER_START },
 		});
+	});
+});
+
+describe("coursesService.update y la línea del plan", () => {
+	const LINKED = {
+		documentId: "55555555-5555-4555-8555-555555555555",
+		title: "Seguridad en obra",
+		planDocumentId: "plan-2026",
+		fiscalYear: 2026,
+	};
+	const updateOf = (planLine: string | null | undefined): UpdateCourseDto => ({
+		...(dtoOf() as UpdateCourseDto),
+		planLine,
+	});
+
+	test("en borrador ocupa la línea con su fila bloqueada", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.update(
+			COURSE_ID,
+			updateOf(LINE_ID),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.lineLocks).toEqual([
+			{ documentId: LINE_ID, inTransaction: true },
+		]);
+		expect(calls.updated[0]).toMatchObject({ data: { planLineId: 21 } });
+	});
+
+	test("la misma línea, o ninguna indicación, no toca el vínculo", async () => {
+		for (const planLine of [LINKED.documentId, undefined]) {
+			const { service, calls } = createHarness({
+				course: courseOf({ planLine: LINKED }),
+			});
+
+			const result = await service.update(
+				COURSE_ID,
+				updateOf(planLine),
+				actorOf(),
+			);
+
+			expect(result.success).toBe(true);
+			expect(calls.lineLocks).toEqual([]);
+			expect(calls.updated[0]).not.toHaveProperty("data.planLineId");
+		}
+	});
+
+	test("null suelta la línea sin bloquear ninguna", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ planLine: LINKED }),
+		});
+
+		const result = await service.update(COURSE_ID, updateOf(null), actorOf());
+
+		expect(result.success).toBe(true);
+		expect(calls.lineLocks).toEqual([]);
+		expect(calls.updated[0]).toMatchObject({ data: { planLineId: null } });
+	});
+
+	test("publicado, la línea no cambia", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "PUBLISHED", planLine: LINKED }),
+		});
+
+		const changed = await service.update(
+			COURSE_ID,
+			updateOf(LINE_ID),
+			actorOf(),
+		);
+		const kept = await service.update(
+			COURSE_ID,
+			updateOf(LINKED.documentId),
+			actorOf(),
+		);
+
+		expect(changed).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.PLAN_LINE_LOCKED },
+		});
+		expect(kept.success).toBe(true);
+		expect(calls.lineLocks).toEqual([]);
+	});
+
+	test("la línea de un plan cerrado no se suelta", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ planLine: { ...LINKED, fiscalYear: 2025 } }),
+		});
+
+		const result = await service.update(COURSE_ID, updateOf(null), actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ANNUAL_PLAN_ERROR_CODES.READ_ONLY },
+		});
+		expect(calls.updated).toEqual([]);
+	});
+
+	test("una línea de otra dependencia se ve como inexistente", async () => {
+		const { service, calls } = createHarness({
+			planLine: lineOf({ plan: { dependencyId: 4, fiscalYear: 2026 } }),
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			updateOf(LINE_ID),
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.PLAN_LINE_NOT_FOUND },
+		});
+		expect(calls.updated).toEqual([]);
 	});
 });
 
@@ -1164,6 +1288,109 @@ describe("coursesService.listFormOptions", () => {
 				organizers: [{ name: "Obras Públicas" }],
 			},
 		});
+	});
+
+	const planOf = (
+		fiscalYear: number,
+		lines: StoredPlan["lines"],
+		dependencyId = 3,
+	): StoredPlan => ({
+		id: fiscalYear,
+		documentId: `plan-${fiscalYear}`,
+		dependencyId,
+		dependencyName: "Obras Públicas",
+		fiscalYear,
+		lines,
+	});
+	const planLineOf = (
+		documentId: string,
+		courses: StoredPlan["lines"][number]["courses"] = [],
+		cancelledAt: Date | null = null,
+	): StoredPlan["lines"][number] => ({
+		id: 1,
+		documentId,
+		title: `Línea ${documentId}`,
+		plannedMonth: 3,
+		plannedModality: null,
+		estimatedDuration: null,
+		targetAudience: null,
+		notes: null,
+		cancelledAt,
+		courses,
+	});
+
+	test("ofrece los planes del ejercicio en curso en adelante, con sus líneas libres", async () => {
+		const taken = {
+			documentId: "otro",
+			title: "Otro",
+			status: "DRAFT" as const,
+			format: "SCHEDULED" as const,
+		};
+		const { service, calls } = createHarness({
+			plans: [
+				planOf(2027, [planLineOf("libre-2027")]),
+				planOf(2026, [
+					planLineOf("libre"),
+					planLineOf("ocupada", [taken]),
+					planLineOf("cancelada", [], new Date("2026-08-01")),
+				]),
+			],
+		});
+
+		const result = await service.listFormOptions({
+			kind: "dependency",
+			dependencyId: 3,
+		});
+
+		expect(calls.planQueries).toEqual([
+			{ where: { dependencyId: 3 }, filters: { fromYear: 2026 } },
+		]);
+		expect(result).toMatchObject({
+			data: {
+				plans: [
+					{
+						documentId: "plan-2026",
+						dependencyDocumentId: DEPENDENCY_ID,
+						lines: [{ documentId: "libre", plannedMonth: 3 }],
+					},
+					{ documentId: "plan-2027", lines: [{ documentId: "libre-2027" }] },
+				],
+			},
+		});
+	});
+
+	test("editando, la línea que ocupa el propio curso sigue elegible", async () => {
+		const own = {
+			documentId: COURSE_ID,
+			title: "Ofimática básica",
+			status: "DRAFT" as const,
+			format: "SCHEDULED" as const,
+		};
+		const { service, calls } = createHarness({
+			plans: [planOf(2026, [planLineOf("propia", [own])])],
+		});
+
+		const result = await service.listFormOptions(
+			{ kind: "global" },
+			{ documentId: COURSE_ID, dependencyId: 3 },
+		);
+
+		expect(calls.planQueries).toEqual([
+			{ where: { dependencyId: 3 }, filters: { fromYear: 2026 } },
+		]);
+		expect(result).toMatchObject({
+			data: { plans: [{ lines: [{ documentId: "propia" }] }] },
+		});
+	});
+
+	test("el plan de una organizadora archivada no se ofrece", async () => {
+		const { service } = createHarness({
+			plans: [planOf(2026, [planLineOf("libre")], 4)],
+		});
+
+		const result = await service.listFormOptions({ kind: "global" });
+
+		expect(result).toMatchObject({ data: { plans: [] } });
 	});
 
 	test("los grupos se leen con el alcance de audiencia del actor", async () => {

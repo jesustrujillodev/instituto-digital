@@ -1,5 +1,10 @@
 import { endOfZonedDay, zonedInputToUtc } from "@/lib/date-utils";
-import { assertLineAvailableForCourse } from "@/modules/annual-plan/domain/annual-plan.rules";
+import {
+	assertLineAvailableForCourse,
+	assertPlanWritable,
+	currentFiscalYear,
+	isLineOpenForCourse,
+} from "@/modules/annual-plan/domain/annual-plan.rules";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { NotifiableParticipant } from "@/modules/enrollments/domain/enrollment.types";
 import {
@@ -50,6 +55,7 @@ import {
 	assertCompletionSettingsEditable,
 	assertDeadlineBeforeStart,
 	assertFormatEditable,
+	assertPlanLineEditable,
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
@@ -69,6 +75,7 @@ import {
 import type { ICourseService } from "../domain/course.service";
 import type {
 	CourseDetail,
+	CoursePlanOption,
 	CourseSessionData,
 	CourseWriteData,
 	CreateCourseDto,
@@ -219,6 +226,53 @@ export const createCourseService = ({
 		assertLineAvailableForCourse(line, line.plan, clock.now());
 
 		return line.id;
+	};
+
+	/**
+	 * Los planes del ejercicio en curso en adelante. Editando, solo los de la
+	 * organizadora del curso; en el alta del superadministrador, los de todas,
+	 * y la pantalla filtra por la que elija.
+	 */
+	const planOptionsOf = async (
+		scope: CourseScope,
+		dependencies: readonly { id: number; documentId: string }[],
+		course?: Pick<CourseDetail, "documentId" | "dependencyId">,
+	): Promise<CoursePlanOption[]> => {
+		if (scope.kind === "none") return [];
+
+		const dependencyId =
+			course?.dependencyId ??
+			(scope.kind === "global" ? undefined : scope.dependencyId);
+		const plans = await annualPlanRepository.findPlans(
+			dependencyId === undefined ? {} : { dependencyId },
+			{ fromYear: currentFiscalYear(clock.now()) },
+		);
+		const documentIdOf = new Map(
+			dependencies.map((dependency) => [dependency.id, dependency.documentId]),
+		);
+
+		return plans
+			.flatMap((plan) => {
+				// Una organizadora archivada no crea cursos: su plan no se ofrece.
+				const dependencyDocumentId = documentIdOf.get(plan.dependencyId);
+				if (!dependencyDocumentId) return [];
+
+				return [
+					{
+						documentId: plan.documentId,
+						fiscalYear: plan.fiscalYear,
+						dependencyDocumentId,
+						lines: plan.lines
+							.filter((line) => isLineOpenForCourse(line, course?.documentId))
+							.map(({ documentId, title, plannedMonth }) => ({
+								documentId,
+								title,
+								plannedMonth,
+							})),
+					},
+				];
+			})
+			.sort((a, b) => a.fiscalYear - b.fiscalYear);
 	};
 
 	/**
@@ -452,7 +506,10 @@ export const createCourseService = ({
 				ok(await requireCourse(documentId, scope)),
 			);
 		},
-		async listFormOptions(scope: CourseScope) {
+		async listFormOptions(
+			scope: CourseScope,
+			course?: Pick<CourseDetail, "documentId" | "dependencyId">,
+		) {
 			return run("listFormOptions", async () => {
 				const choosesOrganizer = canChooseOrganizer(scope);
 
@@ -487,6 +544,7 @@ export const createCourseService = ({
 						}),
 					),
 					canChooseOrganizer: choosesOrganizer,
+					plans: await planOptionsOf(scope, dependencies, course),
 				});
 			});
 		},
@@ -546,6 +604,15 @@ export const createCourseService = ({
 					evaluationMethod: evaluationMethodOf(dto),
 				});
 
+				const changesPlanLine =
+					dto.planLine !== undefined &&
+					dto.planLine !== (course.planLine?.documentId ?? null);
+				assertPlanLineEditable(course.status, changesPlanLine);
+				// Soltarla también reescribe su plan: uno cerrado ya no se toca.
+				if (changesPlanLine && course.planLine) {
+					assertPlanWritable(course.planLine, clock.now());
+				}
+
 				const data = await buildWriteData(dto, scope);
 				// Tres estados, no dos: archivo nuevo sustituye, `removeCover` quita,
 				// y no mandar nada conserva la que ya tenía.
@@ -560,7 +627,15 @@ export const createCourseService = ({
 
 						const saved = await courseRepository.update(
 							documentId,
-							{ ...data, ...(replaces && { coverImageUrl }) },
+							{
+								...data,
+								...(replaces && { coverImageUrl }),
+								...(changesPlanLine && {
+									planLineId: dto.planLine
+										? await claimPlanLine(dto.planLine, course.dependencyId)
+										: null,
+								}),
+							},
 							scope,
 						);
 						if (

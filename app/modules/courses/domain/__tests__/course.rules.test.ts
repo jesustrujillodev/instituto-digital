@@ -9,6 +9,7 @@ import {
 	assertCompletionSettingsEditable,
 	assertDeadlineBeforeStart,
 	assertFormatEditable,
+	assertPlanLineEditable,
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
@@ -677,6 +678,14 @@ describe("formato y regla de completado", () => {
 		expect(() => assertFormatEditable("PUBLISHED", false)).not.toThrow();
 		expect(() => assertFormatEditable("PUBLISHED", true)).toThrowError(
 			codeOf(COURSE_ERROR_CODES.FORMAT_LOCKED),
+		);
+	});
+
+	test("la línea del plan solo cambia en borrador", () => {
+		expect(() => assertPlanLineEditable("DRAFT", true)).not.toThrow();
+		expect(() => assertPlanLineEditable("PUBLISHED", false)).not.toThrow();
+		expect(() => assertPlanLineEditable("PUBLISHED", true)).toThrowError(
+			codeOf(COURSE_ERROR_CODES.PLAN_LINE_LOCKED),
 		);
 	});
 });

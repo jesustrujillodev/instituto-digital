@@ -80,7 +80,7 @@ type DetailRaw = CourseRawBase & {
 	planLine?: {
 		documentId: string;
 		title: string;
-		plan: { documentId: string };
+		plan: { documentId: string; fiscalYear: number };
 	} | null;
 	groupAudience?: readonly {
 		group: {
@@ -117,6 +117,7 @@ export const toDetail = (raw: DetailRaw): CourseDetail => {
 					documentId: raw.planLine.documentId,
 					title: raw.planLine.title,
 					planDocumentId: raw.planLine.plan.documentId,
+					fiscalYear: raw.planLine.plan.fiscalYear,
 				}
 			: null,
 		sessions,

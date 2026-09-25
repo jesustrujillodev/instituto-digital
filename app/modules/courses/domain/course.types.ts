@@ -97,6 +97,8 @@ export type CreateCourseData = CourseWriteData & {
  */
 export type UpdateCourseData = CourseWriteData & {
 	coverImageUrl?: string | null;
+	/** Igual que la portada: ausente conserva, `null` suelta la línea. */
+	planLineId?: number | null;
 };
 
 // ===============================================================
@@ -132,6 +134,23 @@ export interface CourseFormOptions {
 	audienceDependencies: CourseAudienceOption[];
 	audienceGroups: CourseAudienceOption[];
 	canChooseOrganizer: boolean;
+	/** Los del ejercicio en curso en adelante, con las líneas que puede ocupar. */
+	plans: CoursePlanOption[];
+}
+
+export interface CoursePlanLineOption {
+	documentId: string;
+	title: string;
+	plannedMonth: number;
+}
+
+export interface CoursePlanOption {
+	documentId: string;
+	fiscalYear: number;
+	/** Para filtrar por la organizadora que elige el superadministrador. */
+	dependencyDocumentId: string;
+	/** Sin cancelar y sin otro curso activo; la del propio curso cuenta. */
+	lines: CoursePlanLineOption[];
 }
 
 // ===============================================================

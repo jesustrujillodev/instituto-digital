@@ -62,12 +62,14 @@ export const loadCourseWizard = async (
 	const step = parseStepNumber(params.paso);
 	if (!step) throw redirect(`${stepPath(documentId, 1, mode)}${search}`);
 
-	const [course, options] = await Promise.all([
-		context.courseService.findById(documentId, scope),
-		context.courseService.listFormOptions(scope),
-	]);
-
+	const course = await context.courseService.findById(documentId, scope);
 	if (!course.success) throw toRouteError(course.error, COURSE_ERROR_MESSAGES);
+
+	// Después del curso: los planes que se ofrecen son los de su organizadora.
+	const options = await context.courseService.listFormOptions(
+		scope,
+		course.data,
+	);
 	if (!options.success)
 		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 

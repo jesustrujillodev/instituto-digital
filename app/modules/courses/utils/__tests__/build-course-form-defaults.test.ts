@@ -85,12 +85,14 @@ describe("buildCourseFormDefaults desde una línea del plan", () => {
 		lineDocumentId: "line-1",
 		title: "Seguridad en obra",
 		plannedModality: "HYBRID" as const,
+		planDocumentId: "plan-1",
 	};
 
 	test("precarga título, modalidad y el vínculo", () => {
 		expect(buildCourseFormDefaults(null, prefill)).toMatchObject({
 			title: "Seguridad en obra",
 			modality: "HYBRID",
+			plan: "plan-1",
 			planLine: "line-1",
 		});
 	});

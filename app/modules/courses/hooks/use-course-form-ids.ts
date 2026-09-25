@@ -10,6 +10,8 @@ const FIELD_KEYS = [
 	"completionRule",
 	"access",
 	"dependency",
+	"plan",
+	"planLine",
 	"capacity",
 	"enrollmentDeadline",
 	"minAttendance",

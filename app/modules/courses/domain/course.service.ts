@@ -2,6 +2,7 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { UploadInput } from "@/shared/storage/upload-validation";
 import type { CourseScope } from "./course.access";
 import type {
+	CourseDetail,
 	CourseFormOptionsResponse,
 	CourseListResponse,
 	CourseResponse,
@@ -24,8 +25,15 @@ export interface ICourseService {
 	): Promise<CourseListResponse>;
 	/** Falla con `COURSE_NOT_FOUND` si no existe O si cae fuera del alcance. */
 	findById(documentId: string, scope: CourseScope): Promise<CourseResponse>;
-	/** Capacitadores, dependencias y grupos que el formulario puede ofrecer. */
-	listFormOptions(scope: CourseScope): Promise<CourseFormOptionsResponse>;
+	/**
+	 * Capacitadores, dependencias, grupos y planes que el formulario puede
+	 * ofrecer. Con `course`, los planes son los de su organizadora y la línea
+	 * que ya ocupa sigue siendo elegible.
+	 */
+	listFormOptions(
+		scope: CourseScope,
+		course?: Pick<CourseDetail, "documentId" | "dependencyId">,
+	): Promise<CourseFormOptionsResponse>;
 
 	/**
 	 * La portada viaja aparte del DTO y no dentro de él: un `File` no existe en

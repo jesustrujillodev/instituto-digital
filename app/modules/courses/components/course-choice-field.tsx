@@ -13,7 +13,7 @@ export interface ChoiceOption {
 
 interface CourseChoiceFieldProps {
 	id: string;
-	name: "format" | "modality" | "evaluationMethod" | "access";
+	name: "format" | "modality" | "evaluationMethod" | "access" | "plan";
 	legend: string;
 	options: readonly ChoiceOption[];
 	required?: boolean;

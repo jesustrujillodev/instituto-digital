@@ -1,6 +1,7 @@
-import { Key } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { Check, Copy, Key } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { sileo } from "sileo";
 import { generateSecurePassword } from "@/lib/password-generator";
 import { cn } from "@/lib/utils";
 import { Input, type InputProps } from "../ui/input";
@@ -15,8 +16,12 @@ interface Props extends InputProps {
 	forgetPassword?: boolean;
 	helperText?: string;
 	showGenerator?: boolean;
+	/** Por defecto acompaña al generador: donde se crea una contraseña, se comparte. */
+	showCopy?: boolean;
 	onGenerate?: (password: string) => void;
 }
+
+const COPIED_MS = 2000;
 
 export function PasswordInput({
 	label,
@@ -26,6 +31,7 @@ export function PasswordInput({
 	forgetPassword,
 	helperText,
 	showGenerator = false,
+	showCopy = showGenerator,
 	onGenerate,
 	className,
 	ref,
@@ -34,6 +40,29 @@ export function PasswordInput({
 	const [showPassword, setShowPassword] = useState(false);
 	const hasError = Boolean(error);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const [copied, setCopied] = useState(false);
+
+	useEffect(() => {
+		if (!copied) return;
+		const timeout = setTimeout(() => setCopied(false), COPIED_MS);
+		return () => clearTimeout(timeout);
+	}, [copied]);
+
+	// Se lee del input y no de una prop: con register() el campo no es controlado.
+	const handleCopy = async () => {
+		const value = inputRef.current?.value ?? "";
+		if (value === "") {
+			sileo.error({ title: "Escribe o genera una contraseña primero" });
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(value);
+			setCopied(true);
+			sileo.success({ title: "Contraseña copiada" });
+		} catch {
+			sileo.error({ title: "No se pudo copiar la contraseña" });
+		}
+	};
 
 	// El ref se compone en vez de reenviarse: el generador necesita el suyo
 	// propio, y quien consume el componente (p. ej. register() de react-hook-form)
@@ -146,6 +175,7 @@ export function PasswordInput({
 						icon && iconPosition === "start" ? "pl-10" : "",
 						icon && iconPosition === "end" ? "pr-10" : "",
 						"pr-10",
+						showCopy && "pr-18",
 						hasError &&
 							"border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20",
 						className,
@@ -161,6 +191,29 @@ export function PasswordInput({
 					{...props}
 					type={!showPassword ? "password" : "text"}
 				/>
+				{showCopy && (
+					<button
+						type="button"
+						onClick={handleCopy}
+						disabled={props.disabled}
+						aria-label="Copiar contraseña"
+						title="Copiar contraseña"
+						className={cn(
+							"absolute inset-y-0 right-9 flex w-9 items-center justify-center rounded-3xl outline-none transition-colors",
+							"focus-visible:ring-3 focus-visible:ring-ring/30",
+							"disabled:pointer-events-none disabled:opacity-50",
+							hasError
+								? "text-destructive hover:text-destructive/80"
+								: "text-muted-foreground hover:text-foreground",
+						)}
+					>
+						{copied ? (
+							<Check className="size-4" aria-hidden="true" />
+						) : (
+							<Copy className="size-4" aria-hidden="true" />
+						)}
+					</button>
+				)}
 				<PasswordVisibilityToggle
 					visible={showPassword}
 					onToggle={() => setShowPassword(!showPassword)}

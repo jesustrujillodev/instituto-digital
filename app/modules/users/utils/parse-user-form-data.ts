@@ -49,6 +49,17 @@ export interface ParsedUserFormData {
 }
 
 /**
+ * Campos opcionales que se pueden vaciar. En ellos "" sí llega a la regla, que
+ * lo convierte en `null`; descartarlo haría imposible borrarlos al editar.
+ */
+export const CLEARABLE_FIELDS = [
+	"firstName",
+	"lastName",
+	"phone",
+	"jobTitle",
+] as const;
+
+/**
  * Separa el archivo del resto de campos de un envío multipart.
  *
  * Es imprescindible: `Object.fromEntries(formData)` mete el `File` como un campo
@@ -58,6 +69,7 @@ export interface ParsedUserFormData {
  *
  * Los campos vacíos se descartan: un `<input>` sin rellenar manda `""`, y para
  * los campos opcionales del dominio "" no es un valor válido sino su ausencia.
+ * La excepción son los de `CLEARABLE_FIELDS`.
  */
 export function parseUserFormData(formData: FormData): ParsedUserFormData {
 	// Se lee con `get` y no dentro del bucle porque bun-types declara
@@ -82,7 +94,8 @@ export function parseUserFormData(formData: FormData): ParsedUserFormData {
 			continue;
 		}
 
-		if (value === "") continue;
+		if (value === "" && !(CLEARABLE_FIELDS as readonly string[]).includes(key))
+			continue;
 
 		fields[key] = value;
 	}

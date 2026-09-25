@@ -64,7 +64,7 @@ const isKnownError = (error: unknown, code: string) =>
 export const createAnnualPlanRepository = ({
 	prisma,
 }: Dependencies): IAnnualPlanRepository => ({
-	async findPlans(where, { dependencyDocumentId, fiscalYear }) {
+	async findPlans(where, { dependencyDocumentId, fiscalYear, fromYear }) {
 		const plans = await prisma.annualPlan.findMany({
 			where: {
 				AND: [
@@ -73,6 +73,7 @@ export const createAnnualPlanRepository = ({
 						? [{ dependency: { documentId: dependencyDocumentId } }]
 						: []),
 					...(fiscalYear ? [{ fiscalYear }] : []),
+					...(fromYear ? [{ fiscalYear: { gte: fromYear } }] : []),
 				],
 			},
 			orderBy: [{ fiscalYear: "desc" }, { dependency: { name: "asc" } }],

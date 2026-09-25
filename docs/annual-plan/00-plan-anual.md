@@ -60,13 +60,20 @@ El avance es `realizadas / (total − canceladas)` (`planProgressOf`), y es `nul
 La pantalla calcula los mismos permisos por línea (`toPlanLineView.can`) para
 mostrar solo las acciones válidas. El servidor los vuelve a comprobar.
 
-## 5. Crear un curso desde una línea
+## 5. Vincular un curso a una línea
+
+Hay dos caminos, y los dos acaban en `claimPlanLine`:
+
+- **Desde el plan:** "Crear curso" abre el alta con plan y línea ya elegidos.
+- **Desde el wizard:** en el paso General, "Plan anual" ofrece los planes de la
+  organizadora del ejercicio en curso en adelante y, de cada uno, las líneas
+  sin cancelar y sin otro curso activo (`isLineOpenForCourse`). Es opcional.
 
 ```
 Plan → "Crear curso"
   │ /dashboard/cursos/nuevo?linea=<id>
-  ▼ loader: annualPlanService.findLineForCourse → título y modalidad precargados
-Formulario (campo oculto planLine) → POST
+  ▼ loader: annualPlanService.findLineForCourse → título, modalidad y línea precargados
+Paso General (plan y línea) → POST
   ▼ courseService.create, dentro de runInTransaction
   │ annualPlanRepository.lockLineForCourse   FOR UPDATE sobre la línea + relectura
   │ ¿plan de la dependencia organizadora?    si no, COURSE_PLAN_LINE_NOT_FOUND
@@ -74,8 +81,11 @@ Formulario (campo oculto planLine) → POST
   ▼ courseRepository.create({ …, planLineId })
 ```
 
-La edición de un curso no cambia el vínculo, y su ficha enseña "Plan anual ·
-<línea>" con enlace al plan.
+En borrador, `courseService.update` cambia o suelta la línea por el mismo
+camino: ausente conserva, `null` suelta y otra línea se reclama con su fila
+bloqueada. Publicado, el vínculo queda fijo (`COURSE_PLAN_LINE_LOCKED`), y la
+línea de un plan cerrado no se suelta (`assertPlanWritable`). La ficha del
+curso enseña "Plan anual · <línea>" con enlace al plan.
 
 ## 6. Quién hace qué
 
@@ -92,6 +102,9 @@ La edición de un curso no cambia el vínculo, y su ficha enseña "Plan anual ·
 | La línea dice "programada" con el curso ya cancelado | Estado derivado: no hay nada que sincronizar |
 | Dos altas simultáneas ocupan la misma línea | `FOR UPDATE` sobre la línea dentro de la transacción del alta |
 | Se vincula un curso a la línea de otra dependencia enviando el formulario a mano | `claimPlanLine` compara la dependencia del plan con la organizadora |
+| Se vincula a una línea de un plan pasado, cancelada u ocupada | `assertLineAvailableForCourse` dentro de `claimPlanLine` |
+| Se mueve un curso publicado y cambia el avance del plan | `assertPlanLineEditable`: solo en borrador |
+| Se suelta la línea de un plan cerrado | `assertPlanWritable` sobre el plan de la línea actual |
 | Se borra una línea con historial | FK `Restrict` desde `courses` |
 | Se modifica el plan de un año pasado | `assertPlanWritable` en cada escritura |
 | Un titular abre el plan de otra dependencia por URL | `planScopeWhere` dentro del `where`: 404 |

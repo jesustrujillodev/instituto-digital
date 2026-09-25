@@ -6,12 +6,36 @@ import {
 	type SortDirection,
 } from "@/shared/rules/list.rules";
 
+const PHONE_PATTERN = /^\+?[\d\s-]{7,15}$/;
+
+/**
+ * Vacío es "sin valor" y se guarda como `null`. El formulario enseña el campo
+ * entero, así que dejarlo en blanco al editar es borrarlo, no "no tocarlo".
+ */
+const emptyAsNull = v.transform((value: string) =>
+	value === "" ? null : value,
+);
+
 const phone = v.pipe(
 	v.string("El teléfono debe ser texto."),
-	v.regex(
-		/^\+?[\d\s-]{7,15}$/,
+	v.trim(),
+	v.check(
+		(value) => value === "" || PHONE_PATTERN.test(value),
 		"Escribe un teléfono válido, de 7 a 15 dígitos.",
 	),
+	emptyAsNull,
+);
+
+const firstName = v.pipe(
+	v.string("El nombre debe ser texto."),
+	v.trim(),
+	emptyAsNull,
+);
+
+const lastName = v.pipe(
+	v.string("Los apellidos deben ser texto."),
+	v.trim(),
+	emptyAsNull,
 );
 
 // Rol: picklist único compartido — se edita en shared/rules/atoms.rules.ts
@@ -38,6 +62,7 @@ const jobTitle = v.pipe(
 	v.string("El puesto debe ser texto."),
 	v.trim(),
 	v.maxLength(120, "El puesto no puede superar los 120 caracteres."),
+	emptyAsNull,
 );
 
 /**
@@ -131,12 +156,8 @@ export const createUserRule = v.pipe(
 	v.object({
 		email: atoms.email,
 		password: atoms.newPassword, // creación: aplica la política de contraseñas
-		firstName: v.optional(
-			v.pipe(v.string("El nombre debe ser texto."), v.trim()),
-		),
-		lastName: v.optional(
-			v.pipe(v.string("Los apellidos deben ser texto."), v.trim()),
-		),
+		firstName: v.optional(firstName),
+		lastName: v.optional(lastName),
 		phone: v.optional(phone),
 		role: v.optional(role),
 		type: v.optional(
@@ -192,8 +213,8 @@ export const createUserRule = v.pipe(
 export const updateUserRule = v.partial(
 	v.object({
 		email: atoms.email,
-		firstName: v.pipe(v.string("El nombre debe ser texto."), v.trim()),
-		lastName: v.pipe(v.string("Los apellidos deben ser texto."), v.trim()),
+		firstName,
+		lastName,
 		phone,
 		role,
 		employeeNumber,

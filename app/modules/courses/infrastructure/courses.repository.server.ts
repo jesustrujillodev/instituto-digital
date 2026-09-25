@@ -59,7 +59,7 @@ const DETAIL_SELECT = {
 		select: {
 			documentId: true,
 			title: true,
-			plan: { select: { documentId: true } },
+			plan: { select: { documentId: true, fiscalYear: true } },
 		},
 	},
 	publishedAt: true,
@@ -330,7 +330,13 @@ export const createCourseRepository = ({
 			try {
 				const course = await prisma.course.update({
 					where: writeWhere(documentId, scope),
-					data: { ...scalarsOf(data), ...coverOf(data) },
+					data: {
+						...scalarsOf(data),
+						...coverOf(data),
+						...(data.planLineId !== undefined && {
+							planLineId: data.planLineId,
+						}),
+					},
 					select: {
 						id: true,
 						sessions: { select: { id: true, documentId: true } },

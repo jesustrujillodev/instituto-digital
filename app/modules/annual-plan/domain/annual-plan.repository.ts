@@ -11,7 +11,12 @@ export interface IAnnualPlanRepository {
 	/** Del ejercicio más reciente al más antiguo, con sus líneas para el avance. */
 	findPlans(
 		where: PlanScopeWhere,
-		filters: { dependencyDocumentId?: string; fiscalYear?: number },
+		filters: {
+			dependencyDocumentId?: string;
+			fiscalYear?: number;
+			/** Ese ejercicio y los siguientes. */
+			fromYear?: number;
+		},
 	): Promise<StoredPlan[]>;
 	findPlan(
 		documentId: string,

@@ -95,8 +95,6 @@ interface CourseWizardProps {
 	/** El temario, solo cuando el formato lo pide. */
 	content?: CourseContentTree | null;
 	prefill?: CoursePlanPrefill | null;
-	/** Aviso propio de la pantalla, sobre el índice (p. ej. la línea del plan). */
-	notice?: ReactNode;
 	ids: CourseFormIds;
 	/** A dónde lleva salir de la edición. En el alta es siempre la ficha. */
 	exitTo?: string;
@@ -138,7 +136,6 @@ export function CourseWizard({
 	checklist,
 	content,
 	prefill,
-	notice,
 	ids,
 	exitTo,
 	finishTo,
@@ -403,8 +400,6 @@ export function CourseWizard({
 					}
 				/>
 
-				{notice && <div className="mb-4">{notice}</div>}
-
 				<div className="flex flex-col gap-6 lg:gap-8">
 					<CourseWizardStepper
 						hrefOf={hrefOf}
@@ -536,6 +531,8 @@ function StepFields({
 					}
 					cover={cover}
 					documentId={course?.documentId ?? null}
+					plans={options.plans}
+					course={course}
 				/>
 			);
 		case "program":

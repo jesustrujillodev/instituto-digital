@@ -17,6 +17,7 @@ import {
 	CourseNotEditableError,
 	CourseNotFoundError,
 	CourseOrganizerRequiredError,
+	CoursePlanLineLockedError,
 	CourseSessionInvalidRangeError,
 	CourseSessionMissingLinkError,
 	CourseSessionMissingVenueError,
@@ -49,6 +50,7 @@ describe("códigos estables", () => {
 		],
 		[new CourseWithoutSessionsError(), COURSE_ERROR_CODES.WITHOUT_SESSIONS],
 		[new CourseFormatLockedError(), COURSE_ERROR_CODES.FORMAT_LOCKED],
+		[new CoursePlanLineLockedError(), COURSE_ERROR_CODES.PLAN_LINE_LOCKED],
 		[
 			new CourseIncompatibleCompletionRuleError("SELF_PACED", "ATTENDANCE"),
 			COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE,

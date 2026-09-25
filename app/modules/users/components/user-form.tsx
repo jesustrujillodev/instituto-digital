@@ -43,6 +43,7 @@ import {
 	type UserFormValues,
 } from "../utils/build-user-form-defaults";
 import {
+	CLEARABLE_FIELDS,
 	INTENT_FIELD,
 	PHOTO_FIELD,
 	USER_INTENTS,
@@ -72,6 +73,8 @@ interface UserFormProps {
 	 * todos modos, así que ofrecer otra sería ofrecer algo que no ocurre.
 	 */
 	canChooseDependency?: boolean;
+	/** La dependencia ya elegida de quien no la elige: la suya. */
+	defaultDependency?: string | null;
 	/**
 	 * Solo en edición: abre el diálogo de restablecer contraseña. Es otra
 	 * operación con su propio envío, así que el formulario solo ofrece la entrada.
@@ -100,12 +103,16 @@ export function UserForm({
 	assignableRoles,
 	dependencies = [],
 	canChooseDependency = false,
+	defaultDependency,
 	onResetPassword,
 }: UserFormProps) {
 	const isEdit = mode === "edit";
 	const [photo, setPhoto] = useState<File | null>(null);
 
-	const defaultValues = useMemo(() => buildUserFormDefaults(user), [user]);
+	const defaultValues = useMemo(
+		() => buildUserFormDefaults(user, defaultDependency ?? undefined),
+		[user, defaultDependency],
+	);
 
 	// El cast es la única forma de expresar "resolver de un esquema que valida un
 	// SUBCONJUNTO de los valores del formulario": updateUserRule los declara todos
@@ -155,15 +162,20 @@ export function UserForm({
 		}
 	}, [fetcher.data, setError]);
 
-	const [watchedFirstName, watchedLastName] = useWatch({
+	const [watchedFirstName, watchedLastName, watchedRole] = useWatch({
 		control,
-		name: ["firstName", "lastName"],
+		name: ["firstName", "lastName", "role"],
 	});
 
 	const onSubmit = (values: UserFormValues) => {
 		fetcher.submit(
 			toFormData({
 				...values,
+				// La regla convierte estos campos vacíos en `null`, y `toFormData`
+				// omite los `null`: viajan como "" para poder borrarlos al editar.
+				...Object.fromEntries(
+					CLEARABLE_FIELDS.map((field) => [field, values[field] ?? ""]),
+				),
 				[PHOTO_FIELD]: photo,
 				[INTENT_FIELD]: isEdit ? USER_INTENTS.update : USER_INTENTS.create,
 			}),
@@ -283,7 +295,13 @@ export function UserForm({
 										name="dependency"
 										render={({ field, fieldState }) => (
 											<div className="grid w-full gap-1.5">
-												<Label htmlFor={ids.dependency}>Dependencia</Label>
+												<Label htmlFor={ids.dependency}>
+													Dependencia
+													{/* El superadministrador es el único interno sin dependencia. */}
+													{watchedRole !== "SUPERADMIN" && (
+														<span className="text-destructive">*</span>
+													)}
+												</Label>
 												<Select
 													value={field.value}
 													onValueChange={field.onChange}
@@ -349,7 +367,9 @@ export function UserForm({
 									name="role"
 									render={({ field, fieldState }) => (
 										<div className="grid w-full gap-1.5">
-											<Label htmlFor={ids.role}>Rol</Label>
+											<Label htmlFor={ids.role}>
+												Rol<span className="text-destructive">*</span>
+											</Label>
 											<Select
 												value={field.value}
 												onValueChange={field.onChange}

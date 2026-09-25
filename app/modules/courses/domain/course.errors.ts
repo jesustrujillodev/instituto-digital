@@ -33,6 +33,7 @@ export const COURSE_ERROR_CODES = {
 	UNKNOWN_AUDIENCE: "COURSE_UNKNOWN_AUDIENCE",
 	CAPACITY_BELOW_ENROLLED: "COURSE_CAPACITY_BELOW_ENROLLED",
 	PLAN_LINE_NOT_FOUND: "COURSE_PLAN_LINE_NOT_FOUND",
+	PLAN_LINE_LOCKED: "COURSE_PLAN_LINE_LOCKED",
 	COVER_INVALID: "COURSE_COVER_INVALID",
 } as const;
 
@@ -272,6 +273,17 @@ export class CoursePlanLineNotFoundError extends CourseError {
 	readonly code = COURSE_ERROR_CODES.PLAN_LINE_NOT_FOUND;
 	constructor() {
 		super("Plan line not found for this organizer");
+	}
+}
+
+/**
+ * Publicado, el curso ya cuenta en su línea como programado o realizado:
+ * moverlo cambiaría el avance de un plan a espaldas de quien lo lleva.
+ */
+export class CoursePlanLineLockedError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.PLAN_LINE_LOCKED;
+	constructor() {
+		super("The plan line can only change while the course is a draft");
 	}
 }
 

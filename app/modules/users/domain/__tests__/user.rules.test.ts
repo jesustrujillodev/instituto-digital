@@ -241,6 +241,13 @@ describe("createUserRule", () => {
 		).toBe(false);
 	});
 
+	// El formulario manda "" cuando el campo queda vacío.
+	test("el teléfono vacío es opcional y se guarda como null", () => {
+		const result = v.safeParse(createUserRule, { ...valid, phone: "" });
+
+		expect(result.success && result.output.phone).toBeNull();
+	});
+
 	test("rechaza un alta sin correo o sin contraseña", () => {
 		expect(
 			v.safeParse(createUserRule, { email: "ana@empresa.com" }).success,
@@ -270,6 +277,22 @@ describe("updateUserRule", () => {
 		const result = v.safeParse(updateUserRule, { password: "contrasena1" });
 
 		expect(result.success && "password" in result.output).toBe(false);
+	});
+
+	test("vaciar un campo opcional lo borra", () => {
+		const result = v.safeParse(updateUserRule, {
+			firstName: "  ",
+			lastName: "",
+			phone: "",
+			jobTitle: "",
+		});
+
+		expect(result.success && result.output).toEqual({
+			firstName: null,
+			lastName: null,
+			phone: null,
+			jobTitle: null,
+		});
 	});
 
 	test("sigue validando el formato de lo que sí manda", () => {
