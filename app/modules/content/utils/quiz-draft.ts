@@ -1,4 +1,5 @@
 import {
+	QUIZ_ATTEMPTS_RANGE,
 	QUIZ_DEFAULT_PASSING_SCORE,
 	QUIZ_OPTION_MAX_LENGTH,
 	QUIZ_POINTS_RANGE,
@@ -9,6 +10,7 @@ import {
 import {
 	FINAL_QUIZ_OWNER,
 	pointsToPass,
+	type QuizKind,
 	type QuizQuestionType,
 } from "../domain/quiz.rules";
 import type { QuizBank, QuizOwnerRef } from "../domain/quiz.types";
@@ -32,6 +34,8 @@ export interface QuizDraft {
 	title: string;
 	/** `NaN` mientras el campo está vacío. */
 	passingScore: number;
+	/** `null`: sin límite; `NaN` mientras el campo está vacío. */
+	maxAttempts: number | null;
 	shuffleQuestions: boolean;
 	questions: DraftQuestion[];
 }
@@ -59,12 +63,21 @@ export const emptyQuestion = (): DraftQuestion => ({
 	options: emptyOptions(),
 });
 
+/** La práctica nace sin límite, como siempre fue; el examen y el módulo, con uno. */
+const DEFAULT_MAX_ATTEMPTS: Record<QuizKind, number | null> = {
+	FINAL: 1,
+	MODULE: 1,
+	PRACTICE: null,
+};
+
 export const toQuizDraft = (
 	bank: QuizBank | null,
 	defaultTitle: string,
+	kind: QuizKind,
 ): QuizDraft => ({
 	title: bank?.title ?? defaultTitle,
 	passingScore: bank?.passingScore ?? QUIZ_DEFAULT_PASSING_SCORE,
+	maxAttempts: bank ? bank.maxAttempts : DEFAULT_MAX_ATTEMPTS[kind],
 	shuffleQuestions: bank?.shuffleQuestions ?? false,
 	questions: (bank?.questions ?? []).map((question) => ({
 		key: question.documentId,
@@ -83,6 +96,7 @@ export const quizPayloadOf = (draft: QuizDraft, owner: QuizOwnerRef) => ({
 	...owner,
 	title: draft.title,
 	passingScore: draft.passingScore,
+	maxAttempts: draft.maxAttempts,
 	shuffleQuestions: draft.shuffleQuestions,
 	questions: draft.questions.map((question) => ({
 		statement: question.statement,
@@ -152,6 +166,18 @@ export const quizProblemsOf = (draft: QuizDraft): string[] => {
 	if (!inRange(draft.passingScore, 0, 100)) {
 		problems.push("El porcentaje para aprobar es un entero de 0 a 100.");
 	}
+	if (
+		draft.maxAttempts !== null &&
+		!inRange(
+			draft.maxAttempts,
+			QUIZ_ATTEMPTS_RANGE.min,
+			QUIZ_ATTEMPTS_RANGE.max,
+		)
+	) {
+		problems.push(
+			`Los intentos son un entero de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
+		);
+	}
 	if (draft.questions.length === 0) {
 		problems.push("Agrega al menos una pregunta.");
 	}
@@ -165,7 +191,17 @@ export const quizProblemsOf = (draft: QuizDraft): string[] => {
 	return problems;
 };
 
-/** "5 preguntas · 5 puntos · se aprueba con 4", o `null` sin nada que contar. */
+/** Cómo se dice el tope de intentos: "1 intento", "3 intentos", "intentos sin límite". */
+export const attemptsLabel = (maxAttempts: number | null): string | null => {
+	if (maxAttempts === null) return "intentos sin límite";
+	if (!Number.isInteger(maxAttempts)) return null;
+	return maxAttempts === 1 ? "1 intento" : `${maxAttempts} intentos`;
+};
+
+/**
+ * "5 preguntas · 5 puntos · se aprueba con 4 · 2 intentos", o `null` sin nada
+ * que contar.
+ */
 export const quizSummaryOf = (draft: QuizDraft): string | null => {
 	if (draft.questions.length === 0) return null;
 
@@ -183,6 +219,8 @@ export const quizSummaryOf = (draft: QuizDraft): string | null => {
 	if (total > 0 && inRange(draft.passingScore, 0, 100)) {
 		parts.push(`se aprueba con ${pointsToPass(total, draft.passingScore)}`);
 	}
+	const attempts = attemptsLabel(draft.maxAttempts);
+	if (attempts) parts.push(attempts);
 
 	return parts.join(" · ");
 };

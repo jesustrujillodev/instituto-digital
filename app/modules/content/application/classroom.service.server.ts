@@ -35,7 +35,7 @@ import {
 	toLessonMaterial,
 } from "../domain/content.mapper";
 import type { ContentLesson, ContentModuleQuiz } from "../domain/content.types";
-import { quizAvailabilityOf } from "../domain/quiz.rules";
+import { attemptsLeftOf, quizAvailabilityOf } from "../domain/quiz.rules";
 
 type Dependencies = {
 	classroomRepository: ICradle["classroomRepository"];
@@ -74,13 +74,13 @@ export const createClassroomService = ({
 
 	/**
 	 * El temario con el estado de cada lección y de cada evaluación de módulo
-	 * para quien lo recorre. `done` junta lo completado y lo aprobado.
+	 * para quien lo recorre. `done` junta lo completado y lo presentado.
 	 */
 	const readProgress = async (course: ClassroomCourse, userId: number) => {
 		const [rows, progress, attempts] = await Promise.all([
 			contentRepository.findTree(course.id),
 			classroomRepository.findProgress(course.id, userId),
-			quizRepository.findLatestModuleAttempts(course.id, userId),
+			quizRepository.findLatestAttempts(course.id, userId),
 		]);
 		const tree = toCourseContentTree(rows);
 		const statusOf = new Map<string, LessonProgressStatus>(
@@ -93,9 +93,7 @@ export const createClassroomService = ({
 			...progress
 				.filter((row) => row.status === "COMPLETED")
 				.map((row) => row.lessonDocumentId),
-			...attempts
-				.filter((attempt) => attempt.passed)
-				.map((attempt) => attempt.quizDocumentId),
+			...attempts.map((attempt) => attempt.quizDocumentId),
 		]);
 		const withStatus = (lesson: ContentLesson): ClassroomLesson => ({
 			...lesson,
@@ -106,13 +104,19 @@ export const createClassroomService = ({
 		): ClassroomQuizStatus | null => {
 			if (!quiz || quiz.questionCount === 0) return null;
 
-			const attempt = attemptOf.get(quiz.documentId);
+			const attempt = attemptOf.get(quiz.documentId) ?? null;
 			return {
 				title: quiz.title,
-				availability:
-					attempt && !attempt.retakeGrantedAt ? "TAKEN" : "AVAILABLE",
+				availability: quizAvailabilityOf(
+					course,
+					course.enrollment,
+					attempt,
+					"MODULE",
+					quiz.maxAttempts,
+				),
 				score: attempt?.score ?? null,
 				passed: attempt?.passed ?? null,
+				attemptsLeft: attemptsLeftOf(quiz.maxAttempts, attempt),
 			};
 		};
 
@@ -134,12 +138,14 @@ export const createClassroomService = ({
 			title: quiz.title,
 			availability: quizAvailabilityOf(
 				course,
-				course.enrollment?.contentCompletedAt ?? null,
+				course.enrollment,
 				attempt,
-				true,
+				"FINAL",
+				quiz.maxAttempts,
 			),
 			score: attempt?.score ?? null,
 			passed: attempt?.passed ?? null,
+			attemptsLeft: attemptsLeftOf(quiz.maxAttempts, attempt),
 		};
 	};
 
@@ -334,14 +340,14 @@ export const createClassroomService = ({
 
 				const summaries = await Promise.all(
 					courses.map(async (course) => {
-						const [rows, completed, passed] = await Promise.all([
+						const [rows, completed, presented] = await Promise.all([
 							contentRepository.findTree(course.id),
 							classroomRepository.findCompletedLessons(course.id, userIds),
-							quizRepository.findPassedModuleQuizzes(course.id, userIds),
+							quizRepository.findBestScores(course.id, userIds),
 						]);
 						const done = new Set([
 							...completed.map((row) => row.lessonDocumentId),
-							...passed.map((row) => row.quizDocumentId),
+							...presented.map((row) => row.itemDocumentId),
 						]);
 
 						return {

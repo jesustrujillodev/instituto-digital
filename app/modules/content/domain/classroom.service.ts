@@ -1,9 +1,5 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
-	CourseFormat,
-	CourseStatus,
-} from "@/modules/courses/domain/course.rules";
-import type {
 	ClassroomCoursesResponse,
 	ClassroomLessonResponse,
 	ClassroomModuleQuizResponse,
@@ -13,7 +9,7 @@ import type {
 	ProgressState,
 	RecordProgressDto,
 } from "./classroom.types";
-import type { LessonMaterial } from "./content.types";
+import type { ContentCourseRef, LessonMaterial } from "./content.types";
 
 /** El aula del participante: recorrer el temario y registrar su avance. */
 export interface IClassroomService {
@@ -56,13 +52,14 @@ export interface ILessonMaterialReader {
  * La única vía que escribe el caché del avance (docs/adr/0014).
  *
  * Recalcula el porcentaje de las inscripciones activas, fija
- * `contentCompletedAt` a quien acaba de terminar y, si el curso completa en
- * vivo, recalcula el completado y los créditos. Se llama dentro de la
+ * `contentCompletedAt` a quien acaba de terminar, califica con el promedio a
+ * quien terminó y todavía no acredita y, si el curso completa en vivo,
+ * recalcula el completado y los créditos. Se llama dentro de la
  * transacción de quien escribe.
  */
 export interface IProgressSync {
 	recalculate(
-		course: { id: number; status: CourseStatus; format: CourseFormat },
+		course: ContentCourseRef,
 		actorId: number,
 		at: Date,
 		userIds?: readonly number[],

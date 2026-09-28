@@ -9,9 +9,14 @@ const requestOf = (query = "") =>
 	new Request(`https://app.example.com/usuarios${query}`);
 
 const createHarness = (
-	options: { role?: Role | null; listFails?: string } = {},
+	options: {
+		role?: Role | null;
+		listFails?: string;
+		profilesFail?: string;
+		users?: unknown[];
+	} = {},
 ) => {
-	const calls = { filters: [] as unknown[] };
+	const calls = { filters: [] as unknown[], profileLookups: [] as unknown[] };
 
 	const context = {
 		authPayload:
@@ -46,10 +51,27 @@ const createHarness = (
 				}
 				return {
 					success: true as const,
-					data: [],
+					data: options.users ?? [],
 					pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 },
 					timestamp: new Date().toISOString(),
 				};
+			},
+		},
+		// El perfil de capacitador completa las filas de la página.
+		trainerService: {
+			listByUsers: async (ids: readonly string[]) => {
+				calls.profileLookups.push(ids);
+				return options.profilesFail
+					? {
+							success: false as const,
+							error: { code: options.profilesFail, message: "técnico" },
+							timestamp: new Date().toISOString(),
+						}
+					: {
+							success: true as const,
+							data: [],
+							timestamp: new Date().toISOString(),
+						};
 			},
 		},
 	} as unknown as LoaderArgs["context"];
@@ -198,5 +220,64 @@ describe("usuarios loader — respuesta", () => {
 
 		expect(thrown.init.status).toBe(500);
 		expect(thrown.data.message).not.toBe("técnico");
+	});
+});
+
+describe("usuarios loader — perfil de capacitador", () => {
+	const ACCOUNT = {
+		id: 1,
+		documentId: "22222222-2222-4222-8222-222222222222",
+		email: "luis@universidad.mx",
+		firstName: "Luis",
+		lastName: "Mora",
+		role: "USER",
+		phone: null,
+		photoUrl: null,
+		type: "EXTERNAL",
+		employeeNumber: null,
+		jobTitle: null,
+		dependencyId: null,
+		isTrainer: true,
+		archivedAt: null,
+		createdAt: new Date(0),
+		updatedAt: new Date(0),
+	};
+
+	// Solo las cuentas de la página, que ya pasaron por el alcance.
+	test("pide los perfiles de las cuentas de la página", async () => {
+		const { context, calls } = createHarness({ users: [ACCOUNT] });
+
+		await run(requestOf(), context);
+
+		expect(calls.profileLookups).toEqual([[ACCOUNT.documentId]]);
+	});
+
+	test("cada fila llega con su perfil y sus permisos decididos", async () => {
+		const { context } = createHarness({ users: [ACCOUNT] });
+
+		const result = await run(requestOf(), context);
+
+		expect(result.data.users[0]).toMatchObject({
+			trainerProfile: null,
+			canManage: true,
+			canManageTrainer: true,
+		});
+	});
+
+	test("un fallo al cargar perfiles corta sin exponer su mensaje", async () => {
+		const { context } = createHarness({ profilesFail: "UNEXPECTED_ERROR" });
+
+		const thrown = await run(requestOf(), context).catch((e) => e);
+
+		expect(thrown.init.status).toBe(500);
+		expect(thrown.data.message).not.toBe("técnico");
+	});
+
+	test("lee el filtro de capacitadores externos de la URL", async () => {
+		const { context, calls } = createHarness();
+
+		await run(requestOf("?type=EXTERNAL"), context);
+
+		expect(calls.filters[0]).toMatchObject({ type: "EXTERNAL" });
 	});
 });

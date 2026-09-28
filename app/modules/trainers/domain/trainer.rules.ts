@@ -1,11 +1,6 @@
 import * as v from "valibot";
 import { USER_TYPES } from "@/modules/users/domain/user.rules";
 import { atoms } from "@/shared/rules/atoms.rules";
-import {
-	createListRule,
-	SORT_DIRECTIONS,
-	type SortDirection,
-} from "@/shared/rules/list.rules";
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
@@ -70,8 +65,9 @@ export const trainerProfileSchema = v.object({
 });
 
 /**
- * Fila del catálogo. Proyección corta a propósito: el catálogo es la única
- * lista del sistema sin recorte por dependencia.
+ * Capacitador en una lista para elegir. Es la única proyección de personas que
+ * no se recorta por dependencia: cualquier titular asigna a cualquier
+ * capacitador activo (§4).
  */
 export const trainerSummarySchema = v.object({
 	userDocumentId: v.string(),
@@ -97,32 +93,6 @@ export const trainerDetailSchema = v.object({
 	averageRating: v.nullable(v.number()),
 });
 
-/** Estados por los que se puede filtrar el catálogo. Sin valor ⇒ "active". */
-export const TRAINER_STATUSES = ["active", "archived", "all"] as const;
-export type TrainerStatusFilter = (typeof TRAINER_STATUSES)[number];
-
-/**
- * Columnas ordenables. Es una allowlist: el valor llega del query string y
- * termina en un `orderBy`.
- */
-export const TRAINER_SORT_FIELDS = [
-	"firstName",
-	"lastName",
-	"email",
-	"specialty",
-	"createdAt",
-] as const;
-export type TrainerSortField = (typeof TRAINER_SORT_FIELDS)[number];
-
-/** Campos que se ordenan por la cuenta y no por el perfil. */
-export const TRAINER_USER_SORT_FIELDS: readonly TrainerSortField[] = [
-	"firstName",
-	"lastName",
-	"email",
-];
-
-export { SORT_DIRECTIONS, type SortDirection };
-
 // ── Reglas de entrada ─────────────────────────────────────────────────────────
 
 /** Activación sobre una cuenta interna que ya existe. */
@@ -132,13 +102,29 @@ export const activateProfileRule = v.object({
 	bio: v.optional(bio),
 });
 
+/** La semblanza admite `null`: vaciarla es un cambio, no la ausencia del campo. */
 export const updateProfileRule = v.partial(
 	v.object({
 		specialty,
 		institution,
-		bio,
+		bio: v.nullable(bio),
 	}),
 );
+
+/**
+ * Lo que se captura del perfil en el diálogo, sin la cuenta: la validación del
+ * cliente. El servidor vuelve a validar con la regla de su intención.
+ */
+export const profileFieldsRule = v.object({
+	specialty,
+	bio: v.optional(bio),
+});
+
+/** Lo mismo para un externo, que además declara su institución. */
+export const externalProfileFieldsRule = v.object({
+	...profileFieldsRule.entries,
+	institution,
+});
 
 /**
  * Alta de capacitador externo: crea la cuenta y el perfil a la vez.
@@ -160,28 +146,9 @@ export const createExternalTrainerRule = v.object({
 
 export const findTrainerRule = v.object({ userDocumentId: documentId });
 
-export const listTrainersRule = createListRule({
-	type: v.optional(v.picklist(USER_TYPES, "El tipo de cuenta no es válido.")),
-	specialty: v.optional(
-		v.pipe(
-			v.string("La especialidad debe ser texto."),
-			v.trim(),
-			v.maxLength(120, "La especialidad no puede superar los 120 caracteres."),
-		),
-	),
-	status: v.optional(v.picklist(TRAINER_STATUSES, "El estado no es válido.")),
-	sortBy: v.optional(
-		v.picklist(TRAINER_SORT_FIELDS, "No se puede ordenar por ese campo."),
-	),
-	sortDir: v.optional(
-		v.picklist(SORT_DIRECTIONS, "El sentido de ordenación no es válido."),
-	),
-});
-
 export const trainerRules = {
 	activate: activateProfileRule,
 	update: updateProfileRule,
 	createExternal: createExternalTrainerRule,
 	find: findTrainerRule,
-	list: listTrainersRule,
 } as const;

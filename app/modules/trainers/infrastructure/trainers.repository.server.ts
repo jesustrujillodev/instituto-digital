@@ -1,20 +1,19 @@
 import { Prisma } from "@prisma/client";
 import type { ICradle } from "@/shared/di/container.types";
-import { TRAINER_LIST_DEFAULTS } from "../domain/trainer.config";
 import {
 	DuplicateTrainerEmailError,
 	TrainerProfileAlreadyExistsError,
 	TrainerProfileNotFoundError,
 } from "../domain/trainer.errors";
-import { toDetail, toSummary } from "../domain/trainer.mapper";
-import type { ITrainerRepository } from "../domain/trainer.repository";
 import {
-	TRAINER_USER_SORT_FIELDS,
-	type TrainerSortField,
-} from "../domain/trainer.rules";
+	EMPTY_STATS,
+	toDetail,
+	toStatsByUser,
+	toSummary,
+} from "../domain/trainer.mapper";
+import type { ITrainerRepository } from "../domain/trainer.repository";
 import type {
 	CreateProfileData,
-	ListTrainersDto,
 	TrainerStats,
 	UpdateProfileDto,
 } from "../domain/trainer.types";
@@ -22,10 +21,6 @@ import type {
 type Dependencies = {
 	prisma: ICradle["prisma"];
 };
-
-// Campos de la CUENTA sobre los que aplica la búsqueda libre, sin distinguir
-// mayúsculas.
-const SEARCHABLE_FIELDS = ["firstName", "lastName", "email"] as const;
 
 const SUMMARY_SELECT = {
 	specialty: true,
@@ -75,50 +70,6 @@ const translatePrismaError = (error: unknown): never => {
 	throw error;
 };
 
-const toFilters = (dto: ListTrainersDto) => {
-	// Sin `status` explícito se listan solo los perfiles activos: es lo que
-	// espera quien abre el catálogo para asignar a alguien.
-	const archivedFilter =
-		dto.status === "all"
-			? {}
-			: dto.status === "archived"
-				? { archivedAt: { not: null } }
-				: { archivedAt: null };
-
-	// El tipo y la búsqueda libre viven los dos en la cuenta, así que se funden
-	// en un solo filtro: dos claves `user` se pisarían.
-	const userFilter = {
-		...(dto.type && { type: dto.type }),
-		...(dto.search && {
-			OR: SEARCHABLE_FIELDS.map((field) => ({
-				[field]: { contains: dto.search, mode: Prisma.QueryMode.insensitive },
-			})),
-		}),
-	};
-
-	return {
-		...archivedFilter,
-		...(dto.specialty && {
-			specialty: {
-				contains: dto.specialty,
-				mode: Prisma.QueryMode.insensitive,
-			},
-		}),
-		...(Object.keys(userFilter).length > 0 ? { user: userFilter } : {}),
-	};
-};
-
-// El campo ya viene restringido por la allowlist de listTrainersRule; aquí solo
-// se decide si ordena por el perfil o por la cuenta.
-const toOrderBy = (dto: ListTrainersDto) => {
-	const field: TrainerSortField = dto.sortBy ?? "firstName";
-	const direction = dto.sortDir ?? "asc";
-
-	return TRAINER_USER_SORT_FIELDS.includes(field)
-		? { user: { [field]: direction } }
-		: { [field]: direction };
-};
-
 export const createTrainerRepository = ({
 	prisma,
 }: Dependencies): ITrainerRepository => {
@@ -148,23 +99,6 @@ export const createTrainerRepository = ({
 	) => toDetail(profile, await statsOf(profile.userId));
 
 	return {
-		async findAll(filters: ListTrainersDto) {
-			const page = filters.page ?? TRAINER_LIST_DEFAULTS.page;
-			const pageSize = filters.pageSize ?? TRAINER_LIST_DEFAULTS.pageSize;
-
-			const profiles = await prisma.trainerProfile.findMany({
-				where: toFilters(filters),
-				orderBy: toOrderBy(filters),
-				skip: (page - 1) * pageSize,
-				take: pageSize,
-				select: SUMMARY_SELECT,
-			});
-
-			return profiles.map(toSummary);
-		},
-		async count(filters: ListTrainersDto) {
-			return prisma.trainerProfile.count({ where: toFilters(filters) });
-		},
 		async findActive() {
 			// Activo es el perfil sin archivar Y la cuenta sin archivar: un
 			// capacitador dado de baja no puede aparecer en el selector de un curso.
@@ -176,12 +110,48 @@ export const createTrainerRepository = ({
 
 			return profiles.map(toSummary);
 		},
-		async findByUserDocumentId(userDocumentId: string) {
-			const profile = await prisma.trainerProfile.findFirst({
-				where: { user: { documentId: userDocumentId } },
+		async findByUserDocumentIds(userDocumentIds: readonly string[]) {
+			if (userDocumentIds.length === 0) return [];
+
+			const profiles = await prisma.trainerProfile.findMany({
+				where: { user: { documentId: { in: [...userDocumentIds] } } },
 				select: DETAIL_SELECT,
 			});
-			return profile ? detailOf(profile) : null;
+			if (profiles.length === 0) return [];
+
+			// Dos consultas para toda la página y no dos por persona: la media se
+			// rehace desde sumas y conteos por curso, que es lo que `statsOf`
+			// promedia rating a rating.
+			const assignments = await prisma.courseTrainer.findMany({
+				where: {
+					userId: { in: profiles.map((profile) => profile.userId) },
+					course: { status: "FINISHED" },
+				},
+				select: { userId: true, courseId: true },
+			});
+			const courseIds = [...new Set(assignments.map((row) => row.courseId))];
+			const ratings =
+				courseIds.length === 0
+					? []
+					: await prisma.courseRating.groupBy({
+							by: ["courseId"],
+							where: { courseId: { in: courseIds } },
+							_sum: { score: true },
+							_count: { _all: true },
+						});
+
+			const stats = toStatsByUser(
+				assignments,
+				ratings.map((row) => ({
+					courseId: row.courseId,
+					scoreSum: row._sum.score ?? 0,
+					count: row._count._all,
+				})),
+			);
+
+			return profiles.map((profile) =>
+				toDetail(profile, stats.get(profile.userId) ?? EMPTY_STATS),
+			);
 		},
 		async existsForUser(userId: number) {
 			// Cuenta también los archivados: un perfil desactivado se reactiva, no se

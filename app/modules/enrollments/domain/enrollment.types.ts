@@ -265,6 +265,9 @@ export interface ProgressState {
 	userId: number;
 	progressPercent: number;
 	contentCompletedAt: Date | null;
+	result: EnrollmentResult;
+	grade: number | null;
+	completed: boolean;
 }
 
 /** `completedAt` solo se escribe si la inscripción todavía no lo tenía. */

@@ -175,7 +175,13 @@ export const createCertificateRepository = ({
 					publishedDesign: asJson(design),
 					publishedAt: at,
 				},
-				update: { publishedDesign: asJson(design), publishedAt: at },
+				// El borrador se iguala al publicado: publicar es "esto es lo oficial", y
+				// dejar atrás un borrador distinto pintaría "cambios sin publicar" al volver.
+				update: {
+					draftDesign: asJson(design),
+					publishedDesign: asJson(design),
+					publishedAt: at,
+				},
 			});
 		},
 

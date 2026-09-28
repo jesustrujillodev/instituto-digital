@@ -12,5 +12,3 @@ export const validateCreateExternalTrainer = (data: unknown) =>
 	v.parse(trainerRules.createExternal, data);
 export const validateFindTrainer = (data: unknown) =>
 	v.parse(trainerRules.find, data);
-export const validateListTrainers = (data: unknown) =>
-	v.parse(trainerRules.list, data);

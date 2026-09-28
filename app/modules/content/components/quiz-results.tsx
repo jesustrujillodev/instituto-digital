@@ -3,7 +3,12 @@ import { useFetcher } from "react-router";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
-import type { ModuleQuizBoard } from "../domain/quiz.types";
+import { canGrantRetakeOn } from "../domain/quiz.rules";
+import type {
+	QuizAttemptRow,
+	QuizBoard,
+	QuizBoardEntry,
+} from "../domain/quiz.types";
 import {
 	CONTENT_INTENTS,
 	type ContentActionData,
@@ -12,20 +17,31 @@ import {
 	retakePath,
 } from "../utils/content-form";
 
+const labelOf = (quiz: QuizBoardEntry) =>
+	quiz.kind === "FINAL" ? "Examen final" : (quiz.ownerTitle ?? quiz.title);
+
+const attemptLabel = (attempt: QuizAttemptRow) =>
+	attempt.maxAttempts === null
+		? `intento ${attempt.number}`
+		: `intento ${attempt.number} de ${attempt.maxAttempts}`;
+
 /**
- * Cómo le fue a una persona en cada evaluación de módulo, con el botón para
- * habilitarle otro intento cuando reprobó el último (docs/adr/0016).
+ * Cómo le fue a una persona en cada cuestionario del curso, con el botón para
+ * habilitarle otro intento cuando reprobó el último y agotó los suyos, mientras
+ * no haya acreditado (docs/adr/0016, 0024).
  */
-export function ModuleQuizResults({
+export function QuizResults({
 	courseDocumentId,
 	board,
 	userDocumentId,
 	personName,
+	accredited,
 }: {
 	courseDocumentId: string;
-	board: ModuleQuizBoard;
+	board: QuizBoard;
 	userDocumentId: string;
 	personName: string;
+	accredited: boolean;
 }) {
 	const fetcher = useFetcher<ContentActionData>();
 	useFetcherToast(fetcher);
@@ -37,11 +53,11 @@ export function ModuleQuizResults({
 			.map((attempt) => [attempt.quizDocumentId, attempt]),
 	);
 
-	const grantRetake = (moduleDocumentId: string) =>
+	const grantRetake = (quiz: QuizBoardEntry) =>
 		fetcher.submit(
 			{
 				[INTENT_FIELD]: CONTENT_INTENTS.grantRetake,
-				[PAYLOAD_FIELD]: JSON.stringify({ moduleDocumentId, userDocumentId }),
+				[PAYLOAD_FIELD]: JSON.stringify({ ...quiz.owner, userDocumentId }),
 			},
 			{ method: "post", action: retakePath(courseDocumentId) },
 		);
@@ -52,16 +68,15 @@ export function ModuleQuizResults({
 				const attempt = attemptOf.get(quiz.quizDocumentId);
 				const retakeable =
 					board.canGrantRetake &&
-					attempt !== undefined &&
-					!attempt.passed &&
-					attempt.retakeGrantedAt === null;
+					!accredited &&
+					canGrantRetakeOn(attempt ?? null, quiz.maxAttempts);
 
 				return (
 					<li
 						key={quiz.quizDocumentId}
 						className="flex items-center gap-1.5 text-xs"
 					>
-						<span className="text-muted-foreground">{quiz.moduleTitle}:</span>
+						<span className="text-muted-foreground">{labelOf(quiz)}:</span>
 						{!attempt ? (
 							<Badge variant="outline">Sin presentar</Badge>
 						) : attempt.retakeGrantedAt ? (
@@ -70,8 +85,8 @@ export function ModuleQuizResults({
 							</Badge>
 						) : (
 							<Badge variant={attempt.passed ? "default" : "destructive"}>
-								{attempt.score} · {attempt.passed ? "aprobada" : "no aprobada"}
-								{attempt.number > 1 && ` · intento ${attempt.number}`}
+								{attempt.score} · {attempt.passed ? "aprobada" : "no aprobada"}{" "}
+								· {attemptLabel(attempt)}
 							</Badge>
 						)}
 						{retakeable && (
@@ -82,7 +97,7 @@ export function ModuleQuizResults({
 								className="h-6 px-2 text-xs"
 								disabled={busy}
 								aria-label={`Habilitar otro intento de ${quiz.title} a ${personName}`}
-								onClick={() => grantRetake(quiz.moduleDocumentId)}
+								onClick={() => grantRetake(quiz)}
 							>
 								<RotateCcw aria-hidden="true" />
 								Otro intento

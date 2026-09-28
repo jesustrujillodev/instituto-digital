@@ -5,7 +5,6 @@ import type {
 	activateProfileRule,
 	createExternalTrainerRule,
 	findTrainerRule,
-	listTrainersRule,
 	updateProfileRule,
 } from "./trainer.rules";
 import { trainerDetailSchema, trainerSummarySchema } from "./trainer.rules";
@@ -23,7 +22,6 @@ export type CreateExternalTrainerDto = v.InferInput<
 	typeof createExternalTrainerRule
 >;
 export type FindTrainerDto = v.InferInput<typeof findTrainerRule>;
-export type ListTrainersDto = v.InferInput<typeof listTrainersRule>;
 
 /**
  * Lo que el repositorio ESCRIBE al crear un perfil. El `userId` interno ya está
@@ -41,10 +39,10 @@ export interface CreateProfileData {
 // ===============================================================
 
 export type TrainerResponse = AppResponse<TrainerDetail>;
-export type TrainerListResponse = AppResponse<TrainerSummary[]>;
+export type TrainerListResponse = AppResponse<TrainerDetail[]>;
 
 export const trainerResponseSchema = createResponseSchema(trainerDetailSchema);
 
 export const trainerListResponseSchema = createResponseSchema(
-	v.array(trainerSummarySchema),
+	v.array(trainerDetailSchema),
 );

@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { TextInput } from "@/shared/components/common/text-input";
-import { requiresSessions } from "../domain/course.rules";
+import { gradesAutomatically, requiresSessions } from "../domain/course.rules";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { EVALUATION_METHOD_LABELS } from "../utils/course-labels";
@@ -15,7 +15,8 @@ const methodOptions = (scheduled: boolean): ChoiceOption[] => [
 	{
 		value: "QUIZ",
 		label: EVALUATION_METHOD_LABELS.QUIZ,
-		description: "Un intento. La calificación se asigna sola.",
+		description:
+			"La calificación se asigna sola. Los intentos se definen en el examen.",
 	},
 	{
 		value: "MANUAL",
@@ -63,12 +64,20 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	const evaluationMethod = useWatch<CourseFormValues, "evaluationMethod">({
 		name: "evaluationMethod",
 	});
+	const completionRule = useWatch<CourseFormValues, "completionRule">({
+		name: "completionRule",
+	});
 
 	const scheduled = requiresSessions(format);
 	// Un autogestivo publicado ya otorga créditos: cambiar cómo se completa
 	// mediría a unos con un criterio y a otros con otro (docs/adr/0014).
 	const locked = isPublished && !scheduled;
 	const byQuiz = evaluationMethod === "QUIZ";
+	const automatic = gradesAutomatically({
+		requiresEvaluation,
+		evaluationMethod,
+		completionRule,
+	});
 
 	return (
 		<>
@@ -149,6 +158,38 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 
 					{byQuiz && quiz}
 				</section>
+			)}
+
+			{automatic && (
+				<fieldset className="flex flex-col gap-3">
+					<legend className="mb-1 font-medium text-sm">
+						Calificación del curso
+					</legend>
+					<p className="text-muted-foreground text-sm">
+						La calificación del curso es el promedio de la mejor nota de cada
+						evaluación
+						{requiresEvaluation ? ", examen final incluido" : " del temario"}.
+						Se acredita si el promedio alcanza este mínimo, aunque alguna
+						evaluación quede reprobada.
+					</p>
+					<div className="grid items-start gap-4 sm:grid-cols-2">
+						<TextInput
+							id={ids.minPassingGrade}
+							label="Calificación mínima aprobatoria (%)"
+							type="number"
+							min={0}
+							max={100}
+							readOnly={isPublished}
+							helperText={
+								isPublished
+									? "El curso ya está publicado: la calificación mínima no se puede cambiar."
+									: undefined
+							}
+							error={errors.minPassingGrade?.message}
+							{...register("minPassingGrade")}
+						/>
+					</div>
+				</fieldset>
 			)}
 
 			{/* Las de seguimiento las captura quien imparte, y un autogestivo no

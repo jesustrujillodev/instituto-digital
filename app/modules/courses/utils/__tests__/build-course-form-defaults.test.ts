@@ -17,6 +17,7 @@ const course = {
 	enrollmentDeadline: zonedInputToUtc("2026-11-01", "23:59"),
 	minAttendance: 90,
 	requiresEvaluation: true,
+	minPassingGrade: 75,
 	trainers: [{ userDocumentId: "trainer-1" }],
 	audience: {
 		dependencies: [{ documentId: "dep-1", name: "RRHH" }],
@@ -46,6 +47,7 @@ describe("buildCourseFormDefaults", () => {
 			modality: "IN_PERSON",
 			access: "PUBLIC",
 			minAttendance: "80",
+			minPassingGrade: "70",
 			hours: "",
 			sessions: [],
 		});
@@ -71,6 +73,7 @@ describe("buildCourseFormDefaults", () => {
 			capacity: "20",
 			hours: "16",
 			minAttendance: "90",
+			minPassingGrade: "75",
 			enrollmentDeadline: "2026-11-01",
 			description: "",
 			trainers: ["trainer-1"],

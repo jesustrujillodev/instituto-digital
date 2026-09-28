@@ -54,7 +54,9 @@ export const action = async ({
 		}
 
 		return ok(submitted.data, {
-			message: `Cuestionario enviado: obtuviste ${submitted.data.score}.`,
+			message: submitted.data.passed
+				? `Aprobaste el cuestionario con ${submitted.data.score}.`
+				: `Obtuviste ${submitted.data.score}; el mínimo era ${submitted.data.passingScore}. Puedes volver a intentarlo.`,
 		});
 	}
 

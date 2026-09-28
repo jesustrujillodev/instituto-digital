@@ -2,7 +2,6 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
 	ActivateProfileDto,
 	CreateExternalTrainerDto,
-	ListTrainersDto,
 	TrainerListResponse,
 	TrainerResponse,
 	UpdateProfileDto,
@@ -12,14 +11,18 @@ import type {
  * Casos de uso del módulo.
  *
  * Todos devuelven el envelope estándar y ninguno lanza para los fallos
- * esperados. Las LECTURAS no reciben alcance —el catálogo es global— y las
- * MUTACIONES reciben el `AuthContext` completo, porque tienen que comparar
- * alcance y rango sobre la cuenta afectada.
+ * esperados. Las MUTACIONES reciben el `AuthContext` completo, porque tienen que
+ * comparar alcance y rango sobre la cuenta afectada.
  */
 export interface ITrainerService {
-	list(filters: ListTrainersDto): Promise<TrainerListResponse>;
-	/** Falla con `TRAINER_PROFILE_NOT_FOUND` si la cuenta no tiene perfil. */
-	findByUser(userDocumentId: string): Promise<TrainerResponse>;
+	/**
+	 * Perfiles —activos o deshabilitados— de las cuentas indicadas, con sus
+	 * estadísticas. Las cuentas sin perfil no aparecen.
+	 *
+	 * No recibe alcance: lo aplicó quien obtuvo esas cuentas, que es el listado de
+	 * usuarios. Sirve para completar sus filas, no para descubrir personas.
+	 */
+	listByUsers(userDocumentIds: readonly string[]): Promise<TrainerListResponse>;
 	/**
 	 * Activa el perfil sobre una cuenta interna existente. Revoca sus tokens: el
 	 * claim `isTrainer` viaja firmado y sin esto tardaría en notarse lo que dure

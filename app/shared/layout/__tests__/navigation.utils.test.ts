@@ -106,13 +106,13 @@ describe("filterNavigationByRole", () => {
 		expect(filterNavigationByRole(items, viewerOf("USER"))).toEqual([]);
 	});
 
-	// Es la condición que `roles` no sabe expresar: el catálogo de capacitadores
-	// lo consulta cualquiera con perfil, tenga el rol que tenga (§3 del alcance).
+	// Es la condición que `roles` no sabe expresar: Impartición la usa cualquiera
+	// con perfil, tenga el rol que tenga (§3 del alcance).
 	test("un item marcado `trainer` lo ve un participante con perfil", () => {
 		const items: NavItem[] = [
 			{
-				label: "Capacitadores",
-				path: "/capacitadores",
+				label: "Impartición",
+				path: "/imparticion",
 				roles: ["SUPERADMIN"],
 				trainer: true,
 			},
@@ -129,8 +129,8 @@ describe("filterNavigationByRole", () => {
 	test("`trainer` no reemplaza a los roles declarados", () => {
 		const items: NavItem[] = [
 			{
-				label: "Capacitadores",
-				path: "/capacitadores",
+				label: "Impartición",
+				path: "/imparticion",
 				roles: ["SUPERADMIN"],
 				trainer: true,
 			},

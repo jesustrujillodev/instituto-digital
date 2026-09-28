@@ -48,14 +48,19 @@ que no valida cae a `DEFAULT_CERTIFICATE_DESIGN` y queda en el log.
 
 | Acción | Qué hace | Lleva diseño |
 | --- | --- | --- |
-| Guardar (`save-draft`) | Valida con `certificateDesignSchema`, comprueba las firmas y escribe el borrador | Sí |
-| Publicar (`publish`) | Copia el borrador **guardado** al publicado y sella `published_at` | No |
+| Guardar borrador (`save-draft`) | Valida con `certificateDesignSchema`, comprueba las firmas y escribe el borrador | Sí |
+| Publicar (`publish`) | Lo mismo que guardar, y escribe ese diseño **también** como publicado, sellando `published_at`. Borrador y publicado quedan iguales | Sí |
 | Descartar (`discard`) | El borrador vuelve a ser el publicado | No |
 | Subir firma (`upload-signature`) | Sube la imagen y devuelve su referencia; no toca la base | El archivo |
 
 La cabecera enseña «Sin publicar», «Publicado» o «Cambios sin publicar»
-(`certificateStateOf`). Con cambios locales enseña «Sin guardar»; en ese estado
-«Publicar» se desactiva y `UnsavedChangesDialog` avisa al salir.
+(`certificateStateOf`). Con cambios locales enseña «Sin guardar»; «Publicar» sigue
+disponible y publica lo que está en pantalla, y `UnsavedChangesDialog` avisa al salir.
+
+Mientras el curso **nunca haya publicado**, la emisión usa `DEFAULT_CERTIFICATE_DESIGN`
+(ver [02-emision](./02-emision.md)). Por eso ese estado se avisa dos veces: un aviso
+en el editor y `CertificateStatusNotice` en la ficha del curso, que también marca
+«Cambios sin publicar». Publicado no enseña nada en la ficha (docs/adr/0023).
 
 ## 5. Firmas
 

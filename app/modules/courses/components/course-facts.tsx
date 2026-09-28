@@ -2,7 +2,11 @@ import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { countsAttendance, requiresSessions } from "../domain/course.rules";
+import {
+	countsAttendance,
+	gradesAutomatically,
+	requiresSessions,
+} from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
 	COMPLETION_RULE_LABELS,
@@ -66,6 +70,13 @@ export function CourseFacts({
 			? EVALUATION_METHOD_LABELS[course.evaluationMethod]
 			: "Sin evaluación",
 	});
+
+	if (gradesAutomatically(course)) {
+		facts.push({
+			term: "Calificación mínima",
+			value: `${course.minPassingGrade} de promedio`,
+		});
+	}
 
 	if (scheduled) {
 		facts.push({

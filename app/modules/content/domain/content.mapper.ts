@@ -45,6 +45,7 @@ export interface ContentModuleRaw {
 	quizzes: readonly {
 		documentId: string;
 		title: string;
+		maxAttempts: number | null;
 		_count: { questions: number };
 	}[];
 }
@@ -67,6 +68,7 @@ const toModuleQuiz = (
 				documentId: raw.documentId,
 				title: raw.title,
 				questionCount: raw._count.questions,
+				maxAttempts: raw.maxAttempts,
 			}
 		: null;
 

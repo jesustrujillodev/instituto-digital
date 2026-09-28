@@ -17,10 +17,13 @@ const requestOf = (fields: Record<string, string>) => {
 	const body = new FormData();
 	for (const [key, value] of Object.entries(fields)) body.append(key, value);
 
-	return new Request("https://app.example.com/dashboard/capacitadores/nuevo", {
-		method: "POST",
-		body,
-	});
+	return new Request(
+		"https://app.example.com/dashboard/usuarios/capacitador-externo",
+		{
+			method: "POST",
+			body,
+		},
+	);
 };
 
 const createHarness = (

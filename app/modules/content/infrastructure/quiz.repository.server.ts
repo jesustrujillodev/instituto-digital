@@ -3,8 +3,10 @@ import type { TeachingCourseWhere } from "@/modules/teaching/domain/teaching.acc
 import type { ICradle } from "@/shared/di/container.types";
 import { ContentQuizAlreadyTakenError } from "../domain/content.errors";
 import type { IQuizRepository } from "../domain/quiz.repository";
+import { quizKindOf } from "../domain/quiz.rules";
 import type {
-	ModuleQuizAttemptRow,
+	QuizAttemptRow,
+	QuizBoardEntry,
 	QuizOwnerIds,
 	StoredQuiz,
 } from "../domain/quiz.types";
@@ -33,11 +35,24 @@ const activeModuleQuizOf = (courseId: number) => ({
 	module: { courseId, ...ACTIVE },
 });
 
+/** Lo que se presenta: prácticas y módulos activos, y el examen final. */
+const presentableQuizOf = (courseId: number) => ({
+	courseId,
+	...ACTIVE,
+	questions: { some: {} },
+	OR: [
+		{ lesson: { ...ACTIVE, module: { courseId, ...ACTIVE } } },
+		{ module: { courseId, ...ACTIVE } },
+		{ lessonId: null, moduleId: null },
+	],
+});
+
 const QUIZ_SELECT = {
 	id: true,
 	documentId: true,
 	title: true,
 	passingScore: true,
+	maxAttempts: true,
 	shuffleQuestions: true,
 	questions: {
 		orderBy: { order: "asc" },
@@ -73,6 +88,7 @@ export const createQuizRepository = ({
 		const scalars = {
 			title: bank.title,
 			passingScore: bank.passingScore,
+			maxAttempts: bank.maxAttempts,
 			shuffleQuestions: bank.shuffleQuestions,
 		};
 		const existing = await prisma.quiz.findFirst({
@@ -151,6 +167,14 @@ export const createQuizRepository = ({
 		});
 	},
 
+	async findBestScore(quizId, userId) {
+		const best = await prisma.quizAttempt.aggregate({
+			where: { quizId, userId },
+			_max: { score: true },
+		});
+		return best._max.score;
+	},
+
 	async saveAttempt(quizId, userId, number, attempt, at) {
 		try {
 			await prisma.quizAttempt.create({
@@ -189,21 +213,43 @@ export const createQuizRepository = ({
 		});
 	},
 
-	async findPassedModuleQuizzes(courseId, userIds) {
+	async findBestScores(courseId, userIds) {
 		const rows = await prisma.quizAttempt.findMany({
 			where: {
-				passed: true,
-				quiz: activeModuleQuizOf(courseId),
+				quiz: {
+					OR: [
+						activeModuleQuizOf(courseId),
+						{ courseId, lessonId: { not: null } },
+					],
+				},
 				...(userIds ? { userId: { in: [...userIds] } } : {}),
 			},
-			distinct: ["quizId", "userId"],
-			select: { userId: true, quiz: { select: { documentId: true } } },
+			select: {
+				userId: true,
+				score: true,
+				quiz: {
+					select: {
+						documentId: true,
+						lesson: { select: { documentId: true } },
+					},
+				},
+			},
 		});
 
-		return rows.map((row) => ({
-			userId: row.userId,
-			quizDocumentId: row.quiz.documentId,
-		}));
+		const best = new Map<
+			string,
+			{ userId: number; itemDocumentId: string; score: number }
+		>();
+		for (const row of rows) {
+			const itemDocumentId = row.quiz.lesson?.documentId ?? row.quiz.documentId;
+			const key = `${itemDocumentId}:${row.userId}`;
+			const current = best.get(key);
+			if (!current || row.score > current.score) {
+				best.set(key, { userId: row.userId, itemDocumentId, score: row.score });
+			}
+		}
+
+		return [...best.values()];
 	},
 
 	async findTeachingCourse(courseDocumentId, where) {
@@ -213,36 +259,60 @@ export const createQuizRepository = ({
 		});
 	},
 
-	async findModuleQuizzes(courseId) {
+	async findBoardQuizzes(courseId) {
 		const quizzes = await prisma.quiz.findMany({
-			where: activeModuleQuizOf(courseId),
-			orderBy: { module: { order: "asc" } },
+			where: presentableQuizOf(courseId),
 			select: {
 				documentId: true,
 				title: true,
-				module: { select: { documentId: true, title: true } },
+				maxAttempts: true,
+				lesson: {
+					select: {
+						documentId: true,
+						title: true,
+						order: true,
+						module: { select: { order: true } },
+					},
+				},
+				module: { select: { documentId: true, title: true, order: true } },
 			},
 		});
 
-		// El filtro ya exige módulo; el tipo de Prisma no lo sabe.
-		return quizzes.flatMap((quiz) =>
-			quiz.module
-				? [
-						{
-							quizDocumentId: quiz.documentId,
-							moduleDocumentId: quiz.module.documentId,
-							moduleTitle: quiz.module.title,
-							title: quiz.title,
-						},
-					]
-				: [],
-		);
+		// El temario manda: cada módulo con sus prácticas y luego su evaluación;
+		// el examen, al final.
+		const positionOf = (
+			quiz: (typeof quizzes)[number],
+		): [number, number, number] => {
+			if (quiz.lesson) return [quiz.lesson.module.order, 0, quiz.lesson.order];
+			if (quiz.module) return [quiz.module.order, 1, 0];
+			return [Number.MAX_SAFE_INTEGER, 0, 0];
+		};
+
+		return [...quizzes]
+			.sort((a, b) => {
+				const [left, right] = [positionOf(a), positionOf(b)];
+				return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
+			})
+			.map((quiz): QuizBoardEntry => {
+				const owner = {
+					lessonDocumentId: quiz.lesson?.documentId ?? null,
+					moduleDocumentId: quiz.module?.documentId ?? null,
+				};
+				return {
+					quizDocumentId: quiz.documentId,
+					owner,
+					kind: quizKindOf(owner),
+					ownerTitle: quiz.lesson?.title ?? quiz.module?.title ?? null,
+					title: quiz.title,
+					maxAttempts: quiz.maxAttempts,
+				};
+			});
 	},
 
-	async findLatestModuleAttempts(courseId, userId) {
+	async findLatestAttempts(courseId, userId) {
 		const rows = await prisma.quizAttempt.findMany({
 			where: {
-				quiz: activeModuleQuizOf(courseId),
+				quiz: presentableQuizOf(courseId),
 				...(userId === undefined ? {} : { userId }),
 			},
 			orderBy: { number: "desc" },
@@ -251,13 +321,13 @@ export const createQuizRepository = ({
 				score: true,
 				passed: true,
 				retakeGrantedAt: true,
-				quiz: { select: { documentId: true } },
+				quiz: { select: { documentId: true, maxAttempts: true } },
 				user: { select: { documentId: true } },
 			},
 		});
 
 		// Del más reciente al más antiguo: el primero de cada par es el vigente.
-		const latest = new Map<string, ModuleQuizAttemptRow>();
+		const latest = new Map<string, QuizAttemptRow>();
 		for (const row of rows) {
 			const key = `${row.quiz.documentId}:${row.user.documentId}`;
 			if (latest.has(key)) continue;
@@ -268,22 +338,21 @@ export const createQuizRepository = ({
 				score: row.score,
 				passed: row.passed,
 				retakeGrantedAt: row.retakeGrantedAt,
+				maxAttempts: row.quiz.maxAttempts,
 			});
 		}
 
 		return [...latest.values()];
 	},
 
-	async findEnrolledUserId(courseId, userDocumentId) {
-		const enrollment = await prisma.enrollment.findFirst({
+	async findEnrolledParticipant(courseId, userDocumentId) {
+		return prisma.enrollment.findFirst({
 			where: {
 				courseId,
 				status: "ENROLLED",
 				user: { documentId: userDocumentId },
 			},
-			select: { userId: true },
+			select: { userId: true, result: true, completed: true },
 		});
-
-		return enrollment?.userId ?? null;
 	},
 });

@@ -42,6 +42,7 @@ export const buildCoursePayload = (
 	minAttendance: optionalNumber(values.minAttendance),
 	requiresEvaluation: values.requiresEvaluation,
 	evaluationMethod: values.evaluationMethod,
+	minPassingGrade: optionalNumber(values.minPassingGrade),
 	qrOpensBeforeMinutes: optionalNumber(values.qrOpensBeforeMinutes),
 	qrClosesAfterMinutes: optionalNumber(values.qrClosesAfterMinutes),
 	trainers: requiresTrainer(values.format) ? values.trainers : [],

@@ -77,5 +77,8 @@ export const QUIZ_POINTS_RANGE = { min: 1, max: 10 } as const;
 
 export const QUIZ_DEFAULT_PASSING_SCORE = 70;
 
+/** Tope de intentos por persona; «sin límite» se guarda como nulo (docs/adr/0024). */
+export const QUIZ_ATTEMPTS_RANGE = { min: 1, max: 10 } as const;
+
 /** El texto de las dos opciones de verdadero o falso lo pone el servidor. */
 export const TRUE_FALSE_LABELS = ["Verdadero", "Falso"] as const;

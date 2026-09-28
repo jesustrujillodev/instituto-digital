@@ -399,6 +399,9 @@ export const createEnrollmentRepository = ({
 					userId: true,
 					progressPercent: true,
 					contentCompletedAt: true,
+					result: true,
+					grade: true,
+					completed: true,
 				},
 			});
 		},

@@ -17,12 +17,22 @@ const createHarness = (
 		findFails?: string;
 		rosterFails?: string;
 		lessonCount?: number;
+		certificateState?: string;
+		certificateFails?: string;
 	} = {},
 ) => {
-	const calls = { summaries: 0 };
+	const calls = { summaries: 0, certificateLookups: 0 };
 
 	const context = {
 		authPayload: authPayloadOf(options),
+		certificateService: {
+			getEditor: async () => {
+				calls.certificateLookups += 1;
+				return options.certificateFails
+					? failReply(options.certificateFails)
+					: okReply({ state: options.certificateState ?? "never-published" });
+			},
+		},
 		contentService: {
 			summarize: async () => {
 				calls.summaries += 1;
@@ -169,5 +179,38 @@ describe("cursos/:documentId loader", () => {
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.init.status).toBe(403);
+	});
+});
+
+describe("cursos/:documentId loader — certificado", () => {
+	// Es lo que hacía que un curso emitiera el diseño por defecto sin que nadie
+	// lo notara: la ficha tiene que decir que el certificado no está publicado.
+	test("trae el estado del certificado", async () => {
+		const { context } = createHarness({ status: "PUBLISHED" });
+
+		const { data } = await run(context);
+
+		expect(data.certificateState).toBe("never-published");
+	});
+
+	test("un curso cancelado no consulta el certificado", async () => {
+		const { context, calls } = createHarness({ status: "CANCELLED" });
+
+		const { data } = await run(context);
+
+		expect(data.certificateState).toBeNull();
+		expect(calls.certificateLookups).toBe(0);
+	});
+
+	test("un fallo del certificado corta sin exponer su mensaje", async () => {
+		const { context } = createHarness({
+			status: "PUBLISHED",
+			certificateFails: "UNEXPECTED_ERROR",
+		});
+
+		const thrown = await run(context).catch((e) => e);
+
+		expect(thrown.init.status).toBe(500);
+		expect(thrown.data.message).not.toBe("técnico");
 	});
 });

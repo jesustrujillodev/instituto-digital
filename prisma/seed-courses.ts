@@ -272,6 +272,7 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 			lessonId: practice.id,
 			title: "Repaso del módulo",
 			passingScore: 60,
+			maxAttempts: null,
 			questions: {
 				create: singleChoice([
 					{

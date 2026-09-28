@@ -46,6 +46,7 @@ export interface CourseFormValues {
 	qrClosesAfterMinutes: string;
 	requiresEvaluation: boolean;
 	evaluationMethod: EvaluationMethod;
+	minPassingGrade: string;
 	trainers: string[];
 	audienceDependencies: string[];
 	audienceGroups: string[];
@@ -141,6 +142,9 @@ export function buildCourseFormDefaults(
 		requiresEvaluation: course?.requiresEvaluation ?? false,
 		evaluationMethod:
 			course?.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod,
+		minPassingGrade: String(
+			course?.minPassingGrade ?? COURSE_DEFAULTS.minPassingGrade,
+		),
 		qrOpensBeforeMinutes: String(
 			course?.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
 		),

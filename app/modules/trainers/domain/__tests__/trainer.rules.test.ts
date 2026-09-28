@@ -3,9 +3,8 @@ import { describe, expect, test } from "vitest";
 import {
 	activateProfileRule,
 	createExternalTrainerRule,
-	listTrainersRule,
-	TRAINER_SORT_FIELDS,
-	TRAINER_USER_SORT_FIELDS,
+	externalProfileFieldsRule,
+	profileFieldsRule,
 	trainerDetailSchema,
 	trainerSummarySchema,
 	updateProfileRule,
@@ -117,31 +116,35 @@ describe("createExternalTrainerRule", () => {
 	});
 });
 
-describe("listTrainersRule", () => {
-	test("un campo de orden fuera de la allowlist no pasa", () => {
-		expect(v.safeParse(listTrainersRule, { sortBy: "password" }).success).toBe(
-			false,
-		);
-	});
-
-	test("acepta filtrar por tipo y por especialidad", () => {
-		const parsed = v.parse(listTrainersRule, {
-			type: "EXTERNAL",
-			specialty: "Transparencia",
-		});
-
-		expect(parsed.type).toBe("EXTERNAL");
-		expect(parsed.specialty).toBe("Transparencia");
+describe("updateProfileRule — semblanza", () => {
+	// Vaciar la semblanza tiene que llegar al repositorio como `null`: si se
+	// descartara como ausencia, el diálogo diría "guardado" y la conservaría.
+	test("acepta null para borrarla", () => {
+		expect(v.parse(updateProfileRule, { bio: null })).toEqual({ bio: null });
 	});
 });
 
-describe("allowlist de orden", () => {
-	// El repositorio decide con esta lista si el orderBy va sobre el perfil o
-	// sobre la cuenta: un campo que no esté en ninguna de las dos rompería.
-	test("los campos de la cuenta son un subconjunto de los ordenables", () => {
-		for (const field of TRAINER_USER_SORT_FIELDS) {
-			expect(TRAINER_SORT_FIELDS).toContain(field);
-		}
+describe("campos del diálogo de perfil", () => {
+	test("la especialidad es obligatoria y la semblanza no", () => {
+		expect(v.safeParse(profileFieldsRule, { specialty: "" }).success).toBe(
+			false,
+		);
+		expect(
+			v.parse(profileFieldsRule, { specialty: "Protección civil" }),
+		).toEqual({ specialty: "Protección civil" });
+	});
+
+	test("un externo además declara su institución", () => {
+		expect(
+			v.safeParse(externalProfileFieldsRule, { specialty: "Transparencia" })
+				.success,
+		).toBe(false);
+		expect(
+			v.safeParse(externalProfileFieldsRule, {
+				specialty: "Transparencia",
+				institution: "Universidad Autónoma",
+			}).success,
+		).toBe(true);
 	});
 });
 

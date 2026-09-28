@@ -3,7 +3,9 @@ import {
 	type CourseCompletionRule,
 	countsContent,
 } from "@/modules/courses/domain/course.rules";
+import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import {
+	QUIZ_ATTEMPTS_RANGE,
 	QUIZ_MAX_QUESTIONS,
 	QUIZ_OPTION_MAX_LENGTH,
 	QUIZ_OPTIONS_RANGE,
@@ -152,6 +154,21 @@ export const saveQuizRule = v.pipe(
 			v.minValue(0, "La calificación mínima va de 0 a 100."),
 			v.maxValue(100, "La calificación mínima va de 0 a 100."),
 		),
+		/** `null`: sin límite. */
+		maxAttempts: v.nullable(
+			v.pipe(
+				v.number("Los intentos deben ser un número."),
+				v.integer("Los intentos deben ser un número entero."),
+				v.minValue(
+					QUIZ_ATTEMPTS_RANGE.min,
+					`Los intentos van de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
+				),
+				v.maxValue(
+					QUIZ_ATTEMPTS_RANGE.max,
+					`Los intentos van de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
+				),
+			),
+		),
 		shuffleQuestions: v.boolean("Indica si las preguntas se barajan."),
 		questions: v.pipe(
 			v.array(question, "Agrega las preguntas del cuestionario."),
@@ -194,10 +211,10 @@ export const submitQuizRule = v.pipe(
 
 export const moduleQuizRule = v.object({ moduleDocumentId: documentId });
 
-export const grantRetakeRule = v.object({
-	moduleDocumentId: documentId,
-	userDocumentId: documentId,
-});
+export const grantRetakeRule = v.pipe(
+	v.object({ ...owner, userDocumentId: documentId }),
+	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+);
 
 export const quizRules = {
 	find: findQuizRule,
@@ -221,6 +238,7 @@ export const toTrueFalseOptions = (correctIndex: number) =>
 export const toQuizBankWrite = (dto: SaveQuizDto): QuizBankWrite => ({
 	title: dto.title,
 	passingScore: dto.passingScore,
+	maxAttempts: dto.maxAttempts,
 	shuffleQuestions: dto.shuffleQuestions,
 	questions: dto.questions.map((entry) => ({
 		statement: entry.statement,
@@ -248,6 +266,7 @@ export const toQuizBank = (
 	documentId: quiz.documentId,
 	title: quiz.title,
 	passingScore: quiz.passingScore,
+	maxAttempts: quiz.maxAttempts,
 	shuffleQuestions: quiz.shuffleQuestions,
 	questions: quiz.questions.map((entry) => ({
 		documentId: entry.documentId,
@@ -265,39 +284,117 @@ export const toQuizBank = (
 
 // ── Presentarlo ───────────────────────────────────────────────────────────────
 
+/** Lo que decide si un intento reprobado se puede repetir. */
+export type AttemptSummary = Pick<
+	StoredAttempt,
+	"number" | "passed" | "retakeGrantedAt"
+>;
+
+/**
+ * Los intentos que le quedan a alguien, contando el que le hayan habilitado:
+ * `null` sin límite. Los números son consecutivos desde 1, así que el último
+ * dice cuántos lleva.
+ */
+export const attemptsLeftOf = (
+	maxAttempts: number | null,
+	latestAttempt: Pick<StoredAttempt, "number" | "retakeGrantedAt"> | null,
+): number | null => {
+	if (maxAttempts === null) return null;
+	const granted = latestAttempt?.retakeGrantedAt ? 1 : 0;
+	return Math.max(0, maxAttempts - (latestAttempt?.number ?? 0)) + granted;
+};
+
+const hasAttemptsLeft = (
+	maxAttempts: number | null,
+	latestAttempt: AttemptSummary,
+) => attemptsLeftOf(maxAttempts, latestAttempt) !== 0;
+
+/**
+ * Ya acreditó el curso: su nota quedó fija. Quien completó antes de que el
+ * resultado se escribiera solo también cuenta (docs/adr/0024).
+ */
+export const isAccredited = (enrollment: {
+	result: EnrollmentResult;
+	completed: boolean;
+}): boolean => enrollment.result === "PASSED" || enrollment.completed;
+
 /**
  * El examen final de un curso que cuenta contenido espera a que se terminen las
  * obligatorias. Uno que no lo cuenta está disponible desde la inscripción.
+ *
+ * Una evaluación aprobada se cierra. Una reprobada se reintenta mientras queden
+ * intentos o alguien habilite otro, y se cierra en cuanto el curso se acredita:
+ * la nota ya quedó fija (docs/adr/0024).
  */
 export const quizAvailabilityOf = (
 	course: { completionRule: CourseCompletionRule },
-	contentCompletedAt: Date | null,
-	latestAttempt: StoredAttempt | null,
-	isFinal: boolean,
+	enrollment: {
+		contentCompletedAt: Date | null;
+		result: EnrollmentResult;
+		completed: boolean;
+	} | null,
+	latestAttempt: AttemptSummary | null,
+	kind: QuizKind,
+	maxAttempts: number | null,
 ): QuizAvailability => {
-	if (latestAttempt && !latestAttempt.retakeGrantedAt) return "TAKEN";
-	if (isFinal && countsContent(course.completionRule) && !contentCompletedAt) {
+	if (latestAttempt) {
+		const reopened =
+			!latestAttempt.passed &&
+			!(enrollment && isAccredited(enrollment)) &&
+			hasAttemptsLeft(maxAttempts, latestAttempt);
+		if (!reopened) return "TAKEN";
+	}
+	if (
+		kind === "FINAL" &&
+		countsContent(course.completionRule) &&
+		!enrollment?.contentCompletedAt
+	) {
 		return "LOCKED_BY_CONTENT";
 	}
 	return "AVAILABLE";
 };
+
+/**
+ * La calificación del curso: el promedio de la mejor nota de cada evaluación
+ * que cuenta, en enteros y hacia abajo como `gradeAttempt`. `null` si no hay
+ * ninguna.
+ */
+export const courseGradeOf = (scores: readonly number[]): number | null =>
+	scores.length === 0
+		? null
+		: Math.floor(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+
+/**
+ * Se acredita con el promedio, no evaluación por evaluación: una reprobada se
+ * compensa con las demás (docs/adr/0024).
+ */
+export const courseResultOf = (
+	grade: number,
+	minPassingGrade: number,
+): "PASSED" | "FAILED" => (grade >= minPassingGrade ? "PASSED" : "FAILED");
 
 /** El número del siguiente intento: la unicidad por número frena el doble envío. */
 export const nextAttemptNumberOf = (latestAttempt: StoredAttempt | null) =>
 	(latestAttempt?.number ?? 0) + 1;
 
 /**
- * Otro intento solo sobre el último, reprobado y sin uno ya habilitado. Uno
- * aprobado no se repite: su nota ya respalda el avance.
+ * Otro intento solo sobre el último, reprobado, con los intentos agotados y
+ * sin uno ya habilitado. Uno aprobado no se repite: su nota ya cuenta.
  */
-export const assertRetakeGrantable = (
-	latestAttempt: StoredAttempt | null,
-): StoredAttempt => {
-	if (
-		!latestAttempt ||
-		latestAttempt.passed ||
-		latestAttempt.retakeGrantedAt !== null
-	) {
+export const canGrantRetakeOn = (
+	latestAttempt: AttemptSummary | null,
+	maxAttempts: number | null,
+): boolean =>
+	latestAttempt !== null &&
+	!latestAttempt.passed &&
+	latestAttempt.retakeGrantedAt === null &&
+	!hasAttemptsLeft(maxAttempts, latestAttempt);
+
+export const assertRetakeGrantable = <T extends AttemptSummary>(
+	latestAttempt: T | null,
+	maxAttempts: number | null,
+): T => {
+	if (!latestAttempt || !canGrantRetakeOn(latestAttempt, maxAttempts)) {
 		throw new ContentQuizRetakeNotAllowedError();
 	}
 	return latestAttempt;
@@ -337,7 +434,11 @@ const shuffled = <T>(items: readonly T[], random: () => number): T[] => {
  * Lo que ve quien lo presenta: sin `isCorrect`. Si se baraja, la semilla es la
  * persona y el cuestionario, para que recargar no cambie el orden.
  */
-export const toQuizSheet = (quiz: StoredQuiz, seed: string): QuizSheet => {
+export const toQuizSheet = (
+	quiz: StoredQuiz,
+	seed: string,
+	attemptsLeft: number | null,
+): QuizSheet => {
 	const random = seededRandom(seed);
 	const questions = quiz.shuffleQuestions
 		? shuffled(quiz.questions, random)
@@ -347,6 +448,7 @@ export const toQuizSheet = (quiz: StoredQuiz, seed: string): QuizSheet => {
 		documentId: quiz.documentId,
 		title: quiz.title,
 		passingScore: quiz.passingScore,
+		attemptsLeft,
 		totalPoints: quiz.questions.reduce((sum, entry) => sum + entry.points, 0),
 		questions: questions.map((entry) => ({
 			documentId: entry.documentId,

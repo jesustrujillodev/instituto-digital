@@ -1,6 +1,8 @@
 # ADR 0015 · Cuestionarios autocalificados y convivencia con la evaluación manual
 
-**Estado:** aceptado · 2026-09-23
+**Estado:** aceptado · 2026-09-23 · §2.1 y §2.2 (la práctica) y §2.4 (la nota del examen)
+enmendados por [ADR-0021](./0021-practica-evaluativa-y-calificacion-por-promedio.md); el
+intento único, enmendado por [ADR-0024](./0024-intentos-configurables-y-calificacion-minima-del-curso.md) (intentos por cuestionario)
 **Contexto del cambio:** MVP-02 · F-06, los cuestionarios
 
 ## 1. Contexto

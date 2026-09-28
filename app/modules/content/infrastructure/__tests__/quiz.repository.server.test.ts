@@ -12,6 +12,7 @@ const createHarness = (
 		existing?: { id: number } | null;
 		createError?: Error;
 		attempts?: unknown[];
+		bestScore?: number | null;
 	} = {},
 ) => {
 	const calls: Record<string, unknown[]> = {
@@ -22,6 +23,7 @@ const createHarness = (
 		questionCreate: [],
 		attemptCreate: [],
 		attemptFindMany: [],
+		attemptAggregate: [],
 	};
 
 	const repository = createQuizRepository({
@@ -57,6 +59,10 @@ const createHarness = (
 					calls.attemptFindMany.push(args);
 					return options.attempts ?? [];
 				},
+				aggregate: async (args: unknown) => {
+					calls.attemptAggregate.push(args);
+					return { _max: { score: options.bestScore ?? null } };
+				},
 			},
 		} as unknown as ICradle["prisma"],
 	});
@@ -67,6 +73,7 @@ const createHarness = (
 const bank = {
 	title: "Examen",
 	passingScore: 70,
+	maxAttempts: 3,
 	shuffleQuestions: false,
 	questions: [
 		{
@@ -106,6 +113,7 @@ describe("quizRepository.replaceBank", () => {
 					moduleId: null,
 					title: "Examen",
 					passingScore: 70,
+					maxAttempts: 3,
 					shuffleQuestions: false,
 				},
 			},
@@ -203,7 +211,7 @@ describe("evaluaciones de módulo", () => {
 			score: passed ? 90 : 40,
 			passed,
 			retakeGrantedAt: passed ? null : AT,
-			quiz: { documentId: quiz },
+			quiz: { documentId: quiz, maxAttempts: 2 },
 			user: { documentId: user },
 		});
 		const { repository, calls } = createHarness({
@@ -215,25 +223,70 @@ describe("evaluaciones de módulo", () => {
 			],
 		});
 
-		const latest = await repository.findLatestModuleAttempts(7);
+		const latest = await repository.findLatestAttempts(7);
 
 		expect(
-			latest.map((attempt) => [attempt.userDocumentId, attempt.number]),
+			latest.map((attempt) => [
+				attempt.userDocumentId,
+				attempt.number,
+				attempt.maxAttempts,
+			]),
 		).toEqual([
-			["ana", 2],
-			["luis", 1],
+			["ana", 2, 2],
+			["luis", 1, 2],
 		]);
 		expect(calls.attemptFindMany).toEqual([
 			expect.objectContaining({
 				where: {
-					quiz: {
+					quiz: expect.objectContaining({
 						courseId: 7,
 						archivedAt: null,
-						module: { courseId: 7, archivedAt: null },
-					},
+						questions: { some: {} },
+					}),
 				},
 				orderBy: { number: "desc" },
 			}),
 		]);
+	});
+});
+
+describe("mejores notas (docs/adr/0024)", () => {
+	test("de varios intentos queda el mejor, aprobado o no", async () => {
+		const row = (userId: number, score: number, lesson: string | null) => ({
+			userId,
+			score,
+			quiz: {
+				documentId: "q-module",
+				lesson: lesson ? { documentId: lesson } : null,
+			},
+		});
+		const { repository } = createHarness({
+			attempts: [
+				row(1, 40, null),
+				row(1, 65, null),
+				row(1, 50, null),
+				row(2, 30, "l-practice"),
+			],
+		});
+
+		expect(await repository.findBestScores(7)).toEqual([
+			{ userId: 1, itemDocumentId: "q-module", score: 65 },
+			{ userId: 2, itemDocumentId: "l-practice", score: 30 },
+		]);
+	});
+
+	test("la mejor de una persona en un cuestionario sale del máximo", async () => {
+		const { repository, calls } = createHarness({ bestScore: 82 });
+
+		expect(await repository.findBestScore(9, 50)).toBe(82);
+		expect(calls.attemptAggregate).toEqual([
+			{ where: { quizId: 9, userId: 50 }, _max: { score: true } },
+		]);
+	});
+
+	test("sin intentos no hay mejor nota", async () => {
+		const { repository } = createHarness();
+
+		expect(await repository.findBestScore(9, 50)).toBeNull();
 	});
 });

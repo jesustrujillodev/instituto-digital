@@ -1,5 +1,8 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
-import { evaluatesByQuiz } from "@/modules/courses/domain/course.rules";
+import {
+	countsContent,
+	evaluatesByQuiz,
+} from "@/modules/courses/domain/course.rules";
 import {
 	canTeach,
 	resolveTeachingScope,
@@ -12,6 +15,7 @@ import { createOperationRunner } from "@/shared/response/run-operation";
 import {
 	assertCanProgress,
 	assertClassroomReadable,
+	countedScoresOf,
 	nextProgressStatus,
 } from "../domain/classroom.rules";
 import type { ClassroomCourse } from "../domain/classroom.types";
@@ -25,12 +29,18 @@ import {
 	ContentQuizParticipantNotFoundError,
 	ContentQuizRetakeNotAllowedError,
 } from "../domain/content.errors";
+import { toCourseContentTree } from "../domain/content.mapper";
 import type { ContentCourseRef } from "../domain/content.types";
 import {
 	assertBankEditable,
 	assertCanSubmit,
 	assertRetakeGrantable,
+	attemptsLeftOf,
+	canGrantRetakeOn,
+	courseGradeOf,
+	courseResultOf,
 	gradeAttempt,
+	isAccredited,
 	nextAttemptNumberOf,
 	type QuizKind,
 	quizAvailabilityOf,
@@ -285,9 +295,10 @@ export const createQuizService = ({
 				const attempt = await quizRepository.findAttempt(quiz.id, actor.userId);
 				const availability = quizAvailabilityOf(
 					course,
-					course.enrollment?.contentCompletedAt ?? null,
+					course.enrollment,
 					attempt,
-					kind === "FINAL",
+					kind,
+					quiz.maxAttempts,
 				);
 
 				return ok({
@@ -297,9 +308,17 @@ export const createQuizService = ({
 					// Solo si ahora mismo puede presentarlo, y sin la correcta.
 					sheet:
 						availability === "AVAILABLE" && course.status === "PUBLISHED"
-							? toQuizSheet(quiz, `${quiz.documentId}:${actor.userId}`)
+							? toQuizSheet(
+									quiz,
+									`${quiz.documentId}:${actor.userId}`,
+									attemptsLeftOf(quiz.maxAttempts, attempt),
+								)
 							: null,
 					outcome: attempt ? toQuizOutcome(quiz, attempt) : null,
+					canRequestRetake:
+						course.status === "PUBLISHED" &&
+						!(course.enrollment && isAccredited(course.enrollment)) &&
+						canGrantRetakeOn(attempt, quiz.maxAttempts),
 				});
 			});
 		},
@@ -334,9 +353,10 @@ export const createQuizService = ({
 					assertCanSubmit(
 						quizAvailabilityOf(
 							course,
-							course.enrollment?.contentCompletedAt ?? null,
+							course.enrollment,
 							latest,
-							kind === "FINAL",
+							kind,
+							quiz.maxAttempts,
 						),
 					);
 
@@ -349,39 +369,55 @@ export const createQuizService = ({
 						now,
 					);
 
-					if (kind === "PRACTICE" && lessonId !== null) {
-						// La práctica no evalúa: enviarla completa la lección, apruebe o no.
-						const stored = (
-							await classroomRepository.findProgress(course.id, actor.userId)
-						).find((row) => row.lessonDocumentId === dto.lessonDocumentId);
-						if (stored?.status !== "COMPLETED") {
-							await classroomRepository.saveProgress(
-								lessonId,
-								actor.userId,
-								nextProgressStatus(stored?.status ?? null, "COMPLETED"),
-								now,
-							);
-							await progressSync.recalculate(course, actor.userId, now, [
-								actor.userId,
-							]);
+					if (kind !== "FINAL") {
+						// Cualquier intento cuenta como presentado: la práctica completa
+						// su lección aunque se repruebe, y la nota entra al promedio
+						// (docs/adr/0024). Recalcular siempre, porque una mejor nota
+						// puede acreditar el curso aunque el avance no se mueva.
+						if (lessonId !== null) {
+							const stored = (
+								await classroomRepository.findProgress(course.id, actor.userId)
+							).find((row) => row.lessonDocumentId === dto.lessonDocumentId);
+							if (stored?.status !== "COMPLETED") {
+								await classroomRepository.saveProgress(
+									lessonId,
+									actor.userId,
+									nextProgressStatus(stored?.status ?? null, "COMPLETED"),
+									now,
+								);
+							}
 						}
-					} else if (kind === "MODULE") {
-						// Aprobada, cuenta para el avance y puede ser lo último que faltaba.
-						if (graded.passed) {
-							await progressSync.recalculate(course, actor.userId, now, [
-								actor.userId,
-							]);
-						}
+						await progressSync.recalculate(course, actor.userId, now, [
+							actor.userId,
+						]);
 					} else {
 						// El examen escribe el resultado por la misma vía que la captura
-						// manual, y quien lo firma es quien lo presentó.
+						// manual, y quien lo firma es quien lo presentó. La nota es el
+						// promedio de las mejores con las del temario, y acredita la
+						// mínima del curso (docs/adr/0021, 0024).
+						const contentScores = countsContent(course.completionRule)
+							? countedScoresOf(
+									toCourseContentTree(
+										await contentRepository.findTree(course.id),
+									),
+									await quizRepository.findBestScores(course.id, [
+										actor.userId,
+									]),
+								)
+							: [];
+						// Ya incluye el intento recién guardado.
+						const bestExam =
+							(await quizRepository.findBestScore(quiz.id, actor.userId)) ??
+							graded.score;
+						const grade =
+							courseGradeOf([...contentScores, bestExam]) ?? bestExam;
 						await enrollmentRepository.saveResults(
 							course.id,
 							[
 								{
 									userId: actor.userId,
-									result: graded.passed ? "PASSED" : "FAILED",
-									grade: graded.score,
+									result: courseResultOf(grade, course.minPassingGrade),
+									grade,
 								},
 							],
 							actor.userId,
@@ -404,13 +440,13 @@ export const createQuizService = ({
 			});
 		},
 
-		async findModuleQuizBoard(courseDocumentId: string, actor: AuthContext) {
-			return run("findModuleQuizBoard", async () => {
+		async findQuizBoard(courseDocumentId: string, actor: AuthContext) {
+			return run("findQuizBoard", async () => {
 				const course = await requireTeachingCourse(courseDocumentId, actor);
 
 				const [quizzes, attempts] = await Promise.all([
-					quizRepository.findModuleQuizzes(course.id),
-					quizRepository.findLatestModuleAttempts(course.id),
+					quizRepository.findBoardQuizzes(course.id),
+					quizRepository.findLatestAttempts(course.id),
 				]);
 
 				return ok({
@@ -432,20 +468,22 @@ export const createQuizService = ({
 				if (course.status !== "PUBLISHED") {
 					throw new ContentQuizRetakeNotAllowedError();
 				}
-				const { ids } = await resolveOwner(course.id, {
-					lessonDocumentId: null,
-					moduleDocumentId: dto.moduleDocumentId,
-				});
+				const { ids } = await resolveOwner(course.id, dto);
 
-				const [quiz, userId] = await Promise.all([
+				const [quiz, participant] = await Promise.all([
 					quizRepository.findQuiz(course.id, ids),
-					quizRepository.findEnrolledUserId(course.id, dto.userDocumentId),
+					quizRepository.findEnrolledParticipant(course.id, dto.userDocumentId),
 				]);
 				if (!quiz) throw new ContentQuizNotFoundError();
-				if (userId === null) throw new ContentQuizParticipantNotFoundError();
+				if (!participant) throw new ContentQuizParticipantNotFoundError();
+				// Ya acreditado, la nota quedó fija: otro intento no la movería.
+				if (isAccredited(participant)) {
+					throw new ContentQuizRetakeNotAllowedError();
+				}
 
 				const attempt = assertRetakeGrantable(
-					await quizRepository.findAttempt(quiz.id, userId),
+					await quizRepository.findAttempt(quiz.id, participant.userId),
+					quiz.maxAttempts,
 				);
 				await quizRepository.grantRetake(attempt.id, actor.userId, clock.now());
 

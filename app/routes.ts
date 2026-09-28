@@ -60,7 +60,7 @@ export default [
 					...dashboardRoutes, // /dashboard
 					...dependenciesRoutes, // /dashboard/dependencias  (SUPERADMIN)
 					...usersRoutes, // /dashboard/usuarios  (gestión con alcance)
-					...trainersRoutes, // /dashboard/capacitadores  (catálogo global)
+					...trainersRoutes, // /dashboard/usuarios/capacitador-externo, /dashboard/usuarios/:id/perfil-capacitador
 					...groupsRoutes, // /dashboard/grupos  (alcance por dependencia)
 					...coursesRoutes, // /dashboard/cursos  (alcance propio: incluye al capacitador interno)
 					...contentRoutes, // /dashboard/cursos/:id/contenido  (temario del autogestivo)

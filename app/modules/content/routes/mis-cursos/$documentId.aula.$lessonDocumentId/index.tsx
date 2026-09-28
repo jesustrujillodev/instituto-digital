@@ -8,7 +8,12 @@ import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { AppResponse } from "@/shared/response/response.types";
 import { ClassroomStopNav } from "../../../components/classroom-stop-nav";
 import { LessonMaterialView } from "../../../components/lesson-material-view";
-import { QuizOutcomeView, QuizTaker } from "../../../components/quiz-taker";
+import {
+	QuizOutcomeView,
+	QuizRetakeHint,
+	QuizRetryNotice,
+	QuizTaker,
+} from "../../../components/quiz-taker";
 import type { ProgressResult } from "../../../domain/classroom.types";
 import { LESSON_TYPE_LABELS } from "../../../utils/content-labels";
 import type { Route } from "./+types/index";
@@ -71,16 +76,22 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 				</header>
 
 				{byQuiz &&
-					(quiz.outcome ? (
-						<QuizOutcomeView outcome={quiz.outcome} />
-					) : quiz.sheet ? (
-						<QuizTaker
-							sheet={quiz.sheet}
-							owner={{
-								lessonDocumentId: lesson.documentId,
-								moduleDocumentId: null,
-							}}
-						/>
+					(quiz.sheet ? (
+						<>
+							{quiz.outcome && <QuizRetryNotice outcome={quiz.outcome} />}
+							<QuizTaker
+								sheet={quiz.sheet}
+								owner={{
+									lessonDocumentId: lesson.documentId,
+									moduleDocumentId: null,
+								}}
+							/>
+						</>
+					) : quiz.outcome ? (
+						<>
+							<QuizOutcomeView outcome={quiz.outcome} />
+							{quiz.canRequestRetake && <QuizRetakeHint />}
+						</>
 					) : null)}
 
 				<LessonMaterialView

@@ -1,18 +1,18 @@
 import { type RouteConfigEntry, route } from "@react-router/dev/routes";
 
 /**
- * Catálogo de capacitadores. La lectura la abre `canViewCatalog` —cualquier
- * capacitador entra, tenga el rol que tenga— y las mutaciones exigen
- * `TRAINER_ADMIN_ROLES`; ambos se imponen en cada loader y action.
+ * El perfil de capacitador se administra desde `/dashboard/usuarios`: el alta
+ * del externo y las mutaciones del perfil cuelgan de esa pantalla. Las dos
+ * rutas exigen `TRAINER_ADMIN_ROLES`; alcance y rango los decide el servicio.
  */
 export const trainersRoutes = [
-	route("capacitadores", "modules/trainers/routes/capacitadores/index.tsx"),
 	route(
-		"capacitadores/nuevo",
-		"modules/trainers/routes/capacitadores/nuevo/index.tsx",
+		"usuarios/capacitador-externo",
+		"modules/trainers/routes/usuarios/capacitador-externo/index.tsx",
 	),
+	// Solo action: la tabla y el panel de usuarios envían con un `fetcher`.
 	route(
-		"capacitadores/:documentId/editar",
-		"modules/trainers/routes/capacitadores/$documentId.editar/index.tsx",
+		"usuarios/:documentId/perfil-capacitador",
+		"modules/trainers/routes/usuarios/$documentId/perfil-capacitador/index.ts",
 	),
 ] satisfies RouteConfigEntry[];

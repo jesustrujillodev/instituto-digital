@@ -114,6 +114,30 @@ describe("isCompleted", () => {
 		expect(isCompleted(course, participantOf())).toBe(false);
 	});
 
+	// docs/adr/0024: sin examen, el temario escribe FAILED si el promedio no
+	// alcanza la mínima del curso.
+	test("por contenido sin evaluación, un promedio reprobado no completa", () => {
+		const course = {
+			...base,
+			completionRule: "CONTENT" as const,
+			requiresEvaluation: false,
+			sessionCount: 0,
+		};
+
+		expect(
+			isCompleted(
+				course,
+				participantOf({ contentCompletedAt: DONE, result: "FAILED" }),
+			),
+		).toBe(false);
+		expect(
+			isCompleted(
+				course,
+				participantOf({ contentCompletedAt: DONE, result: "PASSED" }),
+			),
+		).toBe(true);
+	});
+
 	test("por contenido con evaluación exige además aprobar", () => {
 		const course = {
 			...base,

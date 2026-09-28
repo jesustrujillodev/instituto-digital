@@ -104,6 +104,24 @@ export const scopeWhere = (scope: AccessScope): UserScopeWhere => {
 	}
 };
 
+export type UserListScopeWhere =
+	| UserScopeWhere
+	| { OR: [UserScopeWhere, { type: "EXTERNAL" }] };
+
+/**
+ * Alcance del LISTADO: el de `scopeWhere` más los capacitadores externos.
+ *
+ * Un externo no pertenece a ninguna dependencia, así que ningún alcance de
+ * dependencia lo alcanzaría, y el titular tiene que verlo: puede asignarlo a sus
+ * cursos (§4) y administrar su perfil de capacitador (`canManageTrainer`). Solo
+ * amplía la LECTURA de la lista; las escrituras de la cuenta siguen acotadas
+ * por `scopeWriteWhere`.
+ */
+export const listScopeWhere = (scope: AccessScope): UserListScopeWhere =>
+	scope.kind === "dependency"
+		? { OR: [scopeWhere(scope), { type: "EXTERNAL" }] }
+		: scopeWhere(scope);
+
 /**
  * Alcance → filtro de escritura, o `null` cuando el alcance no alcanza nada.
  *

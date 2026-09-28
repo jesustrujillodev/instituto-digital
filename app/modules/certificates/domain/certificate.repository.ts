@@ -40,6 +40,7 @@ export interface ICertificateRepository {
 
 	/** Crea la fila en el primer guardado. */
 	saveDraft(courseId: number, design: CertificateDesign): Promise<void>;
+	/** Escribe el diseño como borrador y como publicado a la vez. */
 	publish(courseId: number, design: CertificateDesign, at: Date): Promise<void>;
 
 	findByCourseDocumentIds(

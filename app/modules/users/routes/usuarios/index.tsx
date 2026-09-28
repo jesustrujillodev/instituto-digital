@@ -4,6 +4,7 @@ export { loader } from "./index.loader";
 import {
 	Archive,
 	ArchiveRestore,
+	GraduationCap,
 	KeyRound,
 	Plus,
 	Trash2,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
+import { TrainerProfileDialog } from "@/modules/trainers/components/trainer-profile-dialog";
+import { useTrainerProfileActions } from "@/modules/trainers/hooks/use-trainer-profile-actions";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import {
 	DataTable,
@@ -41,8 +44,8 @@ import {
 	type ResetPasswordTarget,
 } from "../../components/reset-password-dialog";
 import {
+	AccountRoleBadge,
 	ROLE_FILTER_LABELS,
-	RoleBadge,
 	StatusBadge,
 	TrainerBadge,
 } from "../../components/user-badges";
@@ -71,6 +74,23 @@ const ANY_DEPENDENCY = "any";
 // Mismo centinela para el filtro de perfil de capacitador.
 const ANY_TRAINER = "any";
 
+// "Capacitadores externos" no es un valor de `trainer` sino `type=EXTERNAL`: todo
+// externo es capacitador, y así el filtro sigue siendo uno solo en pantalla.
+const EXTERNAL_TRAINERS = "external";
+
+/** Nombre para diálogos y avisos: el correo si la cuenta no tiene nombre. */
+const displayNameOf = (user: UserRow) => fullNameOf(user) || user.email;
+
+/** Qué imparte, bajo el nombre; de un externo, también de dónde viene. */
+const trainerLineOf = (user: UserRow) => {
+	const profile = user.trainerProfile;
+	if (!profile || profile.archivedAt) return null;
+
+	return user.type === "EXTERNAL" && profile.institution
+		? `${profile.specialty} · ${profile.institution}`
+		: profile.specialty;
+};
+
 export const handle = {
 	breadcrumb: () => [{ label: "Usuarios" }],
 } satisfies BreadcrumbHandle;
@@ -86,8 +106,18 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 		data: { users, filters, canFilterByDependency, dependencies },
 		pagination,
 	} = loaderData;
-	const { search, role, dependency, trainer, status, sortBy, sortDir } =
+	const { search, role, dependency, type, trainer, status, sortBy, sortDir } =
 		filters;
+	const trainerFilter =
+		type === "EXTERNAL" ? EXTERNAL_TRAINERS : trainer || ANY_TRAINER;
+	// Sin más filtros que el de capacitadores, una lista vacía no es "no coincide":
+	// es que todavía no se ha habilitado a nadie, y eso tiene un siguiente paso.
+	const isFirstTrainerView =
+		(trainerFilter === "yes" || trainerFilter === EXTERNAL_TRAINERS) &&
+		!search &&
+		!role &&
+		!dependency &&
+		status === "active";
 	const navigate = useNavigate();
 	const [, setSearchParams] = useSearchParams();
 	// Se guarda el id y no la fila: la fila se relee de cada respuesta del loader,
@@ -151,17 +181,28 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 
 	const columns = useMemo(
 		() => [
-			columnHelpers.custom<UserRow>("firstName", "Usuario", (user) => (
-				<div className="flex items-center gap-3">
-					<Avatar>
-						{user.photoUrl && <AvatarImage src={user.photoUrl} alt="" />}
-						<AvatarFallback>{initialsOf(user)}</AvatarFallback>
-					</Avatar>
-					<span className="font-medium text-sm text-foreground">
-						{fullNameOf(user) || "Sin nombre"}
-					</span>
-				</div>
-			)),
+			columnHelpers.custom<UserRow>("firstName", "Usuario", (user) => {
+				const trainerLine = trainerLineOf(user);
+
+				return (
+					<div className="flex items-center gap-3">
+						<Avatar>
+							{user.photoUrl && <AvatarImage src={user.photoUrl} alt="" />}
+							<AvatarFallback>{initialsOf(user)}</AvatarFallback>
+						</Avatar>
+						<div className="flex min-w-0 flex-col">
+							<span className="font-medium text-foreground text-sm">
+								{fullNameOf(user) || "Sin nombre"}
+							</span>
+							{trainerLine && (
+								<span className="max-w-64 truncate text-muted-foreground text-xs">
+									{trainerLine}
+								</span>
+							)}
+						</div>
+					</div>
+				);
+			}),
 			columnHelpers.text<UserRow>("email", "Correo"),
 			columnHelpers.text<UserRow>("employeeNumber", "N.º de empleado"),
 			columnHelpers.text<UserRow>("phone", "Teléfono"),
@@ -184,7 +225,7 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 				: []),
 			columnHelpers.custom<UserRow>("role", "Rol", (user) => (
 				<span className="flex flex-wrap gap-1">
-					<RoleBadge role={user.role} />
+					<AccountRoleBadge role={user.role} type={user.type} />
 					<TrainerBadge isTrainer={user.isTrainer} />
 				</span>
 			)),
@@ -206,28 +247,35 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 		[fetcher],
 	);
 
-	// Las acciones de la fila salvo "Ver detalles": las mismas pinta el pie del
-	// panel de detalle, así que fila y panel no pueden ofrecer cosas distintas.
-	const rowActions = useMemo<DataTableAction<UserRow>[]>(
+	const trainerProfile = useTrainerProfileActions<UserRow>(displayNameOf);
+
+	// Acciones sobre la CUENTA. `canManage` las oculta donde el servidor las
+	// rechazaría: en un externo para quien no tiene alcance global, o en alguien
+	// de rango superior. El servicio vuelve a comprobarlo.
+	const accountActions = useMemo<DataTableAction<UserRow>[]>(
 		() => [
-			defaultActions.edit<UserRow>((user) =>
-				navigate(`/dashboard/usuarios/${user.documentId}/editar`),
-			),
+			{
+				...defaultActions.edit<UserRow>((user) =>
+					navigate(`/dashboard/usuarios/${user.documentId}/editar`),
+				),
+				show: (user) => user.canManage,
+			},
 			{
 				icon: KeyRound,
 				label: "Restablecer contraseña",
 				// Una cuenta archivada no puede entrar: la contraseña se atiende al
 				// restaurarla, no antes.
-				show: (user) => !user.archivedAt,
+				show: (user) => user.canManage && !user.archivedAt,
 				onClick: (user) =>
 					setResetTarget({
 						documentId: user.documentId,
-						name: fullNameOf(user) || user.email,
+						name: displayNameOf(user),
 					}),
 			},
 			{
 				getIcon: (user) => (user.archivedAt ? ArchiveRestore : Archive),
 				label: (user) => (user.archivedAt ? "Desarchivar" : "Archivar"),
+				show: (user) => user.canManage,
 				onClick: (user) =>
 					submitIntent(
 						user,
@@ -240,33 +288,51 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 				variant: "danger",
 				// El servicio impone la misma regla; aquí solo se evita ofrecer una
 				// acción que fallaría.
-				show: (user) => Boolean(user.archivedAt),
+				show: (user) => user.canManage && Boolean(user.archivedAt),
 				onClick: (user) => setPendingDelete(user),
 			},
 		],
 		[navigate, submitIntent],
 	);
 
-	const actions = useMemo<DataTableAction<UserRow>[]>(
-		() => [
+	// El menú de la fila junta cuenta y perfil; el panel las separa en su
+	// sección, pero son los mismos objetos, así que no pueden discrepar.
+	const actions = useMemo<DataTableAction<UserRow>[]>(() => {
+		const [edit, resetPassword, ...rest] = accountActions;
+
+		return [
 			defaultActions.view<UserRow>((user) => setDetailId(user.documentId)),
-			...rowActions,
-		],
-		[rowActions],
-	);
+			edit,
+			resetPassword,
+			...trainerProfile.actions,
+			...rest,
+		];
+	}, [accountActions, trainerProfile.actions]);
 
 	return (
 		<div className="flex flex-col">
 			<PageHeader
 				title="Usuarios"
-				description="Gestión de las cuentas con acceso a la herramienta."
+				description={
+					canFilterByDependency
+						? "Cuentas con acceso a la plataforma. Aquí también decides quién imparte cursos."
+						: "Personal de tu dependencia y capacitadores externos. Aquí también decides quién imparte cursos."
+				}
 				actions={
-					<Button asChild>
-						<Link to="/dashboard/usuarios/nuevo">
-							<Plus className="h-4 w-4" />
-							Nuevo usuario
-						</Link>
-					</Button>
+					<>
+						<Button variant="outline" asChild>
+							<Link to="/dashboard/usuarios/capacitador-externo">
+								<GraduationCap className="h-4 w-4" />
+								Capacitador externo
+							</Link>
+						</Button>
+						<Button asChild>
+							<Link to="/dashboard/usuarios/nuevo">
+								<Plus className="h-4 w-4" />
+								Nuevo usuario
+							</Link>
+						</Button>
+					</>
 				}
 				collapseActionsOnMobile
 			/>
@@ -291,7 +357,7 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 							})
 						}
 					>
-						<SelectTrigger className="w-44">
+						<SelectTrigger className="w-44" aria-label="Filtrar por rol">
 							<SelectValue placeholder="Rol" />
 						</SelectTrigger>
 						<SelectContent>
@@ -305,21 +371,31 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 					</Select>
 
 					<Select
-						value={trainer || ANY_TRAINER}
+						value={trainerFilter}
 						onValueChange={(value) =>
 							updateParams({
-								trainer: value === ANY_TRAINER ? null : value,
+								trainer:
+									value === ANY_TRAINER || value === EXTERNAL_TRAINERS
+										? null
+										: value,
+								type: value === EXTERNAL_TRAINERS ? "EXTERNAL" : null,
 								page: null,
 							})
 						}
 					>
-						<SelectTrigger className="w-44">
-							<SelectValue placeholder="Capacitador" />
+						<SelectTrigger
+							className="w-52"
+							aria-label="Filtrar por perfil de capacitador"
+						>
+							<SelectValue placeholder="Capacitadores" />
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value={ANY_TRAINER}>Con y sin perfil</SelectItem>
 							<SelectItem value="yes">Capacitadores</SelectItem>
-							<SelectItem value="no">Sin perfil</SelectItem>
+							<SelectItem value={EXTERNAL_TRAINERS}>
+								Capacitadores externos
+							</SelectItem>
+							<SelectItem value="no">Sin perfil de capacitador</SelectItem>
 						</SelectContent>
 					</Select>
 
@@ -336,7 +412,10 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 								})
 							}
 						>
-							<SelectTrigger className="w-56">
+							<SelectTrigger
+								className="w-56"
+								aria-label="Filtrar por dependencia"
+							>
 								<SelectValue placeholder="Dependencia" />
 							</SelectTrigger>
 							<SelectContent>
@@ -361,7 +440,7 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 							})
 						}
 					>
-						<SelectTrigger className="w-40">
+						<SelectTrigger className="w-40" aria-label="Filtrar por estado">
 							<SelectValue placeholder="Estado" />
 						</SelectTrigger>
 						<SelectContent>
@@ -378,18 +457,28 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 					data={rows}
 					columns={columns}
 					actions={actions}
-					emptyState={{
-						icon: UsersRound,
-						title: "Sin usuarios",
-						description:
-							"No hay cuentas que coincidan con la búsqueda o los filtros aplicados.",
-					}}
+					emptyState={
+						isFirstTrainerView
+							? {
+									icon: GraduationCap,
+									title: "Aún no hay capacitadores",
+									description:
+										"Abre el menú de una persona y elige «Habilitar como capacitador», o registra a un capacitador externo.",
+								}
+							: {
+									icon: UsersRound,
+									title: "Sin usuarios",
+									description:
+										"No hay cuentas que coincidan con la búsqueda o los filtros aplicados.",
+								}
+					}
 					mobileCard={{
 						title: (user) => fullNameOf(user) || "Sin nombre",
-						description: (user) => user.email,
+						description: (user) => trainerLineOf(user) ?? user.email,
 						content: (user) => (
 							<div className="flex flex-wrap items-center gap-2">
-								<RoleBadge role={user.role} />
+								<AccountRoleBadge role={user.role} type={user.type} />
+								<TrainerBadge isTrainer={user.isTrainer} />
 								<StatusBadge archivedAt={user.archivedAt} />
 								{user.phone && (
 									<span className="text-muted-foreground text-sm">
@@ -428,7 +517,13 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 				onOpenChange={(open) => {
 					if (!open) setDetailId(null);
 				}}
-				actions={rowActions}
+				actions={accountActions}
+				trainerActions={trainerProfile.actions}
+			/>
+
+			<TrainerProfileDialog
+				target={trainerProfile.dialogTarget}
+				onOpenChange={trainerProfile.closeDialog}
 			/>
 
 			<ResetPasswordDialog

@@ -23,3 +23,7 @@ export const certificateSampleUrl = (
 	format: CertificateExportFormat,
 ) =>
 	`/dashboard/cursos/${courseDocumentId}/certificado/muestra?version=${version}&formato=${format}`;
+
+/** El editor del certificado de un curso. */
+export const certificateEditorPath = (courseDocumentId: string) =>
+	`/dashboard/cursos/${courseDocumentId}/certificado`;

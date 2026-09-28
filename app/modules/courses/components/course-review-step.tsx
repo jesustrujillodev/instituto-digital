@@ -4,7 +4,11 @@ import { formatZonedDate } from "@/lib/date-utils";
 import type { ContentSummary } from "@/modules/content/domain/content.types";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
-import { countsAttendance, requiresSessions } from "../domain/course.rules";
+import {
+	countsAttendance,
+	gradesAutomatically,
+	requiresSessions,
+} from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
 	COMPLETION_RULE_LABELS,
@@ -183,6 +187,14 @@ export function CourseReviewStep({
 								term: "Evaluación final",
 								value: evaluationLabel(course, quizQuestionCount),
 							},
+							...(gradesAutomatically(course)
+								? [
+										{
+											term: "Calificación mínima",
+											value: `${course.minPassingGrade} de promedio`,
+										},
+									]
+								: []),
 							...(course.requiresEvaluation && evaluationTitles.length > 0
 								? [
 										{

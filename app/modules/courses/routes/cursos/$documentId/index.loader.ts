@@ -1,4 +1,5 @@
 import { canEditCertificate } from "@/modules/certificates/domain/certificate.rules";
+import { CERTIFICATE_ERROR_MESSAGES } from "@/modules/certificates/utils/certificate-error-messages";
 import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { ENROLLMENT_ERROR_MESSAGES } from "@/modules/enrollments/utils/enrollment-error-messages";
@@ -59,6 +60,14 @@ export const loader = async ({
 	if (quiz && !quiz.success)
 		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);
 
+	// El estado del certificado se pide solo si se puede editar: en un curso
+	// cancelado ya no hay nada que publicar.
+	const certificate = canEditCertificate(status)
+		? await context.certificateService.getEditor(documentId, auth)
+		: null;
+	if (certificate && !certificate.success)
+		throw toRouteError(certificate.error, CERTIFICATE_ERROR_MESSAGES);
+
 	const facts = {
 		lessonCount: content?.data.lessonCount ?? 0,
 		finalQuizQuestionCount: quiz?.success
@@ -70,6 +79,7 @@ export const loader = async ({
 		course: course.data,
 		coverUrl: roster.data.course.coverUrl,
 		enrollment: toEnrollmentSummary(roster.data),
+		certificateState: certificate?.data.state ?? null,
 		publishChecklist: canPublish(status)
 			? publishChecklist(course.data, facts)
 			: null,

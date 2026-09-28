@@ -58,6 +58,7 @@ const run = (fields: Record<string, string>, success = true) => {
 const grant = {
 	intent: "grant-retake",
 	payload: JSON.stringify({
+		lessonDocumentId: null,
 		moduleDocumentId: MODULE_A,
 		userDocumentId: OTHER_DOC,
 	}),
@@ -73,8 +74,31 @@ describe("imparticion/cuestionarios action", () => {
 		});
 		expect(calls[0]?.slice(0, 2)).toEqual([
 			COURSE_DOC,
-			{ moduleDocumentId: MODULE_A, userDocumentId: OTHER_DOC },
+			{
+				lessonDocumentId: null,
+				moduleDocumentId: MODULE_A,
+				userDocumentId: OTHER_DOC,
+			},
 		]);
+	});
+
+	// docs/adr/0024: el examen final también recibe otro intento.
+	test("el del examen final viaja sin lección ni módulo", async () => {
+		const { result, calls } = run({
+			intent: "grant-retake",
+			payload: JSON.stringify({
+				lessonDocumentId: null,
+				moduleDocumentId: null,
+				userDocumentId: OTHER_DOC,
+			}),
+		});
+
+		expect(await result).toMatchObject({ success: true });
+		expect(calls[0]?.[1]).toEqual({
+			lessonDocumentId: null,
+			moduleDocumentId: null,
+			userDocumentId: OTHER_DOC,
+		});
 	});
 
 	test("el rechazo del servicio llega localizado", async () => {
@@ -85,7 +109,7 @@ describe("imparticion/cuestionarios action", () => {
 			error: {
 				code: CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED,
 				message:
-					"Solo se habilita otro intento en un curso en curso, cuando el último quedó reprobado y no hay otro pendiente.",
+					"Solo se habilita otro intento en un curso en curso, a quien no lo ha acreditado, cuando el último quedó reprobado, agotó sus intentos y no tiene otro pendiente.",
 			},
 		});
 	});

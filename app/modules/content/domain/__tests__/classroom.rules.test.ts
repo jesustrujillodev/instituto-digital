@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
 	assertCanProgress,
 	assertClassroomReadable,
+	countedScoresOf,
 	measuredLessonsOf,
 	neighborsOf,
 	nextProgressStatus,
@@ -50,10 +51,12 @@ const courseOf = (
 	completionRule: "CONTENT",
 	requiresEvaluation: false,
 	evaluationMethod: "MANUAL",
+	minPassingGrade: 70,
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 0,
 		contentCompletedAt: null,
+		result: "PENDING",
 		completed: false,
 	},
 	...overrides,
@@ -119,6 +122,32 @@ describe("progressPercentOf", () => {
 		expect(progressPercentOf(treeOf(), new Set(["archivada", LESSON_1]))).toBe(
 			50,
 		);
+	});
+});
+
+// ADR-0021: lo que entra en el promedio es lo mismo que mide el avance.
+describe("countedScoresOf", () => {
+	test("la práctica de una obligatoria y la evaluación del módulo cuentan", () => {
+		expect(
+			countedScoresOf(treeWithModuleQuiz(), [
+				{ itemDocumentId: LESSON_1, score: 90 },
+				{ itemDocumentId: MODULE_QUIZ_A, score: 70 },
+			]),
+		).toEqual([90, 70]);
+	});
+
+	test("la práctica de una opcional y lo que ya no está en el temario no cuentan", () => {
+		expect(
+			countedScoresOf(treeOf(), [
+				{ itemDocumentId: LESSON_3, score: 40 },
+				{ itemDocumentId: MODULE_QUIZ_A, score: 60 },
+				{ itemDocumentId: LESSON_2, score: 100 },
+			]),
+		).toEqual([100]);
+	});
+
+	test("sin cuestionarios aprobados no hay notas", () => {
+		expect(countedScoresOf(treeWithModuleQuiz(), [])).toEqual([]);
 	});
 });
 
@@ -232,6 +261,7 @@ describe("quién entra al aula", () => {
 							status: "WITHDRAWN",
 							progressPercent: 50,
 							contentCompletedAt: null,
+							result: "PENDING",
 							completed: false,
 						},
 					}),

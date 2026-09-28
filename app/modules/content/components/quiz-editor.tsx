@@ -12,7 +12,7 @@ import {
 	X,
 } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive, ToggleGroup } from "radix-ui";
-import { type RefObject, useEffect, useId, useState } from "react";
+import { type RefObject, useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Badge } from "@/shared/components/ui/badge";
@@ -31,6 +31,7 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { useFetcherPromise } from "@/shared/hooks/use-fetcher-promise";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import {
+	QUIZ_ATTEMPTS_RANGE,
 	QUIZ_MAX_QUESTIONS,
 	QUIZ_OPTIONS_RANGE,
 	QUIZ_POINTS_RANGE,
@@ -50,6 +51,7 @@ import {
 	quizPath,
 } from "../utils/content-form";
 import {
+	attemptsLabel,
 	type DraftQuestion,
 	emptyOptions,
 	emptyQuestion,
@@ -131,10 +133,13 @@ export function QuizEditor({
 	onSummaryChange?: (summary: string | null) => void;
 }) {
 	const id = useId();
-	const nouns = NOUNS[quizKindOf(owner)];
+	const kind = quizKindOf(owner);
+	const nouns = NOUNS[kind];
 	const [draft, setDraft] = useState<QuizDraft>(() =>
-		toQuizDraft(bank, defaultTitle),
+		toQuizDraft(bank, defaultTitle, kind),
 	);
+	// Quitar «sin límite» devuelve el último tope escrito, no uno inventado.
+	const lastLimit = useRef(draft.maxAttempts ?? QUIZ_ATTEMPTS_RANGE.min);
 	const [baseline, setBaseline] = useState<QuizDraft>(draft);
 	// Abre la primera que falte completar: es a donde hay que ir.
 	const [openKey, setOpenKey] = useState<string | null>(
@@ -253,9 +258,9 @@ export function QuizEditor({
 						{bank?.attemptCount === 1
 							? "1 intento"
 							: `${bank?.attemptCount} intentos`}{" "}
-						enviados: las preguntas y el porcentaje para aprobar quedaron fijos
-						para que todas las notas se midan igual. Solo puedes cambiar el
-						nombre.
+						enviados: las preguntas, el porcentaje para aprobar y los intentos
+						quedaron fijos para que todas las notas se midan igual. Solo puedes
+						cambiar el nombre.
 					</AlertDescription>
 				</Alert>
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -281,6 +286,10 @@ export function QuizEditor({
 						</Button>
 					)}
 				</div>
+				<p className="text-muted-foreground text-sm">
+					Se aprueba con {draft.passingScore} % ·{" "}
+					{attemptsLabel(draft.maxAttempts)}
+				</p>
 				<ol className="flex list-decimal flex-col gap-1 pl-5 text-sm">
 					{draft.questions.map((question) => (
 						<li key={question.key}>
@@ -297,7 +306,7 @@ export function QuizEditor({
 
 	return (
 		<div className="flex flex-col gap-5">
-			<div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
+			<div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]">
 				<div className="flex flex-col gap-1.5">
 					<Label htmlFor={`${id}-title`}>{nouns.name}</Label>
 					<Input
@@ -337,6 +346,47 @@ export function QuizEditor({
 						</span>
 					</div>
 				</div>
+				<div className="flex flex-col gap-1.5">
+					<Label htmlFor={`${id}-attempts`}>Intentos</Label>
+					<Input
+						id={`${id}-attempts`}
+						type="number"
+						inputMode="numeric"
+						min={QUIZ_ATTEMPTS_RANGE.min}
+						max={QUIZ_ATTEMPTS_RANGE.max}
+						placeholder="Sin límite"
+						value={
+							draft.maxAttempts === null || Number.isNaN(draft.maxAttempts)
+								? ""
+								: draft.maxAttempts
+						}
+						disabled={disabled || draft.maxAttempts === null}
+						className="tabular-nums"
+						onChange={(event) => {
+							const maxAttempts = numberOrNaN(event.target.value);
+							if (Number.isInteger(maxAttempts))
+								lastLimit.current = maxAttempts;
+							setDraft({ ...draft, maxAttempts });
+						}}
+					/>
+				</div>
+			</div>
+
+			<div className="flex items-center gap-3">
+				<Switch
+					id={`${id}-unlimited`}
+					checked={draft.maxAttempts === null}
+					disabled={disabled}
+					onCheckedChange={(checked) =>
+						setDraft({
+							...draft,
+							maxAttempts: checked ? null : lastLimit.current,
+						})
+					}
+				/>
+				<Label htmlFor={`${id}-unlimited`} className="font-normal">
+					Intentos sin límite
+				</Label>
 			</div>
 
 			<div className="flex items-center gap-3">

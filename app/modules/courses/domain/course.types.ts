@@ -69,6 +69,7 @@ export interface CourseWriteData {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	evaluationMethod: EvaluationMethod;
+	minPassingGrade: number;
 	qrOpensBeforeMinutes: number;
 	qrClosesAfterMinutes: number;
 	sessions: readonly CourseSessionData[];

@@ -68,6 +68,7 @@ export const courseOf = (
 	minAttendance: 80,
 	requiresEvaluation: false,
 	evaluationMethod: "MANUAL",
+	minPassingGrade: 70,
 	finishedAt: null,
 	enrollmentClosedAt: null,
 	qrToken: null,

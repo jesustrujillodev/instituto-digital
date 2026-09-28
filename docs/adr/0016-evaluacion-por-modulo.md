@@ -1,6 +1,9 @@
 # ADR 0016 · Evaluación por módulo del temario
 
-**Estado:** aceptado · 2026-09-22
+**Estado:** aceptado · 2026-09-22 · §2.2 extendido por
+[ADR-0021](./0021-practica-evaluativa-y-calificacion-por-promedio.md) (la práctica también
+bloquea y la nota del curso es el promedio); §2.2 y §2.4 enmendados por
+[ADR-0024](./0024-intentos-configurables-y-calificacion-minima-del-curso.md) (presentada cuenta, y otro intento solo al agotar los configurados)
 **Contexto del cambio:** MVP-02 · evaluaciones en el contenido de los autogestivos
 **Extiende:** [ADR-0015](./0015-cuestionarios-autocalificados.md) (un tercer uso de
 `quizzes`) y [ADR-0014](./0014-avance-por-leccion-y-completado-por-participante.md)

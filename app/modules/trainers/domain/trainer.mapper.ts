@@ -69,3 +69,47 @@ export const toDetail = (
 		updatedAt: raw.updatedAt,
 		...stats,
 	});
+
+export const EMPTY_STATS: TrainerStats = {
+	coursesTaught: 0,
+	averageRating: null,
+};
+
+/**
+ * Asignaciones a cursos finalizados y valoraciones agregadas por curso →
+ * estadísticas por persona.
+ *
+ * El promedio es el de todas las valoraciones de sus cursos, no el promedio de
+ * los promedios: un curso con 40 valoraciones pesa más que uno con 2.
+ */
+export const toStatsByUser = (
+	assignments: readonly { userId: number; courseId: number }[],
+	ratings: readonly { courseId: number; scoreSum: number; count: number }[],
+): Map<number, TrainerStats> => {
+	const ratingsByCourse = new Map(ratings.map((row) => [row.courseId, row]));
+	const totals = new Map<
+		number,
+		{ courses: number; scoreSum: number; count: number }
+	>();
+
+	for (const { userId, courseId } of assignments) {
+		const total = totals.get(userId) ?? { courses: 0, scoreSum: 0, count: 0 };
+		const rating = ratingsByCourse.get(courseId);
+
+		totals.set(userId, {
+			courses: total.courses + 1,
+			scoreSum: total.scoreSum + (rating?.scoreSum ?? 0),
+			count: total.count + (rating?.count ?? 0),
+		});
+	}
+
+	return new Map(
+		[...totals].map(([userId, total]) => [
+			userId,
+			{
+				coursesTaught: total.courses,
+				averageRating: total.count === 0 ? null : total.scoreSum / total.count,
+			},
+		]),
+	);
+};

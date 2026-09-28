@@ -18,7 +18,7 @@ import type {
 } from "../../domain/classroom.types";
 import { CONTENT_ERROR_CODES } from "../../domain/content.errors";
 import type { ContentModuleRaw } from "../../domain/content.mapper";
-import type { ModuleQuizAttemptRow } from "../../domain/quiz.types";
+import type { QuizAttemptRow } from "../../domain/quiz.types";
 import { createClassroomService } from "../classroom.service.server";
 
 const NOW = new Date("2027-03-10T18:00:00.000Z");
@@ -76,6 +76,7 @@ const treeWithModuleQuiz = (): ContentModuleRaw[] =>
 						{
 							documentId: MODULE_QUIZ_A,
 							title: "Evaluación · Fundamentos",
+							maxAttempts: 1,
 							_count: { questions: 2 },
 						},
 					],
@@ -84,14 +85,15 @@ const treeWithModuleQuiz = (): ContentModuleRaw[] =>
 	);
 
 const moduleAttemptOf = (
-	overrides: Partial<ModuleQuizAttemptRow> = {},
-): ModuleQuizAttemptRow => ({
+	overrides: Partial<QuizAttemptRow> = {},
+): QuizAttemptRow => ({
 	quizDocumentId: MODULE_QUIZ_A,
 	userDocumentId: ANA.documentId,
 	number: 1,
 	score: 40,
 	passed: false,
 	retakeGrantedAt: null,
+	maxAttempts: 1,
 	...overrides,
 });
 
@@ -106,10 +108,12 @@ const courseOf = (
 	completionRule: "CONTENT",
 	requiresEvaluation: false,
 	evaluationMethod: "MANUAL",
+	minPassingGrade: 70,
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 0,
 		contentCompletedAt: null,
+		result: "PENDING",
 		completed: false,
 	},
 	...overrides,
@@ -126,7 +130,7 @@ const createHarness = (
 		secondLessonType?: string;
 		/** El temario con la evaluación del primer módulo. */
 		moduleQuiz?: boolean;
-		moduleAttempts?: ModuleQuizAttemptRow[];
+		moduleAttempts?: QuizAttemptRow[];
 	} = {},
 ) => {
 	let progress = structuredClone(options.progress ?? []);
@@ -227,6 +231,7 @@ const createHarness = (
 							documentId: "99999999-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 							title: "Examen final",
 							passingScore: 70,
+							maxAttempts: 1,
 							shuffleQuestions: false,
 							questions: Array.from(
 								{ length: options.quizQuestions },
@@ -244,14 +249,13 @@ const createHarness = (
 							answers: [],
 						}
 					: null,
-			findLatestModuleAttempts: async () => options.moduleAttempts ?? [],
-			findPassedModuleQuizzes: async () =>
-				(options.moduleAttempts ?? [])
-					.filter((attempt) => attempt.passed)
-					.map((attempt) => ({
-						userId: 50,
-						quizDocumentId: attempt.quizDocumentId,
-					})),
+			findLatestAttempts: async () => options.moduleAttempts ?? [],
+			findBestScores: async () =>
+				(options.moduleAttempts ?? []).map((attempt) => ({
+					userId: 50,
+					itemDocumentId: attempt.quizDocumentId,
+					score: attempt.score,
+				})),
 		} as unknown as ICradle["quizRepository"],
 		runInTransaction,
 		clock: { now: () => NOW },
@@ -517,7 +521,8 @@ describe("cuestionarios en el aula (docs/adr/0015)", () => {
 });
 
 describe("evaluaciones de módulo en el aula (docs/adr/0016)", () => {
-	test("reprobada no cuenta para el avance y «Continuar» lleva a ella", async () => {
+	// ADR-0024: presentada cuenta aunque se repruebe; sin intentos, se cierra.
+	test("reprobada cuenta para el avance y, agotada, queda cerrada", async () => {
 		const { service } = createHarness({
 			moduleQuiz: true,
 			progress: [
@@ -530,18 +535,34 @@ describe("evaluaciones de módulo en el aula (docs/adr/0016)", () => {
 		const result = await service.findClassroom(COURSE_DOC, ANA);
 		if (!result.success) throw new Error("se esperaba éxito");
 
-		expect(result.data.percent).toBe(66);
-		expect(result.data.resume).toEqual({
-			kind: "MODULE_QUIZ",
-			documentId: MODULE_A,
-		});
+		expect(result.data.percent).toBe(100);
 		expect(result.data.modules[0]?.quiz).toEqual({
 			title: "Evaluación · Fundamentos",
 			availability: "TAKEN",
 			score: 40,
 			passed: false,
+			attemptsLeft: 0,
 		});
 		expect(result.data.modules[1]?.quiz).toBeNull();
+	});
+
+	test("sin presentar, «Continuar» lleva a ella", async () => {
+		const { service } = createHarness({
+			moduleQuiz: true,
+			progress: [
+				{ lessonDocumentId: LESSON_1, status: "COMPLETED" },
+				{ lessonDocumentId: LESSON_2, status: "COMPLETED" },
+			],
+		});
+
+		const result = await service.findClassroom(COURSE_DOC, ANA);
+		if (!result.success) throw new Error("se esperaba éxito");
+
+		expect(result.data.percent).toBe(66);
+		expect(result.data.resume).toEqual({
+			kind: "MODULE_QUIZ",
+			documentId: MODULE_A,
+		});
 	});
 
 	test("aprobada completa el avance", async () => {

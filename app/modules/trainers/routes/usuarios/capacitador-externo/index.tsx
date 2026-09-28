@@ -12,12 +12,13 @@ import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { ExternalTrainerForm } from "../../../components/external-trainer-form";
 import { useExternalTrainerFormIds } from "../../../hooks/use-trainer-form-ids";
 import type { TrainerActionData } from "../../../utils/parse-trainer-form-data";
+import { TRAINERS_LIST_PATH } from "../../../utils/trainer-profile-paths";
 
-const LIST_PATH = "/dashboard/capacitadores";
+const USERS_PATH = "/dashboard/usuarios";
 
 export const handle = {
 	breadcrumb: () => [
-		{ label: "Capacitadores", path: LIST_PATH },
+		{ label: "Usuarios", path: USERS_PATH },
 		{ label: "Capacitador externo" },
 	],
 } satisfies BreadcrumbHandle;
@@ -37,7 +38,9 @@ export default function NuevoCapacitadorPage() {
 
 	useFetcherToast(fetcher, {
 		errorMessage: "No se pudo registrar al capacitador",
-		onSuccess: () => navigate(LIST_PATH),
+		// Vuelve a la tabla ya filtrada: la persona recién registrada aparece entre
+		// los capacitadores sin tener que buscarla.
+		onSuccess: () => navigate(TRAINERS_LIST_PATH),
 	});
 
 	const actions = (
@@ -46,7 +49,7 @@ export default function NuevoCapacitadorPage() {
 			isSubmitting={isSubmitting}
 			submitLabel="Registrar capacitador"
 			submittingLabel="Registrando…"
-			cancelTo={LIST_PATH}
+			cancelTo={USERS_PATH}
 		/>
 	);
 
@@ -54,8 +57,8 @@ export default function NuevoCapacitadorPage() {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Nuevo capacitador externo"
-				description="Cuenta sin dependencia ni número de empleado. Solo imparte: no crea cursos, no se inscribe y no acumula créditos."
-				goBack={LIST_PATH}
+				description="Para quien imparte desde fuera del Ayuntamiento. No pertenece a ninguna dependencia: solo imparte los cursos a los que se le asigna; no crea cursos, no se inscribe ni acumula créditos."
+				goBack={USERS_PATH}
 				actions={actions}
 				collapseActionsOnMobile
 			/>

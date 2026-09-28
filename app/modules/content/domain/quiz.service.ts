@@ -1,9 +1,9 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
 	GrantRetakeDto,
-	ModuleQuizBoardResponse,
 	ModuleQuizDto,
 	QuizBankResponse,
+	QuizBoardResponse,
 	QuizMutationResponse,
 	QuizOutcomeResponse,
 	QuizOwnerRef,
@@ -57,12 +57,12 @@ export interface IQuizService {
 		actor: AuthContext,
 	): Promise<QuizOutcomeResponse>;
 
-	/** Las evaluaciones de módulo y el último intento de cada quien, para quien imparte. */
-	findModuleQuizBoard(
+	/** Los cuestionarios del curso y el último intento de cada quien, para quien imparte. */
+	findQuizBoard(
 		courseDocumentId: string,
 		actor: AuthContext,
-	): Promise<ModuleQuizBoardResponse>;
-	/** Habilita otro intento sobre uno reprobado de una evaluación de módulo. */
+	): Promise<QuizBoardResponse>;
+	/** Habilita otro intento a quien reprobó el último y agotó los suyos. */
 	grantRetake(
 		courseDocumentId: string,
 		dto: GrantRetakeDto,

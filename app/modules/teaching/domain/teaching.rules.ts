@@ -157,6 +157,9 @@ export const meetsAttendance = (
  * así idéntica a la de siempre —`% asistencia ≥ mínimo Y (aprobado O sin
  * evaluación)`—, y con una sola sesión el mínimo es de hecho 100 %, sin caso
  * especial. El contenido se lee de `contentCompletedAt`, que no se borra.
+ *
+ * Sin «Requiere evaluación» nadie captura resultados: un `FAILED` solo lo
+ * escribe el temario cuando su promedio no alcanza la mínima (docs/adr/0024).
  */
 export const isCompleted = (
 	course: Pick<
@@ -177,8 +180,9 @@ export const isCompleted = (
 	const contentOk =
 		!countsContent(course.completionRule) ||
 		participant.contentCompletedAt !== null;
-	const evaluationOk =
-		!course.requiresEvaluation || participant.result === "PASSED";
+	const evaluationOk = course.requiresEvaluation
+		? participant.result === "PASSED"
+		: participant.result !== "FAILED";
 
 	return attendanceOk && contentOk && evaluationOk;
 };

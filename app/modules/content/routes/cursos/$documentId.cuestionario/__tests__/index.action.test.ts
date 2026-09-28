@@ -81,6 +81,7 @@ describe("cursos/cuestionario action", () => {
 				moduleDocumentId: MODULE_A,
 				title: "Evaluación",
 				passingScore: 70,
+				maxAttempts: 2,
 				shuffleQuestions: false,
 				questions: [
 					{
@@ -100,6 +101,7 @@ describe("cursos/cuestionario action", () => {
 		expect(calls[0]?.args[1]).toMatchObject({
 			lessonDocumentId: null,
 			moduleDocumentId: MODULE_A,
+			maxAttempts: 2,
 		});
 	});
 });

@@ -1,5 +1,6 @@
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import {
+	evaluatesByQuiz,
 	requiresContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
@@ -13,8 +14,8 @@ import { requireTeaching } from "../../require-teaching.server";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/imparticion/:documentId — lista, evaluaciones, evaluaciones de
- * módulo, cierre y valoraciones.
+ * GET /dashboard/imparticion/:documentId — lista, evaluaciones, intentos de
+ * los cuestionarios, cierre y valoraciones.
  */
 export const loader = async ({
 	request,
@@ -52,21 +53,22 @@ export const loader = async ({
 		throw toRouteError(evaluations.error, EVALUATION_ERROR_MESSAGES);
 	}
 
-	// Las evaluaciones de módulo cuentan donde cuenta el temario.
-	const moduleQuizzes = requiresContent(course)
-		? await context.quizService.findModuleQuizBoard(documentId, auth)
-		: null;
-	if (moduleQuizzes && !moduleQuizzes.success) {
-		throw toRouteError(moduleQuizzes.error, CONTENT_ERROR_MESSAGES);
+	// Los cuestionarios cuentan donde cuenta el temario o se evalúa con examen.
+	const quizBoard =
+		requiresContent(course) || evaluatesByQuiz(course)
+			? await context.quizService.findQuizBoard(documentId, auth)
+			: null;
+	if (quizBoard && !quizBoard.success) {
+		throw toRouteError(quizBoard.error, CONTENT_ERROR_MESSAGES);
 	}
 
 	return ok({
 		...detail.data,
 		ratings: ratings?.success ? ratings.data : null,
 		evaluations: evaluations?.success ? evaluations.data : null,
-		moduleQuizzes:
-			moduleQuizzes?.success && moduleQuizzes.data.quizzes.length > 0
-				? moduleQuizzes.data
+		quizBoard:
+			quizBoard?.success && quizBoard.data.quizzes.length > 0
+				? quizBoard.data
 				: null,
 	});
 };

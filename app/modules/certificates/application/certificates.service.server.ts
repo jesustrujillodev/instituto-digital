@@ -172,12 +172,12 @@ export const createCertificateService = ({
 			});
 		},
 
-		async publish(courseDocumentId, actor) {
+		async publish({ documentId, design }, actor) {
 			return run("publish", async () => {
-				const course = await requireEditableCourse(courseDocumentId, actor);
-				const { draft } = await certificateRepository.findRecord(course.id);
+				const course = await requireEditableCourse(documentId, actor);
+				assertOwnSignatures(design, course.documentId);
 
-				await certificateRepository.publish(course.id, draft, clock.now());
+				await certificateRepository.publish(course.id, design, clock.now());
 				return ok(null);
 			});
 		},

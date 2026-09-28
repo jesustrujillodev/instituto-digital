@@ -140,7 +140,6 @@ accesos.
 
 | Qué | Condición exacta | Referencia |
 | --- | --- | --- |
-| Consultar el catálogo de capacitadores | Tener rol de gestión **o** perfil activo | [`app/modules/trainers/domain/trainer.access.ts:33-35`](../../app/modules/trainers/domain/trainer.access.ts) |
 | Crear cursos y administrar los que creó | Perfil activo **y** tener dependencia (solo si su rol no le da ya un alcance mayor) | [`app/modules/courses/domain/course.access.ts:52-74`](../../app/modules/courses/domain/course.access.ts) |
 | Ver los cursos que imparte | Perfil activo y estar asignado al curso | [`app/modules/courses/domain/course.access.ts:255-257`](../../app/modules/courses/domain/course.access.ts) |
 | Ver en el menú los enlaces marcados para capacitadores | Perfil activo, sin importar el rol | [`app/shared/layout/navigation.utils.ts:16-20`](../../app/shared/layout/navigation.utils.ts) |
@@ -157,7 +156,7 @@ accesos.
 | Se inscribe a cursos | Sí, si cumple la participación (§5) | No: sin dependencia no cumple la participación |
 
 La pantalla de alta del externo lo resume en su descripción
-([`app/modules/trainers/routes/capacitadores/nuevo/index.tsx:57`](../../app/modules/trainers/routes/capacitadores/nuevo/index.tsx)).
+([`app/modules/trainers/routes/usuarios/capacitador-externo/index.tsx`](../../app/modules/trainers/routes/usuarios/capacitador-externo/index.tsx)).
 
 ---
 

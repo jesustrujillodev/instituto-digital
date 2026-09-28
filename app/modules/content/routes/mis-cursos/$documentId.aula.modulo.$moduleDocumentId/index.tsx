@@ -1,9 +1,12 @@
-import { RotateCcw } from "lucide-react";
 import { useParams } from "react-router";
-import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { ClassroomStopNav } from "../../../components/classroom-stop-nav";
-import { QuizOutcomeView, QuizTaker } from "../../../components/quiz-taker";
+import {
+	QuizOutcomeView,
+	QuizRetakeHint,
+	QuizRetryNotice,
+	QuizTaker,
+} from "../../../components/quiz-taker";
 import type { Route } from "./+types/index";
 
 export { action } from "./index.action";
@@ -43,16 +46,7 @@ export default function AulaModuleQuizPage({
 					</p>
 				) : quiz.sheet ? (
 					<>
-						{quiz.outcome && (
-							<Alert>
-								<RotateCcw />
-								<AlertDescription>
-									Obtuviste {quiz.outcome.score} en tu intento anterior y el
-									mínimo es {quiz.outcome.passingScore}. Quien imparte te
-									habilitó otro intento.
-								</AlertDescription>
-							</Alert>
-						)}
+						{quiz.outcome && <QuizRetryNotice outcome={quiz.outcome} />}
 						<QuizTaker
 							sheet={quiz.sheet}
 							owner={{ lessonDocumentId: null, moduleDocumentId }}
@@ -61,12 +55,7 @@ export default function AulaModuleQuizPage({
 				) : quiz.outcome ? (
 					<>
 						<QuizOutcomeView outcome={quiz.outcome} />
-						{!quiz.outcome.passed && quiz.availability === "TAKEN" && (
-							<p className="text-muted-foreground text-sm">
-								Necesitas aprobar esta evaluación para completar el curso. Si
-								necesitas otro intento, pídeselo a quien lo imparte.
-							</p>
-						)}
+						{quiz.canRequestRetake && <QuizRetakeHint />}
 					</>
 				) : (
 					<p className="text-muted-foreground text-sm">

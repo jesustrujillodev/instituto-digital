@@ -28,12 +28,14 @@ export const createClassroomRepository = ({
 				completionRule: true,
 				requiresEvaluation: true,
 				evaluationMethod: true,
+				minPassingGrade: true,
 				enrollments: {
 					where: { userId },
 					select: {
 						status: true,
 						progressPercent: true,
 						contentCompletedAt: true,
+						result: true,
 						completed: true,
 					},
 				},

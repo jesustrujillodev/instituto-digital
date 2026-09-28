@@ -46,10 +46,17 @@ const quizNote = (quiz: ClassroomQuizStatus) => {
 			return `Presentado · ${quiz.score} · ${quiz.passed ? "aprobado" : "no aprobado"}`;
 		case "LOCKED_BY_CONTENT":
 			return "Se habilita al terminar las lecciones obligatorias";
-		case "AVAILABLE":
+		case "AVAILABLE": {
+			const attempts =
+				quiz.attemptsLeft === null
+					? "intentos sin límite"
+					: quiz.attemptsLeft === 1
+						? "1 intento"
+						: `${quiz.attemptsLeft} intentos`;
 			return quiz.score === null
-				? "Disponible · un solo intento"
-				: `Otro intento habilitado · antes ${quiz.score}`;
+				? `Disponible · ${attempts}`
+				: `Puedes reintentarlo · antes ${quiz.score} · ${attempts}`;
+		}
 	}
 };
 

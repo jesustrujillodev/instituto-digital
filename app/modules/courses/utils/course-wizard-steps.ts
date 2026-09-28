@@ -65,6 +65,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 			"qrClosesAfterMinutes",
 			"requiresEvaluation",
 			"evaluationMethod",
+			"minPassingGrade",
 		],
 	},
 	{

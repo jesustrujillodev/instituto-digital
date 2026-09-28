@@ -1,7 +1,12 @@
 import { Lock } from "lucide-react";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { QuizOutcomeView, QuizTaker } from "../../../components/quiz-taker";
+import {
+	QuizOutcomeView,
+	QuizRetakeHint,
+	QuizRetryNotice,
+	QuizTaker,
+} from "../../../components/quiz-taker";
 import { FINAL_QUIZ_OWNER } from "../../../domain/quiz.rules";
 import type { Route } from "./+types/index";
 
@@ -29,8 +34,16 @@ export default function AulaExamenPage({ loaderData }: Route.ComponentProps) {
 					<p className="text-muted-foreground text-sm">
 						Este curso no se evalúa con examen en línea.
 					</p>
+				) : view.sheet ? (
+					<>
+						{view.outcome && <QuizRetryNotice outcome={view.outcome} />}
+						<QuizTaker sheet={view.sheet} owner={FINAL_QUIZ_OWNER} />
+					</>
 				) : view.outcome ? (
-					<QuizOutcomeView outcome={view.outcome} />
+					<>
+						<QuizOutcomeView outcome={view.outcome} />
+						{view.canRequestRetake && <QuizRetakeHint />}
+					</>
 				) : view.availability === "LOCKED_BY_CONTENT" ? (
 					<Alert>
 						<Lock />
@@ -39,8 +52,6 @@ export default function AulaExamenPage({ loaderData }: Route.ComponentProps) {
 							obligatorias.
 						</AlertDescription>
 					</Alert>
-				) : view.sheet ? (
-					<QuizTaker sheet={view.sheet} owner={FINAL_QUIZ_OWNER} />
 				) : (
 					<p className="text-muted-foreground text-sm">
 						El curso terminó: el examen ya no se puede presentar.

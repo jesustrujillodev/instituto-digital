@@ -25,11 +25,17 @@ describe("buildCoursePayload", () => {
 	test("los textos vacíos pasan a ausentes y los números dejan de ser texto", () => {
 		expect(
 			buildCoursePayload(
-				valuesOf({ capacity: "20", hours: "12", description: "  " }),
+				valuesOf({
+					capacity: "20",
+					hours: "12",
+					description: "  ",
+					minPassingGrade: "75",
+				}),
 			),
 		).toMatchObject({
 			capacity: 20,
 			hours: 12,
+			minPassingGrade: 75,
 			minAttendance: 80,
 			description: undefined,
 			enrollmentDeadline: undefined,

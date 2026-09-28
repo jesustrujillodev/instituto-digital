@@ -1,13 +1,17 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { RotateCcw, Save, Send } from "lucide-react";
+import { RotateCcw, Save, Send, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFetcher } from "react-router";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
-import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "@/shared/components/ui/alert";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -88,10 +92,10 @@ export default function CursoCertificadoPage({
 	const submit = (intent: string, fields: Record<string, string> = {}) =>
 		fetcher.submit({ [INTENT_FIELD]: intent, ...fields }, { method: "post" });
 
-	const save = () =>
-		submit(CERTIFICATE_INTENTS.saveDraft, {
-			[PAYLOAD_FIELD]: JSON.stringify(draft.draft),
-		});
+	// Guardar y publicar mandan lo que está en pantalla: publicar ya no exige
+	// guardar antes, que era el paso que se olvidaba.
+	const submitDesign = (intent: string) =>
+		submit(intent, { [PAYLOAD_FIELD]: JSON.stringify(draft.draft) });
 
 	const shownState = draft.isDirty ? null : STATE_LABELS[state];
 
@@ -110,15 +114,16 @@ export default function CursoCertificadoPage({
 			<Button
 				variant="outline"
 				disabled={!draft.isDirty || !draft.isValid || busy}
-				onClick={save}
+				onClick={() => submitDesign(CERTIFICATE_INTENTS.saveDraft)}
 			>
 				<Save aria-hidden="true" />
-				Guardar
+				Guardar borrador
 			</Button>
 			<Button
-				disabled={draft.isDirty || state === "published" || busy}
-				title={draft.isDirty ? "Guarda antes de publicar" : undefined}
-				onClick={() => submit(CERTIFICATE_INTENTS.publish)}
+				disabled={
+					!draft.isValid || busy || (state === "published" && !draft.isDirty)
+				}
+				onClick={() => submitDesign(CERTIFICATE_INTENTS.publish)}
 			>
 				<Send aria-hidden="true" />
 				Publicar
@@ -148,12 +153,29 @@ export default function CursoCertificadoPage({
 						<Badge variant="secondary">Sin guardar</Badge>
 						<span className="text-muted-foreground">
 							{draft.isValid
-								? "Guarda para no perder estos cambios; publicar va después."
+								? "Publica para que se emita con estos cambios, o guárdalos como borrador."
 								: "Revisa los campos marcados antes de guardar."}
 						</span>
 					</>
 				)}
 			</div>
+
+			{/* Mientras no haya publicado, la emisión usa el diseño por defecto: es el
+			    malentendido que dejaba cursos certificando con otro diseño. */}
+			{canEdit && state === "never-published" && (
+				<Alert className="border-warning-foreground/25 bg-warning">
+					<TriangleAlert
+						aria-hidden="true"
+						className="text-warning-foreground"
+					/>
+					<AlertTitle>Este certificado aún no está publicado</AlertTitle>
+					<AlertDescription>
+						Los certificados que se emitan ahora usarán el diseño por defecto,
+						no este. Publícalo para que se emita con él; lo ya emitido no
+						cambia.
+					</AlertDescription>
+				</Alert>
+			)}
 
 			{!canEdit && (
 				<Alert>

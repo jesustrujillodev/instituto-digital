@@ -26,9 +26,12 @@ export interface ICertificateService {
 		actor: AuthContext,
 	): Promise<AppResponse<null>>;
 
-	/** Publica el borrador GUARDADO; lo que no se guardó no se publica. */
+	/**
+	 * Guarda el diseño como borrador Y lo publica, en una sola escritura: es lo
+	 * que queda en pantalla, no lo último que se guardó (docs/adr/0023).
+	 */
 	publish(
-		courseDocumentId: string,
+		dto: SaveCertificateDraftDto,
 		actor: AuthContext,
 	): Promise<AppResponse<null>>;
 

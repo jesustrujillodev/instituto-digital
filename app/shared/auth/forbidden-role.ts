@@ -10,9 +10,9 @@ import type { Role } from "@/shared/rules/atoms.rules";
  * El 403 de autorización, en un solo sitio.
  *
  * Vivía dentro de `requireRole`, que bastaba mientras entrar a una pantalla
- * dependiera solo del rol. El catálogo de capacitadores admite además a
- * cualquiera con perfil activo, así que hay un guard que no puede delegar en
- * `requireRole` y sí tiene que responder exactamente lo mismo: dos `data()`
+ * dependiera solo del rol. Cursos e Impartición admiten además a quien tiene
+ * perfil de capacitador activo, así que hay guards que no pueden delegar en
+ * `requireRole` y sí tienen que responder exactamente lo mismo: dos `data()`
  * escritos aparte divergirían y `isForbiddenRoleError` solo reconocería uno.
  *
  * `statusText` explícito: al convertir un `data()` lanzado en ErrorResponse,

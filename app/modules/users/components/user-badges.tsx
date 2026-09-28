@@ -64,6 +64,26 @@ export function UserTypeBadge({ type }: { type: "INTERNAL" | "EXTERNAL" }) {
 }
 
 /**
+ * Rol de un interno, o "Externo" para quien viene de fuera.
+ *
+ * Un externo lleva `USER` en la base, pero no es participante: no cursa ni
+ * pertenece a una dependencia. Pintar su rol diría algo falso de él.
+ */
+export function AccountRoleBadge({
+	role,
+	type,
+}: {
+	role: Role;
+	type: "INTERNAL" | "EXTERNAL";
+}) {
+	return type === "EXTERNAL" ? (
+		<UserTypeBadge type={type} />
+	) : (
+		<RoleBadge role={role} />
+	);
+}
+
+/**
  * Perfil de capacitador activo.
  *
  * Se suma al rol en vez de sustituirlo: §3 del alcance exige que los roles se

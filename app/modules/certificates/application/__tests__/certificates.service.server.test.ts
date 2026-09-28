@@ -369,16 +369,47 @@ describe("certificateService.saveDraft", () => {
 });
 
 describe("certificateService.publish", () => {
-	test("publica el borrador GUARDADO con la hora del reloj", async () => {
-		const saved = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "Guardado" };
+	// Publica lo que está en pantalla, no lo último guardado: con el borrador
+	// viejo en la base, lo publicado sigue siendo el diseño recibido.
+	test("publica el diseño recibido con la hora del reloj", async () => {
+		const onScreen = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "En pantalla" };
 		const { service, calls } = createHarness({
-			record: recordOf({ draft: saved, exists: true }),
+			record: recordOf({
+				draft: { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "Guardado antes" },
+				exists: true,
+			}),
 		});
 
-		const result = await service.publish(COURSE_DOC, actorOf());
+		const result = await service.publish(
+			{ documentId: COURSE_DOC, design: onScreen },
+			actorOf(),
+		);
 
 		expect(result).toMatchObject({ success: true, data: null });
-		expect(calls.published).toEqual([{ courseId: 7, design: saved, at: NOW }]);
+		expect(calls.published).toEqual([
+			{ courseId: 7, design: onScreen, at: NOW },
+		]);
+	});
+
+	// Publicar recibe un diseño, así que pasa por la misma guarda que guardar:
+	// sin ella se podría imprimir la firma de un titular ajeno.
+	test("rechaza la firma de otro curso sin publicar", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.publish(
+			{
+				documentId: COURSE_DOC,
+				design: withSignature(
+					toProxyRef(`documentos/firmas/${OTHER_DOC}/a.png`),
+				),
+			},
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED },
+		});
+		expect(calls.published).toEqual([]);
 	});
 
 	test("un curso cancelado no publica", async () => {
@@ -386,7 +417,12 @@ describe("certificateService.publish", () => {
 			course: courseOf({ status: "CANCELLED" }),
 		});
 
-		expect(await service.publish(COURSE_DOC, actorOf())).toMatchObject({
+		expect(
+			await service.publish(
+				{ documentId: COURSE_DOC, design: DEFAULT_CERTIFICATE_DESIGN },
+				actorOf(),
+			),
+		).toMatchObject({
 			error: { code: CERTIFICATE_ERROR_CODES.NOT_EDITABLE },
 		});
 		expect(calls.published).toEqual([]);

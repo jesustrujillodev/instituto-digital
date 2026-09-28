@@ -25,6 +25,8 @@ export const COURSE_DEFAULTS = {
 	completionRule: "ATTENDANCE",
 	evaluationMethod: "MANUAL",
 	minAttendance: 80,
+	/** El promedio con el que se acredita cuando la nota se calcula sola (docs/adr/0024). */
+	minPassingGrade: 70,
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,
 } as const;

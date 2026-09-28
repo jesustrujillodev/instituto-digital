@@ -4,9 +4,11 @@
 
 Dos módulos con **alcances opuestos**, y esa es la razón de que sean dos:
 
-- `app/modules/trainers/` administra el catálogo de capacitadores, que es
+- `app/modules/trainers/` administra el perfil de capacitador, cuya lectura es
   **global**: §4 del alcance quiere que cualquier titular pueda asignar a
-  cualquier capacitador activo, sea de su dependencia o no.
+  cualquier capacitador activo, sea de su dependencia o no. No tiene pantalla
+  propia: el perfil se ve, se filtra y se habilita en `/dashboard/usuarios`
+  (ver `docs/adr/0022`).
 - `app/modules/groups/` administra las listas nominales de cada dependencia, que
   se recortan por **alcance** como todo lo demás.
 
@@ -63,28 +65,40 @@ que una ventana de sesión.
 deliberadamente fuera: es un booleano que no identifica nada y la UI lo necesita
 para decidir qué pinta.
 
-## 4. Quién entra al catálogo, y la condición que no es un rol
+## 4. Dónde se administra el perfil, y quién
 
-La matriz de §3 reparte tres permisos distintos:
+No hay catálogo aparte. El capacitador es un perfil de la cuenta, así que vive en
+la tabla de usuarios: una columna, un filtro y tres acciones por fila.
 
 | Acción | Quién |
 | --- | --- |
-| Consultar el catálogo | Superadmin, titular, auxiliar **y cualquier capacitador** |
-| Activar o desactivar un perfil | Superadmin, titular y auxiliar, **dentro de su alcance** |
+| Ver y filtrar capacitadores | Superadmin, titular y auxiliar, en `/dashboard/usuarios` |
+| Habilitar, editar o deshabilitar un perfil | Superadmin, titular y auxiliar, **dentro de su alcance** |
 | Registrar capacitadores externos | Superadmin, titular y auxiliar, **sin alcance** |
 
-La primera fila es la novedad del módulo: un participante con perfil entra al
-catálogo aunque su rol sea `USER`, y `requireRole` no lo expresa porque solo
-compara contra la tupla.
+Un participante con perfil ya no tiene pantalla de consulta: nada de su trabajo
+la necesitaba. Asignar capacitadores a un curso usa `findActive()`, que no pasa
+por ninguna pantalla.
 
-Se resolvió extrayendo el 403 a `app/shared/auth/forbidden-role.ts`. El loader
-del catálogo hace `requireAuth` + `canViewCatalog(auth)` + `throw forbiddenRole(...)`,
-y `requireRole` pasa a usar el mismo helper. Dos `data()` escritos aparte
-divergirían y `isForbiddenRoleError` solo reconocería uno.
+**El listado de usuarios incluye a los externos.** `listScopeWhere` amplía el
+alcance de dependencia con `type = EXTERNAL` solo para la LECTURA de la lista:
+el titular tiene que verlos para administrar su perfil. Las escrituras de la
+cuenta siguen acotadas por `scopeWriteWhere`, así que sobre un externo el
+titular solo ve las acciones del perfil. Filtrar por "Participantes" deja fuera
+a los externos: llevan `USER` en la base, pero no cursan.
 
-**Ver el catálogo y modificarlo son dos permisos distintos.** La pantalla es la
-misma; las acciones de escritura aparecen solo con `canAdministerTrainers`, y el
-action las vuelve a exigir: ocultar un botón no es una regla.
+**Cada fila llega con sus permisos decididos** (`toUserListItems`): `canManage`
+para la cuenta y `canManageTrainer` para el perfil. La pantalla oculta lo que el
+servidor rechazaría; el action y el servicio lo vuelven a comprobar.
+
+| Ruta | Qué hace |
+| --- | --- |
+| `/dashboard/usuarios?trainer=yes` | La tabla filtrada a capacitadores activos (`type=EXTERNAL` para los externos) |
+| `/dashboard/usuarios/capacitador-externo` | Alta del externo |
+| `/dashboard/usuarios/:documentId/perfil-capacitador` | Solo action: `activate`, `update`, `deactivate`, `reactivate` |
+
+La cuenta del action sale de la URL, nunca del formulario. Volver a habilitar no
+pide datos: el perfil deshabilitado conserva su especialidad.
 
 **Sobre un externo manda el rol, no el alcance.** No pertenece a ninguna
 dependencia, así que `canManageUser` dejaría fuera a cualquier titular. Es lo que
@@ -191,10 +205,10 @@ caminos de escritura, que están contados y tienen prueba.
 
 | Amenaza | Defensa |
 | --- | --- |
-| Un participante cualquiera entra al catálogo | `canViewCatalog` exige rol de gestión o perfil activo; el 403 es el mismo que da `requireRole` |
-| Un capacitador usa el catálogo para editar perfiles ajenos | El action exige rol: ver y modificar son dos permisos distintos |
+| Un participante cualquiera administra perfiles | El action del perfil exige `TRAINER_ADMIN_ROLES` |
 | Un titular activa el perfil a alguien de otra dependencia | `canManageTrainer` reúne alcance y rango; fuera de alcance responde 404 |
-| El catálogo global expone datos de personal ajeno | Proyección corta: ni estado, ni número de empleado, ni rol |
+| Un titular edita o archiva la cuenta de un externo | `scopeWriteWhere` no lo alcanza; la fila ni ofrece la acción (`canManage`) |
+| Un formulario manipulado cambia a quién se habilita | La cuenta sale del parámetro de la URL, no de un campo |
 | Se crea un externo sin perfil de capacitador | Transacción en `createExternal` y rechazo en `usersService.create`: son los dos únicos caminos |
 | Dos activaciones simultáneas duplican el perfil | La PK de `trainer_profiles` es la FK: la segunda choca con P2002 |
 | Un perfil desactivado sigue dando acceso | La mutación revoca los tokens; `isTrainer` se recalcula al firmar |
@@ -204,14 +218,19 @@ caminos de escritura, que están contados y tienen prueba.
 | Un grupo archivado bloquea su nombre para siempre | El índice único es parcial sobre `archived_at IS NULL` |
 | Un titular sin dependencia ve o escribe algo | `groupScopeWhere` devuelve un predicado imposible y `groupScopeWriteWhere` devuelve `null` |
 
-## 10. Estadísticas de la ficha
+## 10. Estadísticas del perfil
 
-Desde PRD-06 la ficha calcula **cursos impartidos** y **valoración promedio** en
-`trainers.repository.server.ts` (`statsOf`), sin captura:
+Desde PRD-06 el perfil calcula **cursos impartidos** y **valoración promedio**
+en `trainers.repository.server.ts`, sin captura:
 
 - impartidos: filas de `course_trainers` cuyo curso está `FINISHED`;
-- promedio: `AVG(score)` de `course_ratings` de esos mismos cursos, `null` sin
-  valoraciones.
+- promedio: la media de TODAS las valoraciones de esos cursos, `null` sin
+  valoraciones. No es la media de los promedios por curso.
+
+Una mutación las calcula para una persona (`statsOf`). El listado de usuarios
+las pide para toda la página con `findByUserDocumentIds`: dos consultas en total
+y no dos por persona, y `toStatsByUser` rehace la media desde sumas y conteos
+por curso.
 
 Un curso publicado no cuenta: todavía no se ha impartido y no se puede valorar.
 `toDetail` recibe las estadísticas aparte porque no son columnas del perfil.
@@ -221,15 +240,16 @@ capacitadores del formulario de cursos, y `IGroupRepository.findActive(scope)`
 el de audiencia. Los dos son catálogos sin paginar, como
 `dependencyRepository.findActive()`.
 
-## 11. Añadir una operación al catálogo o a los grupos
+## 11. Añadir una operación al perfil o a los grupos
 
 1. Decide si es lectura o mutación. En `trainers`, las lecturas **no llevan
-   alcance** y las mutaciones reciben el `AuthContext`. En `groups`, las lecturas
-   reciben `scope` y las mutaciones el `AuthContext`.
+   alcance** —las cuentas ya vienen recortadas por el listado de usuarios— y las
+   mutaciones reciben el `AuthContext`. En `groups`, las lecturas reciben `scope`
+   y las mutaciones el `AuthContext`.
 2. Declara la firma en el puerto. TypeScript señalará cada punto que lo olvide.
 3. Si toca una cuenta ajena, pásala por `canManageTrainer`; si escribe un grupo,
    por `requireWriteScope`.
 4. Si muta el perfil, revoca los tokens del afectado.
 5. Escribe la prueba junto al código. La que importa no es el camino feliz: es
-   que el catálogo siga sin recibir alcance, que los candidatos se filtren por la
+   que el action tome la cuenta de la URL, que los candidatos se filtren por la
    dependencia del grupo, y que `none` no se convierta en `{}`.

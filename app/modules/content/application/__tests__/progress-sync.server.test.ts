@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vitest";
 import type {
+	CourseCompletionRule,
 	CourseFormat,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
 import type {
 	ProgressWrite,
+	ResultWrite,
 	ProgressState as StoredProgress,
 } from "@/modules/enrollments/domain/enrollment.types";
 import type { ICradle } from "@/shared/di/container.types";
@@ -17,11 +19,26 @@ import {
 } from "../../domain/__tests__/content.fixtures";
 import type { CompletedLessonRow } from "../../domain/classroom.types";
 import type { ContentModuleRaw } from "../../domain/content.mapper";
-import type { PassedModuleQuizRow } from "../../domain/quiz.types";
+import type { QuizScoreRow } from "../../domain/quiz.types";
 import { createProgressSync } from "../progress-sync.server";
 
 const AT = new Date("2027-03-10T18:00:00.000Z");
 const EARLIER = new Date("2027-01-05T18:00:00.000Z");
+
+const stateOf = (
+	userId: number,
+	progressPercent: number,
+	contentCompletedAt: Date | null,
+	overrides: Partial<StoredProgress> = {},
+): StoredProgress => ({
+	userId,
+	progressPercent,
+	contentCompletedAt,
+	result: "PENDING",
+	grade: null,
+	completed: false,
+	...overrides,
+});
 
 const lessonRaw = (documentId: string, order: number) => ({
 	documentId,
@@ -48,6 +65,7 @@ const treeOf = (lessons: string[], withQuiz: boolean): ContentModuleRaw[] => [
 					{
 						documentId: MODULE_QUIZ_A,
 						title: "Evaluación",
+						maxAttempts: 2,
 						_count: { questions: 2 },
 					},
 				]
@@ -60,12 +78,14 @@ const createHarness = (options: {
 	states: StoredProgress[];
 	completed: CompletedLessonRow[];
 	moduleQuiz?: boolean;
-	passed?: PassedModuleQuizRow[];
+	scores?: QuizScoreRow[];
 }) => {
 	const calls = {
 		locks: 0,
 		writes: [] as ProgressWrite[][],
+		results: [] as { entries: ResultWrite[]; actorId: number; at: Date }[],
 		syncs: [] as { courseId: number; actorId: number; at: Date }[],
+		order: [] as string[],
 	};
 
 	const sync = createProgressSync({
@@ -83,11 +103,8 @@ const createHarness = (options: {
 				),
 		} as unknown as ICradle["classroomRepository"],
 		quizRepository: {
-			findPassedModuleQuizzes: async (
-				_courseId: number,
-				userIds?: readonly number[],
-			) =>
-				(options.passed ?? []).filter(
+			findBestScores: async (_courseId: number, userIds?: readonly number[]) =>
+				(options.scores ?? []).filter(
 					(row) => !userIds || userIds.includes(row.userId),
 				),
 		} as unknown as ICradle["quizRepository"],
@@ -100,10 +117,20 @@ const createHarness = (options: {
 			saveProgress: async (_courseId: number, writes: ProgressWrite[]) => {
 				calls.writes.push(writes);
 			},
+			saveResults: async (
+				_courseId: number,
+				entries: ResultWrite[],
+				actorId: number,
+				at: Date,
+			) => {
+				calls.results.push({ entries, actorId, at });
+				calls.order.push("results");
+			},
 		} as unknown as ICradle["enrollmentRepository"],
 		completionSync: {
 			sync: async (courseId: number, actorId: number, at: Date) => {
 				calls.syncs.push({ courseId, actorId, at });
+				calls.order.push("sync");
 				return { completed: 0, diff: { grant: [], restore: [], revoke: [] } };
 			},
 		} as unknown as ICradle["completionSync"],
@@ -115,13 +142,24 @@ const createHarness = (options: {
 const courseOf = (
 	status: CourseStatus = "PUBLISHED",
 	format: CourseFormat = "SELF_PACED",
-) => ({ id: 7, status, format });
+	evaluation: {
+		completionRule?: CourseCompletionRule;
+		requiresEvaluation?: boolean;
+	} = {},
+) => ({
+	id: 7,
+	status,
+	format,
+	completionRule: evaluation.completionRule ?? "CONTENT",
+	requiresEvaluation: evaluation.requiresEvaluation ?? false,
+	minPassingGrade: 70,
+});
 
 describe("progressSync.recalculate", () => {
 	test("quien termina las obligatorias fija su fecha y un autogestivo lo acredita", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1, LESSON_2],
-			states: [{ userId: 50, progressPercent: 50, contentCompletedAt: null }],
+			states: [stateOf(50, 50, null)],
 			completed: [
 				{ userId: 50, lessonDocumentId: LESSON_1 },
 				{ userId: 50, lessonDocumentId: LESSON_2 },
@@ -141,10 +179,10 @@ describe("progressSync.recalculate", () => {
 	});
 
 	// ADR-0016: la evaluación del módulo cuenta como una parada más del contenido.
-	test("sin aprobar la evaluación del módulo el contenido no termina", async () => {
+	test("sin presentar la evaluación del módulo el contenido no termina", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1],
-			states: [{ userId: 50, progressPercent: 0, contentCompletedAt: null }],
+			states: [stateOf(50, 0, null)],
 			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
 			moduleQuiz: true,
 		});
@@ -157,13 +195,14 @@ describe("progressSync.recalculate", () => {
 		expect(calls.syncs).toEqual([]);
 	});
 
-	test("aprobarla termina el contenido y un autogestivo lo acredita", async () => {
+	// ADR-0024: presentada cuenta, apruebe o no.
+	test("presentarla termina el contenido y un autogestivo lo acredita", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1],
-			states: [{ userId: 50, progressPercent: 50, contentCompletedAt: null }],
+			states: [stateOf(50, 50, null)],
 			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
 			moduleQuiz: true,
-			passed: [{ userId: 50, quizDocumentId: MODULE_QUIZ_A }],
+			scores: [{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 80 }],
 		});
 
 		const result = await sync.recalculate(courseOf(), 50, AT, [50]);
@@ -177,11 +216,165 @@ describe("progressSync.recalculate", () => {
 		expect(calls.syncs).toEqual([{ courseId: 7, actorId: 50, at: AT }]);
 	});
 
+	// ADR-0021, 0024: sin examen ni captura, el temario califica con el promedio.
+	test("al terminar, escribe aprobado con el promedio antes de acreditar", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 50, null)],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [
+				{ userId: 50, itemDocumentId: LESSON_1, score: 95 },
+				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 70 },
+			],
+		});
+
+		await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(calls.results).toEqual([
+			{
+				entries: [{ userId: 50, result: "PASSED", grade: 82 }],
+				actorId: 50,
+				at: AT,
+			},
+		]);
+		expect(calls.order).toEqual(["results", "sync"]);
+	});
+
+	test("un promedio bajo la mínima escribe reprobado aunque termine", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 50, null)],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [
+				{ userId: 50, itemDocumentId: LESSON_1, score: 60 },
+				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 50 },
+			],
+		});
+
+		const result = await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(result).toEqual([
+			{ userId: 50, percent: 100, contentCompleted: true },
+		]);
+		expect(calls.results).toEqual([
+			{
+				entries: [{ userId: 50, result: "FAILED", grade: 55 }],
+				actorId: 50,
+				at: AT,
+			},
+		]);
+		// Recalcular el completado ya lee el reprobado y no acredita.
+		expect(calls.order).toEqual(["results", "sync"]);
+	});
+
+	test("un reintento que sube el promedio acredita a quien ya había terminado", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 100, EARLIER, { result: "FAILED", grade: 55 })],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [
+				{ userId: 50, itemDocumentId: LESSON_1, score: 60 },
+				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 90 },
+			],
+		});
+
+		await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(calls.writes).toEqual([]);
+		expect(calls.results).toEqual([
+			{
+				entries: [{ userId: 50, result: "PASSED", grade: 75 }],
+				actorId: 50,
+				at: AT,
+			},
+		]);
+		expect(calls.syncs).toEqual([{ courseId: 7, actorId: 50, at: AT }]);
+	});
+
+	test("un reintento que no alcanza solo actualiza la nota, sin acreditar", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 100, EARLIER, { result: "FAILED", grade: 55 })],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [
+				{ userId: 50, itemDocumentId: LESSON_1, score: 60 },
+				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 70 },
+			],
+		});
+
+		await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(calls.results[0]?.entries).toEqual([
+			{ userId: 50, result: "FAILED", grade: 65 },
+		]);
+		expect(calls.syncs).toEqual([]);
+	});
+
+	// Solo hacia adelante: lo acreditado queda fijo, con cualquier regla.
+	test.each([
+		["aprobado", { result: "PASSED" as const, grade: 90 }],
+		["completado antes de la mínima", { completed: true }],
+	])("a quien ya está %s no se le recalifica", async (_label, stored) => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 100, EARLIER, stored)],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [
+				{ userId: 50, itemDocumentId: LESSON_1, score: 10 },
+				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 10 },
+			],
+		});
+
+		await sync.recalculate(courseOf(), 50, AT);
+
+		expect(calls.results).toEqual([]);
+	});
+
+	test.each([
+		["exige evaluación", { requiresEvaluation: true }],
+		["no cuenta el contenido", { completionRule: "ATTENDANCE" as const }],
+	])("no escribe resultado si el curso %s", async (_label, evaluation) => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 50, null)],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 80 }],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SELF_PACED", evaluation),
+			50,
+			AT,
+			[50],
+		);
+
+		expect(calls.results).toEqual([]);
+	});
+
+	test("sin evaluaciones en el temario no escribe resultado", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 0, null)],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+		});
+
+		await sync.recalculate(courseOf(), 50, AT, [50]);
+
+		expect(calls.results).toEqual([]);
+		expect(calls.syncs).toHaveLength(1);
+	});
+
 	// Un calendarizado con asistencia y contenido calcula el completado al cierre.
 	test("un calendarizado publicado guarda el contenido pero no acredita todavía", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1],
-			states: [{ userId: 50, progressPercent: 0, contentCompletedAt: null }],
+			states: [stateOf(50, 0, null)],
 			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
 		});
 
@@ -197,9 +390,7 @@ describe("progressSync.recalculate", () => {
 	test("una lección nueva baja el porcentaje sin borrar el completado", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1, LESSON_2, LESSON_3],
-			states: [
-				{ userId: 50, progressPercent: 100, contentCompletedAt: EARLIER },
-			],
+			states: [stateOf(50, 100, EARLIER)],
 			completed: [
 				{ userId: 50, lessonDocumentId: LESSON_1 },
 				{ userId: 50, lessonDocumentId: LESSON_2 },
@@ -221,10 +412,7 @@ describe("progressSync.recalculate", () => {
 	test("archivar la obligatoria pendiente completa a quien ya tenía las demás", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1],
-			states: [
-				{ userId: 50, progressPercent: 50, contentCompletedAt: null },
-				{ userId: 51, progressPercent: 0, contentCompletedAt: null },
-			],
+			states: [stateOf(50, 50, null), stateOf(51, 0, null)],
 			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
 		});
 
@@ -239,7 +427,7 @@ describe("progressSync.recalculate", () => {
 	test("si nada cambia no escribe", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1, LESSON_2],
-			states: [{ userId: 50, progressPercent: 50, contentCompletedAt: null }],
+			states: [stateOf(50, 50, null)],
 			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
 		});
 

@@ -2,9 +2,9 @@ import { useFormIds } from "@/shared/hooks/use-form-ids";
 
 const PROFILE_KEYS = ["specialty", "institution", "bio"] as const;
 
-export type TrainerFormIds = ReturnType<typeof useTrainerFormIds>;
+export type TrainerProfileFormIds = ReturnType<typeof useTrainerProfileFormIds>;
 
-export const useTrainerFormIds = () => useFormIds(PROFILE_KEYS);
+export const useTrainerProfileFormIds = () => useFormIds(PROFILE_KEYS);
 
 const EXTERNAL_KEYS = [
 	"firstName",
@@ -22,11 +22,3 @@ export type ExternalTrainerFormIds = ReturnType<
 >;
 
 export const useExternalTrainerFormIds = () => useFormIds(EXTERNAL_KEYS);
-
-const ACTIVATE_KEYS = ["userDocumentId", "specialty", "bio"] as const;
-
-export type ActivateProfileFormIds = ReturnType<
-	typeof useActivateProfileFormIds
->;
-
-export const useActivateProfileFormIds = () => useFormIds(ACTIVATE_KEYS);

@@ -7,6 +7,7 @@ import {
 	quizProblemsOf,
 	quizSummaryOf,
 	sameQuizDraft,
+	toQuizDraft,
 } from "../quiz-draft";
 
 const questionOf = (overrides: Partial<DraftQuestion> = {}): DraftQuestion => ({
@@ -22,6 +23,7 @@ const questionOf = (overrides: Partial<DraftQuestion> = {}): DraftQuestion => ({
 const draftOf = (overrides: Partial<QuizDraft> = {}): QuizDraft => ({
 	title: "Examen final",
 	passingScore: 70,
+	maxAttempts: 1,
 	shuffleQuestions: false,
 	questions: [questionOf()],
 	...overrides,
@@ -78,6 +80,26 @@ describe("quizProblemsOf", () => {
 			"Agrega al menos una pregunta.",
 		]);
 	});
+
+	test("los intentos van de 1 a 10, o sin límite", () => {
+		const problem = "Los intentos son un entero de 1 a 10, o sin límite.";
+
+		expect(quizProblemsOf(draftOf({ maxAttempts: 0 }))).toEqual([problem]);
+		expect(quizProblemsOf(draftOf({ maxAttempts: Number.NaN }))).toEqual([
+			problem,
+		]);
+		expect(quizProblemsOf(draftOf({ maxAttempts: null }))).toEqual([]);
+		expect(quizProblemsOf(draftOf({ maxAttempts: 10 }))).toEqual([]);
+	});
+});
+
+describe("toQuizDraft", () => {
+	// docs/adr/0024: la práctica siempre se reintentó sin límite.
+	test("un cuestionario nuevo arranca con el tope de su tipo", () => {
+		expect(toQuizDraft(null, "Examen", "FINAL").maxAttempts).toBe(1);
+		expect(toQuizDraft(null, "Evaluación", "MODULE").maxAttempts).toBe(1);
+		expect(toQuizDraft(null, "Práctica", "PRACTICE").maxAttempts).toBeNull();
+	});
 });
 
 describe("quizSummaryOf", () => {
@@ -85,13 +107,22 @@ describe("quizSummaryOf", () => {
 		const questions = Array.from({ length: 5 }, () => questionOf());
 
 		expect(quizSummaryOf(draftOf({ questions }))).toBe(
-			"5 preguntas · 5 puntos · se aprueba con 4",
+			"5 preguntas · 5 puntos · se aprueba con 4 · 1 intento",
 		);
 	});
 
 	test("sin porcentaje válido no promete cuántos hacen falta", () => {
 		expect(quizSummaryOf(draftOf({ passingScore: Number.NaN }))).toBe(
-			"1 pregunta · 1 punto",
+			"1 pregunta · 1 punto · 1 intento",
+		);
+	});
+
+	test("dice los intentos, o que no tienen límite", () => {
+		expect(quizSummaryOf(draftOf({ maxAttempts: 3 }))).toBe(
+			"1 pregunta · 1 punto · se aprueba con 1 · 3 intentos",
+		);
+		expect(quizSummaryOf(draftOf({ maxAttempts: null }))).toBe(
+			"1 pregunta · 1 punto · se aprueba con 1 · intentos sin límite",
 		);
 	});
 

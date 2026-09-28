@@ -2,10 +2,9 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { DuplicateEmailError } from "@/modules/users/domain/user.errors";
 import type { SafeUser } from "@/modules/users/domain/user.types";
 import type { ICradle } from "@/shared/di/container.types";
-import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
+import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { canManageTrainer } from "../domain/trainer.access";
-import { TRAINER_LIST_DEFAULTS } from "../domain/trainer.config";
 import {
 	DuplicateTrainerEmailError,
 	ExternalTrainerRequiresInstitutionError,
@@ -18,7 +17,6 @@ import type { ITrainerService } from "../domain/trainer.service";
 import type {
 	ActivateProfileDto,
 	CreateExternalTrainerDto,
-	ListTrainersDto,
 	UpdateProfileDto,
 } from "../domain/trainer.types";
 
@@ -98,30 +96,10 @@ export const createTrainerService = ({
 	};
 
 	return {
-		async list(filters: ListTrainersDto) {
-			return run("list", async () => {
-				const [data, total] = await Promise.all([
-					trainerRepository.findAll(filters),
-					trainerRepository.count(filters),
-				]);
-
-				return ok(data, {
-					pagination: toPaginationMeta({
-						page: filters.page ?? TRAINER_LIST_DEFAULTS.page,
-						pageSize: filters.pageSize ?? TRAINER_LIST_DEFAULTS.pageSize,
-						total,
-					}),
-				});
-			});
-		},
-		async findByUser(userDocumentId: string) {
-			return run("findByUser", async () => {
-				const profile =
-					await trainerRepository.findByUserDocumentId(userDocumentId);
-				if (!profile) throw new TrainerProfileNotFoundError();
-
-				return ok(profile);
-			});
+		async listByUsers(userDocumentIds: readonly string[]) {
+			return run("listByUsers", async () =>
+				ok(await trainerRepository.findByUserDocumentIds(userDocumentIds)),
+			);
 		},
 		async activateProfile(dto: ActivateProfileDto, actor: AuthContext) {
 			return run("activateProfile", async () => {

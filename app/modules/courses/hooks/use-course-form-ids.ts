@@ -17,6 +17,7 @@ const FIELD_KEYS = [
 	"minAttendance",
 	"requiresEvaluation",
 	"evaluationMethod",
+	"minPassingGrade",
 	"qrOpensBeforeMinutes",
 	"qrClosesAfterMinutes",
 	"trainers",

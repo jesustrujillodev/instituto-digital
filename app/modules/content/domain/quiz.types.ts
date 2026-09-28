@@ -3,11 +3,13 @@ import type {
 	CourseFormat,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
+import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	grantRetakeRule,
 	moduleQuizRule,
 	QuizAvailability,
+	QuizKind,
 	QuizQuestionType,
 	renameQuizRule,
 	saveQuizRule,
@@ -56,6 +58,8 @@ export interface StoredQuiz {
 	documentId: string;
 	title: string;
 	passingScore: number;
+	/** `null`: sin límite. */
+	maxAttempts: number | null;
 	shuffleQuestions: boolean;
 	/** En su orden. */
 	questions: StoredQuizQuestion[];
@@ -78,20 +82,33 @@ export interface StoredAttempt {
 	answers: StoredAnswer[];
 }
 
-/** Un cuestionario de módulo aprobado por alguien: cuenta para su avance. */
-export interface PassedModuleQuizRow {
+/**
+ * Un cuestionario del temario presentado por alguien, con su mejor nota.
+ * `itemDocumentId` es la clave con la que cuenta en el avance: la lección, si
+ * es una práctica, o el propio cuestionario, si es la evaluación de un módulo.
+ */
+export interface QuizScoreRow {
 	userId: number;
-	quizDocumentId: string;
+	itemDocumentId: string;
+	score: number;
 }
 
-/** El último intento de cada persona en un cuestionario de módulo. */
-export interface ModuleQuizAttemptRow {
+/** El último intento de cada persona en un cuestionario. */
+export interface QuizAttemptRow {
 	quizDocumentId: string;
 	userDocumentId: string;
 	number: number;
 	score: number;
 	passed: boolean;
 	retakeGrantedAt: Date | null;
+	maxAttempts: number | null;
+}
+
+/** Quien presenta, con su resultado en el curso: acreditado, ya no reintenta. */
+export interface QuizParticipantRef {
+	userId: number;
+	result: EnrollmentResult;
+	completed: boolean;
 }
 
 /** El curso visto por quien imparte, para autorizar el tablero y otro intento. */
@@ -106,6 +123,7 @@ export interface QuizTeachingCourseRef {
 export interface QuizBankWrite {
 	title: string;
 	passingScore: number;
+	maxAttempts: number | null;
 	shuffleQuestions: boolean;
 	questions: {
 		statement: string;
@@ -127,6 +145,7 @@ export interface QuizBank {
 	documentId: string;
 	title: string;
 	passingScore: number;
+	maxAttempts: number | null;
 	shuffleQuestions: boolean;
 	questions: {
 		documentId: string;
@@ -146,6 +165,8 @@ export interface QuizSheet {
 	documentId: string;
 	title: string;
 	passingScore: number;
+	/** Contando este; `null` sin límite. */
+	attemptsLeft: number | null;
 	totalPoints: number;
 	questions: {
 		documentId: string;
@@ -174,30 +195,35 @@ export interface QuizView {
 	title: string;
 	questionCount: number;
 	sheet: QuizSheet | null;
-	/** El del último intento; con otro habilitado convive con `sheet`. */
+	/** El del último intento; si puede reintentarlo, convive con `sheet`. */
 	outcome: QuizOutcome | null;
+	/** Reprobó, agotó sus intentos y no ha acreditado: puede pedir otro. */
+	canRequestRetake: boolean;
 }
 
 // ── Lo que ve quien imparte ───────────────────────────────────────────────────
 
-export interface ModuleQuizBoardEntry {
+export interface QuizBoardEntry {
 	quizDocumentId: string;
-	moduleDocumentId: string;
-	moduleTitle: string;
+	owner: QuizOwnerRef;
+	kind: QuizKind;
+	/** De qué cuelga: la lección, el módulo, o nada en el examen final. */
+	ownerTitle: string | null;
 	title: string;
+	maxAttempts: number | null;
 }
 
-export interface ModuleQuizBoard {
+export interface QuizBoard {
 	/** Solo en un curso publicado se habilita otro intento. */
 	canGrantRetake: boolean;
-	/** En el orden del temario. */
-	quizzes: ModuleQuizBoardEntry[];
+	/** En el orden del temario, y el examen al final. */
+	quizzes: QuizBoardEntry[];
 	/** El último intento de cada persona; sin fila, no lo ha presentado. */
-	attempts: ModuleQuizAttemptRow[];
+	attempts: QuizAttemptRow[];
 }
 
 export type QuizBankResponse = AppResponse<QuizBank | null>;
 export type QuizViewResponse = AppResponse<QuizView | null>;
 export type QuizOutcomeResponse = AppResponse<QuizOutcome>;
 export type QuizMutationResponse = AppResponse<null>;
-export type ModuleQuizBoardResponse = AppResponse<ModuleQuizBoard>;
+export type QuizBoardResponse = AppResponse<QuizBoard>;

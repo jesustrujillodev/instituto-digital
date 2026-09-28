@@ -1,8 +1,9 @@
-import { CheckCircle2, Send, XCircle } from "lucide-react";
+import { CheckCircle2, RotateCcw, Send, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Label } from "@/shared/components/ui/label";
@@ -20,6 +21,30 @@ import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/content-form";
+
+/** Encima de la hoja cuando se reintenta: cómo le fue y que cuenta la mejor. */
+export function QuizRetryNotice({ outcome }: { outcome: QuizOutcome }) {
+	return (
+		<Alert>
+			<RotateCcw />
+			<AlertDescription>
+				Obtuviste {outcome.score} en tu intento anterior y el mínimo es{" "}
+				{outcome.passingScore}. Puedes volver a intentarlo: cuenta tu mejor
+				nota.
+			</AlertDescription>
+		</Alert>
+	);
+}
+
+/** Bajo el resultado cuando ya no quedan intentos y el curso no se acreditó. */
+export function QuizRetakeHint() {
+	return (
+		<p className="text-muted-foreground text-sm">
+			Ya no te quedan intentos. Tu mejor nota cuenta para el promedio del curso;
+			si necesitas otro intento, pídeselo a quien imparte el curso.
+		</p>
+	);
+}
 
 /** La nota y qué se acertó. La opción correcta no viaja al cliente (docs/adr/0015). */
 export function QuizOutcomeView({ outcome }: { outcome: QuizOutcome }) {
@@ -73,18 +98,26 @@ const CONFIRM_COPY: Record<QuizKind, { title: string; description: string }> = {
 	FINAL: {
 		title: "¿Enviar el examen?",
 		description:
-			"Tienes un solo intento: tu nota será la calificación del curso y no podrás presentarlo de nuevo.",
+			"Tu calificación del curso será el promedio de tu mejor nota en este examen y en las evaluaciones del temario.",
 	},
 	PRACTICE: {
 		title: "¿Enviar el cuestionario?",
 		description:
-			"Tienes un solo intento. Al enviarlo, la lección queda completada.",
+			"Enviarlo completa la lección, apruebes o no, y tu mejor nota cuenta para la calificación del curso.",
 	},
 	MODULE: {
 		title: "¿Enviar la evaluación del módulo?",
 		description:
-			"Tienes un solo intento y necesitas la calificación mínima para completar el curso. Si no la alcanzas, quien imparte puede habilitarte otro.",
+			"Enviarla cuenta para tu avance, apruebes o no, y tu mejor nota entra al promedio del curso.",
 	},
+};
+
+/** Cuántos intentos le quedan, contando el que está por enviar. */
+const attemptsNote = (attemptsLeft: number | null) => {
+	if (attemptsLeft === null)
+		return "Si no lo apruebas, puedes volver a intentarlo cuando quieras.";
+	if (attemptsLeft <= 1) return "Es tu último intento.";
+	return `Te quedan ${attemptsLeft} intentos contando este.`;
 };
 
 /**
@@ -100,7 +133,8 @@ export function QuizTaker({
 }) {
 	const fetcher = useFetcher<AppResponse<QuizOutcome>>();
 	useFetcherToast(fetcher);
-	const confirm = CONFIRM_COPY[quizKindOf(owner)];
+	const copy = CONFIRM_COPY[quizKindOf(owner)];
+	const attempts = attemptsNote(sheet.attemptsLeft);
 	const [answers, setAnswers] = useState<Record<string, string>>({});
 	const [confirming, setConfirming] = useState(false);
 
@@ -131,7 +165,7 @@ export function QuizTaker({
 		<div className="flex flex-col gap-6">
 			<p className="text-muted-foreground text-sm">
 				{sheet.questions.length} preguntas · {sheet.totalPoints} puntos ·
-				apruebas con {sheet.passingScore}. Tienes un solo intento.
+				apruebas con {sheet.passingScore}. {attempts}
 			</p>
 
 			<ol className="flex flex-col gap-5">
@@ -190,8 +224,8 @@ export function QuizTaker({
 			<ConfirmDialog
 				open={confirming}
 				onOpenChange={setConfirming}
-				title={confirm.title}
-				description={confirm.description}
+				title={copy.title}
+				description={`${copy.description} ${attempts}`}
 				confirmLabel="Enviar"
 				cancelLabel="Revisar"
 				onConfirm={() => {

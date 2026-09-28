@@ -142,7 +142,9 @@ describe("saveDraft y publish", () => {
 		]);
 	});
 
-	test("publicar escribe el publicado y su fecha, sin tocar el borrador", async () => {
+	// Tras publicar, borrador y publicado coinciden: el editor dice "Publicado"
+	// y no "Cambios sin publicar".
+	test("publicar escribe el diseño como borrador y como publicado, con su fecha", async () => {
 		const { repository, writes } = createHarness();
 		const at = new Date("2026-09-23T18:00:00.000Z");
 
@@ -151,6 +153,7 @@ describe("saveDraft y publish", () => {
 		expect(writes[0]).toMatchObject({
 			upsert: {
 				update: {
+					draftDesign: DEFAULT_CERTIFICATE_DESIGN,
 					publishedDesign: DEFAULT_CERTIFICATE_DESIGN,
 					publishedAt: at,
 				},

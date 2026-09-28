@@ -67,6 +67,7 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	minAttendance: 80,
 	requiresEvaluation: false,
 	evaluationMethod: "MANUAL",
+	minPassingGrade: 70,
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,
 	planLine: null,

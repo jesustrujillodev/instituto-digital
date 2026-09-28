@@ -1,5 +1,6 @@
 import type * as v from "valibot";
 import type {
+	CourseCompletionRule,
 	CourseFormat,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
@@ -43,6 +44,8 @@ export interface ContentModuleQuiz {
 	documentId: string;
 	title: string;
 	questionCount: number;
+	/** `null`: sin límite. */
+	maxAttempts: number | null;
 }
 
 export interface ContentModule {
@@ -69,6 +72,9 @@ export interface ContentCourseRef {
 	id: number;
 	status: CourseStatus;
 	format: CourseFormat;
+	completionRule: CourseCompletionRule;
+	requiresEvaluation: boolean;
+	minPassingGrade: number;
 }
 
 export interface ModuleWrite {

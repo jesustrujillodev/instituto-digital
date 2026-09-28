@@ -81,7 +81,7 @@ const createHarness = (
 		user?: SafeUser | null;
 		exists?: boolean;
 		trainers?: TrainerDetail[];
-		total?: number;
+		lookupThrows?: Error;
 		createThrows?: Error;
 		userCreateThrows?: Error;
 		revokeFails?: boolean;
@@ -90,7 +90,7 @@ const createHarness = (
 	let txDepth = 0;
 	const calls = {
 		notified: [] as { events: NotificationEvent[]; inTransaction: boolean }[],
-		listFilters: [] as unknown[],
+		lookups: [] as unknown[],
 		created: [] as unknown[],
 		usersCreated: [] as unknown[],
 		updated: [] as unknown[],
@@ -102,12 +102,11 @@ const createHarness = (
 	};
 
 	const trainerRepository = {
-		findAll: async (filters: unknown) => {
-			calls.listFilters.push(filters);
+		findByUserDocumentIds: async (ids: readonly string[]) => {
+			if (options.lookupThrows) throw options.lookupThrows;
+			calls.lookups.push(ids);
 			return options.trainers ?? [];
 		},
-		count: async () => options.total ?? 0,
-		findByUserDocumentId: async () => options.trainers?.[0] ?? null,
 		existsForUser: async () => options.exists ?? false,
 		create: async (data: unknown) => {
 			if (options.createThrows) throw options.createThrows;
@@ -198,55 +197,38 @@ const createHarness = (
 	return { service, calls };
 };
 
-describe("createTrainerService — catálogo", () => {
-	// El catálogo es la única lista del sistema sin recorte por dependencia: §4
-	// del alcance lo quiere global para que cualquier titular pueda asignar a
-	// cualquier capacitador activo.
-	test("list no recibe ningún alcance", async () => {
+describe("createTrainerService — perfiles de un listado", () => {
+	test("devuelve las fichas del repositorio para las cuentas pedidas", async () => {
 		const { service, calls } = createHarness({
-			trainers: [detailOf()],
-			total: 1,
-		});
-
-		const result = await service.list({ page: 1, pageSize: 10 });
-
-		expect(result.success).toBe(true);
-		expect(calls.scopes).toEqual([]);
-	});
-
-	test("list devuelve la paginación con los defaults del módulo", async () => {
-		const { service } = createHarness({ trainers: [detailOf()], total: 1 });
-
-		const result = await service.list({});
-
-		expect(result.success && result.pagination).toEqual({
-			page: 1,
-			pageSize: 10,
-			total: 1,
-			totalPages: 1,
-		});
-	});
-
-	test("una cuenta sin perfil responde NOT_FOUND, no un dato nulo", async () => {
-		const { service } = createHarness({ trainers: [] });
-
-		const result = await service.findByUser(USER_ID);
-
-		expect(result.success).toBe(false);
-		expect(!result.success && result.error.code).toBe(
-			TRAINER_ERROR_CODES.NOT_FOUND,
-		);
-	});
-
-	test("la ficha expone las estadísticas que calcula el repositorio", async () => {
-		const { service } = createHarness({
 			trainers: [{ ...detailOf(), coursesTaught: 2, averageRating: 4 }],
 		});
 
-		const result = await service.findByUser(USER_ID);
+		const result = await service.listByUsers([USER_ID]);
 
-		expect(result.success && result.data.coursesTaught).toBe(2);
-		expect(result.success && result.data.averageRating).toBe(4);
+		expect(calls.lookups).toEqual([[USER_ID]]);
+		expect(result.success && result.data[0].coursesTaught).toBe(2);
+		expect(result.success && result.data[0].averageRating).toBe(4);
+	});
+
+	// El alcance ya lo aplicó el listado de usuarios que aporta las cuentas: aquí
+	// no se relee ninguna.
+	test("no consulta cuentas ni alcance", async () => {
+		const { service, calls } = createHarness({ trainers: [] });
+
+		const result = await service.listByUsers([USER_ID]);
+
+		expect(result.success && result.data).toEqual([]);
+		expect(calls.scopes).toEqual([]);
+	});
+
+	test("un fallo del repositorio llega como envelope, no como excepción", async () => {
+		const { service } = createHarness({
+			lookupThrows: new Error("conexión perdida"),
+		});
+
+		const result = await service.listByUsers([USER_ID]);
+
+		expect(result.success).toBe(false);
 	});
 });
 

@@ -8,6 +8,7 @@ import {
 	canChangeUserDependency,
 	canManageDeputies,
 	canManageUser,
+	listScopeWhere,
 	roleAfterDependencyChange,
 	scopeWhere,
 	scopeWriteWhere,
@@ -71,6 +72,28 @@ describe("scopeWhere", () => {
 
 		for (const scope of scopes) {
 			expect(scopeWhere(scope)).toBeDefined();
+		}
+	});
+});
+
+describe("listScopeWhere", () => {
+	// Un externo no tiene dependencia: sin esta ampliación, ningún titular
+	// vería a los capacitadores externos que puede asignar y administrar.
+	test("una dependencia ve a su gente y a los capacitadores externos", () => {
+		expect(listScopeWhere({ kind: "dependency", dependencyId: 42 })).toEqual({
+			OR: [{ dependencyId: 42 }, { type: "EXTERNAL" }],
+		});
+	});
+
+	test("el resto de alcances no cambia", () => {
+		const scopes: AccessScope[] = [
+			{ kind: "global" },
+			{ kind: "self", userId: 7 },
+			{ kind: "none" },
+		];
+
+		for (const scope of scopes) {
+			expect(listScopeWhere(scope)).toEqual(scopeWhere(scope));
 		}
 	});
 });

@@ -5,8 +5,13 @@ import {
 	assertBankEditable,
 	assertCanSubmit,
 	assertRetakeGrantable,
+	attemptsLeftOf,
+	canGrantRetakeOn,
+	courseGradeOf,
+	courseResultOf,
 	FINAL_QUIZ_OWNER,
 	gradeAttempt,
+	isAccredited,
 	nextAttemptNumberOf,
 	pointsToPass,
 	quizAvailabilityOf,
@@ -36,6 +41,7 @@ const quizOf = (overrides: Partial<StoredQuiz> = {}): StoredQuiz => ({
 	documentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 	title: "Examen final",
 	passingScore: 70,
+	maxAttempts: 1,
 	shuffleQuestions: false,
 	questions: [
 		{
@@ -169,16 +175,19 @@ describe("gradeAttempt", () => {
 
 describe("lo que ve quien lo presenta", () => {
 	test("la hoja no lleva la respuesta correcta", () => {
-		const sheet = toQuizSheet(quizOf(), "semilla");
+		const sheet = toQuizSheet(quizOf(), "semilla", 2);
 
 		expect(JSON.stringify(sheet)).not.toContain("isCorrect");
 		expect(sheet.totalPoints).toBe(6);
+		expect(sheet.attemptsLeft).toBe(2);
 	});
 
 	test("barajar con la misma semilla da el mismo orden", () => {
 		const quiz = quizOf({ shuffleQuestions: true });
 		const order = (seed: string) =>
-			toQuizSheet(quiz, seed).questions.map((question) => question.documentId);
+			toQuizSheet(quiz, seed, null).questions.map(
+				(question) => question.documentId,
+			);
 
 		expect(order("quiz:50")).toEqual(order("quiz:50"));
 		expect([...order("quiz:50")].sort()).toEqual([Q1, Q2, Q3].sort());
@@ -216,30 +225,54 @@ const attemptOf = (overrides: Partial<StoredAttempt> = {}): StoredAttempt => ({
 	...overrides,
 });
 
+const enrollmentOf = (
+	overrides: Partial<{
+		contentCompletedAt: Date | null;
+		result: "PENDING" | "PASSED" | "FAILED";
+		completed: boolean;
+	}> = {},
+) => ({
+	contentCompletedAt: null,
+	result: "PENDING" as const,
+	completed: false,
+	...overrides,
+});
+
 describe("disponibilidad", () => {
 	const content = { completionRule: "CONTENT" as const };
 	const attendance = { completionRule: "ATTENDANCE" as const };
+	const finished = enrollmentOf({ contentCompletedAt: new Date() });
 	const taken = attemptOf();
+	const failed = attemptOf({ passed: false, score: 40 });
 
 	test("el examen de un curso por contenido espera a terminar las obligatorias", () => {
-		expect(quizAvailabilityOf(content, null, null, true)).toBe(
+		expect(quizAvailabilityOf(content, enrollmentOf(), null, "FINAL", 1)).toBe(
 			"LOCKED_BY_CONTENT",
 		);
-		expect(quizAvailabilityOf(content, new Date(), null, true)).toBe(
+		expect(quizAvailabilityOf(content, finished, null, "FINAL", 1)).toBe(
 			"AVAILABLE",
 		);
 	});
 
 	test("sin contenido que contar, está disponible desde la inscripción", () => {
-		expect(quizAvailabilityOf(attendance, null, null, true)).toBe("AVAILABLE");
+		expect(
+			quizAvailabilityOf(attendance, enrollmentOf(), null, "FINAL", 1),
+		).toBe("AVAILABLE");
 	});
 
-	test("la práctica nunca espera al contenido", () => {
-		expect(quizAvailabilityOf(content, null, null, false)).toBe("AVAILABLE");
+	test("la práctica y el módulo nunca esperan al contenido", () => {
+		expect(
+			quizAvailabilityOf(content, enrollmentOf(), null, "PRACTICE", null),
+		).toBe("AVAILABLE");
+		expect(quizAvailabilityOf(content, enrollmentOf(), null, "MODULE", 1)).toBe(
+			"AVAILABLE",
+		);
 	});
 
-	test("presentado es presentado, y un segundo envío se rechaza", () => {
-		expect(quizAvailabilityOf(content, new Date(), taken, true)).toBe("TAKEN");
+	test("aprobado se cierra aunque queden intentos, y un segundo envío se rechaza", () => {
+		expect(quizAvailabilityOf(content, finished, taken, "FINAL", 3)).toBe(
+			"TAKEN",
+		);
 		expect(codeOf(() => assertCanSubmit("TAKEN"))).toBe(
 			CONTENT_ERROR_CODES.QUIZ_ALREADY_TAKEN,
 		);
@@ -248,31 +281,120 @@ describe("disponibilidad", () => {
 		);
 	});
 
-	test("con otro intento habilitado vuelve a estar disponible", () => {
-		const reopened = attemptOf({ passed: false, retakeGrantedAt: new Date() });
-		expect(quizAvailabilityOf(content, null, reopened, false)).toBe(
+	// docs/adr/0024: reprobado se reintenta mientras queden intentos.
+	test.each([
+		["FINAL" as const, finished],
+		["MODULE" as const, enrollmentOf()],
+		["PRACTICE" as const, enrollmentOf()],
+	])("%s reprobado se reabre si le quedan intentos", (kind, enrollment) => {
+		expect(quizAvailabilityOf(content, enrollment, failed, kind, 2)).toBe(
 			"AVAILABLE",
 		);
-		expect(nextAttemptNumberOf(reopened)).toBe(2);
-		expect(nextAttemptNumberOf(null)).toBe(1);
+		expect(quizAvailabilityOf(content, enrollment, failed, kind, 1)).toBe(
+			"TAKEN",
+		);
+		expect(nextAttemptNumberOf(failed)).toBe(2);
+	});
+
+	test("sin límite, reprobado siempre se reabre", () => {
+		const fifth = attemptOf({ passed: false, number: 5 });
+		expect(
+			quizAvailabilityOf(content, enrollmentOf(), fifth, "PRACTICE", null),
+		).toBe("AVAILABLE");
+	});
+
+	test("agotados, otro intento habilitado lo reabre una vez", () => {
+		const reopened = attemptOf({ passed: false, retakeGrantedAt: new Date() });
+		expect(
+			quizAvailabilityOf(content, enrollmentOf(), reopened, "MODULE", 1),
+		).toBe("AVAILABLE");
+
+		const afterRetake = attemptOf({ passed: false, number: 2 });
+		expect(
+			quizAvailabilityOf(content, enrollmentOf(), afterRetake, "MODULE", 1),
+		).toBe("TAKEN");
+	});
+
+	test("ya acreditado, lo reprobado no se reintenta", () => {
+		expect(
+			quizAvailabilityOf(
+				content,
+				enrollmentOf({ result: "PASSED" }),
+				failed,
+				"MODULE",
+				3,
+			),
+		).toBe("TAKEN");
+		expect(
+			quizAvailabilityOf(
+				content,
+				enrollmentOf({ completed: true }),
+				failed,
+				"PRACTICE",
+				null,
+			),
+		).toBe("TAKEN");
+		expect(isAccredited(enrollmentOf())).toBe(false);
+	});
+});
+
+describe("intentos restantes", () => {
+	test("cuenta los usados contra el tope", () => {
+		expect(attemptsLeftOf(3, null)).toBe(3);
+		expect(attemptsLeftOf(3, attemptOf({ number: 1 }))).toBe(2);
+		expect(attemptsLeftOf(3, attemptOf({ number: 3 }))).toBe(0);
+	});
+
+	test("sin límite no hay cuenta", () => {
+		expect(attemptsLeftOf(null, attemptOf({ number: 8 }))).toBeNull();
+	});
+
+	test("el habilitado suma uno", () => {
+		expect(
+			attemptsLeftOf(1, attemptOf({ number: 1, retakeGrantedAt: new Date() })),
+		).toBe(1);
+	});
+});
+
+describe("calificación del curso", () => {
+	test("es el promedio, en enteros y hacia abajo", () => {
+		expect(courseGradeOf([80, 90, 70])).toBe(80);
+		expect(courseGradeOf([95, 70])).toBe(82);
+		expect(courseGradeOf([100])).toBe(100);
+	});
+
+	test("sin evaluaciones no hay calificación", () => {
+		expect(courseGradeOf([])).toBeNull();
+	});
+
+	// docs/adr/0024: una reprobada se compensa con las demás.
+	test("se acredita con el promedio contra la mínima del curso", () => {
+		expect(courseGradeOf([50, 100, 100])).toBe(83);
+		expect(courseResultOf(83, 70)).toBe("PASSED");
+		expect(courseResultOf(70, 70)).toBe("PASSED");
+		expect(courseResultOf(69, 70)).toBe("FAILED");
 	});
 });
 
 describe("otro intento", () => {
-	test("solo sobre el último reprobado y sin otro ya habilitado", () => {
+	test("sobre el último reprobado, con los intentos agotados", () => {
 		const failed = attemptOf({ passed: false, score: 40 });
-		expect(assertRetakeGrantable(failed)).toBe(failed);
+		expect(assertRetakeGrantable(failed, 1)).toBe(failed);
+		expect(canGrantRetakeOn(failed, 1)).toBe(true);
 	});
 
 	test.each([
-		["sin intento", null],
-		["aprobado", attemptOf({ passed: true })],
+		["sin intento", null, 1],
+		["aprobado", attemptOf({ passed: true }), 1],
 		[
 			"con otro ya habilitado",
 			attemptOf({ passed: false, retakeGrantedAt: new Date() }),
+			1,
 		],
-	])("%s se rechaza", (_, attempt) => {
-		expect(codeOf(() => assertRetakeGrantable(attempt))).toBe(
+		["con intentos restantes", attemptOf({ passed: false }), 2],
+		["sin límite", attemptOf({ passed: false, number: 4 }), null],
+	])("%s se rechaza", (_, attempt, maxAttempts) => {
+		expect(codeOf(() => assertRetakeGrantable(attempt, maxAttempts))).toBe(
 			CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED,
 		);
 	});
@@ -296,6 +418,7 @@ describe("el dueño del cuestionario", () => {
 			lessonDocumentId: null,
 			title: "Examen",
 			passingScore: 70,
+			maxAttempts: 1,
 			shuffleQuestions: false,
 			questions: [
 				{
@@ -319,6 +442,7 @@ describe("el dueño del cuestionario", () => {
 				moduleDocumentId: MODULE,
 				title: "Examen",
 				passingScore: 70,
+				maxAttempts: 1,
 				shuffleQuestions: false,
 				questions: [],
 			}).success,
@@ -337,16 +461,33 @@ describe("el banco", () => {
 		],
 		...overrides,
 	});
-	const bankOf = (question: Record<string, unknown>) => ({
+	const bankOf = (
+		question: Record<string, unknown>,
+		overrides: Record<string, unknown> = {},
+	) => ({
 		lessonDocumentId: null,
 		title: "Examen",
 		passingScore: 70,
+		maxAttempts: 1,
 		shuffleQuestions: false,
 		questions: [question],
+		...overrides,
 	});
 
 	test("una pregunta válida pasa", () => {
 		expect(v.safeParse(saveQuizRule, bankOf(questionOf())).success).toBe(true);
+	});
+
+	test("los intentos van de 1 a 10, o sin límite", () => {
+		const parse = (maxAttempts: unknown) =>
+			v.safeParse(saveQuizRule, bankOf(questionOf(), { maxAttempts }));
+
+		expect(parse(null).success).toBe(true);
+		expect(parse(10).success).toBe(true);
+		expect(parse(0).success).toBe(false);
+		expect(parse(11).success).toBe(false);
+		expect(parse(1.5).success).toBe(false);
+		expect(parse(undefined).success).toBe(false);
 	});
 
 	test.each([

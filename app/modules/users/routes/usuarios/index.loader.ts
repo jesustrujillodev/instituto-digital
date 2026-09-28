@@ -4,6 +4,7 @@ import { ok } from "@/shared/response/response.helpers";
 import { USER_MANAGER_ROLES } from "../../domain/user.access.rules";
 import { USER_LIST_DEFAULTS } from "../../domain/user.config";
 import { validateListUsers } from "../../domain/user.validators";
+import { toUserListItems } from "../../utils/to-user-rows";
 import { USER_ERROR_MESSAGES } from "../../utils/user-error-messages";
 import type { Route } from "./+types/index";
 
@@ -64,13 +65,22 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	// `{ success: false }` para que la pantalla siga en pie.
 	if (!result.success) throw toRouteError(result.error, USER_ERROR_MESSAGES);
 
+	// El perfil de capacitador se pide solo para las cuentas de ESTA página, que
+	// ya pasaron por el alcance: completa las filas, no descubre a nadie más.
+	const profiles = await context.trainerService.listByUsers(
+		result.data.map((user) => user.documentId),
+	);
+	if (!profiles.success) {
+		throw toRouteError(profiles.error, USER_ERROR_MESSAGES);
+	}
+
 	// Se devuelve el envelope tal cual —incluida su `pagination`— y el estado de
 	// vista viaja dentro de `data`: la pantalla lee siempre la misma forma,
 	// venga de este loader o de cualquier otro.
 	return ok(
 		{
 			auth,
-			users: result.data,
+			users: toUserListItems(result.data, profiles.data, auth),
 			// La pantalla no vuelve a deducir el alcance: recibe si puede filtrar por
 			// dependencia y con qué opciones. Una segunda deducción en el cliente
 			// podría discrepar de la que aplicó el servidor.

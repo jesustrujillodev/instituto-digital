@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { toDetail, toSummary } from "../trainer.mapper";
+import { toDetail, toStatsByUser, toSummary } from "../trainer.mapper";
 
 const rawSummary = {
 	specialty: "Protección civil",
@@ -74,5 +74,46 @@ describe("toDetail", () => {
 		});
 
 		expect(detail.averageRating).toBeNull();
+	});
+});
+
+describe("toStatsByUser", () => {
+	test("cuenta cursos y promedia todas las valoraciones, no los promedios", () => {
+		const stats = toStatsByUser(
+			[
+				{ userId: 1, courseId: 10 },
+				{ userId: 1, courseId: 11 },
+			],
+			[
+				{ courseId: 10, scoreSum: 20, count: 4 },
+				{ courseId: 11, scoreSum: 4, count: 2 },
+			],
+		);
+
+		// (20 + 4) / (4 + 2) = 4, y no la media de 5 y 2.
+		expect(stats.get(1)).toEqual({ coursesTaught: 2, averageRating: 4 });
+	});
+
+	test("un curso compartido cuenta para cada uno de sus capacitadores", () => {
+		const stats = toStatsByUser(
+			[
+				{ userId: 1, courseId: 10 },
+				{ userId: 2, courseId: 10 },
+			],
+			[{ courseId: 10, scoreSum: 9, count: 2 }],
+		);
+
+		expect(stats.get(1)?.averageRating).toBe(4.5);
+		expect(stats.get(2)?.averageRating).toBe(4.5);
+	});
+
+	test("sin valoraciones el promedio es null y no cero", () => {
+		const stats = toStatsByUser([{ userId: 1, courseId: 10 }], []);
+
+		expect(stats.get(1)).toEqual({ coursesTaught: 1, averageRating: null });
+	});
+
+	test("quien no impartió ningún curso finalizado no aparece", () => {
+		expect(toStatsByUser([], []).size).toBe(0);
 	});
 });

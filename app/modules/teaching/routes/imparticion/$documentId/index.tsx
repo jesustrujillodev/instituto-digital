@@ -15,9 +15,9 @@ import { formatZonedDate } from "@/lib/date-utils";
 import { useFileDownload } from "@/modules/certificates/hooks/use-file-download";
 import { certificateDownloadUrl } from "@/modules/certificates/utils/certificate-urls";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
-import { ModuleQuizResults } from "@/modules/content/components/module-quiz-results";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
-import type { ModuleQuizBoard } from "@/modules/content/domain/quiz.types";
+import { QuizResults } from "@/modules/content/components/quiz-results";
+import type { QuizBoard } from "@/modules/content/domain/quiz.types";
 import {
 	CourseFormatBadge,
 	CourseModalityBadge,
@@ -25,6 +25,7 @@ import {
 } from "@/modules/courses/components/course-badges";
 import {
 	countsAttendance,
+	gradesAutomatically,
 	requiresContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
@@ -196,25 +197,32 @@ function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
 }
 
 /**
- * El avance por lección de cada participante, junto al pase de lista, y cómo
- * le fue en cada evaluación de módulo.
+ * El avance por lección de cada participante, si el curso cuenta el temario, y
+ * cómo le fue en cada cuestionario.
  */
 function ProgressList({
 	detail,
-	moduleQuizzes,
+	quizBoard,
+	withContent,
 }: {
 	detail: TeachingDetail;
-	moduleQuizzes: ModuleQuizBoard | null;
+	quizBoard: QuizBoard | null;
+	withContent: boolean;
 }) {
 	return (
 		<Card>
 			<CardContent className="flex flex-col gap-3">
-				<h3 className="font-medium text-sm">Avance en el contenido</h3>
-				{moduleQuizzes && (
+				<h3 className="font-medium text-sm">
+					{withContent ? "Avance en el contenido" : "Intentos del examen"}
+				</h3>
+				{quizBoard && (
 					<p className="text-muted-foreground text-xs">
-						El avance incluye aprobar la evaluación de cada módulo.
-						{moduleQuizzes.canGrantRetake &&
-							" A quien repruebe la última, puedes habilitarle otro intento."}
+						{withContent &&
+							"El avance incluye presentar la evaluación de cada módulo. "}
+						{gradesAutomatically(detail.course) &&
+							`Se acredita con un promedio de ${detail.course.minPassingGrade} o más. `}
+						{quizBoard.canGrantRetake &&
+							"A quien repruebe y agote sus intentos sin acreditar, puedes habilitarle otro."}
 					</p>
 				)}
 				<ul className="flex flex-col divide-y divide-border">
@@ -225,28 +233,35 @@ function ProgressList({
 						>
 							<div className="min-w-0">
 								<p className="truncate text-sm">{personNameOf(participant)}</p>
-								<p className="truncate text-muted-foreground text-xs">
-									{participant.contentCompletedAt
-										? `Terminó el contenido el ${formatZonedDate(new Date(participant.contentCompletedAt))}`
-										: "Sin terminar"}
-								</p>
+								{withContent && (
+									<p className="truncate text-muted-foreground text-xs">
+										{participant.contentCompletedAt
+											? `Terminó el contenido el ${formatZonedDate(new Date(participant.contentCompletedAt))}`
+											: "Sin terminar"}
+									</p>
+								)}
 							</div>
-							<div className="flex items-center gap-2">
-								<ProgressBar
-									value={participant.progressPercent}
-									label={`Avance de ${personNameOf(participant)}`}
-								/>
-								<span className="w-10 text-right text-muted-foreground text-xs tabular-nums">
-									{participant.progressPercent} %
-								</span>
-							</div>
-							{moduleQuizzes && (
+							{withContent && (
+								<div className="flex items-center gap-2">
+									<ProgressBar
+										value={participant.progressPercent}
+										label={`Avance de ${personNameOf(participant)}`}
+									/>
+									<span className="w-10 text-right text-muted-foreground text-xs tabular-nums">
+										{participant.progressPercent} %
+									</span>
+								</div>
+							)}
+							{quizBoard && (
 								<div className="sm:col-span-2">
-									<ModuleQuizResults
+									<QuizResults
 										courseDocumentId={detail.course.documentId}
-										board={moduleQuizzes}
+										board={quizBoard}
 										userDocumentId={participant.userDocumentId}
 										personName={personNameOf(participant)}
+										accredited={
+											participant.result === "PASSED" || participant.completed
+										}
 									/>
 								</div>
 							)}
@@ -409,7 +424,7 @@ export default function ImparticionDetallePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { ratings, evaluations, moduleQuizzes, ...detail },
+		data: { ratings, evaluations, quizBoard, ...detail },
 	} = loaderData;
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
@@ -476,7 +491,11 @@ export default function ImparticionDetallePage({
 					{evaluations && (
 						<TabsTrigger value="evaluations">Evaluaciones</TabsTrigger>
 					)}
-					{withContent && <TabsTrigger value="progress">Avance</TabsTrigger>}
+					{(withContent || quizBoard) && (
+						<TabsTrigger value="progress">
+							{withContent ? "Avance" : "Intentos"}
+						</TabsTrigger>
+					)}
 					<TabsTrigger value="completion">Completado</TabsTrigger>
 					{scheduled && detail.qr && (
 						<TabsTrigger value="qr">Código QR</TabsTrigger>
@@ -508,9 +527,13 @@ export default function ImparticionDetallePage({
 						/>
 					</TabsContent>
 				)}
-				{withContent && (
+				{(withContent || quizBoard) && (
 					<TabsContent value="progress">
-						<ProgressList detail={detail} moduleQuizzes={moduleQuizzes} />
+						<ProgressList
+							detail={detail}
+							quizBoard={quizBoard}
+							withContent={withContent}
+						/>
 					</TabsContent>
 				)}
 				<TabsContent value="completion" className="flex flex-col gap-4">

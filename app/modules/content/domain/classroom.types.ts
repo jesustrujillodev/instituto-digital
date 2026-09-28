@@ -5,7 +5,10 @@ import type {
 	CourseStatus,
 	EvaluationMethod,
 } from "@/modules/courses/domain/course.rules";
-import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.config";
+import type {
+	EnrollmentResult,
+	EnrollmentStatus,
+} from "@/modules/enrollments/domain/enrollment.config";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	LessonProgressStatus,
@@ -28,10 +31,12 @@ export interface ClassroomCourse {
 	completionRule: CourseCompletionRule;
 	requiresEvaluation: boolean;
 	evaluationMethod: EvaluationMethod;
+	minPassingGrade: number;
 	enrollment: {
 		status: EnrollmentStatus;
 		progressPercent: number;
 		contentCompletedAt: Date | null;
+		result: EnrollmentResult;
 		completed: boolean;
 	} | null;
 }
@@ -60,6 +65,8 @@ export interface ClassroomQuizStatus {
 	availability: QuizAvailability;
 	score: number | null;
 	passed: boolean | null;
+	/** Contando el siguiente; `null` sin límite. */
+	attemptsLeft: number | null;
 }
 
 export interface ClassroomModule {
@@ -133,7 +140,7 @@ export type ClassroomCoursesResponse = AppResponse<string[]>;
 /** Cuánto lleva la persona del temario de un curso con aula. */
 export interface ClassroomSummary {
 	documentId: string;
-	/** Lecciones medidas completadas y evaluaciones de módulo aprobadas. */
+	/** Lecciones medidas completadas y evaluaciones de módulo presentadas. */
 	done: number;
 	total: number;
 	/** Sin evaluaciones de módulo que cuenten: todo lo medido son lecciones. */

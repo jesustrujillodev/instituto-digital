@@ -75,7 +75,7 @@ describe("toCourseContentTree", () => {
 		]);
 	});
 
-	test("la evaluación activa del módulo viaja con su número de preguntas", () => {
+	test("la evaluación activa del módulo viaja con sus preguntas e intentos", () => {
 		const [module] = toCourseContentTree([
 			{
 				...(raw[0] as ContentModuleRaw),
@@ -83,6 +83,7 @@ describe("toCourseContentTree", () => {
 					{
 						documentId: LESSON_2,
 						title: "Evaluación",
+						maxAttempts: 2,
 						_count: { questions: 4 },
 					},
 				],
@@ -93,6 +94,7 @@ describe("toCourseContentTree", () => {
 			documentId: LESSON_2,
 			title: "Evaluación",
 			questionCount: 4,
+			maxAttempts: 2,
 		});
 	});
 

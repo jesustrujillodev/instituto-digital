@@ -76,8 +76,8 @@ export const moduleQuizzesOf = (tree: CourseContentTree): ContentModuleQuiz[] =>
 	);
 
 /**
- * Todo lo que mide el avance: las lecciones medidas y, aprobadas, las
- * evaluaciones de módulo (docs/adr/0016).
+ * Todo lo que mide el avance: las lecciones medidas y, presentadas, las
+ * evaluaciones de módulo (docs/adr/0016, 0024).
  */
 export const measuredItemsOf = (tree: CourseContentTree): string[] => [
 	...measuredLessonsOf(tree).map((lesson) => lesson.documentId),
@@ -88,7 +88,7 @@ export const measuredItemsOf = (tree: CourseContentTree): string[] => [
  * Porcentaje entero y hacia abajo, con el criterio de `attendancePercent`: solo
  * vale 100 cuando no falta nada. Un temario vacío da 0 y nunca completa.
  *
- * `done` junta las lecciones completadas y las evaluaciones de módulo aprobadas.
+ * `done` junta las lecciones completadas y las evaluaciones de módulo presentadas.
  */
 export const progressPercentOf = (
 	tree: CourseContentTree,
@@ -100,6 +100,24 @@ export const progressPercentOf = (
 	const finished = measured.filter((id) => done.has(id)).length;
 
 	return Math.floor((finished * 100) / measured.length);
+};
+
+/**
+ * Las notas que entran en la calificación del curso: la mejor de cada práctica
+ * de una lección medida y de cada evaluación de módulo (docs/adr/0021, 0024).
+ * Una práctica de una lección opcional o una evaluación archivada no cuentan,
+ * igual que no cuentan para el avance.
+ */
+export const countedScoresOf = (
+	tree: CourseContentTree,
+	best: readonly { itemDocumentId: string; score: number }[],
+): number[] => {
+	const scoreOf = new Map(best.map((row) => [row.itemDocumentId, row.score]));
+
+	return measuredItemsOf(tree).flatMap((id) => {
+		const score = scoreOf.get(id);
+		return score === undefined ? [] : [score];
+	});
 };
 
 /** Lo mismo que `progressPercentOf`, contado: «3 de 5». */
@@ -151,7 +169,7 @@ const stopsOf = (tree: CourseContentTree): StopEntry[] =>
 
 /**
  * A dónde lleva «Continuar»: lo primero que cuenta y falta (una obligatoria o
- * una evaluación de módulo sin aprobar); si no queda nada, la primera lección
+ * una evaluación de módulo sin presentar); si no queda nada, la primera lección
  * sin completar; y si todo está hecho, la primera parada. Sale de las filas de
  * avance, así que retoma igual en cualquier dispositivo.
  */

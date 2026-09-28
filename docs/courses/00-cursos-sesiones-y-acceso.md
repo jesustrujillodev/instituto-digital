@@ -152,8 +152,8 @@ que inexistente** (404).
 `requireRole` solo compara contra la tupla de roles y no expresa "o es
 capacitador interno". Las rutas usan `requireCourseScope`
 (`routes/require-course-scope.server.ts`): `requireAuth` + `canManageCourses` +
-`forbiddenRole`, el mismo 403 que da `requireRole`. Es el precedente del
-catálogo de capacitadores de PRD-02.
+`forbiddenRole`, el mismo 403 que da `requireRole`. El patrón nació en el
+catálogo de capacitadores de PRD-02, retirado en ADR 0022.
 
 ### 4.3 · La dependencia organizadora
 

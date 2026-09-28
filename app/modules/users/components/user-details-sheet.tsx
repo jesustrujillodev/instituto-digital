@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { TrainerProfileSection } from "@/modules/trainers/components/trainer-profile-section";
 import type { DataTableAction } from "@/shared/components/common/data-table";
 import { SheetRowActions } from "@/shared/components/common/sheet-row-actions";
 import {
@@ -14,14 +14,16 @@ import {
 	SheetTitle,
 } from "@/shared/components/ui/sheet";
 import { fullNameOf, initialsOf, type UserRow } from "../utils/to-user-rows";
-import { RoleBadge, StatusBadge, TrainerBadge } from "./user-badges";
+import { AccountRoleBadge, StatusBadge, TrainerBadge } from "./user-badges";
 
 interface UserDetailsSheetProps {
 	/** `null` cierra el panel; el dato viene del loader del listado. */
 	user: UserRow | null;
 	onOpenChange: (open: boolean) => void;
-	/** Las acciones de la fila, sin "Ver detalles". */
+	/** Las acciones de la fila sobre la cuenta, sin "Ver detalles". */
 	actions: DataTableAction<UserRow>[];
+	/** Las del perfil de capacitador: se pintan en su propia sección. */
+	trainerActions: DataTableAction<UserRow>[];
 }
 
 const dateFormat: Intl.DateTimeFormatOptions = {
@@ -59,6 +61,7 @@ export function UserDetailsSheet({
 	user,
 	onOpenChange,
 	actions,
+	trainerActions,
 }: UserDetailsSheetProps) {
 	return (
 		<Sheet open={Boolean(user)} onOpenChange={onOpenChange}>
@@ -82,27 +85,24 @@ export function UserDetailsSheet({
 							</div>
 						</SheetHeader>
 
-						<div className="grid grid-cols-2 gap-x-4 gap-y-5 px-6 pb-6">
-							<div className="col-span-2 flex flex-wrap items-center gap-2">
-								<RoleBadge role={user.role} />
-								<TrainerBadge isTrainer={user.isTrainer} />
-								<StatusBadge archivedAt={user.archivedAt} />
-							</div>
+						<div className="flex flex-wrap items-center gap-2 px-6 pb-5">
+							<AccountRoleBadge role={user.role} type={user.type} />
+							<TrainerBadge isTrainer={user.isTrainer} />
+							<StatusBadge archivedAt={user.archivedAt} />
+						</div>
 
-							{/* El perfil de capacitador se administra en su catálogo, que es
-							    global: aquí solo se enlaza para no duplicar la pantalla. */}
-							{user.isTrainer && (
-								<div className="col-span-2">
-									<Field label="Capacitador">
-										<Link
-											to={`/dashboard/capacitadores/${user.documentId}/editar`}
-											className="text-primary underline-offset-4 hover:underline"
-										>
-											Ver su ficha en el catálogo
-										</Link>
-									</Field>
-								</div>
-							)}
+						<TrainerProfileSection item={user} actions={trainerActions} />
+
+						<section
+							aria-labelledby={`account-${user.documentId}`}
+							className="grid grid-cols-2 gap-x-4 gap-y-5 border-border border-t px-6 py-5"
+						>
+							<h3
+								id={`account-${user.documentId}`}
+								className="col-span-2 font-medium text-foreground text-sm"
+							>
+								Cuenta
+							</h3>
 
 							<Field label="Teléfono">{user.phone || "—"}</Field>
 							<Field label="Creado">{formatDate(user.createdAt)}</Field>
@@ -119,7 +119,7 @@ export function UserDetailsSheet({
 									</code>
 								</Field>
 							</div>
-						</div>
+						</section>
 
 						<SheetRowActions item={user} actions={actions} />
 					</>

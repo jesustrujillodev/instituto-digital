@@ -2,11 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { SafeUser } from "@/modules/users/domain/user.types";
 import type { Role } from "@/shared/rules/atoms.rules";
-import {
-	canAdministerTrainers,
-	canManageTrainer,
-	canViewCatalog,
-} from "../trainer.access";
+import { canAdministerTrainers, canManageTrainer } from "../trainer.access";
 
 const authOf = (
 	role: Role,
@@ -31,31 +27,8 @@ const targetOf = (
 	...overrides,
 });
 
-describe("canViewCatalog", () => {
-	test("los roles de gestión entran siempre", () => {
-		for (const role of [
-			"SUPERADMIN",
-			"DEPENDENCY_HEAD",
-			"DEPENDENCY_DEPUTY",
-		] as const) {
-			expect(canViewCatalog(authOf(role))).toBe(true);
-		}
-	});
-
-	// Es la condición que `requireRole` no sabe expresar y por la que existe
-	// `forbiddenRole`: §3 del alcance deja consultar el catálogo a cualquier
-	// capacitador, tenga el rol que tenga.
-	test("un participante CON perfil de capacitador entra", () => {
-		expect(canViewCatalog(authOf("USER", true))).toBe(true);
-	});
-
-	test("un participante sin perfil no entra", () => {
-		expect(canViewCatalog(authOf("USER", false))).toBe(false);
-	});
-});
-
 describe("canAdministerTrainers", () => {
-	test("ver el catálogo y modificarlo son permisos distintos", () => {
+	test("administrar perfiles es de los roles de gestión, no de cualquier capacitador", () => {
 		expect(canAdministerTrainers("USER")).toBe(false);
 		expect(canAdministerTrainers("DEPENDENCY_DEPUTY")).toBe(true);
 	});

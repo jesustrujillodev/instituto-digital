@@ -4,6 +4,7 @@ export { loader } from "./index.loader";
 import { Award, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
+import { CertificateStatusNotice } from "@/modules/certificates/components/certificate-status-notice";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -45,7 +46,14 @@ export function meta({ data }: Route.MetaArgs) {
 
 export default function CursoPage({ loaderData }: Route.ComponentProps) {
 	const {
-		data: { course, coverUrl, enrollment, publishChecklist, can },
+		data: {
+			course,
+			coverUrl,
+			enrollment,
+			publishChecklist,
+			certificateState,
+			can,
+		},
 	} = loaderData;
 	const [confirmingCancel, setConfirmingCancel] = useState(false);
 
@@ -128,6 +136,13 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						onCancel={() => setConfirmingCancel(true)}
 						onPublish={() => submitStatus(COURSE_INTENTS.publish)}
 					/>
+
+					{certificateState && (
+						<CertificateStatusNotice
+							courseDocumentId={course.documentId}
+							state={certificateState}
+						/>
+					)}
 
 					<CourseFacts course={course} className="hidden lg:flex" />
 				</aside>

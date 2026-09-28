@@ -27,6 +27,7 @@ import {
 	createCourseRule,
 	type EvaluationMethod,
 	evaluatesByQuiz,
+	gradesAutomatically,
 	publishChecklist,
 	requiresContent,
 	requiresLink,
@@ -615,11 +616,13 @@ describe("formato y regla de completado", () => {
 			completionRule: "CONTENT" as CourseCompletionRule,
 			requiresEvaluation: false,
 			evaluationMethod: "MANUAL" as EvaluationMethod,
+			minPassingGrade: 70,
 		};
 		const unchanged = {
 			completionRule: "CONTENT" as CourseCompletionRule,
 			requiresEvaluation: false,
 			evaluationMethod: "MANUAL" as EvaluationMethod,
+			minPassingGrade: 70,
 		};
 
 		test("un autogestivo publicado no cambia su evaluación", () => {
@@ -667,9 +670,66 @@ describe("formato y regla de completado", () => {
 						completionRule: "ATTENDANCE",
 						requiresEvaluation: false,
 						evaluationMethod: "QUIZ",
+						minPassingGrade: 70,
 					},
 				),
 			).toThrowError(codeOf(COURSE_ERROR_CODES.COMPLETION_LOCKED));
+		});
+
+		// docs/adr/0024: cambiar la mínima a mitad acreditaría a unos con un
+		// promedio y a otros con otro.
+		test("la calificación mínima se congela al publicar, también con sesiones", () => {
+			expect(() =>
+				assertCompletionSettingsEditable(
+					{ ...selfPaced, format: "SCHEDULED", completionRule: "ATTENDANCE" },
+					{ ...unchanged, completionRule: "ATTENDANCE", minPassingGrade: 80 },
+				),
+			).toThrowError(codeOf(COURSE_ERROR_CODES.COMPLETION_LOCKED));
+			expect(() =>
+				assertCompletionSettingsEditable(
+					{ ...selfPaced, status: "DRAFT" },
+					{ ...unchanged, minPassingGrade: 80 },
+				),
+			).not.toThrow();
+		});
+	});
+
+	describe("gradesAutomatically", () => {
+		test("con examen en línea la nota se calcula sola", () => {
+			expect(
+				gradesAutomatically({
+					requiresEvaluation: true,
+					evaluationMethod: "QUIZ",
+					completionRule: "ATTENDANCE",
+				}),
+			).toBe(true);
+		});
+
+		test("sin evaluación, solo si el temario cuenta", () => {
+			expect(
+				gradesAutomatically({
+					requiresEvaluation: false,
+					evaluationMethod: "MANUAL",
+					completionRule: "CONTENT",
+				}),
+			).toBe(true);
+			expect(
+				gradesAutomatically({
+					requiresEvaluation: false,
+					evaluationMethod: "MANUAL",
+					completionRule: "ATTENDANCE",
+				}),
+			).toBe(false);
+		});
+
+		test("con captura manual decide quien imparte", () => {
+			expect(
+				gradesAutomatically({
+					requiresEvaluation: true,
+					evaluationMethod: "MANUAL",
+					completionRule: "BOTH",
+				}),
+			).toBe(false);
 		});
 	});
 

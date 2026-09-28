@@ -379,6 +379,7 @@ export const createCourseService = ({
 			minAttendance: dto.minAttendance ?? COURSE_DEFAULTS.minAttendance,
 			requiresEvaluation,
 			evaluationMethod,
+			minPassingGrade: dto.minPassingGrade ?? COURSE_DEFAULTS.minPassingGrade,
 			qrOpensBeforeMinutes:
 				dto.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
 			qrClosesAfterMinutes:
@@ -602,6 +603,8 @@ export const createCourseService = ({
 					completionRule: dto.completionRule ?? COURSE_DEFAULTS.completionRule,
 					requiresEvaluation: dto.requiresEvaluation ?? false,
 					evaluationMethod: evaluationMethodOf(dto),
+					minPassingGrade:
+						dto.minPassingGrade ?? COURSE_DEFAULTS.minPassingGrade,
 				});
 
 				const changesPlanLine =

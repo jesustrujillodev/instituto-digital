@@ -231,13 +231,13 @@ export class ContentQuizCompletesOnSubmitError extends ContentError {
 }
 
 /**
- * Otro intento solo sobre el último de un cuestionario de módulo, reprobado y
- * sin uno ya habilitado.
+ * Otro intento solo sobre el último, reprobado, con los intentos agotados, sin
+ * uno ya habilitado y a quien todavía no acredita el curso.
  */
 export class ContentQuizRetakeNotAllowedError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED;
 	constructor() {
-		super("Only a failed latest module quiz attempt can be retaken");
+		super("Only a failed latest attempt with no attempts left can be retaken");
 	}
 }
 

@@ -45,6 +45,7 @@ export interface TeachingCourseRaw {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	evaluationMethod: EvaluationMethod;
+	minPassingGrade: number;
 	finishedAt: Date | null;
 	enrollmentClosedAt: Date | null;
 	qrToken: string | null;
@@ -117,6 +118,7 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	minAttendance: raw.minAttendance,
 	requiresEvaluation: raw.requiresEvaluation,
 	evaluationMethod: raw.evaluationMethod,
+	minPassingGrade: raw.minPassingGrade,
 	finishedAt: raw.finishedAt,
 	enrollmentClosedAt: raw.enrollmentClosedAt,
 	qrToken: raw.qrToken,
@@ -205,6 +207,7 @@ export const toTeachingDetail = (
 			minAttendance: course.minAttendance,
 			requiresEvaluation: course.requiresEvaluation,
 			evaluationMethod: course.evaluationMethod,
+			minPassingGrade: course.minPassingGrade,
 			finishedAt: course.finishedAt,
 			finishOpensAt: finishOpensAt(course),
 			enrollmentClosedAt: course.enrollmentClosedAt,

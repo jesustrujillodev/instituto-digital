@@ -175,7 +175,7 @@ export const createUserService = ({
 				// Todo externo tiene perfil de capacitador (§4 del alcance), y esa
 				// invariante cruza dos tablas: la base no puede imponerla. La sostienen
 				// los dos únicos caminos que escriben `type`, y este es el que dice que
-				// no — el alta de externos vive en el catálogo de capacitadores, que
+				// no — el alta de externos vive en `trainers.createExternal`, que
 				// crea cuenta y perfil en la misma transacción.
 				if (dto.type === "EXTERNAL") {
 					throw new ExternalUserRequiresTrainerProfileError();

@@ -34,6 +34,8 @@ describe("validateCreateCourse", () => {
 		["un acceso inventado", { access: "SECRET" }],
 		["una asistencia mínima de 0", { minAttendance: 0 }],
 		["una asistencia mínima de 101", { minAttendance: 101 }],
+		["una calificación mínima de 101", { minPassingGrade: 101 }],
+		["una calificación mínima con decimales", { minPassingGrade: 69.5 }],
 		["un cupo de 0", { capacity: 0 }],
 		["cero horas", { hours: 0 }],
 		["más de 500 horas", { hours: 501 }],

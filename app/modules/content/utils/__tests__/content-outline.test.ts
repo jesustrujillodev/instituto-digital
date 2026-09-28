@@ -50,7 +50,12 @@ const TREE: CourseContentTree = [
 	]),
 	moduleOf("m2", []),
 	moduleOf("m3", [lessonOf("l3")], {
-		quiz: { documentId: "q3", title: "Evaluación", questionCount: 2 },
+		quiz: {
+			documentId: "q3",
+			title: "Evaluación",
+			questionCount: 2,
+			maxAttempts: 1,
+		},
 	}),
 ];
 

@@ -82,6 +82,7 @@ export interface TeachingCourse {
 	minAttendance: number;
 	requiresEvaluation: boolean;
 	evaluationMethod: EvaluationMethod;
+	minPassingGrade: number;
 	finishedAt: Date | null;
 	enrollmentClosedAt: Date | null;
 	/** Nulo mientras nadie genere el QR de asistencia (§6.8). */
@@ -161,6 +162,7 @@ export interface TeachingDetail {
 		minAttendance: number;
 		requiresEvaluation: boolean;
 		evaluationMethod: EvaluationMethod;
+		minPassingGrade: number;
 		finishedAt: Date | null;
 		finishOpensAt: Date | null;
 		enrollmentClosedAt: Date | null;

@@ -3,7 +3,6 @@ import {
 	validateActivateProfile,
 	validateCreateExternalTrainer,
 	validateFindTrainer,
-	validateListTrainers,
 	validateUpdateProfile,
 } from "../trainer.validators";
 
@@ -23,7 +22,6 @@ describe("validadores del catálogo", () => {
 		});
 
 		expect(validateUpdateProfile({})).toEqual({});
-		expect(validateListTrainers({})).toEqual({});
 	});
 
 	// Lanzan ValiError: quien llama lo envuelve en `parseInput`, que es lo que lo

@@ -208,6 +208,22 @@ describe("navigationSections — filtrado por rol", () => {
 		}
 	});
 
+	// El capacitador es un perfil de la cuenta, no una sección: se ve, se filtra
+	// y se habilita en Usuarios, que solo abre la gestión.
+	test("ningún rol tiene un destino propio de capacitadores", () => {
+		for (const role of ALL_ROLES) {
+			for (const isTrainer of [false, true]) {
+				expect(mainPathsFor(role, isTrainer)).not.toContain(
+					"/dashboard/capacitadores",
+				);
+			}
+		}
+	});
+
+	test("un participante capacitador no ve la gestión de usuarios", () => {
+		expect(mainPathsFor("USER", true)).not.toContain("/dashboard/usuarios");
+	});
+
 	// El titular y el auxiliar administran a su gente en la MISMA pantalla que el
 	// superadministrador: el alcance la recorta. Si el enlace no declarara sus
 	// roles, tendrían la función y no la puerta.

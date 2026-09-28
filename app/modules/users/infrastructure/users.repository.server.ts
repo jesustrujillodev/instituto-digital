@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client";
 import type { AccessScope } from "@/shared/auth/scope.rules";
 import type { ICradle } from "@/shared/di/container.types";
-import { scopeWhere, scopeWriteWhere } from "../domain/user.access.rules";
+import {
+	listScopeWhere,
+	scopeWhere,
+	scopeWriteWhere,
+} from "../domain/user.access.rules";
 import { USER_LIST_DEFAULTS } from "../domain/user.config";
 import {
 	DuplicateEmailError,
@@ -90,12 +94,16 @@ const toFilters = (dto: ListUsersDto, scope: AccessScope) => {
 				? { archivedAt: { not: null } }
 				: { archivedAt: null };
 
+	// "Participante" es el rol base del personal INTERNO: un externo también lleva
+	// `USER`, pero no cursa, así que filtrar por ese rol no lo incluye.
+	const type = dto.type ?? (dto.role === "USER" ? "INTERNAL" : undefined);
+
 	return {
-		// Va PRIMERO para que ninguna clave de abajo pueda sobrescribirlo por
-		// accidente al añadir un filtro nuevo.
-		...scopeWhere(scope),
+		// En su propia clave `AND` para que ninguna de abajo —ni el `OR` de la
+		// búsqueda— pueda sobrescribirlo al añadir un filtro nuevo.
+		AND: [listScopeWhere(scope)],
 		...(dto.role && { role: dto.role }),
-		...(dto.type && { type: dto.type }),
+		...(type && { type }),
 		// "no" es ausencia O perfil archivado, así que se expresa negando la única
 		// condición que define al capacitador activo, y no con un `isNot` cuya
 		// semántica frente a una relación nula depende de la versión del ORM.

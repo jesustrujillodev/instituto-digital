@@ -64,7 +64,7 @@ describe("certificado action", () => {
 
 		expect(result).toMatchObject({
 			success: true,
-			message: "Certificado guardado.",
+			message: "Borrador guardado. Publícalo para que se emita con él.",
 		});
 		expect(calls[0]).toMatchObject({
 			method: "saveDraft",
@@ -94,24 +94,39 @@ describe("certificado action", () => {
 		expect(calls).toEqual([]);
 	});
 
-	// Publicar trabaja sobre lo guardado: un diseño en el cuerpo ni se lee.
-	test("publicar ignora cualquier diseño que venga en el cuerpo", async () => {
+	// Publicar lleva lo que está en pantalla: guardar primero ya no es un paso
+	// que se pueda olvidar (docs/adr/0023).
+	test("publicar pasa al servicio el diseño del cuerpo", async () => {
 		const { context, calls } = createHarness();
+		const design = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "X" };
 
-		await run(
+		const result = await run(
 			context,
-			formOf({
-				intent: "publish",
-				payload: JSON.stringify({
-					...DEFAULT_CERTIFICATE_DESIGN,
-					subtitle: "X",
-				}),
-			}),
+			formOf({ intent: "publish", payload: JSON.stringify(design) }),
 		);
 
+		expect(result).toMatchObject({
+			success: true,
+			message: "Certificado publicado. Se emitirá con este diseño.",
+		});
 		expect(calls).toEqual([
-			{ method: "publish", args: [COURSE_ID, expect.anything()] },
+			{
+				method: "publish",
+				args: [{ documentId: COURSE_ID, design }, expect.anything()],
+			},
 		]);
+	});
+
+	test("publicar un diseño inválido no llega al servicio", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			context,
+			formOf({ intent: "publish", payload: "{}" }),
+		);
+
+		expect(!result.success && result.error.code).toBe("VALIDATION_ERROR");
+		expect(calls).toEqual([]);
 	});
 
 	test("subir una firma pasa el archivo al servicio", async () => {

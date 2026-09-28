@@ -49,6 +49,7 @@ const MODULE_SELECT = {
 		select: {
 			documentId: true,
 			title: true,
+			maxAttempts: true,
 			_count: { select: { questions: true } },
 		},
 	},
@@ -107,7 +108,14 @@ export const createContentRepository = ({
 				where: {
 					AND: [{ documentId: courseDocumentId }, asCourseWhere(where)],
 				},
-				select: { id: true, status: true, format: true },
+				select: {
+					id: true,
+					status: true,
+					format: true,
+					completionRule: true,
+					requiresEvaluation: true,
+					minPassingGrade: true,
+				},
 			});
 		},
 

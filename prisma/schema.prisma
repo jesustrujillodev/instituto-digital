@@ -435,6 +435,10 @@ model Course {
   /// Con qué se evalúa, si se evalúa: captura manual o examen en línea
   /// (docs/adr/0015). Se congela al publicar.
   evaluationMethod   EvaluationMethod @default(MANUAL) @map("evaluation_method")
+  /// Promedio con el que se acredita cuando la nota se calcula sola: examen en
+  /// línea o evaluaciones del temario (docs/adr/0024). Compensa: reprobar una
+  /// evaluación no impide acreditar si el promedio alcanza.
+  minPassingGrade    Int              @default(70) @map("min_passing_grade")
 
   /// Token opaco del QR de asistencia. Nulo mientras nadie lo genere: así la
   /// ficha distingue "sin QR" de "con QR", y una columna única no obliga a un
@@ -1142,6 +1146,9 @@ model Quiz {
   title            String
   /// Porcentaje de 0 a 100 con el que se aprueba.
   passingScore     Int     @map("passing_score")
+  /// Intentos por persona; nulo es sin límite. El default es el del examen y el
+  /// módulo: las prácticas anteriores se rellenaron a nulo (docs/adr/0024).
+  maxAttempts      Int?    @default(1) @map("max_attempts")
   shuffleQuestions Boolean @default(false) @map("shuffle_questions")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1195,9 +1202,10 @@ model QuizOption {
   @@schema("org")
 }
 
-/// Un intento por persona y cuestionario, salvo que quien imparte habilite otro
-/// sobre uno reprobado de módulo (docs/adr/0016). La unicidad por número es la
-/// última defensa contra dos envíos simultáneos.
+/// Los intentos de una persona en un cuestionario, numerados desde 1. Su tope es
+/// `quizzes.max_attempts`; agotado, quien imparte puede habilitar otro sobre el
+/// último reprobado (docs/adr/0016, 0024). La unicidad por número es la última
+/// defensa contra dos envíos simultáneos.
 model QuizAttempt {
   id         Int    @id @default(autoincrement())
   documentId String @unique @default(uuid()) @db.Uuid

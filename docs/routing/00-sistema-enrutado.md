@@ -463,8 +463,7 @@ Componentes instalados para esta capa: `sidebar`, `collapsible`, `dropdown-menu`
 | `/dashboard/perfil` | Protegida | `requireAuth` |
 | `/dashboard/dependencias/*` | Protegida | `requireRole(DEPENDENCY_ADMIN_ROLES)` |
 | `/dashboard/usuarios/*` | Protegida | `requireScope(USER_MANAGER_ROLES)` |
-| `/dashboard/capacitadores` | Protegida | `requireAuth` + `canViewCatalog` (admite capacitadores sin rol de gestión) |
-| `/dashboard/capacitadores/nuevo`, `/:documentId/editar` | Protegida | `requireRole(TRAINER_ADMIN_ROLES)` |
+| `/dashboard/usuarios/capacitador-externo`, `/dashboard/usuarios/:documentId/perfil-capacitador` | Protegida | `requireRole(TRAINER_ADMIN_ROLES)`; alcance y rango en el servicio (`canManageTrainer`) |
 | `/dashboard/grupos/*` | Protegida | `requireScope(GROUP_ACCESS_ROLES)` |
 | `/dashboard/cursos/*` | Protegida | `requireCourseScope` (admite al capacitador interno; ver [courses/00](../courses/00-cursos-sesiones-y-acceso.md) §4). Incluye `/:documentId/inscripciones` |
 | `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos`, `/dashboard/mis-cursos/:documentId` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |

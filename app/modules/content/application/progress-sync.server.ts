@@ -1,11 +1,14 @@
+import { countsContent } from "@/modules/courses/domain/course.rules";
 import { syncsOnWrite } from "@/modules/teaching/domain/teaching.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import {
 	CONTENT_DONE_PERCENT,
+	countedScoresOf,
 	progressPercentOf,
 } from "../domain/classroom.rules";
 import type { IProgressSync } from "../domain/classroom.service";
 import { toCourseContentTree } from "../domain/content.mapper";
+import { courseGradeOf, courseResultOf } from "../domain/quiz.rules";
 
 type Dependencies = {
 	contentRepository: ICradle["contentRepository"];
@@ -27,11 +30,11 @@ export const createProgressSync = ({
 		// pueden otorgar créditos calculados sobre datos viejos.
 		await enrollmentRepository.lockCourseSeats(course.id);
 
-		const [rows, states, completedRows, passedRows] = await Promise.all([
+		const [rows, states, completedRows, scoreRows] = await Promise.all([
 			contentRepository.findTree(course.id),
 			enrollmentRepository.findProgressStates(course.id),
 			classroomRepository.findCompletedLessons(course.id, userIds),
-			quizRepository.findPassedModuleQuizzes(course.id, userIds),
+			quizRepository.findBestScores(course.id, userIds),
 		]);
 		const tree = toCourseContentTree(rows);
 
@@ -42,7 +45,7 @@ export const createProgressSync = ({
 			doneByUser.set(userId, done);
 		};
 		for (const row of completedRows) markDone(row.userId, row.lessonDocumentId);
-		for (const row of passedRows) markDone(row.userId, row.quizDocumentId);
+		for (const row of scoreRows) markDone(row.userId, row.itemDocumentId);
 
 		const targets = userIds
 			? states.filter((state) => userIds.includes(state.userId))
@@ -80,10 +83,41 @@ export const createProgressSync = ({
 			await enrollmentRepository.saveProgress(course.id, writes);
 		}
 
-		if (
-			results.some(({ finishesNow }) => finishesNow) &&
-			syncsOnWrite(course)
-		) {
+		// Sin examen ni captura, la nota del curso es el promedio del temario y
+		// se acredita con la mínima (docs/adr/0021, 0024). Reintentar puede
+		// subirla hasta acreditar; ya acreditado, queda fija, y quien completó
+		// con las reglas anteriores no pierde su crédito.
+		const graded =
+			!course.requiresEvaluation && countsContent(course.completionRule)
+				? results.flatMap(({ state, contentCompleted }) => {
+						if (
+							!contentCompleted ||
+							state.completed ||
+							state.result === "PASSED"
+						) {
+							return [];
+						}
+						const grade = courseGradeOf(
+							countedScoresOf(
+								tree,
+								scoreRows.filter((row) => row.userId === state.userId),
+							),
+						);
+						if (grade === null) return [];
+						const result = courseResultOf(grade, course.minPassingGrade);
+						return result === state.result && grade === state.grade
+							? []
+							: [{ userId: state.userId, result, grade }];
+					})
+				: [];
+		if (graded.length > 0) {
+			await enrollmentRepository.saveResults(course.id, graded, actorId, at);
+		}
+
+		const completes =
+			results.some(({ finishesNow }) => finishesNow) ||
+			graded.some(({ result }) => result === "PASSED");
+		if (completes && syncsOnWrite(course)) {
 			await completionSync.sync(course.id, actorId, at);
 		}
 

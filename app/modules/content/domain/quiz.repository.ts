@@ -1,11 +1,12 @@
 import type { TeachingCourseWhere } from "@/modules/teaching/domain/teaching.access";
 import type {
 	GradedAttempt,
-	ModuleQuizAttemptRow,
-	ModuleQuizBoardEntry,
-	PassedModuleQuizRow,
+	QuizAttemptRow,
 	QuizBankWrite,
+	QuizBoardEntry,
 	QuizOwnerIds,
+	QuizParticipantRef,
+	QuizScoreRow,
 	QuizTeachingCourseRef,
 	StoredAttempt,
 	StoredQuiz,
@@ -32,6 +33,8 @@ export interface IQuizRepository {
 
 	/** El último intento de la persona, o `null` si nunca lo presentó. */
 	findAttempt(quizId: number, userId: number): Promise<StoredAttempt | null>;
+	/** La mejor nota de la persona en ese cuestionario; `null` sin intentos. */
+	findBestScore(quizId: number, userId: number): Promise<number | null>;
 	/** La unicidad `(quiz, persona, número)` es la última defensa del doble envío. */
 	saveAttempt(
 		quizId: number,
@@ -43,32 +46,37 @@ export interface IQuizRepository {
 	grantRetake(attemptId: number, actorId: number, at: Date): Promise<void>;
 
 	/**
-	 * Los cuestionarios de módulo activos, de módulos activos, que alguien
-	 * aprobó; con `userIds`, solo los de esas personas.
+	 * Las prácticas y los cuestionarios de módulo activos, de módulos activos,
+	 * que alguien presentó, con su mejor nota; con `userIds`, solo los de esas
+	 * personas.
 	 */
-	findPassedModuleQuizzes(
+	findBestScores(
 		courseId: number,
 		userIds?: readonly number[],
-	): Promise<PassedModuleQuizRow[]>;
+	): Promise<QuizScoreRow[]>;
 
 	/** El curso si el alcance lo imparte; `null` si no. */
 	findTeachingCourse(
 		courseDocumentId: string,
 		where: TeachingCourseWhere,
 	): Promise<QuizTeachingCourseRef | null>;
-	/** Los cuestionarios de módulo activos, en el orden del temario. */
-	findModuleQuizzes(courseId: number): Promise<ModuleQuizBoardEntry[]>;
 	/**
-	 * El último intento de cada persona en cada cuestionario de módulo activo;
-	 * con `userId`, solo los de esa persona.
+	 * Los cuestionarios con preguntas que se presentan: prácticas de lecciones
+	 * activas y evaluaciones de módulo activas en el orden del temario, y el
+	 * examen final al final.
 	 */
-	findLatestModuleAttempts(
+	findBoardQuizzes(courseId: number): Promise<QuizBoardEntry[]>;
+	/**
+	 * El último intento de cada persona en cada uno de esos cuestionarios; con
+	 * `userId`, solo los de esa persona.
+	 */
+	findLatestAttempts(
 		courseId: number,
 		userId?: number,
-	): Promise<ModuleQuizAttemptRow[]>;
-	/** La persona si tiene inscripción activa en el curso. */
-	findEnrolledUserId(
+	): Promise<QuizAttemptRow[]>;
+	/** La persona si tiene inscripción activa en el curso, con su resultado. */
+	findEnrolledParticipant(
 		courseId: number,
 		userDocumentId: string,
-	): Promise<number | null>;
+	): Promise<QuizParticipantRef | null>;
 }

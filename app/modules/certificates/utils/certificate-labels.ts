@@ -27,7 +27,7 @@ export const STATE_LABELS: Record<
 > = {
 	"never-published": {
 		label: "Sin publicar",
-		hint: "Se emitirá con el diseño que publiques.",
+		hint: "Mientras no lo publiques, se emite con el diseño por defecto.",
 	},
 	published: {
 		label: "Publicado",

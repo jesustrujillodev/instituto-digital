@@ -82,6 +82,7 @@ export const treeWithModuleQuiz = (): CourseContentTree =>
 						documentId: MODULE_QUIZ_A,
 						title: "Evaluación · Fundamentos",
 						questionCount: 3,
+						maxAttempts: 1,
 					},
 				}
 			: module,

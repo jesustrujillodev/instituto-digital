@@ -65,7 +65,7 @@ que queda fuera está listado como hueco al final de este documento.
 | [Theme](#theme) | 13 | 360 | dominio, aplicación, infraestructura, rutas, utilidades |
 | [Users](#users) | 20 | 258 | dominio, aplicación, rutas, utilidades |
 | [Dependencies](#dependencies) | 17 | 159 | dominio, aplicación, infraestructura, rutas, utilidades |
-| [Trainers](#trainers) | 16 | 100 | dominio, aplicación, rutas, utilidades |
+| [Trainers](#trainers) | 10 | 79 | dominio, aplicación, rutas, utilidades |
 | [Groups](#groups) | 14 | 74 | dominio, aplicación, rutas, utilidades |
 | [Courses](#courses) | 28 | 357 | dominio, aplicación, infraestructura, rutas, utilidades |
 | [Content](#content) | 6 | 60 | dominio, aplicación, infraestructura, rutas |
@@ -213,7 +213,7 @@ quien decide que la entrada es inválida es el validador de frontera, con el mis
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `user.access.rules.test.ts` | 21 | La jerarquía y el alcance. Lo que más importa: `scopeWhere` traduce el alcance vacío a un **predicado imposible y nunca a `{}`** —que sería "alcanza todo"—, `scopeWriteWhere` devuelve `null` porque el `where` de un `update` no admite `IN ()`, nadie otorga `DEPENDENCY_HEAD` desde el formulario, y `canManageUser` impide que un auxiliar administre a su titular **aunque compartan dependencia**. |
+| `user.access.rules.test.ts` | 36 | La jerarquía y el alcance. Lo que más importa: `scopeWhere` traduce el alcance vacío a un **predicado imposible y nunca a `{}`** —que sería "alcanza todo"—, `listScopeWhere` suma a los capacitadores externos solo al alcance de dependencia, `scopeWriteWhere` devuelve `null` porque el `where` de un `update` no admite `IN ()`, nadie otorga `DEPENDENCY_HEAD` desde el formulario, y `canManageUser` impide que un auxiliar administre a su titular **aunque compartan dependencia**. |
 | `user.rules.test.ts` | 43 | Las ocho reglas del módulo. `safeUserSchema` **descarta `password`**; `updateUserRule` es parcial y no admite contraseña; `changePasswordRule` exige la actual y `adminResetPasswordRule` no; la allowlist de columnas ordenables no incluye ninguna sensible. |
 | `user.validators.test.ts` | 15 | Los siete `validate*` del módulo. |
 | `user.errors.test.ts` | 8 | Códigos estables; `details.reason` de `InvalidUploadError`; que todos extienden `DomainError` (si no, su código no viajaría en el envelope). |
@@ -240,7 +240,7 @@ sale del alcance de titulares y auxiliares, y bloquea al titular movido.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `usuarios/index.action.test.ts` | 14 | archive / unarchive / delete con su copia; `documentId` validado antes del `switch`; una intención desconocida no muta nada; un fallo **no corta con status** (la pantalla sigue en pie). |
-| `usuarios/index.loader.test.ts` | 11 | Guard que produce un 403 real y no un redirect; filtros de la URL con sus defaults; corte con el status del diccionario. |
+| `usuarios/index.loader.test.ts` | 15 | Guard que produce un 403 real y no un redirect; filtros de la URL con sus defaults; corte con el status del diccionario; y que el perfil de capacitador se pida solo para las cuentas de la página. |
 | `perfil/index.action.test.ts` | 10 | El sujeto sale del **token**, nunca del formulario: un envío manipulado con otro `documentId` no mueve a nadie más. Una intención administrativa no se acepta desde el perfil. |
 | `perfil/index.loader.test.ts` | 10 | Único punto del dashboard con `requireAuth` y sin rol; el nombre de la dependencia se resuelve por id interno para que una desactivada no aparezca como "sin dependencia". |
 | `$documentId.editar/index.action.test.ts` | 13 | El **`intent` decide la operación**, no el conjunto de campos: dos formularios de la misma pantalla no pueden dispararse el uno al otro. Foto best-effort. |
@@ -252,7 +252,7 @@ sale del alcance de titulares y auxiliares, y bloquea al titular movido.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `to-user-rows.test.ts` | 12 | El id numérico se **sustituye** por `documentId`: la PK interna no viaja al cliente. |
+| `to-user-rows.test.ts` | 16 | El id numérico se **sustituye** por `documentId`: la PK interna no viaja al cliente. Y que cada fila llegue con sus permisos: un titular administra el perfil de un externo, **no su cuenta**. |
 | `user-error-messages.test.ts` | 9 | Cubre todos los códigos del módulo; `DUPLICATE_EMAIL` cuelga el error del campo `email` y declara 409. |
 | `parse-user-form-data.test.ts` | 6 | Separa la foto de los campos de texto; descarta un archivo que llegue bajo otra clave. |
 | `build-user-form-defaults.test.ts` | 4 | Mapeo del usuario y alta en blanco. |
@@ -322,44 +322,40 @@ tranquilizadora.
 
 ## Trainers
 
-Catálogo de capacitadores (PRD-02). Lo que estas pruebas protegen es la excepción
-del módulo: **es la única lista sin recorte por dependencia**, y a cambio sus
-mutaciones sí llevan alcance.
+Perfil de capacitador (PRD-02). Desde ADR 0022 no tiene pantalla propia: se
+administra desde la tabla de usuarios. Lo que estas pruebas protegen es que sus
+lecturas no lleven alcance —las cuentas ya vienen recortadas por el listado— y
+que sus mutaciones sí.
 
-### `domain/__tests__/` — 45 tests
+### `domain/__tests__/` — 35 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `trainer.access.test.ts` | 9 | Que `canViewCatalog` deje pasar a un participante **con perfil** y corte a uno sin él —la condición que `requireRole` no sabe expresar—, y que sobre un externo mande el rol y no el alcance, porque no pertenece a ninguna dependencia. |
-| `trainer.rules.test.ts` | 17 | Que la especialidad sea obligatoria, que la institución solo exista para externos, que la regla de activación no declare institución y que la de alta externa no declare dependencia ni número de empleado —el CHECK los prohíbe—. Y la allowlist de orden, que acaba en un `orderBy`. |
+| `trainer.access.test.ts` | 6 | Que administrar perfiles sea de los roles de gestión, y que sobre un externo mande el rol y no el alcance, porque no pertenece a ninguna dependencia. |
+| `trainer.rules.test.ts` | 17 | Que la especialidad sea obligatoria, que la institución solo exista para externos, que la regla de alta externa no declare dependencia ni número de empleado —el CHECK los prohíbe—, que la semblanza se pueda vaciar con `null` y que el diálogo valide con las mismas reglas. |
 | `trainer.errors.test.ts` | 2 | El `code` estable de cada error y que todos desciendan de `DomainError`, que es lo que deja viajar el código en el envelope. |
-| `trainer.mapper.test.ts` | 3 | Que el join se aplane en la frontera y que un externo salga sin dependencia, con su institución en su lugar. |
+| `trainer.mapper.test.ts` | 8 | Que el join se aplane en la frontera, que un externo salga sin dependencia, y que `toStatsByUser` promedie **todas** las valoraciones —no los promedios por curso— y cuente un curso compartido para cada capacitador. |
 | `trainer.validators.test.ts` | 2 | Que devuelvan el dto parseado y que lancen `ValiError` para que `parseInput` lo convierta en la rama de validación. |
-| `trainer.config.test.ts` | 2 | Los defaults de paginación y que los contadores pendientes nazcan vacíos (`0` / `null`), no inventados. |
 
-### `application/__tests__/` — 20 tests
-
-| Archivo | Tests | Qué protege |
-|---|---:|---|
-| `trainers.service.server.test.ts` | 20 | Que `list` **no reciba ningún `AccessScope`**; que activar y desactivar revoquen los tokens y que un fallo al revocar no tumbe la operación; que un titular no active el perfil fuera de su dependencia y sí sobre un externo; que `createExternal` corra dentro de `runInTransaction` y **no cree la cuenta si el perfil falla**; y que el choque de correo se traduzca al código del catálogo. |
-
-### `routes/**/__tests__/` — 26 tests
+### `application/__tests__/` — 21 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `capacitadores/index.loader.test.ts` | 12 | Que un participante con perfil entre y uno sin él reciba 403; que el modo consulta no pida candidatos; y que los candidatos de activación lleguen acotados al alcance del actor. |
-| `capacitadores/index.action.test.ts` | 7 | Que el guard del action sea **por rol** aunque el del loader no lo sea: ver el catálogo y modificarlo son permisos distintos. |
-| `nuevo/index.action.test.ts` | 4 | Que sin institución no se llegue al servicio y que el correo duplicado vuelva marcando su campo. |
-| `$documentId.editar/index.loader.test.ts` | 4 | Que la ficha exija rol de gestión y valide el parámetro de la URL antes de consultar. |
-| `$documentId.editar/index.action.test.ts` | 5 | Que la incoherencia de institución vuelva al campo y que un documentId inválido no llegue al servicio. |
+| `trainers.service.server.test.ts` | 21 | Que `listByUsers` **no relea cuentas ni reciba alcance**; que activar y desactivar revoquen los tokens y que un fallo al revocar no tumbe la operación; que un titular no active el perfil fuera de su dependencia y sí sobre un externo; que `createExternal` corra dentro de `runInTransaction` y **no cree la cuenta si el perfil falla**; y que el choque de correo se traduzca al código del módulo. |
 
-### `utils/__tests__/` — 9 tests
+### `routes/**/__tests__/` — 16 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `to-trainer-rows.test.ts` | 4 | Que la fila se identifique por el `documentId` de la **cuenta** —el perfil no tiene uno propio— y que la procedencia sea la dependencia o la institución según el tipo. |
+| `usuarios/$documentId/perfil-capacitador/index.action.test.ts` | 12 | Que el guard sea por rol; que la cuenta salga **de la URL** aunque el formulario traiga otra; que vaciar la semblanza la borre; y que los fallos vuelvan con la copia del módulo y su campo marcado. |
+| `usuarios/capacitador-externo/index.action.test.ts` | 4 | Que sin institución no se llegue al servicio y que el correo duplicado vuelva marcando su campo. |
+
+### `utils/__tests__/` — 7 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `parse-trainer-form-data.test.ts` | 4 | Que los campos vacíos se descarten y la intención viaje aparte. |
 | `trainer-error-messages.test.ts` | 3 | Que el diccionario cubra todos los códigos del módulo y tenga su entrada de reserva. |
-| `build-trainer-form-defaults.test.ts` | 2 | Que ningún campo quede `undefined`, que es lo que hace fiable a `isDirty`. |
 
 ---
 
@@ -561,7 +557,7 @@ fabrique**: se dibuja solo con lo congelado en la base y el diseño nunca llega 
 | `domain/…/certificate.renderer.test.ts` | 38 | Por cada plantilla: datos interpolados, línea de horas omitida sin horas, descripción del diseño sobre la del curso, marcado escapado en nombre y subtítulo, todo selector bajo `.t-<id>`, cuatro celdas del pie con una firma apagada, acento malicioso fuera del CSS y firma con URL no permitida sin imagen. Además, la caída a la institucional, fuentes y logo resueltos contra la base sin Google Fonts, lienzo fijo sin `@media` y el documento autocontenido. Desde F-09: con recursos incrustados el documento no apunta a ninguna URL, y una firma que no está entre ellos no se pinta. Desde F-10: en las tres plantillas, el QR sobre el folio cuando hay dirección y nada cuando no. |
 | `domain/…/certificate.mapper.test.ts` | 21 | Lectura tolerante: un blob válido vuelve idéntico; incompleto, con plantilla que ya no existe, con un firmante, no-objeto o nulo da `null` sin lanzar. Horas en singular y plural y los datos de muestra con la fecha de Tijuana y el primer folio. Desde F-09: los datos que se congelan al emitir, año y mes del folio en la zona del instituto y la lectura tolerante del snapshot de datos. Desde F-10: la proyección pública con sus llaves exactas, el revocado sin nombre ni curso, y la dirección del QR de muestra que no se congela. |
 | `domain/…/certificate.errors.test.ts` | 11 | Cada error del editor y de la emisión con su `code` estable y el estado del curso en los detalles. |
-| `application/…/certificates.service.server.test.ts` | 39 | Envelope en éxito y fallo de `getEditor`, `saveDraft`, `publish`, `discardDraft` y `uploadSignature`. Fuera de alcance como inexistente, sin alcance ni se consulta, alcance de autor para el capacitador; una firma `blob:`, ajena o externa no se escribe; cancelado no edita y finalizado sí; publicar copia el borrador **guardado**; subir va a la carpeta del curso en el bucket privado y rechaza JPG, vacío y de más de 1 MB sin subir. Desde F-09: la descarga dibuja **solo** los snapshots con los recursos incrustados, busca con el alcance de impartición, y rechaza fuera de alcance, revocada y sin Chromium; la muestra sale del diseño guardado (borrador o publicado). Desde F-10: `verify` en válido, revocado e inexistente sin correo ni ids, y el QR en el certificado descargado. Desde F-11: `saveDelivery` (mensaje vacío a nulo, fuera de alcance, cancelado), `listMine` solo con el `userId` del actor, y `downloadMine` propio con QR, ajeno o revocado como inexistente y bloqueado con la descarga apagada. |
+| `application/…/certificates.service.server.test.ts` | 39 | Envelope en éxito y fallo de `getEditor`, `saveDraft`, `publish`, `discardDraft` y `uploadSignature`. Fuera de alcance como inexistente, sin alcance ni se consulta, alcance de autor para el capacitador; una firma `blob:`, ajena o externa no se escribe; cancelado no edita y finalizado sí; publicar escribe el diseño **recibido** como borrador y publicado, y pasa por la misma guarda de firmas que guardar (ADR 0023); subir va a la carpeta del curso en el bucket privado y rechaza JPG, vacío y de más de 1 MB sin subir. Desde F-09: la descarga dibuja **solo** los snapshots con los recursos incrustados, busca con el alcance de impartición, y rechaza fuera de alcance, revocada y sin Chromium; la muestra sale del diseño guardado (borrador o publicado). Desde F-10: `verify` en válido, revocado e inexistente sin correo ni ids, y el QR en el certificado descargado. Desde F-11: `saveDelivery` (mensaje vacío a nulo, fuera de alcance, cancelado), `listMine` solo con el `userId` del actor, y `downloadMine` propio con QR, ajeno o revocado como inexistente y bloqueado con la descarga apagada. |
 | `infrastructure/…/certificates.repository.server.test.ts` | 19 | Sin fila, el diseño por defecto; un blob roto cae al defecto y se registra; `saveDraft` y `publish` como upsert; soltar una firma la quita del borrador y del publicado en una escritura, y no escribe si no coincide. Desde F-09: `reserveFolios` devuelve el primero del rango, `findIssue` filtra por el curso y cae al diseño por defecto, unos datos ilegibles lanzan, y `createIssues` escribe los dos snapshots. Desde F-10: `findIssueForVerification` sin alcance y leyendo solo folio, revocación y datos. Desde F-11: `findMine` solo vigentes de esa persona y sin filas ilegibles, `findMyIssue` exige dueño y vigencia, la entrega por defecto y `saveDelivery` como upsert. |
 | `infrastructure/…/certificate-signature.references.server.test.ts` | 8 | Una firma del borrador o del publicado está referenciada y una vieja no; solo consulta los cursos de las keys; `release` por curso en forma de proxy; la raíz y cada carpeta de curso con su título. Desde F-09: una firma que solo imprime una emisión sigue referenciada y `release` la bloquea sin soltar nada. |
 | `routes/**/…certificado/__tests__/` | 15 | Loader: 403 sin alcance, 404 fuera de alcance, solo lectura en cancelado y la fecha del servidor. Action: el diseño validado llega al servicio, un JSON roto o inválido no, publicar ignora el diseño del cuerpo, la subida pasa el archivo y la copia del error. Desde F-11: `save-delivery` toma el curso de la URL y no del cuerpo, y un mensaje de más de 500 caracteres no llega al servicio. |

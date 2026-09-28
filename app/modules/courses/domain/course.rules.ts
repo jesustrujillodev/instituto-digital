@@ -118,6 +118,14 @@ const minAttendance = v.pipe(
 	v.maxValue(100, "La asistencia mínima no puede superar el 100%."),
 );
 
+/** Promedio con el que se acredita cuando la nota se calcula sola. */
+const minPassingGrade = v.pipe(
+	v.number("La calificación mínima aprobatoria debe ser un número."),
+	v.integer("La calificación mínima aprobatoria debe ser un número entero."),
+	v.minValue(0, "La calificación mínima aprobatoria va de 0 a 100."),
+	v.maxValue(100, "La calificación mínima aprobatoria va de 0 a 100."),
+);
+
 const hours = v.pipe(
 	v.number("Las horas del curso deben ser un número."),
 	v.integer("Las horas del curso deben ser un número entero."),
@@ -224,6 +232,7 @@ export const courseDetailSchema = v.object({
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
 	evaluationMethod: v.picklist(EVALUATION_METHODS),
+	minPassingGrade: v.number(),
 	completionRule: v.picklist(COURSE_COMPLETION_RULES),
 	qrOpensBeforeMinutes: v.number(),
 	qrClosesAfterMinutes: v.number(),
@@ -292,6 +301,7 @@ const courseFormShape = {
 	evaluationMethod: v.optional(
 		v.picklist(EVALUATION_METHODS, "Elige con qué se evalúa el curso."),
 	),
+	minPassingGrade: v.optional(minPassingGrade),
 	completionRule: v.optional(
 		v.picklist(
 			COURSE_COMPLETION_RULES,
@@ -441,6 +451,19 @@ export const evaluatesByQuiz = (course: {
 	evaluationMethod: EvaluationMethod;
 }): boolean => course.requiresEvaluation && course.evaluationMethod === "QUIZ";
 
+/**
+ * La nota se calcula sola, como promedio, y se acredita con la mínima del
+ * curso: con examen en línea, o sin evaluación y con temario que cuenta
+ * (docs/adr/0021, 0024). En la captura manual decide quien imparte.
+ */
+export const gradesAutomatically = (course: {
+	requiresEvaluation: boolean;
+	evaluationMethod: EvaluationMethod;
+	completionRule: CourseCompletionRule;
+}): boolean =>
+	evaluatesByQuiz(course) ||
+	(!course.requiresEvaluation && countsContent(course.completionRule));
+
 const HOUR_MS = 60 * 60 * 1000;
 
 /**
@@ -544,11 +567,11 @@ export const resolveEvaluationMethod = (course: {
 /**
  * Lo que se congela al publicar.
  *
- * En cualquier curso, el método de evaluación: pasar de captura a examen a
- * mitad dejaría resultados medidos de dos formas (docs/adr/0015). En un
- * autogestivo, además, la regla y la evaluación: sus créditos se otorgan
- * conforme cada quien completa, y cambiar el criterio dejaría los ya otorgados
- * medidos con otro (docs/adr/0014).
+ * En cualquier curso, el método de evaluación y la calificación mínima: cambiar
+ * cualquiera a mitad dejaría resultados medidos de dos formas (docs/adr/0015,
+ * 0024). En un autogestivo, además, la regla y la evaluación: sus créditos se
+ * otorgan conforme cada quien completa, y cambiar el criterio dejaría los ya
+ * otorgados medidos con otro (docs/adr/0014).
  */
 export const assertCompletionSettingsEditable = (
 	stored: {
@@ -557,16 +580,21 @@ export const assertCompletionSettingsEditable = (
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
 		evaluationMethod: EvaluationMethod;
+		minPassingGrade: number;
 	},
 	next: {
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
 		evaluationMethod: EvaluationMethod;
+		minPassingGrade: number;
 	},
 ): void => {
 	if (stored.status === "DRAFT") return;
 
-	if (next.evaluationMethod !== stored.evaluationMethod) {
+	if (
+		next.evaluationMethod !== stored.evaluationMethod ||
+		next.minPassingGrade !== stored.minPassingGrade
+	) {
 		throw new CourseCompletionLockedError();
 	}
 	if (requiresSessions(stored.format)) return;

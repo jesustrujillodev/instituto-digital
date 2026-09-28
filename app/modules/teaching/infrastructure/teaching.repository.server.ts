@@ -44,6 +44,7 @@ const courseSelect = (courseFilter: CourseFilter) =>
 		minAttendance: true,
 		requiresEvaluation: true,
 		evaluationMethod: true,
+		minPassingGrade: true,
 		finishedAt: true,
 		enrollmentClosedAt: true,
 		qrToken: true,

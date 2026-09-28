@@ -18,8 +18,8 @@ import type { Route } from "./+types/index";
 /**
  * POST /dashboard/cursos/:documentId/certificado.
  *
- * Publicar y descartar no reciben diseño: trabajan sobre lo que ya está
- * guardado, así que un diseño en el cuerpo de esas peticiones ni se lee.
+ * Guardar y publicar reciben el diseño de la pantalla; publicar lo guarda
+ * además (docs/adr/0023). Descartar no recibe diseño: vuelve al publicado.
  */
 export const action = async ({
 	request,
@@ -38,7 +38,8 @@ export const action = async ({
 	const service = context.certificateService;
 
 	switch (form.intent) {
-		case CERTIFICATE_INTENTS.saveDraft: {
+		case CERTIFICATE_INTENTS.saveDraft:
+		case CERTIFICATE_INTENTS.publish: {
 			const input = parseInput(() =>
 				validateSaveCertificateDraft({
 					documentId: course.data,
@@ -49,18 +50,18 @@ export const action = async ({
 				return localizeError(input, CERTIFICATE_ERROR_MESSAGES);
 			}
 
-			const result = await service.saveDraft(input.data, auth);
+			const isPublish = form.intent === CERTIFICATE_INTENTS.publish;
+			const result = isPublish
+				? await service.publish(input.data, auth)
+				: await service.saveDraft(input.data, auth);
 			if (!result.success) {
 				return localizeError(result, CERTIFICATE_ERROR_MESSAGES);
 			}
-			return ok(null, { message: "Certificado guardado." });
-		}
-		case CERTIFICATE_INTENTS.publish: {
-			const result = await service.publish(course.data, auth);
-			if (!result.success) {
-				return localizeError(result, CERTIFICATE_ERROR_MESSAGES);
-			}
-			return ok(null, { message: "Certificado publicado." });
+			return ok(null, {
+				message: isPublish
+					? "Certificado publicado. Se emitirá con este diseño."
+					: "Borrador guardado. Publícalo para que se emita con él.",
+			});
 		}
 		case CERTIFICATE_INTENTS.discard: {
 			const result = await service.discardDraft(course.data, auth);

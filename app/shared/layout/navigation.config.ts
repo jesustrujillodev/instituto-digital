@@ -11,7 +11,6 @@ import {
 	MonitorSmartphone,
 	NotebookPen,
 	Palette,
-	Presentation,
 	ScrollText,
 	Users,
 	UsersRound,
@@ -35,9 +34,10 @@ const PLATFORM_ROLES = ["SUPERADMIN"] as const satisfies readonly Role[];
  *
  * Quien cursa ve primero lo suyo —la plataforma existe para tomar cursos— y
  * después lo que imparte u organiza. Los roles de plataforma no cursan (§3):
- * para ellos la administración va primero. Por eso Usuarios, Cursos, Grupos,
- * Capacitadores y Calendario aparecen en dos secciones con roles disjuntos;
- * nadie ve el mismo destino dos veces.
+ * para ellos la administración va primero. Por eso Usuarios, Cursos, Grupos y
+ * Calendario aparecen en dos secciones con roles disjuntos; nadie ve el mismo
+ * destino dos veces. Los capacitadores no tienen destino propio: son un perfil
+ * de la cuenta y se ven, filtran y habilitan en Usuarios.
  *
  * `roles` está tipado como `readonly Role[]`: un rol inexistente NO compila.
  * `trainer` marca los items que además ve cualquier capacitador.
@@ -126,14 +126,6 @@ export const navigationSections: readonly NavSection[] = [
 				roles: DEPENDENCY_ROLES,
 			},
 			{
-				// El catálogo es global y lo consulta cualquier capacitador (§3 del alcance).
-				label: "Capacitadores",
-				path: "/dashboard/capacitadores",
-				icon: Presentation,
-				roles: DEPENDENCY_ROLES,
-				trainer: true,
-			},
-			{
 				// La MISMA pantalla que usa el superadministrador: el alcance la recorta
 				// a su dependencia. Una segunda lista duplicaría el query con otro guard,
 				// que es donde se cuelan los fallos de aislamiento.
@@ -180,11 +172,6 @@ export const navigationSections: readonly NavSection[] = [
 				path: "/dashboard/grupos",
 				icon: UsersRound,
 				roles: ["SUPERADMIN"],
-			},
-			{
-				label: "Capacitadores",
-				path: "/dashboard/capacitadores",
-				icon: Presentation,
 			},
 			{
 				label: "Calendario",
