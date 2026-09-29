@@ -1,8 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { env } from "@/core/env.server";
-import { THEME_PRESETS } from "@/modules/theme/domain/theme.config";
 import { seedAnnualPlan } from "./seed-annual-plan";
 import { seedCalendar } from "./seed-calendar";
 import { seedCourses } from "./seed-courses";
@@ -93,57 +92,6 @@ async function main() {
 		create: { id: 1 },
 	});
 
-	// Presets de fábrica. Son la red de seguridad de la feature de temas: lo que
-	// queda para volver cuando un tema publicado sale mal, así que se siembran
-	// YA publicados —un tema sin publicar no se puede activar—.
-	//
-	// Idempotente por nombre y NO destructivo: un re-run del seed actualiza los
-	// presets pero no toca los temas que haya creado el superadministrador ni cuál está
-	// activo. Un seed que borrara `themes` se llevaría por delante el tema en
-	// producción de cualquier entorno donde alguien lo ejecutara por error.
-	// Un preset retirado del config no se puede borrar desde el builder (la
-	// invariante lo impide) y sus tokens pueden dejar de validar. Es de fábrica,
-	// no del superadministrador, así que el seed lo retira. Si estaba activo, la FK con
-	// `SetNull` deja la plataforma en el tema base.
-	await prisma.theme.deleteMany({
-		where: {
-			isPreset: true,
-			name: { notIn: THEME_PRESETS.map((preset) => preset.name) },
-		},
-	});
-
-	for (const preset of THEME_PRESETS) {
-		const existing = await prisma.theme.findFirst({
-			where: { name: preset.name, isPreset: true },
-			select: { id: true },
-		});
-
-		const tokens = preset.tokens as unknown as Prisma.InputJsonValue;
-		const data = {
-			name: preset.name,
-			isPreset: true,
-			draftTokens: tokens,
-			publishedTokens: tokens,
-			publishedAt: new Date(),
-		};
-
-		if (existing) {
-			await prisma.theme.update({ where: { id: existing.id }, data });
-		} else {
-			await prisma.theme.create({ data });
-		}
-	}
-
-	// La fila de apariencia existe desde el principio, aunque sin tema activo:
-	// así el repositorio lee `null` (que significa "sirve el tema base") en vez
-	// de no encontrar la fila. Sin `update`, activar un tema y re-sembrar no
-	// desactiva lo que ya estaba puesto.
-	await prisma.appearanceState.upsert({
-		where: { id: 1 },
-		update: {},
-		create: { id: 1 },
-	});
-
 	console.log("✅ Organización:");
 	console.log(
 		`   • ${organization.dependencies} dependencias (2 activas, 1 desactivada, 1 de acogida)`,
@@ -209,9 +157,6 @@ async function main() {
 	console.log("✅ Cuentas de la plantilla:");
 	console.log(`   • ${user.email}  (USER)   — password: Password123!`);
 	console.log("✅ Security state row ready (id = 1)");
-	console.log(
-		`✅ Theme presets ready: ${THEME_PRESETS.map((p) => p.name).join(", ")}`,
-	);
 }
 
 main()

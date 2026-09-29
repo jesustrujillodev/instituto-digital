@@ -5,9 +5,8 @@
 /*
  * ITC Avant Garde, tipografía del manual de identidad del Ayuntamiento.
  *
- * La familia y su pila viven en theme.config.ts (FONT_CATALOG); aquí solo se
- * declaran los `@font-face`, con los archivos servidos desde public/font: ninguna
- * petición a un tercero en runtime.
+ * Los archivos se sirven desde public/font: ninguna petición a un tercero en
+ * runtime.
  *
  * Book va en 400 y no en 300 como en la hoja de origen: es el peso regular de la
  * familia. En 300, el texto sin clase (400) no encontraba su peso y el navegador
@@ -68,10 +67,10 @@
  *
  * Con modo "system" el servidor no puede saber el ajuste del sistema operativo
  * del cliente, así que NO pone la clase `dark` en <html>: pone `theme-system` y
- * deja que un @media dentro del CSS del tema elija los tokens (ver
- * theme.rules.ts → serializeThemeCss). Eso resuelve los tokens, pero las
- * utilidades `dark:` de los componentes shadcn seguirían mirando solo la clase
- * `.dark` y se quedarían inertes justo en el modo por defecto.
+ * deja que el @media de los tokens (abajo) elija la variante. Eso resuelve los
+ * tokens, pero las utilidades `dark:` de los componentes shadcn seguirían
+ * mirando solo la clase `.dark` y se quedarían inertes justo en el modo por
+ * defecto.
  *
  * La rama del @media es la que las mantiene vivas. Si se borra, el modo system
  * pinta los colores correctos pero pierde todos los ajustes `dark:` (bordes de
@@ -94,15 +93,14 @@
  *
  * `@theme inline` NO emite estas variables en `:root`: sustituye su valor en el
  * punto de uso. Es el mecanismo con el que shadcn conecta `--color-primary` a
- * `--primary`, y aquí hace falta por la misma razón para todo lo demás — el
- * servidor escribe los tokens en un `<style>` del `<head>` y Tailwind los tiene
- * que consumir sin declararlos él.
+ * `--primary`, y aquí hace falta por la misma razón para todo lo demás: los
+ * valores cambian con el modo claro/oscuro, así que Tailwind tiene que leer la
+ * variable y no copiar su valor.
  *
  * Los que no son colores llevan el prefijo `--theme-*` a propósito: `--spacing`,
  * `--font-sans` y la escala `--shadow-*` son claves del tema de Tailwind, y
  * declararlas también en `:root` sería una carrera de cascada que se gana o se
  * pierde según el orden de las hojas. Con el prefijo, la conexión es explícita.
- * Ver theme.mapper.ts → SHARED_PREFIX.
  */
 @theme inline {
 	--font-sans: var(--theme-font-sans);
@@ -113,11 +111,6 @@
 	--spacing: var(--theme-spacing);
 	/*
 	 * La escala de texto se deriva del tamaño base del tema.
-	 *
-	 * Sin esto, "Tamaño base" no movía prácticamente nada: solo llegaba al
-	 * `font-size` de `body`, y las 166 apariciones de `text-sm`, las 74 de
-	 * `text-xs` y todas las demás traen su propio valor en `rem` y lo ignoraban.
-	 * El control existía y no hacía nada visible.
 	 *
 	 * Van multiplicadas por la proporción de la escala por defecto de Tailwind,
 	 * así que con el tamaño base en 1rem los valores son exactamente los de
@@ -192,24 +185,164 @@
 }
 
 /*
- * Los VALORES de los tokens ya no viven aquí.
- *
- * Los emite el servidor en un <style> del <head>, generado en cada petición a
- * partir de app/modules/theme/domain/theme.config.ts. Es lo que permite servir
- * la variante correcta desde el primer byte —y, en la fase B, un tema guardado
- * en base de datos— sin flash y sin JavaScript.
- *
- * Dejar aquí una copia "por si acaso" es justo lo que hay que evitar: al cambiar
- * el tema desde el builder, esta copia quedaría muerta y nadie se enteraría. El
- * respaldo cuando el loader no puede resolver existe, pero sale de la MISMA
- * constante (ver root.tsx), no de un segundo juego de valores.
- *
- * El bloque `@theme inline` de arriba sí se queda: mapea los nombres a las
- * utilidades de Tailwind en tiempo de compilación y no necesita ningún valor.
+ * El tema institucional, fijo. `:root` lleva la variante clara y lo compartido;
+ * la oscura entra con la clase `dark` que pone root.tsx, o por el @media cuando
+ * el modo es "system".
  */
+:root {
+	color-scheme: light;
+	--radius: 0.25rem;
+	--theme-spacing: 0.25rem;
+	--theme-border-width: 1px;
+	--theme-font-sans: "ITC Avant Garde Std", Arial, ui-sans-serif, sans-serif;
+	--theme-font-serif:
+		ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+	--theme-font-mono:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+		"Courier New", monospace;
+	--theme-font-heading: "ITC Avant Garde Std", Arial, ui-sans-serif, sans-serif;
+	--theme-font-size: 1rem;
+	--theme-tracking: 0em;
+	--theme-shadow-2xs: 0px 0.5px 1.5px 0px oklch(0 0 0 / 5%);
+	--theme-shadow-xs: 0px 0.75px 2.25px 0px oklch(0 0 0 / 5%);
+	--theme-shadow-sm:
+		0px 1px 3px 0px oklch(0 0 0 / 10%), 0px 0.5px 1.5px 0px oklch(0 0 0 / 10%);
+	--theme-shadow:
+		0px 1px 3px 0px oklch(0 0 0 / 10%), 0px 0.5px 1.5px 0px oklch(0 0 0 / 10%);
+	--theme-shadow-md:
+		0px 1.5px 4.5px 0px oklch(0 0 0 / 10%),
+		0px 0.75px 2.25px 0px oklch(0 0 0 / 10%);
+	--theme-shadow-lg:
+		0px 2.5px 7.5px 0px oklch(0 0 0 / 10%),
+		0px 1.25px 3.75px 0px oklch(0 0 0 / 10%);
+	--theme-shadow-xl:
+		0px 4px 12px 0px oklch(0 0 0 / 10%), 0px 2px 6px 0px oklch(0 0 0 / 10%);
+	--theme-shadow-2xl: 0px 6px 18px 0px oklch(0 0 0 / 25%);
+	--background: oklch(0.961 0 0);
+	--foreground: oklch(0.341 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.341 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.341 0 0);
+	--primary: oklch(0.367 0.136 9.47);
+	--primary-foreground: oklch(0.961 0 0);
+	--secondary: oklch(0.861 0.057 84.49);
+	--secondary-foreground: oklch(0.341 0 0);
+	--muted: oklch(0.922 0 0);
+	--muted-foreground: oklch(0.5 0 0);
+	--accent: oklch(0.689 0.087 76.2);
+	--accent-foreground: oklch(0.26 0 0);
+	--destructive: oklch(0.467 0.16 12.76);
+	--destructive-foreground: oklch(0.961 0 0);
+	--success: oklch(0.923 0.015 175.7);
+	--success-foreground: oklch(0.43 0.063 177);
+	--warning: oklch(0.943 0.022 80.69);
+	--warning-foreground: oklch(0.5 0.08 76.2);
+	--border: oklch(0.88 0 0);
+	--input: oklch(0.6 0 0);
+	--ring: oklch(0.441 0.147 10);
+	--chart-1: oklch(0.367 0.136 9.47);
+	--chart-2: oklch(0.689 0.087 76.2);
+	--chart-3: oklch(0.467 0.16 12.76);
+	--chart-4: oklch(0.43 0.063 177);
+	--chart-5: oklch(0.25 0.045 177);
+	--sidebar: oklch(0.3 0.11 9.47);
+	--sidebar-foreground: oklch(0.95 0 0);
+	--sidebar-primary: oklch(0.689 0.087 76.2);
+	--sidebar-primary-foreground: oklch(0.25 0.09 9.47);
+	--sidebar-accent: oklch(0.367 0.136 9.47);
+	--sidebar-accent-foreground: oklch(0.95 0 0);
+	--sidebar-border: oklch(0.25 0.09 9.47);
+	--sidebar-ring: oklch(0.689 0.087 76.2);
+}
+
+:root.dark {
+	color-scheme: dark;
+	--background: oklch(0.16 0 0);
+	--foreground: oklch(0.95 0 0);
+	--card: oklch(0.2 0 0);
+	--card-foreground: oklch(0.95 0 0);
+	--popover: oklch(0.23 0 0);
+	--popover-foreground: oklch(0.95 0 0);
+	--primary: oklch(0.66 0.13 9.47);
+	--primary-foreground: oklch(0.16 0.02 9.47);
+	--secondary: oklch(0.26 0 0);
+	--secondary-foreground: oklch(0.92 0 0);
+	--muted: oklch(0.22 0 0);
+	--muted-foreground: oklch(0.72 0 0);
+	--accent: oklch(0.72 0.087 76.2);
+	--accent-foreground: oklch(0.16 0 0);
+	--destructive: oklch(0.64 0.16 12.76);
+	--destructive-foreground: oklch(0.16 0 0);
+	--success: oklch(0.25 0.04 177);
+	--success-foreground: oklch(0.8 0.08 177);
+	--warning: oklch(0.26 0.035 76.2);
+	--warning-foreground: oklch(0.82 0.09 76.2);
+	--border: oklch(0.3 0 0);
+	--input: oklch(0.5 0 0);
+	--ring: oklch(0.66 0.13 9.47);
+	--chart-1: oklch(0.66 0.13 9.47);
+	--chart-2: oklch(0.72 0.087 76.2);
+	--chart-3: oklch(0.55 0.14 12.76);
+	--chart-4: oklch(0.6 0.07 177);
+	--chart-5: oklch(0.45 0.05 177);
+	--sidebar: oklch(0.25 0.09 9.47);
+	--sidebar-foreground: oklch(0.95 0 0);
+	--sidebar-primary: oklch(0.689 0.087 76.2);
+	--sidebar-primary-foreground: oklch(0.2 0.07 9.47);
+	--sidebar-accent: oklch(0.33 0.12 9.47);
+	--sidebar-accent-foreground: oklch(0.95 0 0);
+	--sidebar-border: oklch(0.2 0.07 9.47);
+	--sidebar-ring: oklch(0.689 0.087 76.2);
+}
+
+:root.theme-system {
+	color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root.theme-system {
+		--background: oklch(0.16 0 0);
+		--foreground: oklch(0.95 0 0);
+		--card: oklch(0.2 0 0);
+		--card-foreground: oklch(0.95 0 0);
+		--popover: oklch(0.23 0 0);
+		--popover-foreground: oklch(0.95 0 0);
+		--primary: oklch(0.66 0.13 9.47);
+		--primary-foreground: oklch(0.16 0.02 9.47);
+		--secondary: oklch(0.26 0 0);
+		--secondary-foreground: oklch(0.92 0 0);
+		--muted: oklch(0.22 0 0);
+		--muted-foreground: oklch(0.72 0 0);
+		--accent: oklch(0.72 0.087 76.2);
+		--accent-foreground: oklch(0.16 0 0);
+		--destructive: oklch(0.64 0.16 12.76);
+		--destructive-foreground: oklch(0.16 0 0);
+		--success: oklch(0.25 0.04 177);
+		--success-foreground: oklch(0.8 0.08 177);
+		--warning: oklch(0.26 0.035 76.2);
+		--warning-foreground: oklch(0.82 0.09 76.2);
+		--border: oklch(0.3 0 0);
+		--input: oklch(0.5 0 0);
+		--ring: oklch(0.66 0.13 9.47);
+		--chart-1: oklch(0.66 0.13 9.47);
+		--chart-2: oklch(0.72 0.087 76.2);
+		--chart-3: oklch(0.55 0.14 12.76);
+		--chart-4: oklch(0.6 0.07 177);
+		--chart-5: oklch(0.45 0.05 177);
+		--sidebar: oklch(0.25 0.09 9.47);
+		--sidebar-foreground: oklch(0.95 0 0);
+		--sidebar-primary: oklch(0.689 0.087 76.2);
+		--sidebar-primary-foreground: oklch(0.2 0.07 9.47);
+		--sidebar-accent: oklch(0.33 0.12 9.47);
+		--sidebar-accent-foreground: oklch(0.95 0 0);
+		--sidebar-border: oklch(0.2 0.07 9.47);
+		--sidebar-ring: oklch(0.689 0.087 76.2);
+	}
+}
 
 /*
- * El grosor de borde por defecto también es un token (decisión #3).
+ * El grosor de borde por defecto también es un token.
  *
  * Se redefine la utilidad `border` en vez de tocar el preflight: poner un
  * `border-width` sobre `*` le pondría borde a todo. Así solo cambia el grosor de
@@ -247,7 +380,7 @@
  * Toasts de Sileo con los colores del tema.
  *
  * Sileo pinta sus propios verdes, rojos y ámbares. Aquí se cambian por los
- * tokens del tema publicado, pero NO directamente con `var(--success)`, por dos
+ * tokens del tema, pero NO directamente con `var(--success)`, por dos
  * razones:
  *
  *  - `--success` y `--warning` son FONDOS suaves (casi blancos en claro, un 20%
@@ -259,11 +392,9 @@
  * Así que del token se toman el tono y la saturación, y la luminosidad se fija
  * según la píldora: alrededor de 0.75 sobre la oscura y 0.5 sobre la clara. El
  * verde y el rojo muy saturados pierden luminosidad al recortarse al gamut sRGB,
- * por eso su valor se aparta un poco. Medido con los presets de fábrica, el
- * título queda entre 4.9:1 y 9:1. Como la luminosidad es fija, un tema nuevo
- * solo mueve tono y croma, y el margen apenas cambia. `info` va sin croma a
- * propósito: el primario de un tema puede ser rojo y un aviso neutro no debe
- * parecer un error.
+ * por eso su valor se aparta un poco. El título queda entre 4.9:1 y 9:1.
+ * `info` va sin croma a propósito: el primario es guinda y un aviso neutro no
+ * debe parecer un error.
  *
  * El `data-theme` del viewport lo pone Sileo con el modo ya resuelto (incluido
  * "system"). Las variables se declaran en el viewport y no en `:root` porque
@@ -309,9 +440,8 @@
 	}
 }
 
-/* Tamaños de la escala del tema (`text-sm`) y no los rem fijos de Sileo, para
-   que el "Tamaño base" del builder también los mueva. La familia ya llega
-   heredada de <body>. */
+/* Tamaños de la escala del tema (`text-sm`) y no los rem fijos de Sileo. La
+   familia ya llega heredada de <body>. */
 body [data-sileo-viewport] [data-sileo-title],
 body [data-sileo-viewport] [data-sileo-description] {
 	font-size: calc(var(--theme-font-size) * 0.875);
@@ -345,9 +475,7 @@ body [data-sileo-viewport][data-theme="dark"] [data-sileo-description] {
 	body {
 		@apply bg-background text-foreground;
 		/* Tamaño base y tracking salen del tema. Van en `body` y no en `html`
-		   para no reescalar cada `rem` de la interfaz —radios, espaciados— por
-		   cambiar el tamaño del texto. Lo que SÍ escala con él es la escala
-		   `--text-*`, derivada arriba: esto solo alcanza al texto sin clase. */
+		   para no reescalar cada `rem` de la interfaz —radios, espaciados—. */
 		font-size: var(--theme-font-size);
 		letter-spacing: var(--theme-tracking);
 	}

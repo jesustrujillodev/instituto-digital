@@ -343,23 +343,6 @@ describe("footerNavigationConfig", () => {
 		);
 	});
 
-	// El tema es de toda la plataforma: su loader y su action exigen SUPERADMIN.
-	test("personalización solo la ve el superadministrador", () => {
-		expect(pathsFor(footerNavigationConfig, "SUPERADMIN")).toContain(
-			"/dashboard/personalizacion",
-		);
-
-		for (const role of [
-			"USER",
-			"DEPENDENCY_HEAD",
-			"DEPENDENCY_DEPUTY",
-		] as const) {
-			expect(pathsFor(footerNavigationConfig, role)).not.toContain(
-				"/dashboard/personalizacion",
-			);
-		}
-	});
-
 	// Accesos operativos que se consultan cuando algo va mal: van aparte para no
 	// competir por atención con lo que sí se usa a diario.
 	test("no duplica ninguna entrada de la navegación principal", () => {

@@ -21,7 +21,7 @@ import type {
  *
  * Nunca lanza: una fila escrita con un esquema anterior no puede tumbar la
  * pantalla. La caída al diseño por defecto —y su log— es del repositorio, que
- * es quien tiene el logger (mismo reparto que `theme.mapper.ts`).
+ * es quien tiene el logger.
  */
 export const toCertificateDesign = (
 	blob: unknown,

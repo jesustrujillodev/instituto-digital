@@ -28,13 +28,13 @@ export const refreshTokenCookie = createCookie("__refresh_token", {
 });
 
 // ── Theme mode cookie ──────────────────────────────────────────────────────────
-// Preferencia de esquema de color. Es lo que permite al SERVIDOR emitir el tema
-// correcto en el primer byte y por tanto lo que elimina el flash, sin el script
-// bloqueante en <head> que usan las librerías de tema en cliente.
+// Preferencia de esquema de color. Es lo que permite al SERVIDOR poner la clase
+// correcta en <html> desde el primer byte y por tanto lo que elimina el flash,
+// sin el script bloqueante en <head> que usan las librerías de tema en cliente.
 //
 // HttpOnly como las de auth, y por una razón concreta: NADIE la lee desde el
 // cliente. El modo llega a los componentes por el loader raíz (que es quien lo
-// resolvió y quien emitió el CSS), así que abrirla a JavaScript no compraría
+// resolvió y quien puso la clase de <html>), así que abrirla a JavaScript no compraría
 // nada. Un `useThemeMode` que la leyera del navegador además desincronizaría el
 // marcado del servidor con el de la hidratación.
 //
@@ -47,28 +47,6 @@ export const themeModeCookie = createCookie("__theme_mode", {
 	sameSite: "lax",
 	path: "/",
 	maxAge: 60 * 60 * 24 * 365, // un año: la preferencia no caduca sola
-});
-
-// ── Theme preview cookie ───────────────────────────────────────────────────────
-// "Probar en toda la app": dice QUÉ tema previsualizar mientras se navega el
-// dashboard con un borrador puesto.
-//
-// Mismo criterio que la de modo —HttpOnly y sin firmar— y por el mismo motivo:
-// nadie la lee desde el cliente, el loader raíz es quien la interpreta y quien
-// emite el CSS. La barra flotante que ofrece salir del preview se pinta con lo
-// que ese loader devuelve, no leyendo la cookie.
-//
-// No lleva `secrets` porque NO autoriza nada: el loader solo la atiende si el rol
-// verificado en servidor es SUPERADMIN. Cualquiera puede fabricarla; a quien no
-// lo sea no le sirve de nada.
-//
-// De sesión (sin `maxAge`): un preview es algo que se está probando ahora, no un
-// estado que deba sobrevivir al cierre del navegador.
-export const themePreviewCookie = createCookie("__theme_preview", {
-	httpOnly: true,
-	secure: isProduction,
-	sameSite: "lax",
-	path: "/",
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

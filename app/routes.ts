@@ -22,10 +22,7 @@ import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
 import { ratingsRoutes } from "./modules/ratings/routes/routes.config";
 import { teachingRoutes } from "./modules/teaching/routes/routes.config";
-import {
-	themeAdminRoutes,
-	themeRoutes,
-} from "./modules/theme/routes/routes.config";
+import { themeRoutes } from "./modules/theme/routes/routes.config";
 import { trainersRoutes } from "./modules/trainers/routes/routes.config";
 import { usersRoutes } from "./modules/users/routes/routes.config";
 import { DASHBOARD_LAYOUT_ID } from "./shared/layout/layout.constants";
@@ -74,7 +71,6 @@ export default [
 					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)
 					...cloudAdminRoutes, // /dashboard/nube  (SUPERADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (SUPERADMIN)
-					...themeAdminRoutes, // /dashboard/personalizacion  (SUPERADMIN)
 				]),
 			]),
 		],

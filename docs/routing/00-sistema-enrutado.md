@@ -469,7 +469,6 @@ Componentes instalados para esta capa: `sidebar`, `collapsible`, `dropdown-menu`
 | `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos`, `/dashboard/mis-cursos/:documentId` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
 | `/dashboard/nube` | Protegida | `requireRole(["SUPERADMIN"])` |
 | `/dashboard/sesiones` | Protegida | `requireRole(SESSION_MONITOR_ROLES)` |
-| `/dashboard/personalizacion` | Protegida | `requireRole(["SUPERADMIN"])` |
 | `/api/storage` | Infraestructura | Mixta por prefijo de key |
 
 Cuatro guards no son `requireRole` porque su condición de entrada no es un rol:

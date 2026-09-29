@@ -127,7 +127,7 @@ La plataforma es la oficina donde el personal del Ayuntamiento organiza, imparte
 
 Los componentes son **cercanos y claros**. Quien la usa es un servidor público cualquiera, a veces en una PC de oficina durante una jornada administrativa y a veces desde el celular revisando una invitación. Las formas son suavemente redondeadas, los objetivos táctiles cómodos y la jerarquía se entiende sin leer. La tipografía ITC Avant Garde, geométrica y abierta, da el tono institucional sin rigidez.
 
-Los valores de este documento son los del tema **Institucional**, que es a la vez el tema base (`DEFAULT_THEME_TOKENS` en `app/modules/theme/domain/theme.config.ts`) y el único preset de fábrica. El superadministrador puede publicar otro tema desde el builder, así que el código **nunca** escribe colores literales: consume los tokens (`bg-primary`, `text-muted-foreground`, `bg-sidebar`…) y este archivo describe lo que esos tokens valen por defecto.
+Los valores de este documento son los del tema **Institucional**, el único de la plataforma, declarado en `app/app.css` con sus variantes clara y oscura. El código **nunca** escribe colores literales: consume los tokens (`bg-primary`, `text-muted-foreground`, `bg-sidebar`…), que es lo que permite que cada persona elija modo claro u oscuro, y este archivo describe lo que esos tokens valen.
 
 **Key Characteristics:**
 - Guinda como superficie de marca; papel neutro como superficie de trabajo.
@@ -275,9 +275,9 @@ Portada y panel de acceso usan la superficie guinda de la barra lateral con el l
 ## Do's and Don'ts
 
 ### Do:
-- **Do** consumir siempre los tokens del tema (`bg-primary`, `bg-sidebar`, `text-muted-foreground`); el superadmin puede publicar otro tema.
+- **Do** consumir siempre los tokens del tema (`bg-primary`, `bg-sidebar`, `text-muted-foreground`); un color literal no cambia con el modo oscuro.
 - **Do** colocar el logotipo completo solo sobre la superficie guinda, y el icono del escudo en la barra lateral y como favicon.
-- **Do** mantener AA en todo par de color nuevo; `theme.config.test.ts` falla si un token de fábrica baja de su mínimo.
+- **Do** mantener AA en todo par de color nuevo, en claro y en oscuro.
 - **Do** usar texto oscuro sobre el primario en modo oscuro; ningún guinda con texto claro cumple a la vez como botón y como enlace sobre fondo negro.
 - **Do** separar superficies con anillo tenue y sombra corta.
 

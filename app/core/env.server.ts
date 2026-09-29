@@ -78,18 +78,6 @@ const baseEnvSchema = v.object({
 	USE_GCS_EMULATOR: v.optional(v.string()),
 	GCS_EMULATOR_HOST: v.optional(v.string()),
 
-	// ── Tema ────────────────────────────────────────────────────────────────────
-	/**
-	 * Archivo donde se guarda la última copia del tema activo, para que un
-	 * proceso que arranca con la base caída siga sirviendo la marca en vez del
-	 * tema base. Relativa al directorio de trabajo. En un contenedor, montar un
-	 * volumen en esa ruta hace que la copia sobreviva también a un redeploy.
-	 */
-	THEME_SNAPSHOT_PATH: v.optional(
-		v.pipe(v.string(), v.minLength(1)),
-		".cache/theme/active-theme.json",
-	),
-
 	// ── Correo (PRD-08) ─────────────────────────────────────────────────────────
 	// Sin SMTP_HOST los correos se encolan igual y el adaptador solo los escribe
 	// en el log: el desarrollo y las pruebas no necesitan un servidor de correo.
@@ -250,8 +238,6 @@ const result = v.safeParse(envSchema, {
 	GCS_CREDENTIALS_BASE64: process.env.GCS_CREDENTIALS_BASE64,
 	USE_GCS_EMULATOR: process.env.USE_GCS_EMULATOR,
 	GCS_EMULATOR_HOST: process.env.GCS_EMULATOR_HOST,
-
-	THEME_SNAPSHOT_PATH: process.env.THEME_SNAPSHOT_PATH,
 
 	SMTP_HOST: process.env.SMTP_HOST,
 	SMTP_PORT: process.env.SMTP_PORT,

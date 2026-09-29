@@ -75,10 +75,8 @@ export const columnHelpers = {
 		const variantClasses = {
 			primary: "bg-primary text-primary-foreground",
 			secondary: "bg-secondary text-secondary-foreground",
-			// Tokens, no paleta cruda: el alfa que antes traía el `/20` de la
-			// variante oscura vive ahora dentro del propio token (theme.config.ts),
-			// así que el tema del builder podrá redefinir estos colores igual que
-			// redefine primary o destructive.
+			// Tokens, no paleta cruda: el alfa de la variante oscura vive dentro
+			// del propio token (app.css).
 			success: "bg-success text-success-foreground",
 			warning: "bg-warning text-warning-foreground",
 			danger: "bg-destructive/10 dark:bg-destructive/20 text-destructive",

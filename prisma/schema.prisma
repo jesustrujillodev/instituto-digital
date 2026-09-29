@@ -59,7 +59,7 @@ model User {
   /// null = nunca eligió; la resolución cae a la cookie o a "system".
   ///
   /// La COOKIE tiene precedencia sobre esta columna: es lo único disponible para
-  /// peticiones anónimas, así que serviría dos temas distintos a la misma persona
+  /// peticiones anónimas, así que serviría dos modos distintos a la misma persona
   /// antes y después de entrar. Esta columna existe para que la preferencia siga
   /// al usuario a un dispositivo nuevo (docs/theme/00-modo-oscuro.md).
   ///
@@ -101,59 +101,6 @@ model User {
   @@index([dependencyId, archivedAt])
   @@map("users")
   @@schema("auth")
-}
-
-/// Un tema de la biblioteca: la marca de la plataforma, no la preferencia de
-/// nadie. El modo claro/oscuro es del usuario y vive en `User.themeMode`.
-///
-/// Dos juegos de tokens con papeles distintos: `draftTokens` es lo que el
-/// builder edita y `publishedTokens` lo que la app sirve. Separarlos es lo que
-/// permite iterar un tema sin tocar lo que ven los usuarios.
-model Theme {
-  id         Int    @id @default(autoincrement())
-  documentId String @unique @default(uuid()) @db.Uuid
-  name       String
-
-  /// Preset de fábrica: se clona, nunca se edita ni se borra. La invariante la
-  /// impone theme.rules.ts, no solo la UI.
-  isPreset Boolean @default(false) @map("is_preset")
-
-  /// Tokens en edición. SIEMPRE presente: un tema recién creado ya tiene
-  /// borrador. El contenido NO se confía: theme.mapper.ts lo valida al leer y
-  /// cae al tema base si la fila está corrupta o quedó de un esquema anterior.
-  draftTokens Json @map("draft_tokens")
-
-  /// Tokens que sirve la app. null = nunca se publicó este tema, y por tanto no
-  /// se puede activar.
-  publishedTokens Json?     @map("published_tokens")
-  publishedAt     DateTime? @map("published_at")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  appearanceState AppearanceState[]
-
-  @@map("themes")
-  @@schema("public")
-}
-
-/// Fila única (id = 1), mismo patrón que SecurityState. Aquí colgarán después
-/// logo, favicon y nombre de plataforma.
-///
-/// "Un solo tema activo" queda garantizado POR CONSTRUCCIÓN —una fila, una FK—
-/// en vez de por un índice único parcial sobre `themes`, que Prisma no expresa
-/// de forma nativa y obligaría a SQL crudo dentro de la migración.
-model AppearanceState {
-  id            Int      @id @default(1)
-  activeThemeId Int?     @map("active_theme_id")
-  /// `SetNull` para que borrar el tema activo no rompa la app. Aun así
-  /// `theme.rules.ts` lo prohíbe antes de llegar aquí: la FK es la red, no la
-  /// regla.
-  activeTheme   Theme?   @relation(fields: [activeThemeId], references: [id], onDelete: SetNull)
-  updatedAt     DateTime @updatedAt
-
-  @@map("appearance_state")
-  @@schema("public")
 }
 
 /// Fila única (id = 1). Se lee constantemente y se escribe casi nunca.
@@ -493,7 +440,7 @@ model Course {
   @@schema("org")
 }
 
-/// Diseño del certificado de un curso, con borrador y publicado como `Theme`
+/// Diseño del certificado de un curso, con borrador y publicado
 /// (docs/adr/0018). Los blobs se validan al leer: una fila de un esquema
 /// anterior cae al diseño por defecto en vez de romper la pantalla. La fila
 /// nace al primer guardado; sin ella, el curso usa el diseño por defecto.

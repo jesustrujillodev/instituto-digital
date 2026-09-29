@@ -62,7 +62,7 @@ que queda fuera está listado como hueco al final de este documento.
 | Área | Archivos | Tests | Capas cubiertas |
 |---|---:|---:|---|
 | [Auth](#auth) | 23 | 274 | dominio, aplicación, infraestructura, rutas, utilidades |
-| [Theme](#theme) | 13 | 360 | dominio, aplicación, infraestructura, rutas, utilidades |
+| [Theme](#theme) | 5 | 27 | dominio, aplicación, rutas |
 | [Users](#users) | 20 | 258 | dominio, aplicación, rutas, utilidades |
 | [Dependencies](#dependencies) | 17 | 159 | dominio, aplicación, infraestructura, rutas, utilidades |
 | [Trainers](#trainers) | 10 | 79 | dominio, aplicación, rutas, utilidades |
@@ -79,7 +79,7 @@ que queda fuera está listado como hueco al final de este documento.
 | [Shared](#shared) | 42 | 486 | respuesta, reglas, storage, http, auth y alcance, logging, concurrencia, rate limit, layout |
 | [Core](#core) | 2 | 35 | entorno y cookies |
 | [Lib](#lib) | 6 | 61 | utilidades puras y zona horaria |
-| **Total** | **262** | **2967** | |
+| **Total** | **296** | **3542** | |
 
 > Las filas por área suman menos que el total: el inventario ya iba por detrás de
 > la suite y solo se han recontado las áreas que tocaron PRD-03, PRD-04, PRD-06, PRD-07 y PRD-08.
@@ -158,52 +158,31 @@ invalidan la caché.
 
 ## Theme
 
-Cubre las dos fases: el modo claro/oscuro/sistema
-([docs/theme/00-modo-oscuro.md](../theme/00-modo-oscuro.md)) y el theme builder
-([docs/theme/01-theme-builder.md](../theme/01-theme-builder.md)).
+El modo claro/oscuro/sistema
+([docs/theme/00-modo-oscuro.md](../theme/00-modo-oscuro.md)). El tema es fijo y
+vive en `app/app.css`: no hay nada de él que probar en lógica.
 
-### `domain/__tests__/` — 131 tests
-
-| Archivo | Tests | Qué protege |
-|---|---:|---|
-| `theme.rules.test.ts` | 52 | La **precedencia cookie → columna** (invertirla haría que la misma persona viera un tema en la landing y otro tras entrar); que el modo `system` emita **ambas** variantes tras un `@media` —es el test que protege la ausencia de flash—; que solo `dark` reciba la clase `.dark`; el **saneamiento** contra un valor capaz de cerrar `</style>`; el color math en OKLCH (incluido `none`, que deja el canal sin definir y produciría `NaN`); el contraste contra los valores conocidos de WCAG (21:1 y 4.5:1); que derivar oscuro no mande el blanco a negro puro; y las tres **invariantes de la biblioteca** —preset inmutable, activo no borrable, activar exige publicado— comprobando el `code`, nunca el mensaje. |
-| `theme.mapper.test.ts` | 33 | El **round-trip** `parse(export(t))` sobre el tema base y los cuatro presets, fuentes y métricas incluidas; que `toCssTokenSet` recorra la allowlist y no las claves del objeto guardado, de modo que una fila corrupta no cuele nombres nuevos en el `<style>`; la tolerancia del parser (rellena lo que falta con el tema en edición, ignora fuentes fuera del catálogo y unidades que no acepta) y su **rechazo** cuando lo pegado no trae el mínimo de tokens; la versión del JSON comprobada antes que el contenido; y que `tokensEqual` no dependa del orden de las claves —si dependiera, "hay cambios sin publicar" se quedaría encendido para siempre. |
-| `theme.validators.test.ts` | 31 | Que un modo inventado **muera en la frontera** y no acabe en la cookie; que el conjunto de 36 colores se exija completo; que un color se valide interpretándolo de verdad y no con una regex; las cotas de cada medida y de los seis parámetros de sombra; que solo se admitan fuentes del catálogo curado; y que la variante de LECTURA devuelva `null` en vez de lanzar. |
-| `theme.errors.test.ts` | 15 | Los seis códigos son estables y únicos, todos extienden `DomainError` —si dejaran de hacerlo, `toResponseError` los daría por desconocidos— y los `details` dicen de qué tema hablan. |
-
-### `application/__tests__/` — 47 tests
-
-`theme.service.server.test.ts`: que `resolve` **no consulte la base** cuando la
-cookie ya decide (corre en toda petición: el fallo sería de rendimiento y no lo
-notaría nadie hasta producción); que degrade al tema base ante cualquier fallo de
-lectura —el tema no es una decisión de seguridad—; y el punto de seguridad del
-preview: **la cookie se ignora si el rol verificado en servidor no es SUPERADMIN**.
-Después, las once operaciones de la biblioteca con su envelope en éxito **y** en
-fallo, verificando en cada rechazo que no se escribió nada.
-
-### `infrastructure/__tests__/` — 16 tests
-
-`theme.cache.server.test.ts`: que se sirva de memoria dentro del TTL y se relea
-después; que la **ausencia** de tema activo se cachee igual (si `null` contara
-como "no cargado", una plataforma sin tema activo pagaría una consulta por
-petición para siempre); que las lecturas concurrentes colapsen en una sola;
-que un fallo sirva el último valor conocido; y que un fallo **en frío se
-propague** —a diferencia de la caché del estado de seguridad, aquí quien decide
-degradar es el servicio—. Cada escritura invalida.
-
-### `routes/**/__tests__/` — 54 tests
+### `domain/__tests__/` — 12 tests
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `personalizacion/index.action.test.ts` | 37 | El guard de SUPERADMIN **repetido en el action** —un loader protegido no protege las mutaciones de su propia ruta—; que las diez intenciones validen en la frontera antes de tocar el caso de uso; y la mecánica de la cookie de preview: se guarda el borrador **antes** de encenderla, es `HttpOnly` y de sesión, y activar o borrar un tema la apaga en el mismo movimiento. |
-| `personalizacion/index.loader.test.ts` | 12 | 403 para `USER` y redirect para anónimo; que el tema abierto salga de la URL y caiga al activo cuando el id ya no existe; y que una biblioteca vacía —seed sin correr— devuelva un estado vacío en vez de reventar. |
-| `preferencia-tema/index.action.test.ts` | 5 | Que la cookie se emita **aunque falle** guardar en la cuenta (fallo degradado, no total) y que un modo inventado no llegue a emitirla. |
+| `theme.rules.test.ts` | 7 | La **precedencia cookie → columna** (invertirla haría que la misma persona viera un modo en la landing y otro tras entrar); que un valor desconocido caiga al modo por defecto en vez de fallar; y que solo `dark` reciba la clase `.dark` y `system` la `theme-system`. |
+| `theme.validators.test.ts` | 3 | Que un modo inventado **muera en la frontera** y no acabe en la cookie. |
+| `theme.errors.test.ts` | 2 | El código estable de `THEME_PREFERENCE_NOT_SAVED` y que extienda `DomainError`. |
 
-### `utils/__tests__/` — 3 tests
+### `application/__tests__/` — 10 tests
 
-`parse-theme-form-data.test.ts`: un JSON roto devuelve `null` en vez de lanzar —
-quien decide que la entrada es inválida es el validador de frontera, con el mismo
-`code` que cualquier otro campo mal formado.
+`theme.service.server.test.ts`: que `resolveMode` **no consulte la base** cuando
+la cookie ya decide (corre en toda petición: el fallo sería de rendimiento y no
+lo notaría nadie hasta producción); que degrade a `system` ante cualquier fallo
+de lectura —el modo no es una decisión de seguridad—; y `setMode` con su
+envelope en éxito y en fallo, sin filtrar el mensaje de un error sin tipar.
+
+### `routes/**/__tests__/` — 5 tests
+
+`preferencia-tema/index.action.test.ts`: que la cookie se emita **aunque falle**
+guardar en la cuenta (fallo degradado, no total) y que un modo inventado no
+llegue a emitirla.
 
 ---
 
@@ -736,7 +715,7 @@ arrastra los claims crudos.
 
 ### `layout/__tests__/` — 29 tests
 
-`navigation.utils.test.ts` (10), `navigation.config.test.ts` (25) y
+`navigation.utils.test.ts` (10), `navigation.config.test.ts` (27) y
 `routes/__tests__/dashboard.layout.loader.test.ts` (6): un grupo sin destino propio
 que se queda sin hijos desaparece entero; el gate del layout es **estructural**; la
 proyección al cliente no incluye la PK interna.
@@ -787,8 +766,7 @@ mensaje de un error de infraestructura viajaría al cliente.
   toda la suite es lógica en entorno `node`. Los componentes `.tsx` y los hooks de
   React (`app/shared/hooks/`, `app/modules/users/hooks/`,
   `app/modules/theme/hooks/`) no están cubiertos y quedan fuera del cómputo de
-  cobertura. El hueco más caro hoy es el del theme builder: el picker OKLCH y el
-  preview en vivo son `.tsx` y solo se comprueban a mano. Los loaders y actions **sí** lo están: se
+  cobertura. Los loaders y actions **sí** lo están: se
   ejercitan con un cradle falso y `Request` estándar, sin levantar el framework.
 - **Sin tests de integración contra la base.** Los repositorios Prisma
   (`app/modules/*/infrastructure/*.repository.server.ts`) se ejercitan solo a

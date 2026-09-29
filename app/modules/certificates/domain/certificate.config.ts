@@ -10,7 +10,7 @@ import type { CertificateDesign } from "./certificate.types";
 export const CERTIFICATE_CANVAS = { width: 1100, height: 780 } as const;
 
 /**
- * Acentos ofrecidos, tomados del manual de identidad (theme.config.ts).
+ * Acentos ofrecidos, tomados del manual de identidad.
  * Todos son oscuros: el logo del Ayuntamiento es blanco y va sobre el acento.
  */
 export const CERTIFICATE_ACCENTS = [

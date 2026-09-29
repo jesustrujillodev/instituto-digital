@@ -110,7 +110,7 @@ export interface LessonMaterialRaw {
 }
 
 /**
- * Lectura tolerante del blob, como `theme.mapper.ts`.
+ * Lectura tolerante del blob.
  *
  * Un documento que ya no encaja en la lista blanca —porque la fila quedó de un
  * esquema anterior o porque alguien la escribió fuera de la aplicación— cae al

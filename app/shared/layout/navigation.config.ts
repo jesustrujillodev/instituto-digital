@@ -10,7 +10,6 @@ import {
 	LibraryBig,
 	MonitorSmartphone,
 	NotebookPen,
-	Palette,
 	ScrollText,
 	Users,
 	UsersRound,
@@ -203,12 +202,6 @@ export const footerNavigationConfig: readonly NavItem[] = [
 		label: "Sesiones",
 		path: "/dashboard/sesiones",
 		icon: MonitorSmartphone,
-		roles: ["SUPERADMIN"],
-	},
-	{
-		label: "Personalización",
-		path: "/dashboard/personalizacion",
-		icon: Palette,
 		roles: ["SUPERADMIN"],
 	},
 ];

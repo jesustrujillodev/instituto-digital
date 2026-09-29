@@ -40,7 +40,7 @@ No es un LMS: no aloja contenido (las sesiones en línea usan enlaces externos).
 - Modalidades: presencial (sede), en línea (enlace), híbrida (ambos). Acceso: público, restringido (dependencias o grupos), por invitación.
 - Estados de curso: borrador → publicado → finalizado; cancelado desde borrador o publicado. No se borra: se desactiva o cambia de estado.
 - Fuera del MVP: constancias PDF, tableros y gráficas, reportes exportables, validación de traslapes, contenido alojado.
-- Tema de la plataforma editable por el superadmin (theme builder con borrador y publicado); modo claro/oscuro/sistema elegido por cada persona. Tipografías auto-hospedadas, sin peticiones a terceros en runtime.
+- Un solo tema institucional, fijo (no se personaliza desde la aplicación); modo claro/oscuro/sistema elegido por cada persona. Tipografías auto-hospedadas, sin peticiones a terceros en runtime.
 - Stack existente: React Router (SSR), Tailwind, shadcn/ui, Prisma, Bun.
 - Terminología fija: dependencia, titular, auxiliar, capacitador, participante, curso, sesión, grupo, inscripción, invitación, crédito, valoración, plan anual, ejercicio.
 
@@ -64,4 +64,4 @@ No es un LMS: no aloja contenido (las sesiones en línea usan enlaces externos).
 
 ## Accessibility & Inclusion
 
-WCAG 2.1 AA como mínimo, en claro y oscuro, y en cualquier tema publicado por el superadmin (el theme builder ya incluye un panel de contraste). Uso táctil en móvil para participantes.
+WCAG 2.1 AA como mínimo, en claro y oscuro. Uso táctil en móvil para participantes.

@@ -72,13 +72,7 @@ import { createCompletionSync } from "@/modules/teaching/application/completion-
 import { createTeachingService } from "@/modules/teaching/application/teaching.service.server";
 import { createTeachingRepository } from "@/modules/teaching/infrastructure/teaching.repository.server";
 import { createThemeService } from "@/modules/theme/application/theme.service.server";
-import {
-	THEME_CACHE_RETRY_S,
-	THEME_CACHE_TTL_S,
-} from "@/modules/theme/domain/theme.config";
-import { createCachedThemeRepository } from "@/modules/theme/infrastructure/theme.cache.server";
 import { createThemeRepository } from "@/modules/theme/infrastructure/theme.repository.server";
-import { createFileThemeSnapshot } from "@/modules/theme/infrastructure/theme.snapshot.server";
 import { createTrainerService } from "@/modules/trainers/application/trainers.service.server";
 import { createTrainerRepository } from "@/modules/trainers/infrastructure/trainers.repository.server";
 import { createUserService } from "@/modules/users/application/users.service.server";
@@ -166,24 +160,6 @@ if (isEmailWorkerEnabled(env)) {
 const securityState = createCachedSecurityStateRepository({
 	inner: createSecurityStateRepository({ prisma, authConfig }),
 	ttlMs: authConfig.securityStateCacheTtlS * 1000,
-	logger,
-});
-
-// El tema activo se lee en CADA petición —también en la landing y el login— y
-// cambia cuando un admin pulsa "activar", o sea casi nunca. Mismo motivo y misma
-// advertencia que arriba: con `asSingleton` la caché sería por request y no
-// cachearía nada.
-//
-// El snapshot en disco es lo que mantiene el tema activo cuando un proceso
-// arranca con la base caída (docs/theme/01-theme-builder.md §4.1).
-const themeRepository = createCachedThemeRepository({
-	inner: createThemeRepository({ prisma, logger }),
-	ttlMs: THEME_CACHE_TTL_S * 1000,
-	retryMs: THEME_CACHE_RETRY_S * 1000,
-	snapshot: createFileThemeSnapshot({
-		path: env.THEME_SNAPSHOT_PATH,
-		logger,
-	}),
 	logger,
 });
 
@@ -308,7 +284,7 @@ export const configureContainer = async (
 			createCertificateSignatureReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
-		themeRepository: asValue(themeRepository),
+		themeRepository: asSingleton(createThemeRepository),
 		themeService: asSingleton(createThemeService),
 	});
 

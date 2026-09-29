@@ -190,48 +190,24 @@ mismo query string sin escribir brackets a mano, y `toCanonicalParams` emite la
 URL canónica quitando lo que ya es el valor por defecto (`?pagination[page]=1` y
 la URL limpia serían si no dos direcciones con el mismo contenido).
 
-### 🎨 Temas y modo oscuro
+### 🎨 Tema y modo oscuro
 
-La regla que gobierna la feature: **el tema es de la plataforma; el modo es de la
-persona.** El `SUPERADMIN` define la marca; cada usuario elige su comodidad.
+La plataforma tiene **un solo tema, fijo**: el institucional, declarado en
+`app/app.css`. No se personaliza desde la aplicación; lo que elige cada persona
+es el modo.
 
 - **Modo claro / oscuro / sistema por usuario**, persistido en cookie `httpOnly`
   y en la cuenta (la cookie manda, porque es lo único disponible para una
   petición anónima; la columna existe para que la preferencia siga al usuario a
   otro dispositivo).
-- **Sin flash y sin JavaScript**: el servidor resuelve el modo y emite los tokens
-  ya serializados en un `<style>` del `<head>`. En modo `sistema` emite ambas
-  variantes tras un `@media (prefers-color-scheme)`, así que la app sigue el
-  cambio del sistema operativo **en vivo, sin recargar**. Funciona con JS
-  deshabilitado.
-- **Theme builder** (`/dashboard/personalizacion`, solo `SUPERADMIN`): biblioteca de
-  temas con **borrador y publicado separados** y un único tema activo garantizado
-  por construcción (una fila, una FK). Edición de los 36 colores de shadcn en
-  ambas variantes más tipografía, radios, bordes, sombras y espaciado.
-- **Preview en vivo sobre el documento entero** —el sidebar y la cabecera cambian
-  mientras se mueve el slider, no solo una caja de muestra— y **"probar en toda
-  la app"** antes de publicar, con el borrador puesto mientras se navega. El
-  gate del preview es el rol verificado en servidor, nunca la cookie.
-- **Panel de contraste WCAG** de cada par fondo/texto, con aviso no bloqueante:
-  informa antes de publicar, pero el admin manda.
-- **Interoperable con [tweakcn](https://tweakcn.com)** y con el generador de
-  shadcn: pegar un tema en CSS, exportarlo, e import/export en JSON versionado
-  (con test de round-trip). Presets de fábrica inmutables que se clonan — la red
-  de seguridad para volver cuando un tema publicado sale mal.
-- **Fuentes auto-hospedadas** (`@fontsource`) de un catálogo curado de 13
-  familias, más las pilas del sistema: ninguna petición a Google en runtime, y
-  por tanto ningún tercero en la ruta crítica del render ni fuga de IPs de
-  usuarios.
-- El tema activo se lee en toda petición, así que va **cacheado en memoria de
-  proceso** (mismo patrón que el estado de seguridad). Si la base no responde se
-  sirve el tema base: el tema no es una decisión de seguridad, así que aquí el
-  modo de fallo correcto es degradar, no denegar.
+- **Sin flash y sin JavaScript**: el servidor resuelve el modo y pone la clase de
+  `<html>` desde el primer byte. En modo `sistema` la variante la elige un
+  `@media (prefers-color-scheme)` de `app.css`, así que la app sigue el cambio del
+  sistema operativo **en vivo, sin recargar**. Funciona con JS deshabilitado.
+- **Fuentes auto-hospedadas** (ITC Avant Garde en `public/font`): ninguna
+  petición a terceros en runtime.
 
-> Requiere `bunx prisma db push` y `bun run seed` en cada entorno para crear las
-> tablas de temas y sembrar los presets de fábrica.
-
-Ver [docs/theme/00-modo-oscuro.md](./docs/theme/00-modo-oscuro.md) y
-[docs/theme/01-theme-builder.md](./docs/theme/01-theme-builder.md).
+Ver [docs/theme/00-modo-oscuro.md](./docs/theme/00-modo-oscuro.md).
 
 ### 🧹 Calidad de código y automatización
 

@@ -172,13 +172,9 @@ export interface ICradle {
 	spreadsheetWriter: ISpreadsheetWriter;
 	notificationRepository: INotificationRepository;
 	notificationService: INotificationService;
-	// Tema de la plataforma y preferencia de modo por usuario. El loader raíz lo
-	// resuelve en TODA petición, así que `resolve` evita bajar a la base salvo en
-	// el caso de dispositivo nuevo (docs/theme/00-modo-oscuro.md).
-	//
-	// El repositorio va CACHEADO en el tema activo, y por eso es un singleton de
-	// proceso igual que `securityStateRepository`: con `asSingleton` sería una
-	// instancia por petición y no cachearía nada (docs/theme/01-theme-builder.md).
+	// Preferencia de modo claro/oscuro por usuario. El loader raíz la resuelve en
+	// TODA petición, así que `resolveMode` evita bajar a la base salvo en el caso
+	// de dispositivo nuevo (docs/theme/00-modo-oscuro.md).
 	themeRepository: IThemeRepository;
 	themeService: IThemeService;
 	passwordService: IPasswordService;

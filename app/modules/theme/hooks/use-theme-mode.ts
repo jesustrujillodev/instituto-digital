@@ -5,15 +5,13 @@ import type { ThemeMode } from "../domain/theme.types";
 /**
  * Modo actual y forma de cambiarlo, para cualquier pantalla de la aplicación.
  *
- * El modo sale del loader raíz —que es quien lo resolvió y quien emitió el CSS—
- * y no del DOM ni de la cookie leída en cliente: así el marcado que renderiza el
- * servidor y el que hidrata el cliente coinciden siempre.
+ * El modo sale del loader raíz —que es quien lo resolvió y quien puso la clase de
+ * `<html>`— y no del DOM ni de la cookie leída en cliente: así el marcado que
+ * renderiza el servidor y el que hidrata el cliente coinciden siempre.
  *
  * `mode` refleja de inmediato el envío en vuelo (`fetcher.formData`), así que el
- * check del menú se mueve al instante aunque los colores lleguen un pelo después
- * con la revalidación. NO se manipula la clase de `<html>` a mano: el servidor
- * envía solo los tokens de la variante activa, así que cambiar la clase sin
- * cambiar el CSS no pintaría nada distinto.
+ * check del menú se mueve al instante; la clase de `<html>` cambia con la
+ * revalidación del loader raíz.
  */
 export function useThemeMode(): {
 	mode: ThemeMode;
@@ -23,7 +21,7 @@ export function useThemeMode(): {
 	const fetcher = useFetcher();
 
 	const pending = fetcher.formData?.get("mode");
-	const mode = isThemeMode(pending) ? pending : (data?.theme.mode ?? "system");
+	const mode = isThemeMode(pending) ? pending : (data?.themeMode ?? "system");
 
 	return {
 		mode,
