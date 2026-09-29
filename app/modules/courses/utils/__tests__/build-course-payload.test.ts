@@ -69,12 +69,39 @@ describe("buildCoursePayload", () => {
 						endTime: "13:00",
 						venue: "Sala A",
 						link: "",
+						materials: [],
 					},
 				],
 			}),
 		);
 
 		expect(payload.sessions).toEqual([]);
+	});
+
+	test("un híbrido autogestivo manda sus sesiones y su capacitador", () => {
+		const payload = buildCoursePayload(
+			valuesOf({
+				modality: "HYBRID",
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				sessions: [
+					{
+						documentId: "",
+						date: "2026-10-16",
+						startTime: "09:00",
+						endTime: "13:00",
+						venue: "Sala de capacitación, edificio B",
+						link: "",
+						materials: [],
+					},
+				],
+			}),
+		);
+
+		expect(payload.trainers).toEqual([TRAINER_ID]);
+		expect(payload.sessions).toEqual([
+			expect.objectContaining({ venue: "Sala de capacitación, edificio B" }),
+		]);
 	});
 
 	test("una sesión nueva no manda documentId", () => {
@@ -88,6 +115,7 @@ describe("buildCoursePayload", () => {
 						endTime: "13:00",
 						venue: "",
 						link: "",
+						materials: [],
 					},
 				],
 			}),
@@ -118,6 +146,7 @@ describe("reglas del formulario", () => {
 						endTime: "13:00",
 						venue: "",
 						link: "",
+						materials: [],
 					},
 				],
 			}),

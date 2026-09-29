@@ -1,31 +1,46 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { BookOpen, Check, LogOut, Users, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+	BookOpen,
+	Check,
+	CircleCheck,
+	CircleX,
+	LogOut,
+	Mail,
+	Users,
+	UserX,
+	X,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
+import { requiresSessions } from "@/modules/courses/domain/course.rules";
 import {
-	CourseAccessBadge,
-	CourseModalityBadge,
-} from "@/modules/courses/components/course-badges";
-import { formatHours } from "@/modules/courses/utils/course-labels";
+	ACCESS_LABELS,
+	formatHours,
+} from "@/modules/courses/utils/course-labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
-import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import {
-	CourseDetailCards,
-	CourseDetailCover,
+	CourseDetailBody,
+	type CourseDetailFact,
+	CourseDetailStatus,
+	CourseDetailSummary,
 } from "../../../components/course-detail";
+import type { EnrollmentStatus } from "../../../domain/enrollment.config";
+import type { CourseWithAvailability } from "../../../domain/enrollment.types";
 import {
-	EnrollmentOriginBadge,
-	EnrollmentStatusBadge,
-	SeatsBadge,
-} from "../../../components/enrollment-badges";
+	ENROLLMENT_ORIGIN_LABELS,
+	seatsLabelOf,
+	sessionCountOf,
+	withdrawalLabelOf,
+} from "../../../utils/enrollment-labels";
 import {
 	ENROLLMENT_INTENTS,
 	type EnrollmentActionData,
@@ -34,6 +49,53 @@ import {
 import type { Route } from "./+types/index";
 
 const LIST_PATH = "/dashboard/cursos-disponibles";
+
+const OWN_STATUS: Record<
+	EnrollmentStatus,
+	{ icon: LucideIcon; tone: "success" | "neutral" | "muted"; title: string }
+> = {
+	ENROLLED: { icon: CircleCheck, tone: "success", title: "Estás inscrito" },
+	INVITED: { icon: Mail, tone: "neutral", title: "Te invitaron a este curso" },
+	WITHDRAWN: { icon: UserX, tone: "muted", title: "Te diste de baja" },
+	DECLINED: { icon: CircleX, tone: "muted", title: "Rechazaste la invitación" },
+};
+
+/** Tu lugar en el curso, si tienes uno; si no, si todavía se puede entrar. */
+function AvailabilityStatus({
+	course,
+	enrollmentStatus,
+	removed,
+}: {
+	course: Pick<CourseWithAvailability, "closesAt" | "isOpen" | "seatsLeft">;
+	enrollmentStatus: EnrollmentStatus | null;
+	removed: boolean;
+}) {
+	const deadline =
+		course.closesAt === null
+			? "Este curso todavía no tiene sesiones."
+			: course.isOpen
+				? `La inscripción cierra el ${formatZonedDate(new Date(course.closesAt))}.`
+				: `La inscripción cerró el ${formatZonedDate(new Date(course.closesAt))}.`;
+
+	const own = enrollmentStatus && OWN_STATUS[enrollmentStatus];
+	const title =
+		(removed ? withdrawalLabelOf({ removed }) : own?.title) ??
+		(course.isOpen
+			? course.seatsLeft === 0
+				? "Cupo lleno"
+				: "Inscripción abierta"
+			: "Inscripción cerrada");
+
+	return (
+		<CourseDetailStatus
+			icon={own?.icon}
+			tone={own?.tone ?? (course.isOpen ? "neutral" : "muted")}
+			title={title}
+		>
+			<p>{deadline}</p>
+		</CourseDetailStatus>
+	);
+}
 
 export const handle = {
 	breadcrumb: () => [
@@ -61,6 +123,26 @@ export default function CursoDisponiblePage({
 
 	const submit = (intent: string) =>
 		fetcher.submit({ [INTENT_FIELD]: intent }, { method: "post" });
+
+	const facts: CourseDetailFact[] = [
+		{ label: "Modalidad", value: modalityLabelOf(course) },
+		{ label: "Acceso", value: ACCESS_LABELS[course.access] },
+		{ label: "Cupo", value: seatsLabelOf(course.capacity, course.seatsLeft) },
+		...(requiresSessions(course.format) || course.sessions.length > 0
+			? [{ label: "Sesiones", value: sessionCountOf(course.sessions.length) }]
+			: []),
+		...(course.hours !== null
+			? [{ label: "Duración", value: formatHours(course.hours) }]
+			: []),
+		...(enrollment
+			? [
+					{
+						label: "Inscripción",
+						value: ENROLLMENT_ORIGIN_LABELS[enrollment.origin],
+					},
+				]
+			: []),
+	];
 
 	const actions = (
 		<div className="flex flex-wrap gap-2">
@@ -122,7 +204,7 @@ export default function CursoDisponiblePage({
 	);
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-6 pb-8">
 			<PageHeader
 				title={course.title}
 				description={`Organiza ${course.dependencyName}.`}
@@ -130,34 +212,15 @@ export default function CursoDisponiblePage({
 				actions={actions}
 			/>
 
-			<CourseDetailCover course={course} />
+			<CourseDetailSummary course={course} facts={facts}>
+				<AvailabilityStatus
+					course={course}
+					enrollmentStatus={enrollment?.status ?? null}
+					removed={enrollment?.removed ?? false}
+				/>
+			</CourseDetailSummary>
 
-			<div className="flex flex-wrap gap-2">
-				<CourseModalityBadge modality={course.modality} />
-				<CourseAccessBadge access={course.access} />
-				<SeatsBadge capacity={course.capacity} seatsLeft={course.seatsLeft} />
-				{course.hours !== null && (
-					<Badge variant="outline">{formatHours(course.hours)}</Badge>
-				)}
-				{enrollment && (
-					<>
-						<EnrollmentStatusBadge status={enrollment.status} />
-						<EnrollmentOriginBadge origin={enrollment.origin} />
-					</>
-				)}
-			</div>
-
-			<Alert>
-				<AlertDescription>
-					{course.closesAt === null
-						? "Este curso todavía no tiene sesiones."
-						: course.isOpen
-							? `La inscripción cierra el ${formatZonedDate(new Date(course.closesAt))}.`
-							: `La inscripción cerró el ${formatZonedDate(new Date(course.closesAt))}.`}
-				</AlertDescription>
-			</Alert>
-
-			<CourseDetailCards course={course} />
+			<CourseDetailBody course={course} />
 
 			<ConfirmDialog
 				open={confirmingWithdraw}

@@ -14,6 +14,13 @@ import {
 } from "../../__tests__/route-harness";
 import { action } from "../index.action";
 
+const SAVED_SESSIONS = [
+	{
+		documentId: "44444444-4444-4444-8444-444444444444",
+		startsAt: new Date("2026-10-05T16:00:00.000Z"),
+	},
+];
+
 type ActionArgs = Parameters<typeof action>[0];
 
 /** Lo que manda el paso 1: el resto del curso todavía está vacío. */
@@ -43,7 +50,7 @@ const createHarness = (
 				calls.updated.push({ documentId, dto });
 				return options.updateFailsWith
 					? failReply(options.updateFailsWith)
-					: okReply(null);
+					: okReply({ sessions: SAVED_SESSIONS });
 			},
 			publish: async (documentId: string) => {
 				calls.published.push({ documentId });

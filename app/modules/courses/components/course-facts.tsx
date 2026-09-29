@@ -3,9 +3,9 @@ import { formatZonedDate } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import {
+	allowsSessions,
 	countsAttendance,
 	gradesAutomatically,
-	requiresSessions,
 } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
@@ -30,7 +30,6 @@ export function CourseFacts({
 	className?: string;
 }) {
 	const facts: { term: string; value: React.ReactNode }[] = [];
-	const scheduled = requiresSessions(course.format);
 
 	if (course.status === "DRAFT") {
 		facts.push(
@@ -78,7 +77,7 @@ export function CourseFacts({
 		});
 	}
 
-	if (scheduled) {
+	if (allowsSessions(course) && countsAttendance(course.completionRule)) {
 		facts.push({
 			term: "QR de asistencia",
 			value: `Abre ${course.qrOpensBeforeMinutes} min antes y cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,

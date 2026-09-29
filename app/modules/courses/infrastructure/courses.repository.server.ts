@@ -328,6 +328,17 @@ export const createCourseRepository = ({
 
 			return toDetail(created);
 		},
+		async findSessionMaterialRefs(sessionDocumentIds) {
+			const rows = await prisma.sessionMaterial.findMany({
+				where: {
+					session: { documentId: { in: sessionDocumentIds } },
+					fileUrl: { not: null },
+				},
+				select: { fileUrl: true },
+			});
+
+			return rows.flatMap((row) => (row.fileUrl ? [row.fileUrl] : []));
+		},
 		async update(documentId: string, data: UpdateCourseData, scope) {
 			try {
 				const course = await prisma.course.update({

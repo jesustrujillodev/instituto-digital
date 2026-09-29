@@ -2,6 +2,7 @@ export { loader } from "./dashboard.layout.loader";
 
 import type { CSSProperties } from "react";
 import { Outlet, useLoaderData } from "react-router";
+import { formatZonedDateTime } from "@/lib/date-utils";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import {
 	SidebarInset,
@@ -51,7 +52,7 @@ export default function DashboardLayout() {
 						// pintar este layout (requireAuth ya los cortó antes).
 						<div className="w-full border-destructive/50 border-b bg-destructive/10 px-4 py-2 text-center font-medium text-destructive text-sm">
 							Lockdown activo (alcance: {securityState.lockdownScope}) desde{" "}
-							{new Date(securityState.lockdownAt).toLocaleString("es-MX")}
+							{formatZonedDateTime(new Date(securityState.lockdownAt))}
 						</div>
 					)}
 					<div className="flex flex-1 flex-col gap-4 p-4">

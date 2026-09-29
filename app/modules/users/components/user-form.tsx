@@ -11,6 +11,7 @@ import type { FetcherWithComponents } from "react-router";
 import { sileo } from "sileo";
 import { toFormData } from "@/lib/form-data";
 import { scrollIntoView } from "@/lib/motion";
+import { ROLE_LABELS } from "@/shared/auth/role-labels";
 import { PasswordInput } from "@/shared/components/common/password-input";
 import { PhoneInput } from "@/shared/components/common/phone-input";
 import { TextInput } from "@/shared/components/common/text-input";
@@ -35,6 +36,7 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import type { Role } from "@/shared/rules/atoms.rules";
+import type { RoleLock } from "../domain/user.role.rules";
 import { createUserRule, updateUserRule } from "../domain/user.rules";
 import type { SafeUser } from "../domain/user.types";
 import type { UserFormIds } from "../hooks/use-user-form-ids";
@@ -50,7 +52,12 @@ import {
 	type UserActionData,
 } from "../utils/parse-user-form-data";
 import { PhotoField } from "./photo-field";
-import { ROLE_LABELS } from "./user-badges";
+
+const ROLE_LOCK_HINTS: Record<RoleLock, string> = {
+	head: "La titularidad se designa desde la dependencia.",
+	self: "No puedes cambiar tu propio rol.",
+	rank: "No puedes cambiar este rol.",
+};
 
 interface UserFormProps {
 	mode: "create" | "edit";
@@ -65,6 +72,12 @@ interface UserFormProps {
 	 * ofrecería opciones que el action rechaza.
 	 */
 	assignableRoles: readonly Role[];
+	/**
+	 * Por qué el actor no puede cambiar el rol de esta cuenta, resuelto en el
+	 * servidor con `roleLockOf`. El campo se muestra fijo con el rol actual en vez
+	 * de dejar el `Select` sin opción que coincida con su valor.
+	 */
+	roleLock?: RoleLock | null;
 	/** Catálogo de destinos. Vacío cuando la dependencia no se elige. */
 	dependencies?: readonly { documentId: string; name: string }[];
 	/**
@@ -101,12 +114,14 @@ export function UserForm({
 	fetcher,
 	user,
 	assignableRoles,
+	roleLock = null,
 	dependencies = [],
 	canChooseDependency = false,
 	defaultDependency,
 	onResetPassword,
 }: UserFormProps) {
 	const isEdit = mode === "edit";
+	const roleOptions = roleLock && user ? [user.role] : assignableRoles;
 	const [photo, setPhoto] = useState<File | null>(null);
 
 	const defaultValues = useMemo(
@@ -373,6 +388,7 @@ export function UserForm({
 											<Select
 												value={field.value}
 												onValueChange={field.onChange}
+												disabled={roleLock !== null}
 											>
 												<SelectTrigger
 													id={ids.role}
@@ -384,13 +400,18 @@ export function UserForm({
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													{assignableRoles.map((role) => (
+													{roleOptions.map((role) => (
 														<SelectItem key={role} value={role}>
 															{ROLE_LABELS[role]}
 														</SelectItem>
 													))}
 												</SelectContent>
 											</Select>
+											{roleLock && (
+												<span className="text-muted-foreground text-sm">
+													{ROLE_LOCK_HINTS[roleLock]}
+												</span>
+											)}
 											{fieldState.error && (
 												<span className="text-sm text-destructive" role="alert">
 													{fieldState.error.message}

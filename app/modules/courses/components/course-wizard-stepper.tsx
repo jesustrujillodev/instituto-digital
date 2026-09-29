@@ -24,6 +24,17 @@ interface CourseWizardStepperProps {
 	current: number;
 	pending: ReadonlySet<CourseStepKey>;
 	errors: ReadonlySet<CourseStepKey>;
+	/** Pasos que acaba de sumar una elección todavía sin guardar. */
+	added: ReadonlySet<CourseStepKey>;
+}
+
+/** Avisa que el índice creció por lo que se acaba de elegir. */
+function NewTag() {
+	return (
+		<span className="rounded-full bg-primary/10 px-1.5 py-0.5 font-medium text-primary text-xs leading-none">
+			Nuevo
+		</span>
+	);
 }
 
 const stateOf = (
@@ -103,6 +114,7 @@ function StepRow({
 	isLast,
 	state,
 	isCurrent,
+	isAdded,
 	to,
 }: {
 	step: CourseStep;
@@ -110,6 +122,7 @@ function StepRow({
 	isLast: boolean;
 	state: StepState;
 	isCurrent: boolean;
+	isAdded: boolean;
 	to: string | null;
 }) {
 	const body = (
@@ -121,8 +134,14 @@ function StepRow({
 				isCurrent={isCurrent}
 			/>
 			<span className="flex min-w-0 flex-col">
-				<span className={cn("text-sm", isCurrent && "font-medium")}>
+				<span
+					className={cn(
+						"flex items-center gap-1.5 text-sm",
+						isCurrent && "font-medium",
+					)}
+				>
 					{step.title}
+					{isAdded && <NewTag />}
 				</span>
 				<span className="text-muted-foreground text-xs">{step.summary}</span>
 			</span>
@@ -164,6 +183,7 @@ function StepList({
 	current,
 	pending,
 	errors,
+	added,
 }: CourseWizardStepperProps) {
 	return (
 		<ol className="flex flex-col gap-1">
@@ -175,6 +195,7 @@ function StepList({
 						isLast={index === steps.length - 1}
 						state={stateOf(step, pending, errors, tracksProgress)}
 						isCurrent={step.number === current}
+						isAdded={added.has(step.key)}
 						to={hrefOf(step.number)}
 					/>
 				</li>
@@ -196,6 +217,7 @@ function StepBar({
 	current,
 	pending,
 	errors,
+	added,
 }: CourseWizardStepperProps) {
 	return (
 		<ol className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3">
@@ -203,6 +225,7 @@ function StepBar({
 				const state = stateOf(step, pending, errors, tracksProgress);
 				const isCurrent = step.number === current;
 				const isLast = index === steps.length - 1;
+				const isAdded = added.has(step.key);
 				const to = hrefOf(step.number);
 
 				const body = (
@@ -218,11 +241,12 @@ function StepBar({
 								"whitespace-nowrap text-sm",
 								isCurrent
 									? "font-medium text-foreground"
-									: "sr-only xl:not-sr-only",
+									: !isAdded && "sr-only xl:not-sr-only",
 							)}
 						>
 							{step.title}
 						</span>
+						{isAdded && <NewTag />}
 						<span className="sr-only">{stateLabel(state)}</span>
 					</>
 				);

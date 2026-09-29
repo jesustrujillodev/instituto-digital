@@ -3,12 +3,17 @@ import {
 	formatSessionRange,
 	INSTITUTE_TIME_ZONE_LABEL,
 } from "@/lib/date-utils";
+import { SessionMaterialList } from "@/modules/content/components/session-material-list";
+import type { ParticipantSessionMaterials } from "@/modules/content/domain/session-material.types";
 import type { EnrollmentCourseSession } from "../domain/enrollment.types";
 
 export function CourseSessionsList({
 	sessions,
+	materials = [],
 }: {
 	sessions: readonly EnrollmentCourseSession[];
+	/** Solo para quien está inscrito (docs/adr/0026). */
+	materials?: readonly ParticipantSessionMaterials[];
 }) {
 	if (sessions.length === 0) {
 		return (
@@ -45,6 +50,13 @@ export function CourseSessionsList({
 								{session.link}
 							</a>
 						)}
+						<SessionMaterialList
+							materials={
+								materials.find(
+									(entry) => entry.sessionDocumentId === session.documentId,
+								)?.materials ?? []
+							}
+						/>
 					</li>
 				))}
 			</ol>

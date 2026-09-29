@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { formatZonedDate } from "@/lib/date-utils";
 
 /**
  * Traduce al español el mensaje por defecto de valibot.
@@ -29,11 +30,9 @@ const orRequired = (message: string) => (issue: { received: string }) =>
 		? REQUIRED
 		: message;
 
-const dateFormatter = new Intl.DateTimeFormat("es-MX", { dateStyle: "long" });
-
 const describe = (requirement: unknown): string =>
 	requirement instanceof Date
-		? dateFormatter.format(requirement)
+		? formatZonedDate(requirement)
 		: String(requirement);
 
 // ── Tipos base ────────────────────────────────────────────────────────────────

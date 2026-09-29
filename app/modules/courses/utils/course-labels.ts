@@ -76,7 +76,7 @@ export const courseHoursLabel = (course: {
 const PLACE_LABELS: Record<CourseModality, string> = {
 	IN_PERSON: "Sede en cada sesión",
 	ONLINE: "Enlace en cada sesión",
-	HYBRID: "Sede y enlace en cada sesión",
+	HYBRID: "Sede o enlace en cada sesión",
 };
 
 export const publishCheckLabel = (

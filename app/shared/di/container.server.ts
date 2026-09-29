@@ -40,10 +40,13 @@ import { createContentService } from "@/modules/content/application/content.serv
 import { createLessonMaterialReader } from "@/modules/content/application/lesson-material.reader.server";
 import { createProgressSync } from "@/modules/content/application/progress-sync.server";
 import { createQuizService } from "@/modules/content/application/quiz.service.server";
+import { createSessionMaterialService } from "@/modules/content/application/session-material.service.server";
 import { createClassroomRepository } from "@/modules/content/infrastructure/classroom.repository.server";
 import { createContentRepository } from "@/modules/content/infrastructure/content.repository.server";
 import { createLessonMaterialReferenceSource } from "@/modules/content/infrastructure/lesson-material.references.server";
 import { createQuizRepository } from "@/modules/content/infrastructure/quiz.repository.server";
+import { createSessionMaterialReferenceSource } from "@/modules/content/infrastructure/session-material.references.server";
+import { createSessionMaterialRepository } from "@/modules/content/infrastructure/session-material.repository.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
 import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
@@ -267,6 +270,8 @@ export const configureContainer = async (
 		classroomService: asSingleton(createClassroomService),
 		quizRepository: asSingleton(createQuizRepository),
 		quizService: asSingleton(createQuizService),
+		sessionMaterialRepository: asSingleton(createSessionMaterialRepository),
+		sessionMaterialService: asSingleton(createSessionMaterialService),
 		certificateRepository: asSingleton(createCertificateRepository),
 		certificateService: asSingleton(createCertificateService),
 		certificateIssuance: asSingleton(createCertificateIssuance),
@@ -299,6 +304,7 @@ export const configureContainer = async (
 			createUserPhotoReferenceSource(cradle),
 			createCourseCoverReferenceSource(cradle),
 			createLessonMaterialReferenceSource(cradle),
+			createSessionMaterialReferenceSource(cradle),
 			createCertificateSignatureReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),

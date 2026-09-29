@@ -6,8 +6,12 @@ import {
 	filterNavigationSections,
 } from "../navigation.utils";
 
-/** Quien navega. Por defecto, sin perfil de capacitador. */
-const viewerOf = (role: Role, isTrainer = false) => ({ role, isTrainer });
+/** Quien navega. Por defecto, sin perfil de capacitador y con dependencia. */
+const viewerOf = (role: Role, isTrainer = false, hasDependency = true) => ({
+	role,
+	isTrainer,
+	hasDependency,
+});
 
 describe("filterNavigationByRole", () => {
 	// Sin `roles` el item es visible para cualquier sesión: el layout ya exigió
@@ -139,6 +143,29 @@ describe("filterNavigationByRole", () => {
 		expect(filterNavigationByRole(items, viewerOf("SUPERADMIN"))).toEqual(
 			items,
 		);
+	});
+
+	// La dependencia recorta al rol Y al perfil: el perfil no la sustituye.
+	test("`requiresDependency` lo oculta a quien no tiene dependencia", () => {
+		const items: NavItem[] = [
+			{
+				label: "Cursos",
+				path: "/cursos",
+				roles: ["DEPENDENCY_HEAD"],
+				trainer: true,
+				requiresDependency: true,
+			},
+		];
+
+		expect(filterNavigationByRole(items, viewerOf("USER", true))).toEqual(
+			items,
+		);
+		expect(
+			filterNavigationByRole(items, viewerOf("USER", true, false)),
+		).toEqual([]);
+		expect(
+			filterNavigationByRole(items, viewerOf("DEPENDENCY_HEAD", false, false)),
+		).toEqual([]);
 	});
 
 	test("an empty list stays empty", () => {

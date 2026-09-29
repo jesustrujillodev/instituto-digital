@@ -23,19 +23,33 @@ const flatten = (items: readonly NavItem[]): NavItem[] =>
 
 const allMainItems = navigationSections.flatMap((section) => section.items);
 
+/** Todo rol pertenece a una dependencia salvo el de plataforma y el externo. */
+const viewerOf = (
+	role: Role,
+	isTrainer = false,
+	hasDependency = role !== "SUPERADMIN",
+) => ({ role, isTrainer, hasDependency });
+
 const pathsFor = (items: readonly NavItem[], role: Role, isTrainer = false) =>
-	flatten(filterNavigationByRole(items, { role, isTrainer }))
+	flatten(filterNavigationByRole(items, viewerOf(role, isTrainer)))
 		.map((item) => item.path)
 		.filter(Boolean);
 
-const mainPathsFor = (role: Role, isTrainer = false) =>
-	filterNavigationSections(navigationSections, { role, isTrainer })
+const mainPathsFor = (
+	role: Role,
+	isTrainer = false,
+	hasDependency = role !== "SUPERADMIN",
+) =>
+	filterNavigationSections(
+		navigationSections,
+		viewerOf(role, isTrainer, hasDependency),
+	)
 		.flatMap((section) => flatten(section.items))
 		.map((item) => item.path)
 		.filter(Boolean);
 
 const sectionLabelsFor = (role: Role, isTrainer = false) =>
-	filterNavigationSections(navigationSections, { role, isTrainer }).map(
+	filterNavigationSections(navigationSections, viewerOf(role, isTrainer)).map(
 		(section) => section.label,
 	);
 
@@ -279,6 +293,29 @@ describe("navigationSections — filtrado por rol", () => {
 		);
 		expect(mainPathsFor("SUPERADMIN")).not.toContain(
 			"/dashboard/mis-certificados",
+		);
+	});
+
+	// Rol USER con perfil y sin dependencia: el rol y el perfil le abrirían
+	// destinos cuyo loader le responde 403.
+	test("el capacitador externo no ve lo que exige una dependencia", () => {
+		const external = mainPathsFor("USER", true, false);
+
+		for (const path of [
+			"/dashboard/mis-cursos",
+			"/dashboard/cursos-disponibles",
+			"/dashboard/mis-creditos",
+			"/dashboard/cursos",
+		]) {
+			expect(external).not.toContain(path);
+		}
+		expect(external).toEqual(
+			expect.arrayContaining([
+				"/dashboard",
+				"/dashboard/mis-certificados",
+				"/dashboard/calendario",
+				"/dashboard/imparticion",
+			]),
 		);
 	});
 

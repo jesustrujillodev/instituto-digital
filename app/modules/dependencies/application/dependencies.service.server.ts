@@ -1,12 +1,14 @@
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
+import { canBeHead } from "../domain/dependency.access";
 import { DEPENDENCY_LIST_DEFAULTS } from "../domain/dependency.config";
 import {
 	DependencyInactiveError,
 	DependencyNotFoundError,
 	HeadMustBeActiveError,
 	HeadMustBelongToDependencyError,
+	HeadMustNotBeSuperadminError,
 } from "../domain/dependency.errors";
 import type { IDependencyService } from "../domain/dependency.service";
 import type {
@@ -152,6 +154,8 @@ export const createDependencyService = ({
 				// la existencia de una cuenta ajena.
 				if (!candidate) throw new HeadMustBelongToDependencyError();
 				if (candidate.archivedAt) throw new HeadMustBeActiveError();
+				if (!canBeHead(candidate.role))
+					throw new HeadMustNotBeSuperadminError();
 
 				const currentHead = await dependencyRepository.findHead(dependency.id);
 

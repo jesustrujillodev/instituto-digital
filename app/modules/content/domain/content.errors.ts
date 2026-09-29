@@ -27,6 +27,10 @@ export const CONTENT_ERROR_CODES = {
 	QUIZ_COMPLETES_ON_SUBMIT: "CONTENT_QUIZ_COMPLETES_ON_SUBMIT",
 	QUIZ_RETAKE_NOT_ALLOWED: "CONTENT_QUIZ_RETAKE_NOT_ALLOWED",
 	QUIZ_PARTICIPANT_NOT_FOUND: "CONTENT_QUIZ_PARTICIPANT_NOT_FOUND",
+	SESSION_NOT_FOUND: "CONTENT_SESSION_NOT_FOUND",
+	SESSION_MATERIAL_NOT_FOUND: "CONTENT_SESSION_MATERIAL_NOT_FOUND",
+	TOO_MANY_SESSION_MATERIALS: "CONTENT_TOO_MANY_SESSION_MATERIALS",
+	SESSION_MATERIALS_LOCKED: "CONTENT_SESSION_MATERIALS_LOCKED",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -246,5 +250,40 @@ export class ContentQuizParticipantNotFoundError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND;
 	constructor() {
 		super("Participant not actively enrolled in the course");
+	}
+}
+
+/** No existe, o no es de este curso. */
+export class ContentSessionNotFoundError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.SESSION_NOT_FOUND;
+	constructor() {
+		super("Session not found in this course");
+	}
+}
+
+/** No existe, o no cuelga de una sesión de este curso. */
+export class ContentSessionMaterialNotFoundError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.SESSION_MATERIAL_NOT_FOUND;
+	constructor() {
+		super("Session material not found in this course");
+	}
+}
+
+export class ContentTooManySessionMaterialsError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.TOO_MANY_SESSION_MATERIALS;
+	readonly details: { limit: number };
+	constructor(limit: number) {
+		super(`A session admits at most ${limit} materials`);
+		this.details = { limit };
+	}
+}
+
+/** Un curso finalizado o cancelado conserva su material tal como quedó. */
+export class ContentSessionMaterialsLockedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.SESSION_MATERIALS_LOCKED;
+	readonly details: { status: CourseStatus };
+	constructor(status: CourseStatus) {
+		super("Session materials are no longer editable");
+		this.details = { status };
 	}
 }

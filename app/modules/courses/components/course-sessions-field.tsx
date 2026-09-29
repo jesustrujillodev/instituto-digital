@@ -6,9 +6,21 @@ import {
 	MapPin,
 	Plus,
 } from "lucide-react";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import {
+	DATE_INPUT_PATTERN,
+	formatSessionRange,
+	inputDateToDisplay,
+} from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
+import { SessionMaterialSheet } from "@/modules/content/components/session-material-sheet";
+import type { PendingSessionMaterial } from "@/modules/content/domain/session-material.types";
+import {
+	type SessionMaterialSource,
+	useSessionMaterials,
+} from "@/modules/content/hooks/use-session-materials";
+import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { TextInput } from "@/shared/components/common/text-input";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -22,9 +34,9 @@ import {
 import { Label } from "@/shared/components/ui/label";
 import { COURSE_MAX_SESSIONS } from "../domain/course.config";
 import {
+	acceptsLink,
+	acceptsVenue,
 	type CourseModality,
-	requiresLink,
-	requiresVenue,
 } from "../domain/course.rules";
 import {
 	type CourseFormValues,
@@ -36,14 +48,14 @@ import { CourseSessionRow, SESSION_GRID } from "./course-session-row";
 
 const PLACE_OF: Record<CourseModality, string> = {
 	IN_PERSON: "sede",
-	ONLINE: "enlace",
-	HYBRID: "sede y enlace",
+	ONLINE: "enlace de videollamada",
+	HYBRID: "sede o enlace",
 };
 
 const PER_SESSION_LABEL: Record<CourseModality, string> = {
 	IN_PERSON: "Cada sesión en una sede distinta",
-	ONLINE: "Cada sesión con un enlace distinto",
-	HYBRID: "Cada sesión con su propia sede y enlace",
+	ONLINE: "Cada sesión con su propio enlace",
+	HYBRID: "Cada sesión con su propia sede o enlace",
 };
 
 type PlaceKey = "venue" | "link";
@@ -60,12 +72,17 @@ const sessionCount = (count: number) =>
 interface CourseSessionsFieldProps {
 	id: string;
 	modality: CourseModality;
+	/** Las del híbrido autogestivo: complementan el temario y no son requisito. */
+	optional?: boolean;
 	/** Publicado: un cambio de horario o lugar se avisa por correo. */
 	isPublished: boolean;
+	/** El borrador ya guardado: sin él no hay sesiones a las que colgar material. */
+	courseDocumentId: string | null;
 }
 
 /**
- * Las sesiones de un curso calendarizado.
+ * Las sesiones del curso: la misma tabla para toda modalidad, y encima el
+ * lugar que pide —sede, enlace o, en la híbrida, cualquiera de los dos—.
  *
  * Casi todos los cursos se imparten siempre en la misma sala o con el mismo
  * enlace, así que el lugar se captura una vez y se copia a cada sesión. Solo si
@@ -75,7 +92,9 @@ interface CourseSessionsFieldProps {
 export function CourseSessionsField({
 	id,
 	modality,
+	optional = false,
 	isPublished,
+	courseDocumentId,
 }: CourseSessionsFieldProps) {
 	const { control, getValues, setValue, trigger, formState } =
 		useFormContext<CourseFormValues>();
@@ -91,8 +110,100 @@ export function CourseSessionsField({
 		() => !allShare(getValues("sessions")),
 	);
 
-	const showVenue = requiresVenue(modality);
-	const showLink = requiresLink(modality);
+	const materials = useSessionMaterials(courseDocumentId);
+	const [materialOf, setMaterialOf] = useState<number | null>(null);
+	const [removing, setRemoving] = useState<{
+		index: number;
+		count: number;
+	} | null>(null);
+
+	const materialCounts = useMemo(
+		() =>
+			Object.fromEntries(
+				(materials.board?.sessions ?? []).map((session) => [
+					session.documentId,
+					session.materials.length,
+				]),
+			),
+		[materials.board],
+	);
+
+	/**
+	 * La hoja de una fila nueva: su material vive en el formulario, con la fila,
+	 * y se crea al guardar el paso. Lo único que ocurre ya es subir el archivo.
+	 */
+	const pendingSource = (index: number): SessionMaterialSource => {
+		const name = `sessions.${index}.materials` as const;
+		const current = () => getValues(name) ?? [];
+		const write = (next: PendingSessionMaterial[]) =>
+			setValue(name, next, { shouldDirty: true });
+
+		return {
+			materials: (sessions[index]?.materials ?? []).map((material) => ({
+				id: material.draftId,
+				type: material.type,
+				title: material.title,
+				fileName: material.type === "LINK" ? null : material.fileName,
+				fileSize: null,
+				externalUrl: material.type === "LINK" ? material.externalUrl : null,
+				href: material.type === "LINK" ? material.externalUrl : null,
+				availableFromSession: material.availableFromSession,
+			})),
+			editable: true,
+			busy: false,
+			pending: true,
+			add: async (material) => {
+				write([...current(), { ...material, draftId: crypto.randomUUID() }]);
+				return true;
+			},
+			toggle: (draftId, availableFromSession) =>
+				write(
+					current().map((material) =>
+						material.draftId === draftId
+							? { ...material, availableFromSession }
+							: material,
+					),
+				),
+			remove: (draftId) =>
+				write(current().filter((material) => material.draftId !== draftId)),
+			requestTicket: (kind, file) => materials.requestTicket(null, kind, file),
+		};
+	};
+
+	const openRow = materialOf === null ? null : sessions[materialOf];
+	const openStored = openRow?.documentId
+		? materials.storedOf(openRow.documentId)
+		: undefined;
+	const sheetDescription = openStored
+		? formatSessionRange(
+				new Date(openStored.startsAt),
+				new Date(openStored.endsAt),
+			)
+		: openRow && DATE_INPUT_PATTERN.test(openRow.date)
+			? [
+					inputDateToDisplay(openRow.date),
+					openRow.startTime &&
+						openRow.endTime &&
+						`${openRow.startTime}–${openRow.endTime}`,
+				]
+					.filter(Boolean)
+					.join(", ")
+			: "Sesión sin fecha todavía";
+
+	// Quitar una sesión se lleva su material: el guardado y el pendiente.
+	const requestRemove = useCallback(
+		(index: number) => {
+			const row = getValues(`sessions.${index}`);
+			const count =
+				(materialCounts[row.documentId] ?? 0) + (row.materials?.length ?? 0);
+			if (count === 0) remove(index);
+			else setRemoving({ index, count });
+		},
+		[getValues, materialCounts, remove],
+	);
+
+	const showVenue = acceptsVenue(modality);
+	const showLink = acceptsLink(modality);
 	const canAdd = fields.length < COURSE_MAX_SESSIONS;
 
 	const addSession = useCallback(() => {
@@ -141,15 +252,24 @@ export function CourseSessionsField({
 	return (
 		<fieldset id={id} className="flex min-w-0 flex-col gap-4">
 			<legend className="mb-1 flex w-full items-center justify-between gap-3">
-				<span className="font-medium text-sm">Sesiones</span>
+				<span className="font-medium text-sm">
+					Sesiones
+					{optional && (
+						<span className="font-normal text-muted-foreground">
+							{" "}
+							· opcional
+						</span>
+					)}
+				</span>
 				<span className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground text-xs">
 					<Clock className="size-3.5" aria-hidden="true" />
 					Horario de Tijuana
 				</span>
 			</legend>
 			<p className="text-muted-foreground text-sm">
-				Para publicar hace falta al menos una, con fecha, horario y{" "}
-				{PLACE_OF[modality]}.
+				{optional
+					? "Encuentros en sede o por videollamada para complementar el contenido, por ejemplo un taller práctico. No cuentan para completar el curso."
+					: `Para publicar hace falta al menos una, con fecha, horario y ${PLACE_OF[modality]}.`}
 				{isPublished &&
 					" Si cambias horario o lugar, se avisa por correo a inscritos e invitados."}
 			</p>
@@ -160,15 +280,18 @@ export function CourseSessionsField({
 						<EmptyMedia variant="icon">
 							<CalendarRange aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>Sin sesiones todavía</EmptyTitle>
+						<EmptyTitle>
+							{optional ? "Sin sesiones" : "Sin sesiones todavía"}
+						</EmptyTitle>
 						<EmptyDescription>
-							Una sesión es una fecha con su horario y su {PLACE_OF[modality]}.
-							Puedes guardar el borrador así y programarlas más adelante.
+							{optional
+								? "El curso se recorre solo con el contenido. Agrega una si quieres un encuentro presencial o en línea."
+								: `Una sesión es una fecha con su horario y su ${PLACE_OF[modality]}. Puedes guardar el borrador así y programarlas más adelante.`}
 						</EmptyDescription>
 					</EmptyHeader>
 					<Button type="button" variant="outline" onClick={addSession}>
 						<CalendarPlus aria-hidden="true" />
-						Agregar la primera sesión
+						{optional ? "Agregar sesión" : "Agregar la primera sesión"}
 					</Button>
 				</Empty>
 			) : (
@@ -257,7 +380,9 @@ export function CourseSessionsField({
 									index={index}
 									modality={modality}
 									placePerSession={!shared}
-									onRemove={remove}
+									onRemove={requestRemove}
+									materialCounts={courseDocumentId ? materialCounts : null}
+									onOpenMaterials={setMaterialOf}
 								/>
 							))}
 						</ol>
@@ -286,6 +411,35 @@ export function CourseSessionsField({
 					</div>
 				</>
 			)}
+
+			<SessionMaterialSheet
+				open={openRow !== undefined && openRow !== null}
+				title={`Material de la sesión ${(materialOf ?? 0) + 1}`}
+				description={sheetDescription}
+				source={
+					openRow
+						? openRow.documentId
+							? materials.sourceFor(openRow.documentId)
+							: pendingSource(materialOf ?? 0)
+						: null
+				}
+				onClose={() => setMaterialOf(null)}
+			/>
+			<ConfirmDialog
+				open={removing !== null}
+				onOpenChange={(open) => {
+					if (!open) setRemoving(null);
+				}}
+				title={`¿Quitar la sesión ${(removing?.index ?? 0) + 1}?`}
+				description={`Tiene ${removing?.count === 1 ? "1 material" : `${removing?.count ?? 0} materiales`}, que se quitan con ella al guardar el paso.`}
+				confirmLabel="Quitar sesión"
+				cancelLabel="Volver"
+				destructive
+				onConfirm={() => {
+					if (removing) remove(removing.index);
+					setRemoving(null);
+				}}
+			/>
 		</fieldset>
 	);
 }

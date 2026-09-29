@@ -42,7 +42,14 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		number: 2,
 		title: "Programa",
 		summary: "Quién lo imparte, cuándo y dónde",
-		fields: ["format", "modality", "trainers", "sessions"],
+		fields: [
+			"format",
+			"modality",
+			"trainers",
+			"sessions",
+			"qrOpensBeforeMinutes",
+			"qrClosesAfterMinutes",
+		],
 	},
 	{
 		key: "content",
@@ -61,8 +68,6 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		fields: [
 			"completionRule",
 			"minAttendance",
-			"qrOpensBeforeMinutes",
-			"qrClosesAfterMinutes",
 			"requiresEvaluation",
 			"evaluationMethod",
 			"minPassingGrade",

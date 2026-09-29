@@ -38,7 +38,8 @@ export interface IDependencyRepository {
 	/** Titular activo, si lo hay. Es a quien hay que degradar antes de promover. */
 	findHead(dependencyId: number): Promise<DependencyMember | null>;
 	/**
-	 * Cuentas activas de la dependencia, para el selector de titular.
+	 * Cuentas activas de la dependencia que pueden ser titulares (sin
+	 * `HEAD_INELIGIBLE_ROLES`), para el selector de titular.
 	 *
 	 * Lee `auth.users` desde este módulo, igual que `findHead` y `findMember`: la
 	 * alternativa —pedírselas al servicio de `users`— obligaría a que `users`
@@ -65,7 +66,8 @@ export interface IDependencyRepository {
 	 * una escritura compuesta. Sin ella, un fallo entre las dos sentencias deja la
 	 * dependencia sin titular o con dos.
 	 *
-	 * Lanza `DependencyAlreadyHasHeadError` si el índice único parcial la rechaza.
+	 * Lanza `DependencyAlreadyHasHeadError` si el índice único parcial la rechaza,
+	 * y `HeadMustNotBeSuperadminError` si el candidato ya no es elegible.
 	 */
 	assignHead(params: {
 		dependencyId: number;

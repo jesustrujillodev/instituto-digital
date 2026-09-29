@@ -25,3 +25,11 @@ const RESET_PASSWORD_KEYS = ["newPassword"] as const;
 export type ResetPasswordFormIds = ReturnType<typeof useResetPasswordFormIds>;
 
 export const useResetPasswordFormIds = () => useFormIds(RESET_PASSWORD_KEYS);
+
+const CHANGE_PASSWORD_KEYS = [
+	"currentPassword",
+	"newPassword",
+	"confirmPassword",
+] as const;
+
+export const useChangePasswordFormIds = () => useFormIds(CHANGE_PASSWORD_KEYS);

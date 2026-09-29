@@ -39,6 +39,7 @@ export const loader = async ({
 			email: auth.email,
 			role: auth.role,
 			isTrainer: auth.isTrainer,
+			hasDependency: auth.dependencyId !== null,
 		},
 		securityState,
 	});

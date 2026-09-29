@@ -10,6 +10,7 @@ import type {
 	ListAvailableCoursesDto,
 	MyCourseDetailResponse,
 	MyCoursesResponse,
+	RemoveParticipantDto,
 	RosterOptionsResponse,
 } from "./enrollment.types";
 
@@ -81,4 +82,14 @@ export interface IEnrollmentService {
 		dto: InviteParticipantsDto,
 		actor: AuthContext,
 	): Promise<BatchResultResponse>;
+	/**
+	 * Quien organiza da de baja a un inscrito mientras el curso está publicado
+	 * y la persona no lo ha completado. Libera su lugar y le avisa; la persona
+	 * ya no puede volver sola desde el catálogo.
+	 */
+	remove(
+		courseDocumentId: string,
+		dto: RemoveParticipantDto,
+		actor: AuthContext,
+	): Promise<EnrollmentMutationResponse>;
 }

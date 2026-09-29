@@ -226,8 +226,12 @@ export function DashboardSidebar({ user }: { user: SessionUser }) {
 	// Filtrado por rol = SOLO UX. La autorización real la impone requireRole en
 	// el loader: navegar directo a una URL oculta sigue devolviendo 403.
 	const viewer = useMemo(
-		() => ({ role: user.role, isTrainer: user.isTrainer }),
-		[user.role, user.isTrainer],
+		() => ({
+			role: user.role,
+			isTrainer: user.isTrainer,
+			hasDependency: user.hasDependency,
+		}),
+		[user.role, user.isTrainer, user.hasDependency],
 	);
 
 	const sections = useMemo(

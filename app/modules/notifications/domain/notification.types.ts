@@ -44,7 +44,11 @@ export type NotificationEvent =
 			course: NotifiedCourse;
 			sessions: readonly NotifiedSession[];
 	  }
-	| { template: "COURSE_CANCELLED"; to: Recipient; course: NotifiedCourse }
+	| {
+			template: "COURSE_CANCELLED" | "ENROLLMENT_REMOVED";
+			to: Recipient;
+			course: NotifiedCourse;
+	  }
 	| {
 			template: "CERTIFICATE_ISSUED";
 			to: Recipient;

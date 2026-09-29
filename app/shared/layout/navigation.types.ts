@@ -17,6 +17,12 @@ export interface NavItem {
 	 * entra, que es peor que no tenerla.
 	 */
 	readonly trainer?: boolean;
+	/**
+	 * Oculto para quien no pertenece a una dependencia, aunque su rol o su perfil
+	 * lo alcancen: cursar y crear cursos la exigen, y el capacitador externo
+	 * —rol `USER`, sin dependencia— recibiría un 403.
+	 */
+	readonly requiresDependency?: boolean;
 	readonly children?: readonly NavItem[];
 }
 

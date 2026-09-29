@@ -24,12 +24,38 @@ describe("resolveTeachingScope", () => {
 		});
 	});
 
-	test("el capacitador interno solo imparte lo asignado, no lo que creó", () => {
+	// Lo que creó y tiene sesiones lo imparte otro: ahí no pasa lista. El
+	// autogestivo sin sesiones no lo imparte nadie, y si no lo opera él no lo
+	// opera ningún capacitador.
+	test("el capacitador interno imparte lo asignado y opera sus autogestivos sin sesiones", () => {
 		const scope = resolveTeachingScope(actorOf());
 
 		expect(teachingCourseWhere(scope)).toEqual({
-			OR: [{ trainers: { some: { userId: 9 } } }],
+			OR: [
+				{ trainers: { some: { userId: 9 } } },
+				{
+					dependencyId: 3,
+					createdById: 9,
+					format: "SELF_PACED",
+					modality: { not: "HYBRID" },
+				},
+			],
 		});
+	});
+
+	test("el titular no suma rama de autor: su dependencia ya lo cubre", () => {
+		const scope = resolveTeachingScope(
+			actorOf({ role: "DEPENDENCY_HEAD", isTrainer: false }),
+		);
+
+		expect(scope.creator).toBeNull();
+		expect(teachingCourseWhere(scope)).toEqual({ OR: [{ dependencyId: 3 }] });
+	});
+
+	test("el capacitador externo no tiene rama de autor: no crea cursos", () => {
+		const scope = resolveTeachingScope(actorOf({ dependencyId: null }));
+
+		expect(scope.creator).toBeNull();
 	});
 
 	test("el capacitador externo, sin dependencia, también imparte", () => {

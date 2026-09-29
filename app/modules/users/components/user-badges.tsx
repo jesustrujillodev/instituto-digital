@@ -1,3 +1,4 @@
+import { ROLE_LABELS } from "@/shared/auth/role-labels";
 import { Badge } from "@/shared/components/ui/badge";
 import type { Role } from "@/shared/rules/atoms.rules";
 
@@ -5,23 +6,13 @@ import type { Role } from "@/shared/rules/atoms.rules";
  * Distintivos de rol y estado, compartidos por la tabla, la tarjeta móvil, el
  * detalle y el perfil. Un solo sitio decide cómo se ve "Titular" o "Archivado".
  *
- * Los diccionarios están tipados `Record<Role, string>` y no `Record<string,
- * string>`: así añadir un rol a la tupla rompe en compilación aquí en vez de
- * pintar su identificador crudo en pantalla, que es lo que pasaba antes.
+ * La copia singular vive en `shared/auth/role-labels.ts` porque también la
+ * pintan el menú de la cuenta y el 403, que no pueden importar de un módulo.
  */
-export const ROLE_LABELS: Record<Role, string> = {
-	SUPERADMIN: "Superadministrador",
-	DEPENDENCY_HEAD: "Titular",
-	DEPENDENCY_DEPUTY: "Auxiliar",
-	USER: "Participante",
-};
 
 /**
- * La misma copia en plural, para el `Select` de filtro del listado.
- *
- * Vive junto a la singular y no suelta en la pantalla: antes eran dos
- * diccionarios con el MISMO nombre, uno local y no exportado, y ninguno de los
- * dos fallaba al añadir un rol.
+ * La copia en plural, para el `Select` de filtro del listado. Tipada
+ * `Record<Role, string>` por lo mismo que la singular.
  */
 export const ROLE_FILTER_LABELS: Record<Role, string> = {
 	SUPERADMIN: "Superadministradores",

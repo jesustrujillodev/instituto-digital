@@ -17,7 +17,7 @@ import type {
 	CourseStatus,
 	PublishCheck,
 } from "../domain/course.rules";
-import { requiresContent } from "../domain/course.rules";
+import { requiresContent, requiresSessions } from "../domain/course.rules";
 import {
 	firstPendingStep,
 	LAST_STEP_NUMBER,
@@ -132,7 +132,9 @@ export function CourseStatusPanel({
 									<ClipboardCheck aria-hidden="true" />
 									{status === "FINISHED"
 										? "Resultados y valoraciones"
-										: "Pasar lista"}
+										: requiresSessions(format)
+											? "Ver asistencia"
+											: "Ver avance"}
 								</Link>
 							</Button>
 						)}

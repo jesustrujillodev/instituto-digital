@@ -15,6 +15,9 @@ export const ENROLLMENT_ERROR_CODES = {
 	INVITATIONS_DISABLED: "ENROLLMENT_INVITATIONS_DISABLED",
 	INVITATION_REQUIRED: "ENROLLMENT_INVITATION_REQUIRED",
 	STATE_CHANGED: "ENROLLMENT_STATE_CHANGED",
+	REMOVED: "ENROLLMENT_REMOVED",
+	PARTICIPANT_NOT_ENROLLED: "ENROLLMENT_PARTICIPANT_NOT_ENROLLED",
+	REMOVE_CLOSED: "ENROLLMENT_REMOVE_CLOSED",
 } as const;
 
 export abstract class EnrollmentError extends DomainError {}
@@ -124,5 +127,33 @@ export class EnrollmentStateChangedError extends EnrollmentError {
 	readonly code = ENROLLMENT_ERROR_CODES.STATE_CHANGED;
 	constructor() {
 		super("Enrollment changed concurrently");
+	}
+}
+
+/** Quien organiza le dio de baja: solo quien organiza lo vuelve a inscribir. */
+export class EnrollmentRemovedError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.REMOVED;
+	constructor() {
+		super("Removed by the organizer");
+	}
+}
+
+/** Quien organiza intenta dar de baja a alguien que no está inscrito. */
+export class EnrollmentParticipantNotEnrolledError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.PARTICIPANT_NOT_ENROLLED;
+	constructor() {
+		super("Participant is not enrolled");
+	}
+}
+
+export type RemovalBlocker = "NOT_PUBLISHED" | "COMPLETED";
+
+/** Un finalizado ya repartió créditos; un completado sostiene el suyo. */
+export class EnrollmentRemoveClosedError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.REMOVE_CLOSED;
+	readonly details: { reason: RemovalBlocker };
+	constructor(reason: RemovalBlocker) {
+		super("Participant can no longer be removed");
+		this.details = { reason };
 	}
 }

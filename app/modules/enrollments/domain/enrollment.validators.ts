@@ -11,3 +11,5 @@ export const validateAssignParticipants = (data: unknown) =>
 	v.parse(enrollmentRules.assign, data);
 export const validateInviteParticipants = (data: unknown) =>
 	v.parse(enrollmentRules.invite, data);
+export const validateRemoveParticipant = (data: unknown) =>
+	v.parse(enrollmentRules.remove, data);

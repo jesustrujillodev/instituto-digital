@@ -111,9 +111,16 @@ global y no administra una unidad concreta.
 Es una escritura compuesta, así que va en transacción explícita
 (`docs/reglas.md` §8.1), y el orden **no es libre**:
 
-1. Validar que el candidato pertenece a la dependencia y está activo.
+1. Validar que el candidato pertenece a la dependencia, está activo y no es
+   superadministrador (`canBeHead`).
 2. Degradar al titular actual a `USER`, si lo hay.
 3. Promover al candidato a `DEPENDENCY_HEAD`.
+
+Un superadministrador no puede ser titular (`HEAD_MUST_NOT_BE_SUPERADMIN`): la
+promoción le quitaría el rol, y podría ser el último. No aparece en el selector
+de candidatos, y la promoción es un `updateMany` condicionado a
+`HEAD_INELIGIBLE_ROLES`: si el candidato pasó a superadministrador después de
+la validación, la escritura no lo toca y la transacción se revierte.
 
 Al revés, el índice único parcial dispara a mitad de transacción: durante un
 instante habría dos titulares activos en la misma dependencia.
@@ -124,7 +131,12 @@ siga vivo el access token que firmó el rol anterior.
 
 `DEPENDENCY_HEAD` **no se otorga desde el formulario de usuario**, ni siquiera
 para el superadministrador (`ASSIGNABLE_ROLES` no lo incluye para nadie):
-hacerlo se saltaría este relevo.
+hacerlo se saltaría este relevo. Tampoco se retira desde ahí:
+`canChangeRole` (`users/domain/user.role.rules.ts`) deja guardar sin tocar el
+rol, pero cambiarlo exige poder otorgar el actual y el nuevo, y nadie cambia el
+suyo propio. Además, degradar o archivar al último superadministrador activo
+responde `LAST_ACTIVE_SUPERADMIN`; el conteo se toma con `FOR UPDATE` en la
+misma transacción que la escritura.
 
 Esta operación escribe en `auth.users` desde el repositorio de `dependencies`.
 Es la **única** excepción de frontera del diseño, está documentada en el puerto y
@@ -181,6 +193,7 @@ la cuenta que describe. Los nombres se resuelven en una segunda consulta.
 | El total de la paginación delata cuentas ajenas | `findAll` y `count` comparten literalmente el mismo `where` |
 | Un filtro en la URL amplía lo que alguien alcanza | El filtro por dependencia se SUMA al alcance; pedir otra no devuelve nada |
 | Un auxiliar archiva a su titular | `canManageUser` compara rangos además del alcance |
+| Un auxiliar degrada, archiva o restablece a otro auxiliar | `canManageUser` exige administrar auxiliares si el objetivo lo es y no es él mismo |
 | Alguien se otorga un rol superior enviando el formulario a mano | `canAssignRole` se comprueba en el servidor, no solo al pintar el `Select` |
 | Dos designaciones simultáneas dejan dos titulares | Índice único parcial; la comprobación previa solo da buen mensaje |
 | Una fila sin dependencia da acceso a todo | `AccessScope.none` → predicado imposible al leer, corte al escribir |

@@ -224,15 +224,20 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 					]
 				: []),
 			columnHelpers.custom<UserRow>("role", "Rol", (user) => (
-				<span className="flex flex-wrap gap-1">
-					<AccountRoleBadge role={user.role} type={user.type} />
-					<TrainerBadge isTrainer={user.isTrainer} />
-				</span>
+				<AccountRoleBadge role={user.role} type={user.type} />
 			)),
+			columnHelpers.custom<UserRow>("isTrainer", "Perfil", (user) => {
+				if (user.isTrainer) return <TrainerBadge isTrainer />;
+
+				return (
+					<span className="text-muted-foreground text-sm">
+						{user.trainerProfile?.archivedAt ? "Deshabilitado" : "—"}
+					</span>
+				);
+			}),
 			columnHelpers.custom<UserRow>("archivedAt", "Estado", (user) => (
 				<StatusBadge archivedAt={user.archivedAt} />
 			)),
-			columnHelpers.date<UserRow>("createdAt", "Creado"),
 		],
 		[canFilterByDependency, dependencyNames],
 	);
@@ -514,6 +519,7 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 
 			<UserDetailsSheet
 				user={detailUser}
+				dependencyNames={canFilterByDependency ? dependencyNames : undefined}
 				onOpenChange={(open) => {
 					if (!open) setDetailId(null);
 				}}

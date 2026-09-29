@@ -20,6 +20,7 @@ export const DEPENDENCY_ERROR_CODES = {
 	ALREADY_HAS_HEAD: "DEPENDENCY_ALREADY_HAS_HEAD",
 	HEAD_MUST_BELONG: "HEAD_MUST_BELONG_TO_DEPENDENCY",
 	HEAD_MUST_BE_ACTIVE: "HEAD_MUST_BE_ACTIVE",
+	HEAD_MUST_NOT_BE_SUPERADMIN: "HEAD_MUST_NOT_BE_SUPERADMIN",
 } as const;
 
 /**
@@ -90,5 +91,13 @@ export class HeadMustBeActiveError extends DependencyError {
 	readonly code = DEPENDENCY_ERROR_CODES.HEAD_MUST_BE_ACTIVE;
 	constructor() {
 		super("Head candidate must be an active account");
+	}
+}
+
+/** Ver `HEAD_INELIGIBLE_ROLES`: designarlo le quitaría el rol de superadministrador. */
+export class HeadMustNotBeSuperadminError extends DependencyError {
+	readonly code = DEPENDENCY_ERROR_CODES.HEAD_MUST_NOT_BE_SUPERADMIN;
+	constructor() {
+		super("A superadmin cannot be designated dependency head");
 	}
 }

@@ -1,3 +1,4 @@
+import { formatZonedDate } from "@/lib/date-utils";
 import type {
 	EnrollmentOrigin,
 	EnrollmentResult,
@@ -27,6 +28,19 @@ export const ENROLLMENT_RESULT_LABELS: Record<EnrollmentResult, string> = {
 const plural = (count: number, singular: string, many: string) =>
 	`${count} ${count === 1 ? singular : many}`;
 
+export const sessionCountOf = (count: number): string =>
+	plural(count, "sesión", "sesiones");
+
+/** «Sin límite», «Lleno (30 de 30)», «12 de 30 lugares libres». */
+export const seatsLabelOf = (
+	capacity: number | null,
+	seatsLeft: number | null,
+): string => {
+	if (capacity === null || seatsLeft === null) return "Sin límite";
+	if (seatsLeft === 0) return `Lleno (${capacity} de ${capacity})`;
+	return `${seatsLeft} de ${capacity} ${seatsLeft === 1 ? "lugar libre" : "lugares libres"}`;
+};
+
 /** "2 invitados, 1 omitido" — los omitidos ya tenían invitación o inscripción. */
 export const batchMessage = (
 	result: BatchResult,
@@ -46,3 +60,17 @@ export const personNameOf = (person: {
 }): string =>
 	[person.firstName, person.lastName].filter(Boolean).join(" ").trim() ||
 	person.email;
+
+/** Quién dio la baja cambia el sujeto: la persona o quien organiza el curso. */
+export const withdrawalLabelOf = (enrollment: {
+	removed: boolean;
+	withdrawnAt?: Date | string | null;
+}): string => {
+	const subject = enrollment.removed
+		? "Quien organiza te dio de baja"
+		: "Te diste de baja";
+
+	return enrollment.withdrawnAt
+		? `${subject} el ${formatZonedDate(new Date(enrollment.withdrawnAt))}`
+		: subject;
+};

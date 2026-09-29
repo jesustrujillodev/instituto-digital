@@ -254,6 +254,16 @@ export const createUserRepository = ({
 				translatePrismaError(error);
 			}
 		},
+		async lockActiveSuperadminIds() {
+			// Una transacción que espera este bloqueo vuelve a evaluar el `WHERE` al
+			// obtenerlo (read committed): la cuenta que la otra acaba de archivar o
+			// degradar ya no sale, y el conteo refleja lo que quedó.
+			const rows = await prisma.$queryRaw<{ id: number }[]>`
+				SELECT id FROM "auth"."users"
+				WHERE role = 'SUPERADMIN' AND archived_at IS NULL
+				FOR UPDATE`;
+			return rows.map(({ id }) => id);
+		},
 		async archive(documentId: string, scope: AccessScope) {
 			try {
 				const user = await prisma.user.update({

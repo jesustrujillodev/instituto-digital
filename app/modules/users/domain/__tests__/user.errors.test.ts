@@ -3,6 +3,7 @@ import { isDomainError } from "@/shared/errors/domain-error";
 import {
 	DuplicateEmailError,
 	InvalidUploadError,
+	LastActiveSuperadminError,
 	USER_ERROR_CODES,
 	UserError,
 	UserHasRelatedRecordsError,
@@ -16,6 +17,7 @@ const ALL_ERRORS = [
 	new UserNotArchivedError(),
 	new UserHasRelatedRecordsError(),
 	new InvalidUploadError("tipo no permitido"),
+	new LastActiveSuperadminError(),
 ];
 
 describe("USER_ERROR_CODES", () => {
@@ -36,6 +38,7 @@ describe("USER_ERROR_CODES", () => {
 			HAS_RELATED_RECORDS: "USER_HAS_RELATED_RECORDS",
 			INVALID_UPLOAD: "INVALID_UPLOAD",
 			EXTERNAL_REQUIRES_TRAINER: "EXTERNAL_REQUIRES_TRAINER_PROFILE",
+			LAST_ACTIVE_SUPERADMIN: "LAST_ACTIVE_SUPERADMIN",
 		});
 	});
 });
@@ -49,6 +52,7 @@ describe("errores del módulo de usuarios", () => {
 			"USER_HAS_RELATED_RECORDS",
 		);
 		expect(new InvalidUploadError("x").code).toBe("INVALID_UPLOAD");
+		expect(new LastActiveSuperadminError().code).toBe("LAST_ACTIVE_SUPERADMIN");
 	});
 
 	// Sin esto, `toResponseError` los trataría como desconocidos: el envelope

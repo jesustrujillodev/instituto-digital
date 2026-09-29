@@ -42,6 +42,12 @@ Lo que **no** hace todavía:
 
 ## 3. Pase de lista y resultados
 
+> **Oculto en la interfaz.** Con `MANUAL_ATTENDANCE_ENABLED = false`
+> (`domain/teaching.config.ts`) la ficha no ofrece casillas ni "Guardar lista": la
+> pestaña Asistencia muestra el QR y un registro de solo lectura por sesión, y el
+> listado dice "Ver asistencia". El intent `attendance` y todo lo de abajo siguen
+> vivos; volver a `true` reactiva el pase de lista sin más cambios.
+
 - Se pasa lista **por sesión** a los inscritos `ENROLLED`, desde el inicio del día
   local de la sesión (`isSessionOpen`).
 - El envío es la lista completa de la sesión. Solo se escriben las marcas que
@@ -131,6 +137,13 @@ POST /dashboard/imparticion/:id  intent=enrollment-window  payload={ open }
 Cerrado, el curso sale del catálogo y nadie nuevo entra; quien ya está inscrito
 sigue avanzando. Se reabre cuando se quiera.
 
+Nadie imparte el autogestivo sin sesiones, así que lo opera quien lo organiza: la
+dependencia y, si lo creó un capacitador interno, él mismo. Esa es la rama de
+autor de `teachingCourseWhere` (`dependencyId` + `createdById`, solo
+`SELF_PACED` no híbrido); `canOpenTeaching` le enlaza la impartición desde la
+ficha del curso. El híbrido tiene sesiones y capacitador asignado: el autor que
+no lo imparte no entra.
+
 **Quién dispara el crédito.** `syncsOnWrite(course)` es verdadero en un finalizado
 —escribir en él es corregirlo— y en un autogestivo publicado. Capturar un
 resultado y terminar el contenido acaban en el mismo `completionSync.sync`, así
@@ -202,7 +215,7 @@ alcance global, como en cursos.
 
 | Amenaza | Defensa |
 | --- | --- |
-| Un capacitador interno pasa lista en un curso que creó y no imparte | `teachingCourseWhere` no tiene rama de autor |
+| Un capacitador interno pasa lista en un curso que creó y no imparte | La rama de autor de `teachingCourseWhere` solo alcanza el autogestivo sin sesiones (`requiresTrainer` falso): no hay lista que pasar |
 | Un capacitador cambia la asistencia de un curso ya finalizado | `assertWritable` → `TEACHING_CORRECTION_FORBIDDEN` |
 | Dos correcciones a la vez calculan sobre datos viejos | `FOR UPDATE` + relectura dentro de la transacción |
 | Se finaliza dos veces y se otorgan créditos dobles | `finish` condicionado a `PUBLISHED`; crédito único por persona y curso |

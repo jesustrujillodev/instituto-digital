@@ -29,6 +29,7 @@ import {
 import {
 	COURSE_INTENTS,
 	type CourseActionData,
+	type CourseUpdateActionData,
 	parseCourseFormData,
 } from "../utils/parse-course-form-data";
 import { runStatusIntent } from "./course-status-intents.server";
@@ -145,7 +146,7 @@ export const saveCourseStep = async ({
 	request,
 	context,
 	params,
-}: WizardArgs): Promise<CourseActionData> => {
+}: WizardArgs): Promise<CourseActionData | CourseUpdateActionData> => {
 	const { auth } = await requireCourseScope(request, context);
 
 	const { intent, payload, cover } = parseCourseFormData(
@@ -178,5 +179,15 @@ export const saveCourseStep = async ({
 	);
 	if (!result.success) return localizeError(result, COURSE_ERROR_MESSAGES);
 
-	return ok(null, { message: "Cambios guardados" });
+	// Las sesiones recién creadas ya tienen identidad: con ella el alta cuelga el
+	// material que les agregó antes de guardar (docs/adr/0026).
+	return ok(
+		{
+			sessions: result.data.sessions.map(({ documentId, startsAt }) => ({
+				documentId,
+				startsAt,
+			})),
+		},
+		{ message: "Cambios guardados" },
+	);
 };

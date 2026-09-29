@@ -61,19 +61,23 @@ export const navigationSections: readonly NavSection[] = [
 				label: "Mis cursos",
 				path: "/dashboard/mis-cursos",
 				icon: BookOpenCheck,
+				requiresDependency: true,
 			},
 			{
-				// Lo ve también el capacitador externo, que tiene rol USER; el loader le responde 403.
 				label: "Cursos disponibles",
 				path: "/dashboard/cursos-disponibles",
 				icon: LibraryBig,
+				requiresDependency: true,
 			},
 			{
 				label: "Mis créditos",
 				path: "/dashboard/mis-creditos",
 				icon: Award,
+				requiresDependency: true,
 			},
 			{
+				// Sin `requiresDependency`: un externo no cursa, pero sí recibe
+				// certificado y el correo lo trae aquí.
 				label: "Mis certificados",
 				path: "/dashboard/mis-certificados",
 				icon: ScrollText,
@@ -87,17 +91,18 @@ export const navigationSections: readonly NavSection[] = [
 	},
 	{
 		// Incluye USER para el capacitador interno, que crea cursos sin rol de
-		// dependencia. El externo también ve Cursos —`SessionUser` no distingue el
-		// tipo de cuenta— y el loader le responde 403.
+		// dependencia.
 		label: "Gestión",
 		roles: LEARNER_ROLES,
 		items: [
 			{
+				// El externo solo imparte (§4): crear cursos exige una dependencia.
 				label: "Cursos",
 				path: "/dashboard/cursos",
 				icon: NotebookPen,
 				roles: DEPENDENCY_ROLES,
 				trainer: true,
+				requiresDependency: true,
 			},
 			{
 				// Lo ve también el capacitador externo: imparte, aunque no cree cursos (§4).

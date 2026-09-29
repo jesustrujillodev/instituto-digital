@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { toDomain } from "../dependency.mapper";
+import { toDomain, toMember } from "../dependency.mapper";
 
 const rawDependencyOf = (overrides: Record<string, unknown> = {}) => ({
 	id: 5,
@@ -50,5 +50,27 @@ describe("toDomain", () => {
 	// al mapearla y no tres capas más arriba.
 	test("lanza si la fila no cumple el esquema", () => {
 		expect(() => toDomain(rawDependencyOf({ name: 42 }))).toThrow();
+	});
+});
+
+describe("toMember", () => {
+	const rawMemberOf = (overrides: Record<string, unknown> = {}) => ({
+		id: 9,
+		documentId: "22222222-2222-4222-8222-222222222222",
+		archivedAt: null,
+		role: "USER",
+		...overrides,
+	});
+
+	test("conserva el rol, que decide si puede ser titular", () => {
+		expect(toMember(rawMemberOf({ role: "SUPERADMIN" })).role).toBe(
+			"SUPERADMIN",
+		);
+	});
+
+	// La columna es texto libre en la base: un rol fuera de la tupla no llega a
+	// la regla como si fuera uno conocido.
+	test("rechaza un rol que no está en la tupla", () => {
+		expect(() => toMember(rawMemberOf({ role: "ROOT" }))).toThrow();
 	});
 });

@@ -1,5 +1,9 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { resolveCourseScope } from "@/modules/courses/domain/course.access";
+import type {
+	CourseFormat,
+	CourseModality,
+} from "@/modules/courses/domain/course.rules";
 
 /**
  * Quién pasa lista, captura resultados y finaliza (matriz de §3).
@@ -15,6 +19,13 @@ export interface TeachingScope {
 	dependencyId: number | null;
 	/** Cursos con esta persona entre sus capacitadores. */
 	trainerId: number | null;
+	/**
+	 * Autogestivos sin sesiones que creó el capacitador interno. Nadie los
+	 * imparte (`requiresTrainer`), así que quien los creó los opera como su
+	 * dependencia: abre y cierra inscripciones y sigue el avance. No pasa lista
+	 * porque no hay sesiones.
+	 */
+	creator: { dependencyId: number; userId: number } | null;
 }
 
 type TeachingActor = Pick<
@@ -29,15 +40,28 @@ export const resolveTeachingScope = (actor: TeachingActor): TeachingScope => {
 		global: scope.kind === "global",
 		dependencyId: scope.kind === "dependency" ? scope.dependencyId : null,
 		trainerId: actor.isTrainer ? actor.userId : null,
+		creator:
+			scope.kind === "creator"
+				? { dependencyId: scope.dependencyId, userId: scope.userId }
+				: null,
 	};
 };
 
 export const canTeach = (scope: TeachingScope): boolean =>
-	scope.global || scope.dependencyId !== null || scope.trainerId !== null;
+	scope.global ||
+	scope.dependencyId !== null ||
+	scope.trainerId !== null ||
+	scope.creator !== null;
 
 type TeachingBranch =
 	| { dependencyId: number }
-	| { trainers: { some: { userId: number } } };
+	| { trainers: { some: { userId: number } } }
+	| {
+			dependencyId: number;
+			createdById: number;
+			format: Extract<CourseFormat, "SELF_PACED">;
+			modality: { not: Extract<CourseModality, "HYBRID"> };
+	  };
 
 export type TeachingCourseWhere =
 	| Record<string, never>
@@ -61,6 +85,16 @@ export const teachingCourseWhere = (
 	}
 	if (scope.trainerId !== null) {
 		branches.push({ trainers: { some: { userId: scope.trainerId } } });
+	}
+	// El híbrido queda fuera: tiene sesiones y quien las imparte, y el autor que
+	// no es su capacitador no pasa lista.
+	if (scope.creator !== null) {
+		branches.push({
+			dependencyId: scope.creator.dependencyId,
+			createdById: scope.creator.userId,
+			format: "SELF_PACED",
+			modality: { not: "HYBRID" },
+		});
 	}
 
 	return branches.length === 0 ? { id: { in: [] } } : { OR: branches };

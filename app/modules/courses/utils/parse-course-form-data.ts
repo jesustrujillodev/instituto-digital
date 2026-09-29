@@ -58,6 +58,13 @@ export type CourseIntent = (typeof COURSE_INTENTS)[keyof typeof COURSE_INTENTS];
 export type CourseActionData = AppResponse<null>;
 /** El alta devuelve el curso creado: la página lleva a su ficha. */
 export type CourseCreateActionData = AppResponse<{ documentId: string }>;
+/**
+ * Guardar un paso devuelve sus sesiones: con su identidad, el alta crea el
+ * material que se agregó a las nuevas antes de guardar (docs/adr/0026).
+ */
+export type CourseUpdateActionData = AppResponse<{
+	sessions: { documentId: string; startsAt: Date }[];
+}>;
 
 export interface ParsedCourseFormData {
 	fields: Record<string, string>;

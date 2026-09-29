@@ -30,10 +30,16 @@ const defaultSession = (sessions: TeachingDetail["sessions"]) =>
 	sessions.at(0)?.documentId ??
 	"";
 
+/**
+ * La asistencia por sesión. Con `manual`, una lista con casillas que se guarda;
+ * sin él, solo lo que registró el QR.
+ */
 export function AttendancePanel({
 	detail,
+	manual,
 }: {
 	detail: Pick<TeachingDetail, "sessions" | "participants" | "can">;
+	manual: boolean;
 }) {
 	const { sessions, participants, can } = detail;
 	const fetcher = useFetcher<TeachingActionData>();
@@ -70,7 +76,10 @@ export function AttendancePanel({
 		);
 	}
 
-	const editable = can.recordAttendance && Boolean(session?.isOpen);
+	const editable = manual && can.recordAttendance && Boolean(session?.isOpen);
+	const checkedIn = participants.filter(
+		(participant) => participant.marks[sessionId] === true,
+	).length;
 
 	const save = () =>
 		fetcher.submit(
@@ -90,6 +99,16 @@ export function AttendancePanel({
 	return (
 		<Card>
 			<CardContent className="flex flex-col gap-4">
+				{!manual && (
+					<div className="flex flex-col gap-1">
+						<h3 className="font-medium text-sm">Registro por sesión</h3>
+						<p className="text-muted-foreground text-xs">
+							Se llena solo: cada persona queda registrada al escanear el código
+							QR del curso.
+						</p>
+					</div>
+				)}
+
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<Select value={sessionId} onValueChange={setSessionId}>
 						<SelectTrigger className="w-full sm:w-80">
@@ -109,31 +128,25 @@ export function AttendancePanel({
 					</Select>
 					{session && (
 						<Badge variant="outline">
-							Lista pasada a {session.recorded} de {participants.length}
+							{manual
+								? `Lista pasada a ${session.recorded} de ${participants.length}`
+								: `Asistieron ${checkedIn} de ${participants.length}`}
 						</Badge>
 					)}
 				</div>
 
 				{session && !session.isOpen && (
 					<p className="text-muted-foreground text-sm">
-						La lista de esta sesión se abre el día de la sesión.
+						{manual
+							? "La lista de esta sesión se abre el día de la sesión."
+							: "Esta sesión todavía no llega: aquí aparecerá quién escanee el código."}
 					</p>
 				)}
 
 				<ul className="flex flex-col divide-y divide-border">
-					{participants.map((participant) => (
-						<li key={participant.userDocumentId} className="py-2">
-							<Label className="flex cursor-pointer items-center gap-3">
-								<Checkbox
-									checked={marks[participant.userDocumentId] ?? false}
-									disabled={!editable}
-									onCheckedChange={(checked) =>
-										setMarks((previous) => ({
-											...previous,
-											[participant.userDocumentId]: checked === true,
-										}))
-									}
-								/>
+					{participants.map((participant) => {
+						const summary = (
+							<>
 								<span className="min-w-0 flex-1">
 									<span className="block truncate text-sm">
 										{personNameOf(participant)}
@@ -146,9 +159,44 @@ export function AttendancePanel({
 									{participant.attendedSessions}/{sessions.length} ·{" "}
 									{participant.attendancePercent} %
 								</span>
-							</Label>
-						</li>
-					))}
+							</>
+						);
+
+						return (
+							<li key={participant.userDocumentId} className="py-2">
+								{manual ? (
+									<Label className="flex cursor-pointer items-center gap-3">
+										<Checkbox
+											checked={marks[participant.userDocumentId] ?? false}
+											disabled={!editable}
+											onCheckedChange={(checked) =>
+												setMarks((previous) => ({
+													...previous,
+													[participant.userDocumentId]: checked === true,
+												}))
+											}
+										/>
+										{summary}
+									</Label>
+								) : (
+									<div className="flex items-center gap-3">
+										{summary}
+										<Badge
+											variant={
+												participant.marks[sessionId] === true
+													? "default"
+													: "outline"
+											}
+										>
+											{participant.marks[sessionId] === true
+												? "Asistió"
+												: "Sin registro"}
+										</Badge>
+									</div>
+								)}
+							</li>
+						);
+					})}
 				</ul>
 
 				{editable && (

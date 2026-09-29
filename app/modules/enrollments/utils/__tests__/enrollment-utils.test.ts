@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import { ENROLLMENT_ERROR_CODES } from "../../domain/enrollment.errors";
 import { ENROLLMENT_ERROR_MESSAGES } from "../enrollment-error-messages";
-import { batchMessage, personNameOf } from "../enrollment-labels";
+import {
+	batchMessage,
+	personNameOf,
+	withdrawalLabelOf,
+} from "../enrollment-labels";
 import { parseEnrollmentFormData } from "../parse-enrollment-form-data";
 
 describe("ENROLLMENT_ERROR_MESSAGES", () => {
@@ -46,6 +50,24 @@ describe("personNameOf", () => {
 		expect(
 			personNameOf({ firstName: null, lastName: null, email: "a@b.mx" }),
 		).toBe("a@b.mx");
+	});
+});
+
+describe("withdrawalLabelOf", () => {
+	test("distingue la baja propia de la que dio quien organiza", () => {
+		expect(withdrawalLabelOf({ removed: false })).toBe("Te diste de baja");
+		expect(withdrawalLabelOf({ removed: true })).toBe(
+			"Quien organiza te dio de baja",
+		);
+	});
+
+	test("con fecha, dice cuándo", () => {
+		expect(
+			withdrawalLabelOf({
+				removed: true,
+				withdrawnAt: new Date("2026-09-16T18:00:00.000Z"),
+			}),
+		).toMatch(/^Quien organiza te dio de baja el /);
 	});
 });
 

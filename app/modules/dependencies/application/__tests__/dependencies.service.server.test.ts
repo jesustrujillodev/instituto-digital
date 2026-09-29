@@ -39,6 +39,7 @@ const memberOf = (overrides: Partial<DependencyMember> = {}) => ({
 	id: 9,
 	documentId: CANDIDATE_ID,
 	archivedAt: null,
+	role: "USER" as const,
 	...overrides,
 });
 
@@ -380,6 +381,22 @@ describe("createDependencyService — assignHead", () => {
 
 		expect(result.success).toBe(true);
 		expect(calls.assignHead).toHaveLength(1);
+	});
+
+	// Le quitaría el rol de superadministrador, y podría ser el último.
+	test("rechaza a un superadministrador como candidato", async () => {
+		const { service, calls } = createHarness({
+			member: memberOf({ role: "SUPERADMIN" }),
+		});
+
+		const result = await service.assignHead(DOCUMENT_ID, CANDIDATE_ID);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.code).toBe("HEAD_MUST_NOT_BE_SUPERADMIN");
+		}
+		expect(calls.assignHead).toEqual([]);
+		expect(calls.revoked).toEqual([]);
 	});
 
 	test("falla si la dependencia no existe", async () => {

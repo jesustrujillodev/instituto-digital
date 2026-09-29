@@ -16,6 +16,12 @@ export const contentRoutes = [
 		"cursos/:documentId/contenido/:lessonDocumentId",
 		"modules/content/routes/cursos/$documentId.contenido.$lessonDocumentId/index.ts",
 	),
+	// Sin componente: el material de las sesiones, para quien administra o
+	// imparte el curso (docs/adr/0026).
+	route(
+		"cursos/:documentId/sesiones/material",
+		"modules/content/routes/cursos/$documentId.sesiones.material/index.ts",
+	),
 	// Sin componente: el banco de un cuestionario, para quien lo arma. Lo leen y
 	// le escriben el paso de Evaluación y el panel del temario (docs/adr/0015).
 	route(

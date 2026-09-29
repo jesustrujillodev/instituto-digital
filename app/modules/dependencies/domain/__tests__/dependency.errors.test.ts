@@ -8,6 +8,7 @@ import {
 	DuplicateDependencyNameError,
 	HeadMustBeActiveError,
 	HeadMustBelongToDependencyError,
+	HeadMustNotBeSuperadminError,
 } from "../dependency.errors";
 
 const ERRORS = [
@@ -17,6 +18,7 @@ const ERRORS = [
 	[new DependencyAlreadyHasHeadError(), "DEPENDENCY_ALREADY_HAS_HEAD"],
 	[new HeadMustBelongToDependencyError(), "HEAD_MUST_BELONG_TO_DEPENDENCY"],
 	[new HeadMustBeActiveError(), "HEAD_MUST_BE_ACTIVE"],
+	[new HeadMustNotBeSuperadminError(), "HEAD_MUST_NOT_BE_SUPERADMIN"],
 ] as const;
 
 describe("errores de dependencias", () => {

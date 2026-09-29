@@ -1,7 +1,7 @@
 import * as v from "valibot";
 import {
+	allowsSessions,
 	createCourseRule,
-	requiresSessions,
 	requiresTrainer,
 	updateCourseRule,
 } from "../domain/course.rules";
@@ -45,21 +45,19 @@ export const buildCoursePayload = (
 	minPassingGrade: optionalNumber(values.minPassingGrade),
 	qrOpensBeforeMinutes: optionalNumber(values.qrOpensBeforeMinutes),
 	qrClosesAfterMinutes: optionalNumber(values.qrClosesAfterMinutes),
-	trainers: requiresTrainer(values.format) ? values.trainers : [],
+	trainers: requiresTrainer(values) ? values.trainers : [],
 	audienceDependencies: values.audienceDependencies,
 	audienceGroups: values.audienceGroups,
-	// Un autogestivo no manda sesiones: las que quedaran en el formulario tras
-	// cambiar de formato se descartan aquí y en el servicio.
-	sessions: (requiresSessions(values.format) ? values.sessions : []).map(
-		(session) => ({
-			documentId: optionalText(session.documentId),
-			date: session.date,
-			startTime: session.startTime,
-			endTime: session.endTime,
-			venue: optionalText(session.venue),
-			link: optionalText(session.link),
-		}),
-	),
+	// Un autogestivo en línea no manda sesiones: las que quedaran en el
+	// formulario tras cambiar de modalidad se descartan aquí y en el servicio.
+	sessions: (allowsSessions(values) ? values.sessions : []).map((session) => ({
+		documentId: optionalText(session.documentId),
+		date: session.date,
+		startTime: session.startTime,
+		endTime: session.endTime,
+		venue: optionalText(session.venue),
+		link: optionalText(session.link),
+	})),
 });
 
 // Con índice: `v.forward` solo apunta a claves de un registro.

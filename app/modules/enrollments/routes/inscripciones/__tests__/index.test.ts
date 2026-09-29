@@ -39,6 +39,10 @@ const createHarness = (options: ActorOptions & { isOpen?: boolean } = {}) => {
 				calls.push({ method: "assign", args });
 				return okReply({ affected: 1, skipped: 0 });
 			},
+			remove: async (...args: unknown[]) => {
+				calls.push({ method: "remove", args });
+				return okReply(null);
+			},
 		},
 	} as unknown as ActionArgs["context"];
 
@@ -126,6 +130,40 @@ describe("inscripciones action", () => {
 			userDocumentIds: [],
 			groupDocumentIds: [GROUP_ID],
 		});
+	});
+
+	test("dar de baja llega al servicio con la persona elegida", async () => {
+		const { context, calls } = createHarness();
+		const person = "22222222-2222-4222-8222-222222222222";
+
+		const result = await action({
+			request: postRequest(PATH, { intent: "remove", userDocumentId: person }),
+			context,
+			params: { documentId: COURSE_ID },
+		} as unknown as ActionArgs);
+
+		expect(result).toMatchObject({ success: true });
+		expect(calls[0]?.method).toBe("remove");
+		expect(calls[0]?.args.slice(0, 2)).toEqual([
+			COURSE_ID,
+			{ userDocumentId: person },
+		]);
+	});
+
+	test("dar de baja sin elegir a nadie falla en la validación", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await action({
+			request: postRequest(PATH, { intent: "remove" }),
+			context,
+			params: { documentId: COURSE_ID },
+		} as unknown as ActionArgs);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: "VALIDATION_ERROR" },
+		});
+		expect(calls).toEqual([]);
 	});
 
 	test("invitar sin personas ni grupos falla en la validación", async () => {

@@ -23,7 +23,11 @@ import { CourseFacts } from "../../../components/course-facts";
 import { CourseProgram } from "../../../components/course-program";
 import { CourseStatusPanel } from "../../../components/course-status-panel";
 import { CourseTrainers } from "../../../components/course-trainers";
-import { requiresTrainer } from "../../../domain/course.rules";
+import {
+	allowsSessions,
+	requiresSessions,
+	requiresTrainer,
+} from "../../../domain/course.rules";
 import {
 	COURSE_INTENTS,
 	type CourseActionData,
@@ -162,20 +166,23 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						)}
 					</DetailSection>
 
-					<DetailSection
-						title="Programa"
-						aside={
-							course.sessions.length > 0 &&
-							`${course.sessions.length} ${course.sessions.length === 1 ? "sesión" : "sesiones"} · Horario de Tijuana`
-						}
-					>
-						<CourseProgram
-							sessions={course.sessions}
-							modality={course.modality}
-						/>
-					</DetailSection>
+					{allowsSessions(course) && (
+						<DetailSection
+							title="Programa"
+							aside={
+								course.sessions.length > 0 &&
+								`${course.sessions.length} ${course.sessions.length === 1 ? "sesión" : "sesiones"} · Horario de Tijuana`
+							}
+						>
+							<CourseProgram
+								sessions={course.sessions}
+								modality={course.modality}
+								optional={!requiresSessions(course.format)}
+							/>
+						</DetailSection>
+					)}
 
-					{requiresTrainer(course.format) && (
+					{requiresTrainer(course) && (
 						<DetailSection title="Capacitadores">
 							<CourseTrainers trainers={course.trainers} />
 						</DetailSection>

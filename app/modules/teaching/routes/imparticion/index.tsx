@@ -97,7 +97,7 @@ const metaOf = (course: TeachingCourseSummary): CourseMetaItem[] => [
 const detailPathOf = (course: TeachingCourseSummary) =>
 	`/dashboard/imparticion/${course.documentId}`;
 
-/** Lo que toca hacer hoy con el curso: pasar lista, seguir el avance o revisar. */
+/** Lo que toca hacer hoy con el curso: ver la asistencia, seguir el avance o revisar. */
 function TeachingAction({ course }: { course: TeachingCourseSummary }) {
 	if (course.status !== "PUBLISHED") {
 		return (
@@ -110,7 +110,7 @@ function TeachingAction({ course }: { course: TeachingCourseSummary }) {
 	return (
 		<Button asChild>
 			<Link to={detailPathOf(course)}>
-				{requiresSessions(course.format) ? "Pasar lista" : "Ver avance"}
+				{requiresSessions(course.format) ? "Ver asistencia" : "Ver avance"}
 				<ArrowRight data-icon="inline-end" aria-hidden="true" />
 			</Link>
 		</Button>
@@ -167,7 +167,7 @@ export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Impartición"
-				description="Cursos publicados y finalizados que impartes u organizas: pase de lista, resultados y cierre."
+				description="Cursos publicados y finalizados que impartes u organizas: asistencia, resultados y cierre."
 			/>
 
 			<div className="flex flex-col gap-4">

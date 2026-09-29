@@ -110,6 +110,24 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "El enlace debe empezar por http:// o https://.",
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
+	[CONTENT_ERROR_CODES.SESSION_NOT_FOUND]: {
+		message:
+			"Esa sesión ya no existe. Guarda el programa y vuelve a intentarlo.",
+		status: HTTP_STATUS.NOT_FOUND,
+	},
+	[CONTENT_ERROR_CODES.SESSION_MATERIAL_NOT_FOUND]: {
+		message: "Ese material ya no existe.",
+		status: HTTP_STATUS.NOT_FOUND,
+	},
+	[CONTENT_ERROR_CODES.TOO_MANY_SESSION_MATERIALS]: {
+		message: (error) =>
+			`Una sesión admite como máximo ${Number(error.details?.limit ?? 0)} materiales.`,
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.SESSION_MATERIALS_LOCKED]: {
+		message: "El curso ya terminó o se canceló: su material queda como está.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[CONTENT_ERROR_CODES.NOT_ENROLLED]: {
 		message: "Solo quien está inscrito al curso puede entrar a su aula.",
 		status: HTTP_STATUS.FORBIDDEN,

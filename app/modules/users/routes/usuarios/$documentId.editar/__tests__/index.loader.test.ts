@@ -143,6 +143,41 @@ describe("usuarios/editar loader", () => {
 	});
 });
 
+describe("usuarios/editar loader — rol fijo", () => {
+	test("sobre un titular el rol queda fijo, incluso para el superadministrador", async () => {
+		const { context } = createHarness({
+			role: "SUPERADMIN",
+			user: userOf({ role: "DEPENDENCY_HEAD" }),
+		});
+
+		const result = await run(context);
+
+		expect(result.data.roleLock).toBe("head");
+	});
+
+	test("sobre su propia cuenta el superadministrador no cambia su rol", async () => {
+		const { context } = createHarness({
+			role: "SUPERADMIN",
+			user: userOf({ id: 7, role: "SUPERADMIN", dependencyId: null }),
+		});
+
+		const result = await run(context);
+
+		expect(result.data.roleLock).toBe("self");
+	});
+
+	test("sobre un participante el titular puede cambiar el rol", async () => {
+		const { context } = createHarness({
+			role: "DEPENDENCY_HEAD",
+			actorDependencyId: 3,
+		});
+
+		const result = await run(context);
+
+		expect(result.data.roleLock).toBeNull();
+	});
+});
+
 describe("usuarios/editar loader — traslado de dependencia", () => {
 	test("al superadministrador le ofrece las demás dependencias activas", async () => {
 		const { context } = createHarness({ role: "SUPERADMIN" });

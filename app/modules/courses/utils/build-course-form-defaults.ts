@@ -1,4 +1,5 @@
 import { DATE_INPUT_PATTERN, utcToZonedInput } from "@/lib/date-utils";
+import type { PendingSessionMaterial } from "@/modules/content/domain/session-material.types";
 import { COURSE_DEFAULTS } from "../domain/course.config";
 import type {
 	CourseAccessType,
@@ -20,6 +21,11 @@ export interface CourseSessionFormValues {
 	endTime: string;
 	venue: string;
 	link: string;
+	/**
+	 * El material agregado a una sesión que todavía no se guarda. No viaja con
+	 * el curso: se crea al guardar el paso, contra la sesión ya creada.
+	 */
+	materials: PendingSessionMaterial[];
 }
 
 export interface CourseFormValues {
@@ -61,6 +67,7 @@ export const emptySessionValues = (): CourseSessionFormValues => ({
 	endTime: "",
 	venue: "",
 	link: "",
+	materials: [],
 });
 
 /** El día siguiente a una fecha `AAAA-MM-DD`, o vacío si no hay fecha. */
@@ -168,6 +175,7 @@ export function buildCourseFormDefaults(
 					endTime: end.time,
 					venue: session.venue ?? "",
 					link: session.link ?? "",
+					materials: [],
 				};
 			}) ?? [],
 	};

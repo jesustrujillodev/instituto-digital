@@ -117,3 +117,58 @@ describe("translatePrismaError — resto de códigos", () => {
 		await expect(repository.create({ name: "Obras" })).rejects.toBe(original);
 	});
 });
+
+describe("assignHead — candidato no elegible", () => {
+	/** Transacción real en forma: ejecuta el callback con un `tx` de doble. */
+	const repositoryWithTransaction = (promotedCount: number) => {
+		const writes: string[] = [];
+		const tx = {
+			user: {
+				update: async () => {
+					writes.push("demote");
+				},
+				updateMany: async (args: { where: unknown }) => {
+					writes.push("promote");
+					expect(args.where).toMatchObject({
+						role: { notIn: ["SUPERADMIN"] },
+					});
+					return { count: promotedCount };
+				},
+			},
+		};
+		const repository = createDependencyRepository({
+			prisma: {
+				$transaction: async (callback: (client: typeof tx) => unknown) =>
+					callback(tx),
+			} as unknown as ICradle["prisma"],
+		});
+		return { repository, writes };
+	};
+
+	// El servicio ya lo comprueba, pero sobre una lectura previa: si el candidato
+	// pasó a superadministrador entretanto, la promoción no debe tocarlo.
+	test("si la promoción no alcanza al candidato, lanza dentro de la transacción", async () => {
+		const { repository, writes } = repositoryWithTransaction(0);
+
+		await expect(
+			repository.assignHead({
+				dependencyId: 5,
+				candidateUserId: 9,
+				currentHeadUserId: 4,
+			}),
+		).rejects.toMatchObject({ code: "HEAD_MUST_NOT_BE_SUPERADMIN" });
+		expect(writes).toEqual(["demote", "promote"]);
+	});
+
+	test("con un candidato elegible promueve sin error", async () => {
+		const { repository } = repositoryWithTransaction(1);
+
+		await expect(
+			repository.assignHead({
+				dependencyId: 5,
+				candidateUserId: 9,
+				currentHeadUserId: null,
+			}),
+		).resolves.toBeUndefined();
+	});
+});

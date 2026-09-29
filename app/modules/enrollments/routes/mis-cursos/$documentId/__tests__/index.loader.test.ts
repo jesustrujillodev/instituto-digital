@@ -16,6 +16,7 @@ const createHarness = (
 		detail?: object | null;
 		findFails?: string;
 		classrooms?: string[];
+		sessionMaterials?: object[];
 	} = {},
 ) => {
 	const context = {
@@ -35,6 +36,9 @@ const createHarness = (
 		},
 		classroomService: {
 			listMine: async () => okReply(options.classrooms ?? []),
+		},
+		sessionMaterialService: {
+			findForParticipant: async () => okReply(options.sessionMaterials ?? []),
 		},
 	} as unknown as LoaderArgs["context"];
 
@@ -70,6 +74,15 @@ describe("mis-cursos/:documentId loader", () => {
 			course: { documentId: COURSE_ID },
 			hasClassroom: true,
 		});
+	});
+
+	test("entrega el material de cada sesión", async () => {
+		const sessionMaterials = [{ sessionDocumentId: "s-1", materials: [] }];
+		const { context } = createHarness({ sessionMaterials });
+
+		const { data } = await run(context);
+
+		expect(data.sessionMaterials).toEqual(sessionMaterials);
 	});
 
 	test("sin aula no ofrece entrar", async () => {

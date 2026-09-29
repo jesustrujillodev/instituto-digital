@@ -228,6 +228,20 @@ export const renderNotification = (
 				},
 			]);
 
+		case "ENROLLMENT_REMOVED":
+			return build(`Baja del curso «${event.course.title}»`, [
+				greeting,
+				{
+					kind: "paragraph",
+					text: `Quien organiza el curso ${courseSummary(event.course)} te dio de baja. Ya no estás inscrito y tu lugar quedó libre.`,
+				},
+				{
+					kind: "action",
+					label: "Ver otros cursos disponibles",
+					url: `${context.appUrl}/dashboard/cursos-disponibles`,
+				},
+			]);
+
 		case "CERTIFICATE_ISSUED":
 			return build(`Tu certificado de «${event.course.title}» está listo`, [
 				greeting,

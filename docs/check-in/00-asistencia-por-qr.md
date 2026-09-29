@@ -96,8 +96,10 @@ los dos casos convertiría la ruta en un oráculo de qué tokens existen.
 
 ## 6. El QR en la ficha
 
-Pestaña "Código QR" de `/dashboard/imparticion/:documentId`, visible solo cuando
-`canWrite` — el mapper no expone `detail.qr` a quien no puede escribir.
+Pestaña "Asistencia" de `/dashboard/imparticion/:documentId`, junto al registro
+por sesión, visible solo cuando `canWrite` — el mapper no expone `detail.qr` a
+quien no puede escribir. Si se reactiva el pase de lista manual
+(`MANUAL_ATTENDANCE_ENABLED`), el QR vuelve a su propia pestaña "Código QR".
 
 - Se dibuja en el cliente con `qrcode`, nivel de corrección **Q** (25 %) y
   `margin: 4`: el impreso se dobla, se mancha y se fotocopia.

@@ -95,6 +95,10 @@ interface HarnessOptions {
 	candidates?: CandidateAccount[];
 	enrollable?: { groupId: number; userDocumentId: string }[];
 	own?: EnrollmentStatus | null;
+	/** La baja propia la dio quien organiza. */
+	removed?: boolean;
+	/** La inscripción de la persona a quien se da de baja. */
+	target?: { status: EnrollmentStatus; completed?: boolean } | null;
 	seats?: { capacity: number | null; enrolled: number };
 	participants?: ParticipantAccount[];
 	groupMembers?: ParticipantAccount[];
@@ -141,6 +145,23 @@ const createHarness = (options: HarnessOptions = {}) => {
 						origin: "INVITATION",
 						status: options.own,
 						result: "PENDING",
+						removed: options.removed ?? false,
+					}
+				: null,
+		findParticipantEnrollment: async () =>
+			options.target
+				? {
+						userId: 60,
+						documentId: "e2",
+						origin: "ASSIGNED",
+						status: options.target.status,
+						result: "PENDING",
+						removed: false,
+						completed: options.target.completed ?? false,
+						dependencyId: 4,
+						email: "lucia@instituto.gob.mx",
+						firstName: "Lucía",
+						lastName: "Mena",
 					}
 				: null,
 		findEnrollments: async () =>
@@ -288,6 +309,21 @@ describe("enrollmentService.listAvailable", () => {
 });
 
 describe("enrollmentService.enroll", () => {
+	test("dado de baja por quien organiza, no se reinscribe solo", async () => {
+		const { service, calls } = createHarness({
+			own: "WITHDRAWN",
+			removed: true,
+		});
+
+		const result = await service.enroll(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.REMOVED },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
 	test("inscribe dentro de una transacción con el curso bloqueado", async () => {
 		const { service, calls } = createHarness({
 			seats: { capacity: 20, enrolled: 3 },
@@ -928,12 +964,14 @@ const myCourseOf = (
 	status: EnrollmentStatus,
 	course: Partial<EnrollmentCourse>,
 	outcome: Partial<MyCourseRecord["outcome"]> = {},
+	removed = false,
 ): MyCourseRecord => ({
 	enrollment: {
 		documentId: `e-${status}-${course.title}`,
 		origin: "SELF",
 		status,
 		result: "PENDING",
+		removed,
 		withdrawnAt: status === "WITHDRAWN" ? NOW : null,
 	},
 	course: courseOf(course),
@@ -1098,6 +1136,18 @@ describe("enrollmentService.findMyCourse", () => {
 		});
 	});
 
+	test("dado de baja por quien organiza no puede volver solo", async () => {
+		const { service } = createHarness({
+			mine: [myCourseOf("WITHDRAWN", selfPaced, {}, true)],
+		});
+
+		const result = await service.findMyCourse(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			data: { enrollment: { removed: true }, can: { enroll: false } },
+		});
+	});
+
 	test("quien no puede cursar no tiene ficha propia", async () => {
 		const { service } = createHarness({
 			mine: [myCourseOf("ENROLLED", selfPaced)],
@@ -1191,5 +1241,128 @@ describe("avisos de inscripción e invitación (§6.12)", () => {
 			),
 		).toEqual(["persona-100@instituto.gob.mx"]);
 		expect(calls.notified[0]?.events[0]?.template).toBe("COURSE_INVITATION");
+	});
+});
+
+describe("enrollmentService.remove", () => {
+	const HEAD = actorOf("DEPENDENCY_HEAD", { userId: 8 });
+	const TARGET = { userDocumentId: USER_B };
+
+	test("quien organiza da de baja, libera el lugar y avisa", async () => {
+		const { service, calls } = createHarness({
+			target: { status: "ENROLLED" },
+		});
+
+		const result = await service.remove(COURSE_ID, TARGET, HEAD);
+
+		expect(result).toMatchObject({ success: true, data: null });
+		expect(calls.saved).toEqual([
+			{
+				data: {
+					courseId: 7,
+					userId: 60,
+					dependencyId: 4,
+					origin: "ASSIGNED",
+					status: "WITHDRAWN",
+					actedById: 8,
+					at: NOW,
+				},
+				expected: "ENROLLED",
+			},
+		]);
+		expect(calls.notified).toEqual([
+			{
+				events: [
+					expect.objectContaining({
+						template: "ENROLLMENT_REMOVED",
+						to: {
+							email: "lucia@instituto.gob.mx",
+							firstName: "Lucía",
+							lastName: "Mena",
+						},
+					}),
+				],
+				inTransaction: true,
+			},
+		]);
+	});
+
+	// A diferencia de la baja voluntaria, que cierra con la primera sesión.
+	test("un curso ya empezado todavía admite la baja", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ firstSessionAt: new Date("2026-09-01T16:00:00Z") }),
+			target: { status: "ENROLLED" },
+		});
+
+		const result = await service.remove(COURSE_ID, TARGET, HEAD);
+
+		expect(result.success).toBe(true);
+		expect(calls.saved).toHaveLength(1);
+	});
+
+	test("una dependencia que no organiza el curso no da de baja", async () => {
+		const { service, calls } = createHarness({
+			managed: false,
+			target: { status: "ENROLLED" },
+		});
+
+		const result = await service.remove(COURSE_ID, TARGET, HEAD);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.FORBIDDEN_SCOPE },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	test("un participante no da de baja a nadie", async () => {
+		const { service, calls } = createHarness({
+			target: { status: "ENROLLED" },
+		});
+
+		const result = await service.remove(COURSE_ID, TARGET, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.FORBIDDEN_SCOPE },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	test("a quien no está inscrito no se le da de baja", async () => {
+		for (const target of [null, { status: "WITHDRAWN" as const }]) {
+			const { service, calls } = createHarness({ target });
+
+			const result = await service.remove(COURSE_ID, TARGET, HEAD);
+
+			expect(result).toMatchObject({
+				success: false,
+				error: { code: ENROLLMENT_ERROR_CODES.PARTICIPANT_NOT_ENROLLED },
+			});
+			expect(calls.saved).toEqual([]);
+		}
+	});
+
+	test("quien completó el curso o un curso finalizado no admiten baja", async () => {
+		const cases = [
+			{ target: { status: "ENROLLED" as const, completed: true } },
+			{
+				course: courseOf({ status: "FINISHED" }),
+				target: { status: "ENROLLED" as const },
+			},
+		];
+
+		for (const options of cases) {
+			const { service, calls } = createHarness(options);
+
+			const result = await service.remove(COURSE_ID, TARGET, HEAD);
+
+			expect(result).toMatchObject({
+				success: false,
+				error: { code: ENROLLMENT_ERROR_CODES.REMOVE_CLOSED },
+			});
+			expect(calls.saved).toEqual([]);
+			expect(calls.notified).toEqual([]);
+		}
 	});
 });

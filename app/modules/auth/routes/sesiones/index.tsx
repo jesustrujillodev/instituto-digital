@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFetcher, useSearchParams } from "react-router";
+import { formatZonedDateTime } from "@/lib/date-utils";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import {
 	DataTable,
@@ -45,14 +46,7 @@ import type { Route } from "./+types/index";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-const dateTime = (value: Date | string) =>
-	new Date(value).toLocaleString("es-MX", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
+const dateTime = (value: Date | string) => formatZonedDateTime(new Date(value));
 
 /** "45 segundos" / "5 minutos" — para redactar la ventana de revocación. */
 const humanizeSeconds = (seconds: number) => {

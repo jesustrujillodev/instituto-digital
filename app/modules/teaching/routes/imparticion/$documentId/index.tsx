@@ -8,6 +8,7 @@ import {
 	Download,
 	Flag,
 	Pencil,
+	UserMinus,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
@@ -17,6 +18,7 @@ import { certificateDownloadUrl } from "@/modules/certificates/utils/certificate
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
 import { QuizResults } from "@/modules/content/components/quiz-results";
+import { SessionMaterialsPanel } from "@/modules/content/components/session-materials-panel";
 import type { QuizBoard } from "@/modules/content/domain/quiz.types";
 import {
 	CourseFormatBadge,
@@ -24,6 +26,7 @@ import {
 	CourseStatusBadge,
 } from "@/modules/courses/components/course-badges";
 import {
+	allowsSessions,
 	countsAttendance,
 	gradesAutomatically,
 	requiresContent,
@@ -43,6 +46,12 @@ import {
 	ENROLLMENT_RESULT_LABELS,
 	personNameOf,
 } from "@/modules/enrollments/utils/enrollment-labels";
+import {
+	INTENT_FIELD as ENROLLMENT_INTENT_FIELD,
+	ENROLLMENT_INTENTS,
+	type EnrollmentActionData,
+	USER_FIELD,
+} from "@/modules/enrollments/utils/parse-enrollment-form-data";
 import { EvaluationsPanel } from "@/modules/evaluations/components/evaluations-panel";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -61,6 +70,7 @@ import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { AttendancePanel } from "../../../components/attendance-panel";
 import { RatingsPanel } from "../../../components/ratings-panel";
 import { ResultsPanel } from "../../../components/results-panel";
+import { MANUAL_ATTENDANCE_ENABLED } from "../../../domain/teaching.config";
 import type {
 	TeachingDetail,
 	TeachingParticipantView,
@@ -121,7 +131,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 				open={confirming}
 				onOpenChange={setConfirming}
 				title="¿Finalizar el curso?"
-				description="Se otorgan los créditos y se emiten los certificados a quien completó. Después, solo el titular o un auxiliar de la dependencia pueden corregir asistencia y resultados."
+				description={`Se otorgan los créditos y se emiten los certificados a quien completó. Después, solo el titular o un auxiliar de la dependencia pueden corregir ${MANUAL_ATTENDANCE_ENABLED ? "asistencia y resultados" : "resultados"}.`}
 				confirmLabel="Finalizar"
 				cancelLabel="Volver"
 				onConfirm={() => {
@@ -354,6 +364,13 @@ function CertificateCell({
 
 function CompletionList({ detail }: { detail: TeachingDetail }) {
 	const { download, pending } = useFileDownload();
+	// La inscripción es de `enrollments`: la baja va a su action, no a la de
+	// impartición.
+	const removal = useFetcher<EnrollmentActionData>();
+	useFetcherToast(removal);
+	const [removing, setRemoving] = useState<TeachingParticipantView | null>(
+		null,
+	);
 
 	// Un autogestivo completa en vivo: lo guardado ya es el hecho, no una
 	// previsión del cierre.
@@ -410,12 +427,55 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 												? "Sin completar"
 												: "No completa"}
 									</Badge>
+									{participant.removable && (
+										<Button
+											variant="ghost"
+											size="sm"
+											disabled={removal.state !== "idle"}
+											aria-label={`Dar de baja a ${personNameOf(participant)}`}
+											onClick={() => setRemoving(participant)}
+										>
+											<UserMinus aria-hidden="true" />
+											Dar de baja
+										</Button>
+									)}
 								</div>
 							</li>
 						);
 					})}
 				</ul>
 			</CardContent>
+
+			<ConfirmDialog
+				open={removing !== null}
+				onOpenChange={(open) => {
+					if (!open) setRemoving(null);
+				}}
+				title="¿Dar de baja a esta persona?"
+				description={
+					removing
+						? `${personNameOf(removing)} deja el curso, su lugar queda libre y se le avisa por correo. No podrá volver a inscribirse por su cuenta: solo quien organiza el curso puede inscribirla o invitarla de nuevo.`
+						: ""
+				}
+				confirmLabel="Dar de baja"
+				cancelLabel="Volver"
+				destructive
+				onConfirm={() => {
+					if (removing) {
+						removal.submit(
+							{
+								[ENROLLMENT_INTENT_FIELD]: ENROLLMENT_INTENTS.remove,
+								[USER_FIELD]: removing.userDocumentId,
+							},
+							{
+								method: "post",
+								action: `/dashboard/cursos/${detail.course.documentId}/inscripciones`,
+							},
+						);
+					}
+					setRemoving(null);
+				}}
+			/>
 		</Card>
 	);
 }
@@ -429,6 +489,9 @@ export default function ImparticionDetallePage({
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
 	const scheduled = requiresSessions(course.format);
+	// El híbrido autogestivo pasa lista en sus sesiones, aunque no cuenten para
+	// completarlo.
+	const withAttendance = scheduled || detail.sessions.length > 0;
 	const withContent = requiresContent(course);
 
 	// Editar vuelve aquí al terminar: se entra y se sale desde la impartición.
@@ -455,7 +518,9 @@ export default function ImparticionDetallePage({
 
 			<div className="flex flex-wrap gap-2">
 				<CourseStatusBadge status={course.status} />
-				{scheduled && <CourseModalityBadge modality={course.modality} />}
+				{allowsSessions(course) && (
+					<CourseModalityBadge modality={course.modality} />
+				)}
 				<CourseFormatBadge format={course.format} />
 				<Badge variant="outline">{detail.participants.length} inscritos</Badge>
 			</div>
@@ -464,7 +529,7 @@ export default function ImparticionDetallePage({
 				<Alert>
 					<AlertDescription>
 						{detail.can.correct
-							? `Finalizado el ${course.finishedAt ? formatZonedDate(new Date(course.finishedAt)) : ""}. Cada corrección de asistencia o resultados recalcula los créditos y queda registrado quién la hizo.`
+							? `Finalizado el ${course.finishedAt ? formatZonedDate(new Date(course.finishedAt)) : ""}. Cada corrección de ${MANUAL_ATTENDANCE_ENABLED ? "asistencia o resultados" : "resultados"} recalcula los créditos y queda registrado quién la hizo.`
 							: "El curso está finalizado. Solo el titular o un auxiliar de la dependencia organizadora pueden corregirlo."}
 					</AlertDescription>
 				</Alert>
@@ -479,8 +544,11 @@ export default function ImparticionDetallePage({
 
 			<Tabs defaultValue={scheduled ? "attendance" : "completion"}>
 				<TabsList>
-					{scheduled && (
+					{withAttendance && (
 						<TabsTrigger value="attendance">Asistencia</TabsTrigger>
+					)}
+					{withAttendance && (
+						<TabsTrigger value="materials">Material</TabsTrigger>
 					)}
 					{course.requiresEvaluation && (
 						<TabsTrigger value="results">
@@ -497,14 +565,30 @@ export default function ImparticionDetallePage({
 						</TabsTrigger>
 					)}
 					<TabsTrigger value="completion">Completado</TabsTrigger>
-					{scheduled && detail.qr && (
+					{MANUAL_ATTENDANCE_ENABLED && withAttendance && detail.qr && (
 						<TabsTrigger value="qr">Código QR</TabsTrigger>
 					)}
 					{ratings && <TabsTrigger value="ratings">Valoraciones</TabsTrigger>}
 				</TabsList>
-				{scheduled && (
-					<TabsContent value="attendance">
-						<AttendancePanel detail={detail} />
+				{withAttendance && (
+					<TabsContent
+						value="attendance"
+						className="flex flex-col gap-4 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start"
+					>
+						{/* Sin pase de lista, el QR es la forma de tomar asistencia: va
+						    junto al registro y no en una pestaña aparte. */}
+						{!MANUAL_ATTENDANCE_ENABLED && detail.qr && (
+							<CourseQrPanel title={course.title} qr={detail.qr} />
+						)}
+						<AttendancePanel
+							detail={detail}
+							manual={MANUAL_ATTENDANCE_ENABLED}
+						/>
+					</TabsContent>
+				)}
+				{withAttendance && (
+					<TabsContent value="materials">
+						<SessionMaterialsPanel courseDocumentId={course.documentId} />
 					</TabsContent>
 				)}
 				{course.requiresEvaluation && (
@@ -542,7 +626,7 @@ export default function ImparticionDetallePage({
 					)}
 					<CompletionList detail={detail} />
 				</TabsContent>
-				{scheduled && detail.qr && (
+				{MANUAL_ATTENDANCE_ENABLED && withAttendance && detail.qr && (
 					<TabsContent value="qr">
 						<CourseQrPanel title={course.title} qr={detail.qr} />
 					</TabsContent>

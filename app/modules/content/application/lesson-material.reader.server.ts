@@ -15,15 +15,15 @@ export const createLessonMaterialReader = ({
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
-}: Dependencies): ILessonMaterialReader => ({
+}: Dependencies): ILessonMaterialReader => {
 	/**
 	 * Se firma aquí y en cada carga: la key cruda no viaja al cliente, y el
 	 * reproductor recibe una URL que aguanta el video entero sin volver a pasar
 	 * por el servidor en cada salto.
 	 */
-	async sign(material: LessonMaterial) {
-		const key = material.fileUrl ? getKeyFromUrl(material.fileUrl) : null;
-		if (!key) return material;
+	const signReference = async (reference: string) => {
+		const key = getKeyFromUrl(reference);
+		if (!key) return null;
 
 		// Error de configuración, no de negocio: sale como UNEXPECTED con su
 		// mensaje real, que es lo que necesita quien opera.
@@ -40,6 +40,17 @@ export const createLessonMaterialReader = ({
 			}),
 		]);
 
-		return { ...material, fileUrl, downloadUrl };
-	},
-});
+		return { fileUrl, downloadUrl };
+	};
+
+	return {
+		async sign(material: LessonMaterial) {
+			const signed = material.fileUrl
+				? await signReference(material.fileUrl)
+				: null;
+
+			return signed ? { ...material, ...signed } : material;
+		},
+		signReference,
+	};
+};

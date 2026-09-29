@@ -25,6 +25,7 @@ export const COURSE_ERROR_CODES = {
 	WITHOUT_ACTIVE_TRAINER: "COURSE_WITHOUT_ACTIVE_TRAINER",
 	SESSION_MISSING_VENUE: "COURSE_SESSION_MISSING_VENUE",
 	SESSION_MISSING_LINK: "COURSE_SESSION_MISSING_LINK",
+	SESSION_MISSING_PLACE: "COURSE_SESSION_MISSING_PLACE",
 	SESSION_INVALID_RANGE: "COURSE_SESSION_INVALID_RANGE",
 	TOO_MANY_SESSIONS: "COURSE_TOO_MANY_SESSIONS",
 	DEADLINE_AFTER_START: "COURSE_DEADLINE_AFTER_START",
@@ -195,6 +196,16 @@ export class CourseSessionMissingLinkError extends CourseError {
 	readonly details: { sessionNumber: number };
 	constructor(sessionNumber: number) {
 		super(`Session ${sessionNumber} is missing its link`);
+		this.details = { sessionNumber };
+	}
+}
+
+/** Una sesión híbrida sin sede ni enlace: no se sabe si es presencial o en línea. */
+export class CourseSessionMissingPlaceError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.SESSION_MISSING_PLACE;
+	readonly details: { sessionNumber: number };
+	constructor(sessionNumber: number) {
+		super(`Session ${sessionNumber} has neither venue nor link`);
 		this.details = { sessionNumber };
 	}
 }

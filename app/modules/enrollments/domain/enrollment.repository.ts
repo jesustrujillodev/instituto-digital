@@ -16,6 +16,7 @@ import type {
 	MyCourseRecord,
 	NotifiableParticipant,
 	ParticipantAccount,
+	ParticipantEnrollment,
 	ProgressState,
 	ProgressWrite,
 	ResultWrite,
@@ -75,6 +76,11 @@ export interface IEnrollmentRepository {
 		courseId: number,
 		userIds: readonly number[],
 	): Promise<EnrollmentState[]>;
+	/** La inscripción de esa persona en el curso, con su contacto para avisarle. */
+	findParticipantEnrollment(
+		courseId: number,
+		userDocumentId: string,
+	): Promise<ParticipantEnrollment | null>;
 
 	/**
 	 * Bloquea la fila del curso hasta el final de la transacción y cuenta los

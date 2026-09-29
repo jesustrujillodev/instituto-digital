@@ -3,6 +3,7 @@ import {
 	type EnrollmentCourseRaw,
 	toAvailableCourse,
 	toEnrollmentCourse,
+	toOwnEnrollment,
 	toRosterEntry,
 	withAvailability,
 } from "../enrollment.mapper";
@@ -151,6 +152,26 @@ describe("cierre próximo", () => {
 	});
 });
 
+describe("toOwnEnrollment", () => {
+	const rawOf = (status: "ENROLLED" | "WITHDRAWN", actedById: number) => ({
+		documentId: "e1",
+		origin: "SELF" as const,
+		status,
+		result: "PENDING" as const,
+		userId: 20,
+		actedById,
+	});
+
+	test("la baja que dio otra persona es una baja de quien organiza", () => {
+		expect(toOwnEnrollment(rawOf("WITHDRAWN", 3)).removed).toBe(true);
+	});
+
+	test("la baja propia y la inscripción asignada no lo son", () => {
+		expect(toOwnEnrollment(rawOf("WITHDRAWN", 20)).removed).toBe(false);
+		expect(toOwnEnrollment(rawOf("ENROLLED", 3)).removed).toBe(false);
+	});
+});
+
 describe("toRosterEntry", () => {
 	test("usa la dependencia con la que se inscribió", () => {
 		const entry = toRosterEntry({
@@ -158,6 +179,8 @@ describe("toRosterEntry", () => {
 			origin: "ASSIGNED",
 			status: "ENROLLED",
 			result: "PENDING",
+			userId: 20,
+			actedById: 3,
 			updatedAt: new Date(0),
 			dependency: { name: "SOP" },
 			user: {

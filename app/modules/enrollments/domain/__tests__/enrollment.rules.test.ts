@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { ENROLLMENT_ERROR_CODES } from "../enrollment.errors";
+import {
+	ENROLLMENT_ERROR_CODES,
+	EnrollmentRemoveClosedError,
+	EnrollmentRemovedError,
+} from "../enrollment.errors";
 import {
 	acceptsInvitations,
+	assertNotRemoved,
+	assertRemovable,
 	assertSeatsFor,
 	canParticipate,
 	canSelfEnroll,
@@ -12,7 +18,9 @@ import {
 	enrollmentClosesAt,
 	isEnrollmentOpen,
 	isOverForParticipant,
+	isRemoval,
 	participantPermissionsOf,
+	removalBlockerOf,
 	seatsLeftOf,
 } from "../enrollment.rules";
 
@@ -176,7 +184,11 @@ describe("participantPermissionsOf", () => {
 	const publicCourse = courseOf({ enrollmentDeadline: DEADLINE });
 	const permissions = (
 		status: Parameters<typeof participantPermissionsOf>[1],
-		overrides: { access?: "PUBLIC" | "INVITATION"; completed?: boolean } = {},
+		overrides: {
+			access?: "PUBLIC" | "INVITATION";
+			completed?: boolean;
+			removed?: boolean;
+		} = {},
 		now = BEFORE,
 	) =>
 		participantPermissionsOf(
@@ -184,6 +196,7 @@ describe("participantPermissionsOf", () => {
 			status,
 			overrides.completed ?? false,
 			now,
+			overrides.removed ?? false,
 		);
 
 	test("de baja con la inscripción abierta puede volver a inscribirse", () => {
@@ -193,6 +206,10 @@ describe("participantPermissionsOf", () => {
 			accept: false,
 			decline: false,
 		});
+	});
+
+	test("dado de baja por quien organiza no vuelve solo aunque siga abierto", () => {
+		expect(permissions("WITHDRAWN", { removed: true }).enroll).toBe(false);
 	});
 
 	test("de baja de un curso por invitación ya no puede volver solo", () => {
@@ -215,7 +232,8 @@ describe("participantPermissionsOf", () => {
 		};
 
 		expect(
-			participantPermissionsOf(selfPaced, "ENROLLED", true, BEFORE).withdraw,
+			participantPermissionsOf(selfPaced, "ENROLLED", true, BEFORE, false)
+				.withdraw,
 		).toBe(false);
 	});
 
@@ -400,5 +418,66 @@ describe("courseTimelineOf", () => {
 			nextSession: null,
 			daysToStart: null,
 		});
+	});
+});
+
+describe("isRemoval", () => {
+	test("solo es baja de quien organiza si la hizo otra persona", () => {
+		expect(isRemoval({ status: "WITHDRAWN", userId: 20, actedById: 3 })).toBe(
+			true,
+		);
+		expect(isRemoval({ status: "WITHDRAWN", userId: 20, actedById: 20 })).toBe(
+			false,
+		);
+		expect(isRemoval({ status: "ENROLLED", userId: 20, actedById: 3 })).toBe(
+			false,
+		);
+	});
+});
+
+describe("removalBlockerOf / assertRemovable", () => {
+	test("en un curso publicado se da de baja a quien no lo completó", () => {
+		expect(removalBlockerOf({ status: "PUBLISHED" }, false)).toBeNull();
+		expect(() => assertRemovable({ status: "PUBLISHED" }, false)).not.toThrow();
+	});
+
+	// A diferencia de la baja voluntaria, empezar el curso no la cierra.
+	test("un curso ya empezado sigue admitiendo la baja", () => {
+		expect(removalBlockerOf({ status: "PUBLISHED" }, false)).toBeNull();
+	});
+
+	test("un finalizado o un borrador no admiten baja", () => {
+		for (const status of ["FINISHED", "DRAFT", "CANCELLED"] as const) {
+			expect(removalBlockerOf({ status }, false)).toBe("NOT_PUBLISHED");
+		}
+	});
+
+	test("quien completó conserva su inscripción", () => {
+		expect(removalBlockerOf({ status: "PUBLISHED" }, true)).toBe("COMPLETED");
+	});
+
+	test("el error lleva un código estable y el motivo", () => {
+		try {
+			assertRemovable({ status: "PUBLISHED" }, true);
+			expect.unreachable();
+		} catch (error) {
+			expect(error).toBeInstanceOf(EnrollmentRemoveClosedError);
+			expect((error as EnrollmentRemoveClosedError).code).toBe(
+				ENROLLMENT_ERROR_CODES.REMOVE_CLOSED,
+			);
+			expect((error as EnrollmentRemoveClosedError).details).toEqual({
+				reason: "COMPLETED",
+			});
+		}
+	});
+});
+
+describe("assertNotRemoved", () => {
+	test("la baja de quien organiza corta la reinscripción propia", () => {
+		expect(() => assertNotRemoved({ removed: true })).toThrow(
+			EnrollmentRemovedError,
+		);
+		expect(() => assertNotRemoved({ removed: false })).not.toThrow();
+		expect(() => assertNotRemoved(null)).not.toThrow();
 	});
 });

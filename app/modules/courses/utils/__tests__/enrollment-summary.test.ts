@@ -42,7 +42,7 @@ describe("enrollmentSummaryOf", () => {
 				inputOf({ firstSessionStart: new Date("2026-09-23T17:00:00.000Z") }),
 			),
 		).toBe(
-			"Todo el personal interno podrá verlo e inscribirse, sin límite de lugares, hasta el 23 sep 2026 a las 10:00.",
+			"Todo el personal interno podrá verlo e inscribirse, sin límite de lugares, hasta el 23-09-2026 a las 10:00.",
 		);
 	});
 
@@ -77,7 +77,7 @@ describe("enrollmentSummaryOf", () => {
 				}),
 			),
 		).toBe(
-			"Solo quien invites podrá verlo e inscribirse, sin límite de lugares, hasta el 20 sep 2026.",
+			"Solo quien invites podrá verlo e inscribirse, sin límite de lugares, hasta el 20-09-2026.",
 		);
 	});
 

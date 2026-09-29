@@ -1,3 +1,4 @@
+import { formatZonedDate } from "@/lib/date-utils";
 import type { Column } from "./data-table";
 import { TruncatedText } from "./truncated-text";
 
@@ -111,7 +112,6 @@ export const columnHelpers = {
 			sortable?: boolean;
 			className?: string;
 			mobileHidden?: boolean;
-			format?: Intl.DateTimeFormatOptions;
 		},
 	): Column<T> => ({
 		key,
@@ -126,14 +126,7 @@ export const columnHelpers = {
 			const date = value instanceof Date ? value : new Date(String(value));
 			return (
 				<span className="text-sm text-muted-foreground">
-					{date.toLocaleDateString(
-						"es-MX",
-						options?.format || {
-							year: "numeric",
-							month: "short",
-							day: "numeric",
-						},
-					)}
+					{formatZonedDate(date)}
 				</span>
 			);
 		},

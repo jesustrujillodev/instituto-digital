@@ -70,6 +70,8 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Una persona elegida fuera de alcance rechaza el lote; un miembro de grupo fuera de alcance solo se omite | `resolveBatch` |
 | Solo se invita en cursos `INVITATION`: en uno público o restringido, la audiencia ya puede inscribirse sola | `acceptsInvitations`, `ENROLLMENT_INVITATIONS_DISABLED` |
 | Invitar omite a quien ya está `INVITED` o `ENROLLED` y reinvita a quien rechazó o se dio de baja | `invite` |
+| Quien organiza da de baja a un inscrito mientras el curso está `PUBLISHED` y la persona no lo ha completado, aunque el curso ya haya empezado. Libera su lugar y le avisa (`ENROLLMENT_REMOVED`) | `remove`, `removalBlockerOf` (`ENROLLMENT_REMOVE_CLOSED`) |
+| Una baja con `acted_by_id` distinto de la persona es de quien organiza: la persona no vuelve sola desde el catálogo (`ENROLLMENT_REMOVED`); quien organiza sí puede asignarla o invitarla de nuevo. No hay estado nuevo: sigue siendo `WITHDRAWN` | `isRemoval`, `assertNotRemoved`, `participantPermissionsOf` |
 
 El instante actual llega por el cradle (`clock`) para probar estas reglas con
 fechas fijas.
@@ -82,8 +84,9 @@ fechas fijas.
 | Asignar personas o grupos | Superadministrador, titular, auxiliar, capacitador interno | Superadministrador: cualquier curso y persona. Titular y auxiliar: cursos que ve su dependencia (`dependencyVisibilityWhere`). Capacitador: los que creó. En los tres últimos, solo personal de su dependencia |
 | Invitar personas o grupos | Los mismos | Cursos `INVITATION` que ven. Quien organiza invita a cualquier dependencia; los demás, solo a su personal |
 | Ver la lista de inscritos | Los mismos | Quien organiza la ve completa; una dependencia que manda personal a un curso ajeno ve solo a la suya |
+| Dar de baja a un inscrito | Quien organiza: superadministrador, dependencia organizadora, capacitador que lo creó | Solo con el filtro de escritura; una dependencia que solo manda personal recibe `ENROLLMENT_FORBIDDEN_SCOPE` |
 
-Las cuatro operaciones resuelven el alcance en `requireRosterAccess`: primero con
+Las cinco operaciones resuelven el alcance en `requireRosterAccess`: primero con
 el filtro de escritura (organiza) y, si no, con `dependencyVisibilityWhere`
 (manda personal). Hoy ninguna dependencia ve los cursos `INVITATION` de otra, así
 que en la práctica solo quien organiza invita.
@@ -97,13 +100,13 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 | `/dashboard/cursos-disponibles` | `requireParticipant` | Cuadrícula de tarjetas con portada. Publicados, visibles y con la inscripción abierta |
 | `/dashboard/cursos-disponibles/:documentId` | `requireParticipant` | Ficha del catálogo: sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`. Si la dependencia puede asignar, enlaza a Inscripciones con "Inscribir a mi personal". Inscrito y con aula, ofrece «Entrar al aula» |
 | `/dashboard/mis-cursos` | `requireParticipant` | Secciones apiladas: «Te invitaron», «En curso», «Próximos» y «Finalizados»; las «Inscripciones canceladas» (`WITHDRAWN`) solo aparecen al pedirlas desde «Filtrar». Finalizados y canceladas enseñan una fila y «Ver todos» despliega el resto. Buscador (título o dependencia, sin acentos) y filtros por estado, modalidad, formato y dependencia, en el navegador. En curso, la barra mide el temario («3 de 5 lecciones», de `classroomService.summarizeMine`) o las sesiones ya transcurridas con la próxima; «empieza en N días» y las sesiones transcurridas los calcula el servidor (`courseTimelineOf`). Intents `accept`, `decline`. Cada tarjeta lleva a la ficha propia |
-| `/dashboard/mis-cursos/:documentId` | `requireParticipant` | Ficha propia del curso para quien lo cursa (`INVITED`, `ENROLLED` o `WITHDRAWN`): estado, avance, resultado, aula, certificado y valoración; «volver» y el rastro regresan a Mis cursos. Intents `enroll` («Volver a inscribirme» tras una baja; el avance se conserva), `withdraw`, `accept`, `decline`. Sin inscripción o con la invitación rechazada, redirige a la ficha del catálogo. A ella llevan también el calendario (lentes inscrito/invitado), Mis créditos y los correos del curso |
+| `/dashboard/mis-cursos/:documentId` | `requireParticipant` | Ficha propia del curso para quien lo cursa (`INVITED`, `ENROLLED` o `WITHDRAWN`): estado, avance, resultado, aula, certificado y valoración; «volver» y el rastro regresan a Mis cursos. Intents `enroll` («Volver a inscribirme» tras una baja propia; el avance se conserva), `withdraw`, `accept`, `decline`. Sin inscripción o con la invitación rechazada, redirige a la ficha del catálogo. A ella llevan también el calendario (lentes inscrito/invitado), Mis créditos y los correos del curso |
 | `/dashboard/mis-cursos/finalizados.xlsx` | `requireParticipant` | Ruta de recurso: descarga los finalizados en Excel, con una hoja "Cursos" y otra "Sesiones". El libro lo arma `spreadsheetWriter` (exceljs), y las fechas salen en la hora del instituto |
-| `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign` e `invite`. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
+| `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign`, `invite` y `remove`; la baja se ofrece desde «Completado» en la impartición y envía aquí. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
 
 El menú muestra "Cursos disponibles" y "Mis cursos" a `USER`, `DEPENDENCY_HEAD` y
-`DEPENDENCY_DEPUTY`. El capacitador externo tiene rol `USER` y ve los enlaces,
-pero su loader le responde 403, la misma limitación que ya tiene "Cursos".
+`DEPENDENCY_DEPUTY` con dependencia (`requiresDependency`): el capacitador
+externo, `USER` sin dependencia, no los ve.
 
 ### 5.1 · El catálogo
 

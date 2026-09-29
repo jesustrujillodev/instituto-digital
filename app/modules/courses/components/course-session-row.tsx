@@ -1,13 +1,14 @@
-import { CircleAlert, Link2, MapPin, Trash2 } from "lucide-react";
+import { CircleAlert, Link2, MapPin, Paperclip, Trash2 } from "lucide-react";
 import { memo, useId } from "react";
-import { useFormContext, useWatch } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { cn } from "@/lib/utils";
+import { DateInput } from "@/shared/components/common/date-input";
 import { TextInput } from "@/shared/components/common/text-input";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import type { CourseModality } from "../domain/course.rules";
-import { requiresLink, requiresVenue } from "../domain/course.rules";
+import { acceptsLink, acceptsVenue } from "../domain/course.rules";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
 import { formatDuration, sessionMinutes } from "../utils/session-duration";
 
@@ -17,7 +18,7 @@ import { formatDuration, sessionMinutes } from "../utils/session-duration";
  * edita, y en móvil se apila como tarjeta.
  */
 export const SESSION_GRID =
-	"sm:grid-cols-[1.75rem_minmax(0,1fr)_7.5rem_7.5rem_7.5rem_2.25rem]";
+	"sm:grid-cols-[1.75rem_minmax(0,1fr)_7.5rem_7.5rem_7.5rem_auto]";
 
 interface CourseSessionRowProps {
 	index: number;
@@ -25,6 +26,9 @@ interface CourseSessionRowProps {
 	/** Con la casilla "cada sesión en una sede distinta": el lugar va en la fila. */
 	placePerSession: boolean;
 	onRemove: (index: number) => void;
+	/** Material por sesión guardada; `null` mientras no hay borrador. */
+	materialCounts: Readonly<Record<string, number>> | null;
+	onOpenMaterials: (index: number) => void;
 }
 
 function SessionStatus({
@@ -60,6 +64,34 @@ function SessionStatus({
 }
 
 /**
+ * El material de la sesión. En una fila nueva también se puede: abrirlo guarda
+ * el paso primero, porque el material cuelga de la sesión guardada.
+ */
+function SessionMaterialButton({
+	number,
+	count,
+	onOpen,
+}: {
+	number: number;
+	count: number;
+	onOpen: () => void;
+}) {
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			onClick={onOpen}
+			aria-label={`Material de la sesión ${number}${count > 0 ? `: ${count}` : ""}`}
+			className="gap-1.5 px-2 tabular-nums"
+		>
+			<Paperclip aria-hidden="true" />
+			Material{count > 0 && ` · ${count}`}
+		</Button>
+	);
+}
+
+/**
  * Una sesión. Cada fila se registra por su cuenta con `useFormContext`, así que
  * teclear en la quinta no vuelve a pintar la primera.
  *
@@ -71,9 +103,12 @@ export const CourseSessionRow = memo(function CourseSessionRow({
 	modality,
 	placePerSession,
 	onRemove,
+	materialCounts,
+	onOpenMaterials,
 }: CourseSessionRowProps) {
 	const {
 		register,
+		control,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
 	const [startTime, endTime] = useWatch<
@@ -82,11 +117,19 @@ export const CourseSessionRow = memo(function CourseSessionRow({
 	>({
 		name: [`sessions.${index}.startTime`, `sessions.${index}.endTime`],
 	});
+	const sessionDocumentId = useWatch<
+		CourseFormValues,
+		`sessions.${number}.documentId`
+	>({ name: `sessions.${index}.documentId` });
+	const pendingMaterials = useWatch<
+		CourseFormValues,
+		`sessions.${number}.materials`
+	>({ name: `sessions.${index}.materials` });
 	const prefix = useId();
 	const rowErrors = errors.sessions?.[index];
 	const number = index + 1;
-	const showVenue = placePerSession && requiresVenue(modality);
-	const showLink = placePerSession && requiresLink(modality);
+	const showVenue = placePerSession && acceptsVenue(modality);
+	const showLink = placePerSession && acceptsLink(modality);
 
 	const messages = [
 		rowErrors?.date?.message,
@@ -121,12 +164,21 @@ export const CourseSessionRow = memo(function CourseSessionRow({
 				<Label htmlFor={`${prefix}date`} className={cellLabel}>
 					Fecha{onSession}
 				</Label>
-				<Input
-					id={`${prefix}date`}
-					type="date"
-					required
-					aria-invalid={Boolean(rowErrors?.date)}
-					{...register(`sessions.${index}.date`)}
+				<Controller
+					control={control}
+					name={`sessions.${index}.date`}
+					render={({ field }) => (
+						<DateInput
+							id={`${prefix}date`}
+							ref={field.ref}
+							name={field.name}
+							required
+							aria-invalid={Boolean(rowErrors?.date)}
+							value={field.value}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+						/>
+					)}
 				/>
 			</div>
 
@@ -167,16 +219,29 @@ export const CourseSessionRow = memo(function CourseSessionRow({
 
 			<SessionStatus startTime={startTime ?? ""} endTime={endTime ?? ""} />
 
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-sm"
-				aria-label={`Quitar la sesión ${number}`}
-				onClick={() => onRemove(index)}
-				className="justify-self-end text-muted-foreground hover:text-destructive"
-			>
-				<Trash2 aria-hidden="true" />
-			</Button>
+			<div className="flex items-center gap-1 justify-self-end">
+				{materialCounts && (
+					<SessionMaterialButton
+						number={number}
+						count={
+							(sessionDocumentId
+								? (materialCounts[sessionDocumentId] ?? 0)
+								: 0) + (pendingMaterials?.length ?? 0)
+						}
+						onOpen={() => onOpenMaterials(index)}
+					/>
+				)}
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-sm"
+					aria-label={`Quitar la sesión ${number}`}
+					onClick={() => onRemove(index)}
+					className="text-muted-foreground hover:text-destructive"
+				>
+					<Trash2 aria-hidden="true" />
+				</Button>
+			</div>
 
 			{(showVenue || showLink) && (
 				<div

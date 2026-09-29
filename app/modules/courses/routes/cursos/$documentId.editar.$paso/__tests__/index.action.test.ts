@@ -14,6 +14,13 @@ import {
 } from "../../__tests__/route-harness";
 import { action } from "../index.action";
 
+const SAVED_SESSIONS = [
+	{
+		documentId: "44444444-4444-4444-8444-444444444444",
+		startsAt: new Date("2026-10-05T16:00:00.000Z"),
+	},
+];
+
 type ActionArgs = Parameters<typeof action>[0];
 
 const validCourse = {
@@ -29,7 +36,9 @@ const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
 		updated: [] as unknown[],
 	};
 	const reply = () =>
-		options.failsWith ? failReply(options.failsWith) : okReply(null);
+		options.failsWith
+			? failReply(options.failsWith)
+			: okReply({ sessions: SAVED_SESSIONS });
 
 	const context = {
 		authPayload: authPayloadOf(options),
@@ -69,6 +78,10 @@ describe("cursos/edición action", () => {
 
 		expect(result.success).toBe(true);
 		expect(calls.updated).toMatchObject([{ documentId: COURSE_ID }]);
+		// Con su identidad, el alta cuelga el material pendiente de las nuevas.
+		expect(result.success && result.data).toEqual({
+			sessions: SAVED_SESSIONS,
+		});
 	});
 
 	test("un parámetro de URL que no es uuid no llega al servicio", async () => {

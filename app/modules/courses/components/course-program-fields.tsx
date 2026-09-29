@@ -1,37 +1,29 @@
-import { Info } from "lucide-react";
+import { BookOpenText, Info, Video } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import {
+	allowsSessions,
 	COURSE_MODALITIES,
 	type CourseFormat,
 	type CourseModality,
+	countsAttendance,
 	requiresSessions,
+	requiresTrainer,
 } from "../domain/course.rules";
 import type { CourseFormOptions } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
-import { FORMAT_LABELS, MODALITY_LABELS } from "../utils/course-labels";
+import { MODALITY_LABELS } from "../utils/course-labels";
 import { CourseChecklistField } from "./course-checklist-field";
 import { CourseChoiceField } from "./course-choice-field";
+import { CourseQrWindowFields } from "./course-qr-window-fields";
 import { CourseSessionsField } from "./course-sessions-field";
-
-const FORMAT_DESCRIPTIONS: Record<CourseFormat, string> = {
-	SELF_PACED: "A su ritmo, sin sesiones",
-	SCHEDULED: "Con sesiones en fechas fijas",
-};
 
 const MODALITY_DESCRIPTIONS: Record<CourseModality, string> = {
 	IN_PERSON: "Sesiones en una sede",
-	ONLINE: "Sesiones por videollamada",
-	HYBRID: "Sede y enlace en cada sesión",
+	ONLINE: "Por videollamada o a su ritmo",
+	HYBRID: "En línea, con sesiones presenciales",
 };
-
-// Autogestivo primero: es el que no pide nada más en este paso.
-const FORMAT_OPTIONS = (["SELF_PACED", "SCHEDULED"] as const).map((value) => ({
-	value,
-	label: FORMAT_LABELS[value],
-	description: FORMAT_DESCRIPTIONS[value],
-}));
 
 const MODALITY_OPTIONS = COURSE_MODALITIES.map((value) => ({
 	value,
@@ -39,41 +31,73 @@ const MODALITY_OPTIONS = COURSE_MODALITIES.map((value) => ({
 	description: MODALITY_DESCRIPTIONS[value],
 }));
 
+// A su ritmo primero: es la que suma el paso Contenido al alta.
+const DELIVERY_OPTIONS = [
+	{
+		value: "SELF_PACED",
+		label: "Contenido a su ritmo",
+		description:
+			"Lecciones que cada quien recorre cuando quiera. Se arman en el paso Contenido.",
+		icon: BookOpenText,
+	},
+	{
+		value: "SCHEDULED",
+		label: "Sesiones en vivo",
+		description: "Por videollamada, en fechas y horarios fijos.",
+		icon: Video,
+	},
+] satisfies { value: CourseFormat; [key: string]: unknown }[];
+
 interface CourseProgramFieldsProps {
 	ids: CourseFormIds;
 	options: CourseFormOptions;
 	/** Publicado: un cambio de horario o lugar se avisa por correo. */
 	isPublished: boolean;
+	/** `null` antes del primer guardado. */
+	courseDocumentId: string | null;
 }
 
 /**
- * El programa: formato, modalidad y sesiones van juntos porque el formato
- * decide si hay sesiones y la modalidad qué lugar pide cada una. Quién imparte
- * va entre medias, y solo si hay sesiones: un autogestivo no tiene capacitador.
+ * El programa: la modalidad decide todo lo demás. Presencial se reúne siempre;
+ * en línea y la híbrida preguntan cómo se imparte la parte en línea, y esa
+ * respuesta es el formato. Quién imparte y las sesiones van después, solo
+ * cuando el curso los admite.
  */
 export function CourseProgramFields({
 	ids,
 	options,
 	isPublished,
+	courseDocumentId,
 }: CourseProgramFieldsProps) {
 	const { setValue } = useFormContext<CourseFormValues>();
 	const modality = useWatch<CourseFormValues, "modality">({ name: "modality" });
 	const format = useWatch<CourseFormValues, "format">({ name: "format" });
+	const completionRule = useWatch<CourseFormValues, "completionRule">({
+		name: "completionRule",
+	});
 
 	/**
-	 * El formato arrastra la regla de completado y el método de evaluación: sin
-	 * sesiones no hay asistencia que medir, y sin capacitador nadie captura
-	 * resultados a mano. Se corrige al elegir y no en el paso Evaluación porque
-	 * el wizard guarda cada paso por separado y el servidor rechazaría el
-	 * guardado intermedio.
+	 * El formato arrastra la regla de completado y el método de evaluación: un
+	 * autogestivo no cuenta asistencia y solo se evalúa con examen. Se corrige al
+	 * elegir y no en el paso Evaluación porque el wizard guarda cada paso por
+	 * separado y el servidor rechazaría el guardado intermedio.
 	 */
 	const applyFormat = useCallback(
-		(value: string) => {
-			if (requiresSessions(value as CourseFormat)) return;
+		(value: CourseFormat) => {
+			setValue("format", value, { shouldDirty: true });
+			if (requiresSessions(value)) return;
 			setValue("completionRule", "CONTENT");
 			setValue("evaluationMethod", "QUIZ");
 		},
 		[setValue],
+	);
+
+	// Presencial siempre se reúne: no hay parte en línea que preguntar.
+	const applyModality = useCallback(
+		(value: string) => {
+			if (value === "IN_PERSON") applyFormat("SCHEDULED");
+		},
+		[applyFormat],
 	);
 
 	const trainerOptions = useMemo(
@@ -88,61 +112,82 @@ export function CourseProgramFields({
 		[options.trainers],
 	);
 
-	const scheduled = requiresSessions(format);
+	const shape = { format, modality };
+	const selfPaced = !requiresSessions(format);
+	// Publicado, un autogestivo ya no puede ganar ni perder sesiones: pasar de
+	// híbrido a en línea borraría las que tenga y su asistencia.
+	const modalityLocked = isPublished && selfPaced;
 
 	return (
 		<>
-			<div className="flex flex-col gap-3">
-				<CourseChoiceField
-					id={ids.format}
-					name="format"
-					legend="Formato"
-					required
-					options={FORMAT_OPTIONS}
-					onChanged={applyFormat}
-					disabled={isPublished}
-					helperText={
-						isPublished ? "El formato no cambia una vez publicado." : undefined
-					}
+			<CourseChoiceField
+				id={ids.modality}
+				name="modality"
+				legend="Modalidad"
+				required
+				options={MODALITY_OPTIONS}
+				onChanged={applyModality}
+				disabled={modalityLocked}
+				helperText={
+					isPublished
+						? "Cómo se imparte el curso no cambia una vez publicado."
+						: undefined
+				}
+				detail={
+					modality !== "IN_PERSON" && (
+						<div className="flex flex-col gap-3">
+							<CourseChoiceField
+								id={ids.format}
+								name="format"
+								legend={
+									modality === "HYBRID"
+										? "¿Cómo se imparte la parte en línea?"
+										: "¿Cómo se imparte en línea?"
+								}
+								required
+								options={DELIVERY_OPTIONS}
+								onChanged={(value) => applyFormat(value as CourseFormat)}
+								disabled={isPublished}
+							/>
+							{selfPaced && !isPublished && (
+								<p className="flex items-start gap-2 text-muted-foreground text-sm">
+									<Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+									{modality === "HYBRID"
+										? "Agregamos el paso Contenido al alta para que armes las lecciones. Las sesiones de abajo son opcionales y no cuentan para completarlo."
+										: "Agregamos el paso Contenido al alta para que armes las lecciones. Sin sesiones ni capacitador: cada quien obtiene su crédito al terminarlas."}
+								</p>
+							)}
+						</div>
+					)
+				}
+			/>
+
+			{requiresTrainer(shape) && (
+				<CourseChecklistField
+					id={ids.trainers}
+					name="trainers"
+					legend="Capacitadores"
+					options={trainerOptions}
+					emptyText="No hay capacitadores activos en el catálogo."
+					searchPlaceholder="Buscar por nombre o área"
+					withInitials
 				/>
-				{!scheduled && (
-					<p className="flex items-start gap-2 text-muted-foreground text-sm">
-						<Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-						Sin sesiones que programar ni capacitador que asignar: cada persona
-						recorre las lecciones a su ritmo y obtiene su crédito al
-						terminarlas.
-					</p>
-				)}
-			</div>
-
-			{scheduled && (
-				<>
-					<CourseChoiceField
-						id={ids.modality}
-						name="modality"
-						legend="Modalidad"
-						required
-						options={MODALITY_OPTIONS}
-					/>
-
-					<CourseChecklistField
-						id={ids.trainers}
-						name="trainers"
-						legend="Capacitadores"
-						options={trainerOptions}
-						emptyText="No hay capacitadores activos en el catálogo."
-						searchPlaceholder="Buscar por nombre o área"
-						withInitials
-					/>
-				</>
 			)}
 
-			{scheduled && (
+			{allowsSessions(shape) && (
 				<CourseSessionsField
 					id={ids.sessions}
 					modality={modality}
+					optional={selfPaced}
 					isPublished={isPublished}
+					courseDocumentId={courseDocumentId}
 				/>
+			)}
+
+			{/* Solo donde la asistencia cuenta para completar: ahí el QR es la forma
+			    de tomarla. */}
+			{allowsSessions(shape) && countsAttendance(completionRule) && (
+				<CourseQrWindowFields ids={ids} />
 			)}
 		</>
 	);

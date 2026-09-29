@@ -23,15 +23,19 @@ export const loader = async ({
 		documentId: params.documentId,
 	});
 
-	const [detail, classrooms] = await Promise.all([
+	const [detail, classrooms, sessionMaterials] = await Promise.all([
 		context.enrollmentService.findMyCourse(documentId, auth),
 		context.classroomService.listMine(auth),
+		context.sessionMaterialService.findForParticipant(documentId, auth),
 	]);
 	if (!detail.success) {
 		throw toRouteError(detail.error, ENROLLMENT_ERROR_MESSAGES);
 	}
 	if (!classrooms.success) {
 		throw toRouteError(classrooms.error, CONTENT_ERROR_MESSAGES);
+	}
+	if (!sessionMaterials.success) {
+		throw toRouteError(sessionMaterials.error, CONTENT_ERROR_MESSAGES);
 	}
 	if (!detail.data) {
 		throw redirect(`/dashboard/cursos-disponibles/${documentId}`);
@@ -40,5 +44,6 @@ export const loader = async ({
 	return ok({
 		...detail.data,
 		hasClassroom: classrooms.data.includes(documentId),
+		sessionMaterials: sessionMaterials.data,
 	});
 };

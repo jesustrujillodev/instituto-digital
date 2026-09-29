@@ -54,5 +54,15 @@ export const ENROLLMENT_ERROR_MESSAGES: ErrorMessageMap = {
 		"Este curso es por invitación: solo se inscribe quien fue invitado.",
 	[ENROLLMENT_ERROR_CODES.STATE_CHANGED]:
 		"La inscripción cambió mientras se procesaba. Recarga e inténtalo de nuevo.",
+	[ENROLLMENT_ERROR_CODES.REMOVED]:
+		"Quien organiza el curso te dio de baja: solo esa persona puede volver a inscribirte.",
+	[ENROLLMENT_ERROR_CODES.PARTICIPANT_NOT_ENROLLED]:
+		"Esa persona ya no está inscrita en el curso.",
+	[ENROLLMENT_ERROR_CODES.REMOVE_CLOSED]: {
+		message: (error) =>
+			error.details?.reason === "COMPLETED"
+				? "Esa persona ya completó el curso: no se puede dar de baja."
+				: "Solo se da de baja en un curso publicado.",
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

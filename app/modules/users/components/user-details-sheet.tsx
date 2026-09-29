@@ -1,3 +1,4 @@
+import { formatZonedDateTime } from "@/lib/date-utils";
 import { TrainerProfileSection } from "@/modules/trainers/components/trainer-profile-section";
 import type { DataTableAction } from "@/shared/components/common/data-table";
 import { SheetRowActions } from "@/shared/components/common/sheet-row-actions";
@@ -19,6 +20,11 @@ import { AccountRoleBadge, StatusBadge, TrainerBadge } from "./user-badges";
 interface UserDetailsSheetProps {
 	/** `null` cierra el panel; el dato viene del loader del listado. */
 	user: UserRow | null;
+	/**
+	 * Catálogo de dependencias del loader. Sin él se oculta el campo: solo llega
+	 * con alcance global; para un titular sería siempre la suya.
+	 */
+	dependencyNames?: ReadonlyMap<number, string>;
 	onOpenChange: (open: boolean) => void;
 	/** Las acciones de la fila sobre la cuenta, sin "Ver detalles". */
 	actions: DataTableAction<UserRow>[];
@@ -26,23 +32,24 @@ interface UserDetailsSheetProps {
 	trainerActions: DataTableAction<UserRow>[];
 }
 
-const dateFormat: Intl.DateTimeFormatOptions = {
-	dateStyle: "medium",
-	timeStyle: "short",
-};
-
 const formatDate = (value: Date | string | null) =>
-	value ? new Date(value).toLocaleString("es-MX", dateFormat) : "—";
+	value ? formatZonedDateTime(new Date(value)) : "—";
 
 function Field({
 	label,
 	children,
+	wide,
 }: {
 	label: string;
 	children: React.ReactNode;
+	wide?: boolean;
 }) {
 	return (
-		<div className="flex flex-col gap-1">
+		<div
+			className={
+				wide ? "col-span-2 flex flex-col gap-1" : "flex flex-col gap-1"
+			}
+		>
 			<span className="text-muted-foreground text-xs uppercase tracking-wider">
 				{label}
 			</span>
@@ -59,6 +66,7 @@ function Field({
  */
 export function UserDetailsSheet({
 	user,
+	dependencyNames,
 	onOpenChange,
 	actions,
 	trainerActions,
@@ -104,6 +112,27 @@ export function UserDetailsSheet({
 								Cuenta
 							</h3>
 
+							<Field label="Tipo">
+								{user.type === "INTERNAL" ? "Interno" : "Externo"}
+							</Field>
+							{/* Un externo no tiene número de empleado, puesto ni dependencia. */}
+							{user.type === "INTERNAL" && (
+								<>
+									<Field label="N.º de empleado">
+										{user.employeeNumber || "—"}
+									</Field>
+									<Field label="Puesto" wide>
+										{user.jobTitle || "—"}
+									</Field>
+									{dependencyNames && (
+										<Field label="Dependencia" wide>
+											{(user.dependencyId !== null &&
+												dependencyNames.get(user.dependencyId)) ||
+												"—"}
+										</Field>
+									)}
+								</>
+							)}
 							<Field label="Teléfono">{user.phone || "—"}</Field>
 							<Field label="Creado">{formatDate(user.createdAt)}</Field>
 							<Field label="Última actualización">
@@ -112,13 +141,11 @@ export function UserDetailsSheet({
 							{user.archivedAt && (
 								<Field label="Archivado">{formatDate(user.archivedAt)}</Field>
 							)}
-							<div className="col-span-2">
-								<Field label="Identificador">
-									<code className="break-all font-mono text-xs">
-										{user.documentId}
-									</code>
-								</Field>
-							</div>
+							<Field label="Identificador" wide>
+								<code className="break-all font-mono text-xs">
+									{user.documentId}
+								</code>
+							</Field>
 						</section>
 
 						<SheetRowActions item={user} actions={actions} />

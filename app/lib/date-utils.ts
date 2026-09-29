@@ -23,8 +23,55 @@ export const INSTITUTE_TIME_ZONE = "America/Tijuana";
  */
 export const INSTITUTE_TIME_ZONE_LABEL = "hora de Tijuana";
 
-/** `YYYY-MM-DD`, lo que produce y consume `<input type="date">`. */
+/**
+ * `YYYY-MM-DD`: la fecha tal como VIAJA entre el formulario y el servidor. Nadie
+ * la ve ni la escribe; en pantalla toda fecha es `dd-mm-aaaa`.
+ */
 export const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Cómo se escribe y se lee cualquier fecha en la plataforma. */
+export const DISPLAY_DATE_FORMAT = "dd-mm-aaaa";
+
+const DISPLAY_DATE_PATTERN = /^(\d{2})-(\d{2})-(\d{4})$/;
+
+const pad2 = (part: number) => String(part).padStart(2, "0");
+
+/**
+ * `dd-mm-aaaa` → `YYYY-MM-DD`, o `null` si no es un día que exista: el 31-02
+ * tiene el formato correcto y no es una fecha.
+ */
+export const displayDateToInput = (text: string): string | null => {
+	const match = DISPLAY_DATE_PATTERN.exec(text.trim());
+	if (!match) return null;
+
+	const [day, month, year] = match.slice(1).map(Number);
+	const probe = new Date(Date.UTC(year, month - 1, day));
+	if (
+		probe.getUTCFullYear() !== year ||
+		probe.getUTCMonth() !== month - 1 ||
+		probe.getUTCDate() !== day
+	) {
+		return null;
+	}
+
+	return `${year}-${pad2(month)}-${pad2(day)}`;
+};
+
+/** "16102026" → "16-10-2026" mientras se escribe: los guiones los pone el campo. */
+export const maskDisplayDate = (text: string): string => {
+	const digits = text.replace(/\D/g, "").slice(0, 8);
+	return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)]
+		.filter(Boolean)
+		.join("-");
+};
+
+/** `YYYY-MM-DD` → `dd-mm-aaaa`; lo que no tenga esa forma se devuelve igual. */
+export const inputDateToDisplay = (value: string): string => {
+	if (!DATE_INPUT_PATTERN.test(value)) return value;
+
+	const [year, month, day] = value.split("-");
+	return `${day}-${month}-${year}`;
+};
 
 /** `HH:mm` en reloj de 24 horas, lo que produce y consume `<input type="time">`. */
 export const TIME_INPUT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -113,11 +160,10 @@ export const utcToZonedInput = (
 	value: Date,
 ): { date: string; time: string } => {
 	const { year, month, day, hour, minute } = zonedPartsOf(value);
-	const pad = (part: number) => String(part).padStart(2, "0");
 
 	return {
-		date: `${year}-${pad(month)}-${pad(day)}`,
-		time: `${pad(hour)}:${pad(minute)}`,
+		date: `${year}-${pad2(month)}-${pad2(day)}`,
+		time: `${pad2(hour)}:${pad2(minute)}`,
 	};
 };
 
@@ -151,13 +197,6 @@ export const zonedWallClockOf = (value: Date): Date =>
 /** El año calendario local: el ejercicio de un crédito (§6.9). */
 export const zonedYearOf = (value: Date): number => zonedPartsOf(value).year;
 
-const dateFormatter = new Intl.DateTimeFormat("es-MX", {
-	timeZone: INSTITUTE_TIME_ZONE,
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-});
-
 const timeFormatter = new Intl.DateTimeFormat("es-MX", {
 	timeZone: INSTITUTE_TIME_ZONE,
 	hour: "2-digit",
@@ -165,13 +204,19 @@ const timeFormatter = new Intl.DateTimeFormat("es-MX", {
 	hourCycle: "h23",
 });
 
-/** "5 oct 2026" */
-export const formatZonedDate = (value: Date): string =>
-	dateFormatter.format(value);
+/** "05-10-2026", el día en Tijuana. */
+export const formatZonedDate = (value: Date): string => {
+	const { year, month, day } = zonedPartsOf(value);
+	return `${pad2(day)}-${pad2(month)}-${year}`;
+};
 
 /** "09:00" */
 export const formatZonedTime = (value: Date): string =>
 	timeFormatter.format(value);
+
+/** "05-10-2026 09:00", en Tijuana. */
+export const formatZonedDateTime = (value: Date): string =>
+	`${formatZonedDate(value)} ${formatZonedTime(value)}`;
 
 const longDateFormatter = new Intl.DateTimeFormat("es-MX", {
 	timeZone: INSTITUTE_TIME_ZONE,
@@ -183,10 +228,10 @@ export const formatZonedLongDate = (value: Date): string =>
 	longDateFormatter.format(value);
 
 /**
- * "5 oct 2026, 09:00–13:00" — el guion es una raya, no un menos.
+ * "05-10-2026, 09:00–13:00" — el guion de las horas es una raya, no un menos.
  *
  * Si los dos extremos caen en días distintos se repite la fecha: una ventana
- * que cruza la medianoche escrita como "5 oct 2026, 23:45–00:15" se lee al
+ * que cruza la medianoche escrita como "05-10-2026, 23:45–00:15" se lee al
  * revés.
  */
 export const formatSessionRange = (startsAt: Date, endsAt: Date): string => {

@@ -16,4 +16,9 @@ export interface SessionUser {
 	role: Role;
 	/** A diferencia de `dependencyId`, es un booleano que no identifica nada y la UI lo necesita. */
 	isTrainer: boolean;
+	/**
+	 * Si pertenece a una dependencia, sin decir a cuál. Cursar y crear cursos lo
+	 * exigen, así que el menú no ofrece esos destinos a un externo.
+	 */
+	hasDependency: boolean;
 }

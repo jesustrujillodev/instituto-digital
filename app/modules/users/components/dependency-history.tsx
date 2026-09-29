@@ -1,10 +1,8 @@
+import { formatZonedDateTime } from "@/lib/date-utils";
 import type { DependencyChangeEntry } from "../domain/user.types";
 
 const formatDate = (value: Date | string) =>
-	new Intl.DateTimeFormat("es-MX", {
-		dateStyle: "medium",
-		timeStyle: "short",
-	}).format(new Date(value));
+	formatZonedDateTime(new Date(value));
 
 /**
  * Bitácora de adscripción.

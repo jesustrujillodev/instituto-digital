@@ -12,3 +12,14 @@ import type { Role } from "@/shared/rules/atoms.rules";
  * las mutaciones de su ruta— y seis listas escritas a mano divergen.
  */
 export const DEPENDENCY_ADMIN_ROLES: readonly Role[] = ["SUPERADMIN"];
+
+/**
+ * Roles que no pueden ser titulares.
+ *
+ * El superadministrador administra todo el sistema, no una unidad: designarlo
+ * titular le quitaría ese rol, y podría ser el último que queda.
+ */
+export const HEAD_INELIGIBLE_ROLES: readonly Role[] = ["SUPERADMIN"];
+
+export const canBeHead = (role: Role): boolean =>
+	!HEAD_INELIGIBLE_ROLES.includes(role);

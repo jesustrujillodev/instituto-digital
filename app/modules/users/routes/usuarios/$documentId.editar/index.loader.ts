@@ -7,6 +7,7 @@ import {
 	canChangeUserDependency,
 	USER_MANAGER_ROLES,
 } from "../../../domain/user.access.rules";
+import { roleLockOf } from "../../../domain/user.role.rules";
 import type { SafeUser } from "../../../domain/user.types";
 import { validateFindUser } from "../../../domain/user.validators";
 import { USER_ERROR_MESSAGES } from "../../../utils/user-error-messages";
@@ -49,6 +50,7 @@ export const loader = async ({
 		// sirviendo. Cortarla entera por el historial sería peor.
 		history: history.success ? history.data : [],
 		assignableRoles: assignableRoles(auth.role),
+		roleLock: roleLockOf(auth, user),
 		dependencyChange: await loadDependencyChange(context, auth, user),
 	});
 };

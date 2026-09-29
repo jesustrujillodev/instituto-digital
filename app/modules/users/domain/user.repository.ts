@@ -59,6 +59,12 @@ export interface IUserRepository {
 		hashedPassword: string,
 		scope: AccessScope,
 	): Promise<void>;
+	/**
+	 * Bloquea las cuentas de superadministrador activas hasta el final de la
+	 * transacción y devuelve sus ids. Solo tiene sentido dentro de
+	 * `runInTransaction`.
+	 */
+	lockActiveSuperadminIds(): Promise<number[]>;
 	/** Soft-delete: marca `archivedAt` con el instante actual. */
 	archive(documentId: string, scope: AccessScope): Promise<SafeUser>;
 	/** Revierte el soft-delete dejando `archivedAt` en null. */

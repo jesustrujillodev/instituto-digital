@@ -45,6 +45,7 @@ import type {
 	EnrollmentCourseSession,
 	MyCourseEntry,
 } from "../domain/enrollment.types";
+import { sessionCountOf, withdrawalLabelOf } from "../utils/enrollment-labels";
 import type { MyCourseSection } from "../utils/my-courses-filter";
 import { isOverFor } from "./my-course-parts";
 
@@ -67,9 +68,6 @@ const capitalize = (text: string) =>
 /** «09:00–11:00» */
 const timeRangeOf = (session: EnrollmentCourseSession) =>
 	`${formatZonedTime(new Date(session.startsAt))}–${formatZonedTime(new Date(session.endsAt))}`;
-
-const sessionCountOf = (count: number) =>
-	count === 1 ? "1 sesión" : `${count} sesiones`;
 
 const startsInOf = (days: number | null) => {
 	if (days === null) return "Sin fecha";
@@ -114,9 +112,7 @@ const closingStatusOf = (
 	if (section === "withdrawn") {
 		return {
 			icon: UserX,
-			label: enrollment.withdrawnAt
-				? `Te diste de baja el ${formatZonedDate(new Date(enrollment.withdrawnAt))}`
-				: "Te diste de baja",
+			label: withdrawalLabelOf(enrollment),
 			tone: "muted",
 		};
 	}

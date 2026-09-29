@@ -6,6 +6,7 @@ import {
 	validateAssignParticipants,
 	validateFindEnrollmentCourse,
 	validateInviteParticipants,
+	validateRemoveParticipant,
 } from "../../domain/enrollment.validators";
 import { ENROLLMENT_ERROR_MESSAGES } from "../../utils/enrollment-error-messages";
 import { batchMessage } from "../../utils/enrollment-labels";
@@ -16,7 +17,11 @@ import {
 } from "../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/:documentId/inscripciones — inscribir o invitar. */
+/**
+ * POST /dashboard/cursos/:documentId/inscripciones — inscribir, invitar o dar
+ * de baja. La baja se ofrece desde la impartición, pero la inscripción es de
+ * este módulo.
+ */
 export const action = async ({
 	request,
 	context,
@@ -80,6 +85,29 @@ export const action = async ({
 					singular: "inscrito",
 					plural: "inscritos",
 				}),
+			});
+		}
+		case ENROLLMENT_INTENTS.remove: {
+			const input = parseInput(() => ({
+				documentId: documentId(),
+				dto: validateRemoveParticipant({
+					userDocumentId: form.userDocumentId,
+				}),
+			}));
+			if (!input.success)
+				return localizeError(input, ENROLLMENT_ERROR_MESSAGES);
+
+			const result = await context.enrollmentService.remove(
+				input.data.documentId,
+				input.data.dto,
+				auth,
+			);
+			if (!result.success) {
+				return localizeError(result, ENROLLMENT_ERROR_MESSAGES);
+			}
+
+			return ok(null, {
+				message: "Se dio de baja a la persona y se le avisó por correo.",
 			});
 		}
 		default:

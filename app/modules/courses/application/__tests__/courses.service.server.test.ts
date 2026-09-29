@@ -9,6 +9,7 @@ import type { NotificationEvent } from "@/modules/notifications/domain/notificat
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
+import { toProxyRef } from "@/shared/storage/public-url";
 import { COURSE_ERROR_CODES } from "../../domain/course.errors";
 import { hasScheduleChanges } from "../../domain/course.rules";
 import type {
@@ -157,6 +158,8 @@ const createHarness = (
 		noBucket?: boolean;
 		/** Lecciones activas del temario; solo las mira un autogestivo. */
 		lessons?: number;
+		/** Referencias del material de las sesiones que se quitan. */
+		sessionMaterialRefs?: string[];
 	} = {},
 ) => {
 	let inTransaction = false;
@@ -176,6 +179,7 @@ const createHarness = (
 		uploaded: [] as { bucket: string; key: string; contentType?: string }[],
 		deleted: [] as { bucket: string; key: string }[],
 		lessonCounts: [] as number[],
+		materialRefQueries: [] as string[][],
 	};
 
 	const refs = (count: number) =>
@@ -202,6 +206,10 @@ const createHarness = (
 		update: async (documentId: string, data: unknown, scope: unknown) => {
 			calls.updated.push({ documentId, data, scope });
 			return courseOf();
+		},
+		findSessionMaterialRefs: async (sessionDocumentIds: string[]) => {
+			calls.materialRefQueries.push(sessionDocumentIds);
+			return options.sessionMaterialRefs ?? [];
 		},
 		publish: async (documentId: string, scope: unknown) => {
 			calls.published.push({ documentId, scope });
@@ -501,6 +509,46 @@ describe("coursesService.create", () => {
 			modality: "ONLINE",
 			sessions: [],
 		});
+	});
+
+	// El híbrido autogestivo complementa el temario con encuentros: conserva
+	// sus sesiones, su capacitador y su modalidad.
+	test("un híbrido autogestivo se guarda con sus sesiones y capacitador", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.create(
+			dtoOf({
+				modality: "HYBRID",
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+			}),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.created[0]).toMatchObject({
+			format: "SELF_PACED",
+			modality: "HYBRID",
+			trainerIds: [1],
+			sessions: [expect.objectContaining({ venue: "Sala A" })],
+		});
+	});
+
+	// Sus sesiones no abren el curso: la inscripción sigue abierta después.
+	test("un híbrido autogestivo cierra la inscripción después de su primera sesión", async () => {
+		const { service } = createHarness();
+
+		const result = await service.create(
+			dtoOf({
+				modality: "HYBRID",
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				enrollmentDeadline: "2026-12-01",
+			}),
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
 	});
 
 	test("un autogestivo no se evalúa con captura manual", async () => {
@@ -902,6 +950,99 @@ describe("coursesService.update", () => {
 			error: { code: COURSE_ERROR_CODES.FORMAT_LOCKED },
 		});
 		expect(calls.updated).toHaveLength(0);
+	});
+
+	// Pasar de híbrido a en línea borraría las sesiones del autogestivo, y con
+	// ellas su asistencia.
+	test("un autogestivo publicado no deja de admitir sesiones", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({
+				status: "PUBLISHED",
+				modality: "HYBRID",
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+				evaluationMethod: "QUIZ",
+			}),
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({
+				modality: "ONLINE",
+				format: "SELF_PACED",
+				completionRule: "CONTENT",
+			}) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.FORMAT_LOCKED },
+		});
+		expect(calls.updated).toHaveLength(0);
+	});
+
+	test("un calendarizado publicado sí cambia de modalidad", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "PUBLISHED" }),
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({ modality: "HYBRID" }) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated[0]).toMatchObject({ data: { modality: "HYBRID" } });
+	});
+
+	// docs/adr/0026: la fila del material cae en cascada con su sesión; el
+	// objeto se suelta aparte, después de guardar.
+	test("quitar una sesión suelta el material que tenía", async () => {
+		const reference = toProxyRef("documentos/sesiones/presentacion-1.pdf");
+		const { service, calls } = createHarness({
+			sessionMaterialRefs: [reference],
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf() as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.materialRefQueries).toEqual([
+			["44444444-4444-4444-8444-444444444444"],
+		]);
+		expect(calls.deleted).toContainEqual(
+			expect.objectContaining({
+				key: "documentos/sesiones/presentacion-1.pdf",
+			}),
+		);
+	});
+
+	test("conservar las sesiones no busca material que soltar", async () => {
+		const { service, calls } = createHarness();
+
+		await service.update(
+			COURSE_ID,
+			dtoOf({
+				sessions: [
+					{
+						documentId: "44444444-4444-4444-8444-444444444444",
+						date: "2026-10-05",
+						startTime: "09:00",
+						endTime: "13:00",
+						venue: "Sala A",
+					},
+				],
+			}) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(calls.materialRefQueries).toEqual([]);
+		expect(calls.deleted).toEqual([]);
 	});
 
 	// Sus créditos ya se otorgan conforme cada quien completa: cambiar el

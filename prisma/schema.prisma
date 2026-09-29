@@ -584,6 +584,7 @@ model CourseSession {
 
   attendance  CourseAttendance[]
   evaluations CourseEvaluation[]
+  materials   SessionMaterial[]
 
   @@index([courseId, startsAt])
   @@index([startsAt])
@@ -631,6 +632,49 @@ model CourseModule {
 
 /// Qué clase de material colgará de la lección. Se elige al crearla porque decide
 /// el editor que se abre, no solo cómo se pinta.
+/// Lo que se adjunta a una sesión (docs/adr/0026): lo mismo que una lección
+/// puede enseñar, menos el texto y el cuestionario, que son temario.
+enum SessionMaterialType {
+  FILE
+  VIDEO
+  LINK
+
+  @@schema("org")
+}
+
+/// Material de apoyo de una sesión: la presentación, la lectura previa, la
+/// grabación. No es temario: no tiene avance ni cuenta para completar el curso.
+/// Se borra con su sesión.
+model SessionMaterial {
+  id         Int    @id @default(autoincrement())
+  documentId String @unique @default(uuid()) @db.Uuid
+
+  sessionId Int           @map("session_id")
+  session   CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  type  SessionMaterialType
+  title String
+
+  /// FILE y VIDEO: la REFERENCIA DEL PROXY, igual que `LessonContent.fileUrl`.
+  fileUrl  String? @map("file_url")
+  fileName String? @map("file_name")
+  fileSize Int?    @map("file_size")
+  mimeType String? @map("mime_type")
+
+  /// LINK: ya validado como http(s).
+  externalUrl String? @map("external_url")
+
+  /// Oculto al participante hasta que empieza la sesión.
+  availableFromSession Boolean @default(false) @map("available_from_session")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sessionId, createdAt])
+  @@map("session_materials")
+  @@schema("org")
+}
+
 enum LessonType {
   TEXT
   FILE

@@ -4,24 +4,34 @@ import {
 	INSTITUTE_TIME_ZONE_LABEL,
 	zonedDayLabelOf,
 } from "@/lib/date-utils";
-import {
-	type CourseModality,
-	requiresLink,
-	requiresVenue,
-} from "../domain/course.rules";
+import { type CourseModality, isSessionPlaced } from "../domain/course.rules";
 import type { CourseSession } from "../domain/course.types";
+
+const MISSING_PLACE: Record<CourseModality, string> = {
+	IN_PERSON: "Falta la sede",
+	ONLINE: "Falta el enlace",
+	HYBRID: "Falta la sede o el enlace",
+};
 
 interface CourseProgramProps {
 	sessions: readonly CourseSession[];
 	modality: CourseModality;
+	/** Las sesiones del híbrido autogestivo complementan el temario. */
+	optional?: boolean;
 }
 
 /** El programa del curso tal como se va a vivir: una sesión por renglón. */
-export function CourseProgram({ sessions, modality }: CourseProgramProps) {
+export function CourseProgram({
+	sessions,
+	modality,
+	optional = false,
+}: CourseProgramProps) {
 	if (sessions.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				Todavía no hay sesiones. Hace falta al menos una para publicar.
+				{optional
+					? "Sin sesiones: el curso se recorre solo con el contenido."
+					: "Todavía no hay sesiones. Hace falta al menos una para publicar."}
 			</p>
 		);
 	}
@@ -33,8 +43,7 @@ export function CourseProgram({ sessions, modality }: CourseProgramProps) {
 					const startsAt = new Date(session.startsAt);
 					const endsAt = new Date(session.endsAt);
 					const day = zonedDayLabelOf(startsAt);
-					const missingVenue = requiresVenue(modality) && !session.venue;
-					const missingLink = requiresLink(modality) && !session.link;
+					const placed = isSessionPlaced(modality, session);
 
 					return (
 						<li
@@ -88,17 +97,13 @@ export function CourseProgram({ sessions, modality }: CourseProgramProps) {
 										<span className="truncate">{session.link}</span>
 									</a>
 								)}
-								{(missingVenue || missingLink) && (
+								{!placed && (
 									<p className="flex items-start gap-1.5 text-muted-foreground text-sm">
 										<CircleAlert
 											className="mt-0.5 size-4 shrink-0 text-destructive"
 											aria-hidden="true"
 										/>
-										{missingVenue && missingLink
-											? "Falta la sede y el enlace"
-											: missingVenue
-												? "Falta la sede"
-												: "Falta el enlace"}
+										{MISSING_PLACE[modality]}
 									</p>
 								)}
 							</div>

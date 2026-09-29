@@ -178,12 +178,23 @@ export const canManageDeputies = (actorRole: Role): boolean =>
  * El rango se comprueba ANTES del alcance porque es la condición que no depende
  * de datos de la fila: un titular no puede editar al superadministrador ni
  * estando ambos en la misma dependencia.
+ *
+ * El rango igual no basta con otro auxiliar: el auxiliar hace lo mismo que el
+ * titular salvo administrar auxiliares, y editarlo, archivarlo o cambiarle la
+ * contraseña es administrarlo. Su propia cuenta sí la administra.
  */
 export const canManageUser = (
 	actor: Pick<AuthContext, "userId" | "role" | "dependencyId">,
 	target: Pick<SafeUser, "id" | "role" | "dependencyId">,
 ): boolean => {
 	if (RANK[target.role] > RANK[actor.role]) return false;
+	if (
+		target.role === "DEPENDENCY_DEPUTY" &&
+		target.id !== actor.userId &&
+		!canManageDeputies(actor.role)
+	) {
+		return false;
+	}
 
 	const scope = resolveScope(actor);
 

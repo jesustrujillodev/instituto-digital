@@ -2,6 +2,7 @@ import * as v from "valibot";
 import { classroomRules } from "./classroom.rules";
 import { contentRules } from "./content.rules";
 import { quizRules } from "./quiz.rules";
+import { sessionMaterialRules } from "./session-material.rules";
 
 export const validateFindContentCourse = (data: unknown) =>
 	v.parse(contentRules.findCourse, data);
@@ -45,3 +46,13 @@ export const validateArchiveModuleQuiz = (data: unknown) =>
 	v.parse(quizRules.archiveModuleQuiz, data);
 export const validateGrantRetake = (data: unknown) =>
 	v.parse(quizRules.grantRetake, data);
+export const validateFindSessionMaterials = (data: unknown) =>
+	v.parse(sessionMaterialRules.find, data);
+export const validateSessionUploadUrl = (data: unknown) =>
+	v.parse(sessionMaterialRules.uploadUrl, data);
+export const validateCreateSessionMaterial = (data: unknown) =>
+	v.parse(sessionMaterialRules.create, data);
+export const validateUpdateSessionMaterial = (data: unknown) =>
+	v.parse(sessionMaterialRules.update, data);
+export const validateRemoveSessionMaterial = (data: unknown) =>
+	v.parse(sessionMaterialRules.remove, data);

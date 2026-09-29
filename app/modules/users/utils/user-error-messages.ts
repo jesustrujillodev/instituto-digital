@@ -76,5 +76,10 @@ export const USER_ERROR_MESSAGES: ErrorMessageMap = {
 	// la misma transacción: aquí no hay forma de cumplir §4 del alcance.
 	[USER_ERROR_CODES.EXTERNAL_REQUIRES_TRAINER]:
 		"Los capacitadores externos se registran desde Usuarios › Capacitador externo.",
+	[USER_ERROR_CODES.LAST_ACTIVE_SUPERADMIN]: {
+		message:
+			"Debe quedar al menos un superadministrador activo. Da de alta o reactiva otro antes.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

@@ -36,6 +36,8 @@ import type { IContentRepository } from "@/modules/content/domain/content.reposi
 import type { IContentService } from "@/modules/content/domain/content.service";
 import type { IQuizRepository } from "@/modules/content/domain/quiz.repository";
 import type { IQuizService } from "@/modules/content/domain/quiz.service";
+import type { ISessionMaterialRepository } from "@/modules/content/domain/session-material.repository";
+import type { ISessionMaterialService } from "@/modules/content/domain/session-material.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
 import type { ICreditRepository } from "@/modules/credits/domain/credit.repository";
@@ -133,6 +135,9 @@ export interface ICradle {
 	// Cuestionarios autocalificados: examen final y práctica (docs/adr/0015).
 	quizRepository: IQuizRepository;
 	quizService: IQuizService;
+	// Material de apoyo de cada sesión (docs/adr/0026).
+	sessionMaterialRepository: ISessionMaterialRepository;
+	sessionMaterialService: ISessionMaterialService;
 	// Certificado por curso, con borrador y publicado (docs/adr/0018).
 	certificateRepository: ICertificateRepository;
 	certificateService: ICertificateService;

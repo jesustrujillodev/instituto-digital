@@ -1,3 +1,4 @@
+import { formatZonedDate } from "@/lib/date-utils";
 import type { DataTableAction } from "@/shared/components/common/data-table";
 import { Button } from "@/shared/components/ui/button";
 import type { TrainerDetail } from "../domain/trainer.types";
@@ -8,8 +9,6 @@ interface TrainerProfileSectionProps<T extends TrainerProfileSubject> {
 	/** Las acciones del perfil de la fila; se pintan las que apliquen. */
 	actions: DataTableAction<T>[];
 }
-
-const dateFormat: Intl.DateTimeFormatOptions = { dateStyle: "medium" };
 
 const ratingOf = (averageRating: number | null) =>
 	averageRating === null
@@ -75,8 +74,7 @@ export function TrainerProfileSection<T extends TrainerProfileSubject>({
 
 			{profile?.archivedAt && (
 				<p className="text-muted-foreground text-sm">
-					Deshabilitado desde el{" "}
-					{new Date(profile.archivedAt).toLocaleDateString("es-MX", dateFormat)}
+					Deshabilitado desde el {formatZonedDate(new Date(profile.archivedAt))}
 					. No se puede asignar a cursos; conserva su especialidad y lo que
 					impartió.
 				</p>

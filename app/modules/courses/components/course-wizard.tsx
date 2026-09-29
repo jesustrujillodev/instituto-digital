@@ -10,6 +10,7 @@ import type { ContentSaveRef } from "@/modules/content/components/course-content
 import type { QuizSaveRef } from "@/modules/content/components/quiz-editor";
 import { toContentSummary } from "@/modules/content/domain/content.mapper";
 import type { CourseContentTree } from "@/modules/content/domain/content.types";
+import { useCreatePendingSessionMaterials } from "@/modules/content/hooks/use-session-materials";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
 import { Button } from "@/shared/components/ui/button";
@@ -50,6 +51,12 @@ import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/parse-course-form-data";
+import {
+	matchPendingMaterials,
+	type PendingMaterialsSnapshot,
+	pendingSessionMaterialsOf,
+	type SavedSession,
+} from "../utils/pending-session-materials";
 import { CourseEnrollmentFields } from "./course-enrollment-fields";
 import { CourseEvaluationFields } from "./course-evaluation-fields";
 import {
@@ -192,6 +199,14 @@ export function CourseWizard({
 	const [coverRemoved, setCoverRemoved] = useState(false);
 
 	const targetRef = useRef<"next" | "exit">("next");
+	// El material de las sesiones nuevas, tal como estaba al guardar: se crea
+	// cuando el servidor devuelve la identidad de esas sesiones (docs/adr/0026).
+	const pendingMaterialsRef = useRef<PendingMaterialsSnapshot | null>(null);
+	const createPendingMaterials = useCreatePendingSessionMaterials(
+		course?.documentId ?? null,
+	);
+	const [savingMaterials, setSavingMaterials] = useState(false);
+	const busy = isSubmitting || savingMaterials;
 	const [leavingTo, setLeavingTo] = useState<string | null>(null);
 
 	const headingRef = useRef<HTMLHeadingElement>(null);
@@ -200,6 +215,12 @@ export function CourseWizard({
 	const format = watch("format");
 	const completionRule = watch("completionRule");
 	const steps = stepsFor({ format, completionRule }, mode);
+	const savedSteps = stepsFor(defaultValues, mode);
+	const addedSteps = new Set(
+		steps
+			.filter((entry) => !savedSteps.includes(entry))
+			.map((entry) => entry.key),
+	);
 	const following = nextStep(steps, step);
 	const preceding = previousStep(steps, step);
 
@@ -261,7 +282,34 @@ export function CourseWizard({
 				return;
 			}
 
-			setLeavingTo(destinationAfterSave());
+			const saved =
+				(data.data as { sessions?: SavedSession[] } | null)?.sessions ?? [];
+			const pendingMaterials = pendingMaterialsRef.current;
+			pendingMaterialsRef.current = null;
+			if (!pendingMaterials || pendingMaterials.entries.length === 0) {
+				setLeavingTo(destinationAfterSave());
+				return;
+			}
+
+			const { groups, orphaned } = matchPendingMaterials(
+				pendingMaterials,
+				saved,
+			);
+			setSavingMaterials(true);
+			void createPendingMaterials(groups).then((failed) => {
+				setSavingMaterials(false);
+				const lost = [...orphaned, ...failed];
+				if (lost.length > 0) {
+					// El paso ya se guardó; se queda en él para que se vuelva a agregar
+					// desde la sesión, que ahora sí existe.
+					sileo.error({
+						title: "No se guardó parte del material",
+						description: `«${lost.join("», «")}». Agrégalo de nuevo desde su sesión.`,
+					});
+					return;
+				}
+				setLeavingTo(destinationAfterSave());
+			});
 		},
 	});
 
@@ -286,7 +334,7 @@ export function CourseWizard({
 
 	const hasUnsavedChanges =
 		(isDirty || coverTouched || contentDirty || quizDirty) &&
-		!isSubmitting &&
+		!busy &&
 		leavingTo === null;
 
 	const submitStep = async (target: "next" | "exit") => {
@@ -321,8 +369,10 @@ export function CourseWizard({
 		const saveQuiz = quizSaveRef.current;
 		if (saveQuiz && !(await saveQuiz())) return;
 
-		const { dependency, ...rest } = buildCoursePayload(getValues());
+		const values = getValues();
+		const { dependency, ...rest } = buildCoursePayload(values);
 		const payload = isCreate ? { dependency, ...rest } : rest;
+		pendingMaterialsRef.current = pendingSessionMaterialsOf(values.sessions);
 
 		fetcher.submit(
 			toFormData({
@@ -387,7 +437,7 @@ export function CourseWizard({
 							<Button
 								type="button"
 								variant="outline"
-								disabled={isSubmitting}
+								disabled={busy}
 								onClick={() => submitStep("exit")}
 							>
 								Guardar y salir
@@ -408,6 +458,7 @@ export function CourseWizard({
 						current={step.number}
 						pending={pending}
 						errors={stepsWithErrors(Object.keys(errors))}
+						added={addedSteps}
 					/>
 
 					<div className="flex flex-col">
@@ -472,7 +523,7 @@ export function CourseWizard({
 							formId={ids.form}
 							backTo={preceding ? hrefOf(preceding.number) : null}
 							nextTitle={isReview ? null : (following?.title ?? null)}
-							isSubmitting={isSubmitting}
+							isSubmitting={busy}
 							submitKind={
 								isReview ? "publish" : isEdit && !following ? "save" : "next"
 							}
@@ -541,6 +592,7 @@ function StepFields({
 					ids={ids}
 					options={options}
 					isPublished={isPublished}
+					courseDocumentId={course?.documentId ?? null}
 				/>
 			);
 		case "content":

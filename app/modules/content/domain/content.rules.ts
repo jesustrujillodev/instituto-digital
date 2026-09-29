@@ -47,7 +47,7 @@ export type LessonType = (typeof LESSON_TYPES)[number];
 export const LESSON_UPLOAD_KINDS = ["FILE", "VIDEO"] as const;
 export type LessonUploadKind = (typeof LESSON_UPLOAD_KINDS)[number];
 
-const documentId = v.pipe(
+export const documentId = v.pipe(
 	v.string("Falta el identificador del registro."),
 	v.uuid("El identificador del registro no es válido."),
 );
@@ -180,7 +180,7 @@ export const isHttpUrl = (value: string): boolean => {
 	}
 };
 
-const httpUrl = (message: string) =>
+export const httpUrl = (message: string) =>
 	v.pipe(
 		v.string(message),
 		v.trim(),
@@ -188,7 +188,8 @@ const httpUrl = (message: string) =>
 		v.check(isHttpUrl, message),
 	);
 
-const LINK_HREF_MESSAGE = "El enlace debe empezar por http:// o https://.";
+export const LINK_HREF_MESSAGE =
+	"El enlace debe empezar por http:// o https://.";
 const NODE_MESSAGE = "La lección tiene contenido que no se puede guardar.";
 
 const markRule = v.variant(
@@ -327,14 +328,14 @@ const materialKey = v.pipe(
 	),
 );
 
-const materialFileName = v.pipe(
+export const materialFileName = v.pipe(
 	v.string("Falta el nombre del archivo."),
 	v.trim(),
 	v.minLength(1, "Falta el nombre del archivo."),
 	v.maxLength(255, "El nombre del archivo es demasiado largo."),
 );
 
-const materialMimeType = v.pipe(
+export const materialMimeType = v.pipe(
 	v.string("Falta el tipo del archivo."),
 	v.trim(),
 	v.minLength(1, "Falta el tipo del archivo."),

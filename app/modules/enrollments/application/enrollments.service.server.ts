@@ -29,6 +29,7 @@ import {
 	EnrollmentInvitationsDisabledError,
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
+	EnrollmentParticipantNotEnrolledError,
 	EnrollmentStateChangedError,
 	EnrollmentUnknownGroupError,
 	EnrollmentUnknownParticipantError,
@@ -41,6 +42,8 @@ import {
 import type { CourseFilter } from "../domain/enrollment.repository";
 import {
 	acceptsInvitations,
+	assertNotRemoved,
+	assertRemovable,
 	assertSeatsFor,
 	assertSelfEnrollable,
 	canParticipate,
@@ -63,6 +66,7 @@ import type {
 	MyCourseRecord,
 	MyCourses,
 	ParticipantAccount,
+	RemoveParticipantDto,
 } from "../domain/enrollment.types";
 
 type Dependencies = {
@@ -357,6 +361,7 @@ export const createEnrollmentService = ({
 						origin: enrollment.origin,
 						status: enrollment.status,
 						result: enrollment.result,
+						removed: enrollment.removed,
 					},
 					can: {
 						...participantPermissionsOf(
@@ -364,6 +369,7 @@ export const createEnrollmentService = ({
 							enrollment?.status ?? null,
 							enrollment?.completed ?? false,
 							now,
+							enrollment?.removed ?? false,
 						),
 						assign: detail.isOpen && visibleToDependency !== null,
 					},
@@ -424,6 +430,7 @@ export const createEnrollmentService = ({
 						record.enrollment.status,
 						record.outcome.completed,
 						now,
+						record.enrollment.removed,
 					),
 				});
 			});
@@ -511,6 +518,7 @@ export const createEnrollmentService = ({
 					if (current?.status === "ENROLLED") {
 						throw new EnrollmentAlreadyEnrolledError();
 					}
+					assertNotRemoved(current);
 					assertSelfEnrollable(course, current?.status ?? null);
 					assertSeatsFor(seats.capacity, seats.enrolled, 1);
 
@@ -764,6 +772,59 @@ export const createEnrollmentService = ({
 						};
 					}),
 				);
+			});
+		},
+
+		async remove(
+			courseDocumentId: string,
+			dto: RemoveParticipantDto,
+			actor: AuthContext,
+		) {
+			return run("remove", async () => {
+				const access = await requireRosterAccess(courseDocumentId, actor);
+				// Una dependencia que ve el curso sin organizarlo inscribe a su gente,
+				// pero la baja la decide quien organiza.
+				if (!access.organizer) throw new EnrollmentForbiddenScopeError();
+				const { course } = access;
+
+				const current = await enrollmentRepository.findParticipantEnrollment(
+					course.id,
+					dto.userDocumentId,
+				);
+				if (current?.status !== "ENROLLED") {
+					throw new EnrollmentParticipantNotEnrolledError();
+				}
+				assertRemovable(course, current.completed);
+
+				await runInTransaction(async () => {
+					// `actedById` distinto de la persona es lo que la distingue de una
+					// baja voluntaria y le cierra la reinscripción propia.
+					await persist(
+						{
+							courseId: course.id,
+							userId: current.userId,
+							dependencyId: current.dependencyId,
+							origin: current.origin,
+							status: "WITHDRAWN",
+							actedById: actor.userId,
+							at: clock.now(),
+						},
+						"ENROLLED",
+					);
+					await notificationService.notify([
+						{
+							template: "ENROLLMENT_REMOVED",
+							to: {
+								email: current.email,
+								firstName: current.firstName,
+								lastName: current.lastName,
+							},
+							course: toNotifiedCourse(course),
+						},
+					]);
+				});
+
+				return ok(null);
 			});
 		},
 	};

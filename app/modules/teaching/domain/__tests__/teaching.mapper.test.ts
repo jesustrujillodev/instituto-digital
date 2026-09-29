@@ -144,6 +144,37 @@ describe("toTeachingDetail", () => {
 			toTeachingDetail(finished, scope, LAST_DAY, true).can.editCourse,
 		).toBe(false);
 	});
+
+	// Dar de baja es de quien organiza, mientras el curso está publicado y la
+	// persona no lo ha completado.
+	test("solo quien administra da de baja, y no a quien completó", () => {
+		const course = courseOf({
+			participants: [
+				participantOf(),
+				participantOf({ userId: 51, userDocumentId: "u-2", completed: true }),
+			],
+		});
+		const removable = (detailOf: ReturnType<typeof toTeachingDetail>) =>
+			detailOf.participants.map((participant) => participant.removable);
+
+		expect(removable(toTeachingDetail(course, scope, LAST_DAY, true))).toEqual([
+			true,
+			false,
+		]);
+		expect(removable(toTeachingDetail(course, scope, LAST_DAY, false))).toEqual(
+			[false, false],
+		);
+		expect(
+			removable(
+				toTeachingDetail(
+					{ ...course, status: "FINISHED" },
+					scope,
+					LAST_DAY,
+					true,
+				),
+			),
+		).toEqual([false, false]);
+	});
 });
 
 describe("toTeachingCourse", () => {

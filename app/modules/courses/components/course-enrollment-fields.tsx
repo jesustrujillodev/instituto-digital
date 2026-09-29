@@ -9,8 +9,9 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { useFormContext, useWatch } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { cn } from "@/lib/utils";
+import { DateInput } from "@/shared/components/common/date-input";
 import { Input } from "@/shared/components/ui/input";
 import {
 	COURSE_ACCESS_TYPES,
@@ -132,6 +133,7 @@ export const CourseEnrollmentFields = memo(function CourseEnrollmentFields({
 }: CourseEnrollmentFieldsProps) {
 	const {
 		register,
+		control,
 		setValue,
 		getValues,
 		formState: { errors },
@@ -216,7 +218,6 @@ export const CourseEnrollmentFields = memo(function CourseEnrollmentFields({
 	);
 
 	const capacityField = register("capacity");
-	const deadlineField = register("enrollmentDeadline");
 
 	const summary = enrollmentSummaryOf({
 		access,
@@ -336,18 +337,26 @@ export const CourseEnrollmentFields = memo(function CourseEnrollmentFields({
 						}
 					/>
 					<OptionRow value="date" label="Hasta el">
-						<Input
-							id={ids.enrollmentDeadline}
-							type="date"
-							aria-label="Fecha límite de inscripción"
-							disabled={!byDate}
-							aria-invalid={Boolean(errors.enrollmentDeadline)}
-							className="h-8 w-40"
-							{...deadlineField}
-							ref={(element) => {
-								deadlineField.ref(element);
-								deadlineRef.current = element;
-							}}
+						<Controller
+							control={control}
+							name="enrollmentDeadline"
+							render={({ field }) => (
+								<DateInput
+									id={ids.enrollmentDeadline}
+									name={field.name}
+									aria-label="Fecha límite de inscripción"
+									disabled={!byDate}
+									aria-invalid={Boolean(errors.enrollmentDeadline)}
+									className="h-8 w-44"
+									value={field.value}
+									onChange={field.onChange}
+									onBlur={field.onBlur}
+									ref={(element: HTMLInputElement | null) => {
+										field.ref(element);
+										deadlineRef.current = element;
+									}}
+								/>
+							)}
 						/>
 					</OptionRow>
 				</OptionGroup>

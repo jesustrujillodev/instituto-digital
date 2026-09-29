@@ -1,5 +1,6 @@
 import { Ban, FileQuestion, LockKeyhole, TriangleAlert } from "lucide-react";
 import { Link } from "react-router";
+import { ROLE_LABELS } from "@/shared/auth/role-labels";
 import {
 	Alert,
 	AlertDescription,
@@ -7,11 +8,16 @@ import {
 } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
 import {
+	type ForbiddenRoleData,
 	isForbiddenError,
 	isForbiddenRoleError,
 	isNotFoundError,
 	isUnauthorizedError,
 } from "@/shared/http/route-error";
+
+/** `ErrorResponse.data` es `any`: sin la anotación, el rol no se comprobaría. */
+const requiredRoleLabels = ({ requiredRoles }: ForbiddenRoleData) =>
+	requiredRoles.map((role) => ROLE_LABELS[role]).join(", ");
 
 interface RouteErrorViewProps {
 	error: unknown;
@@ -42,7 +48,7 @@ export function RouteErrorView({ error, homeTo = "/" }: RouteErrorViewProps) {
 		Icon = Ban;
 		title = "403 — Acceso denegado";
 		detail = isForbiddenRoleError(error)
-			? `No tienes permiso para ver esta sección. Requiere el rol: ${error.data.requiredRoles.join(", ")}.`
+			? `No tienes permiso para ver esta sección. Requiere el rol: ${requiredRoleLabels(error.data)}.`
 			: "No tienes permiso para realizar esta acción.";
 	} else if (isUnauthorizedError(error)) {
 		Icon = LockKeyhole;

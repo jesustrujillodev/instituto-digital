@@ -8,7 +8,7 @@ import type {
 	listDependenciesRule,
 	updateDependencyRule,
 } from "./dependency.rules";
-import { dependencySchema } from "./dependency.rules";
+import { dependencyMemberSchema, dependencySchema } from "./dependency.rules";
 
 export type Dependency = v.InferOutput<typeof dependencySchema>;
 
@@ -22,13 +22,9 @@ export type AssignHeadDto = v.InferInput<typeof assignHeadRule>;
  * Lo mínimo que el módulo necesita saber de una cuenta para decidir sobre ella.
  *
  * No es `SafeUser`: `dependencies` no depende del módulo `users` ni de su forma
- * de dominio, solo de los tres datos que gobiernan la designación de titular.
+ * de dominio, solo de los datos que gobiernan la designación de titular.
  */
-export interface DependencyMember {
-	id: number;
-	documentId: string;
-	archivedAt: Date | null;
-}
+export type DependencyMember = v.InferOutput<typeof dependencyMemberSchema>;
 
 /**
  * Cuenta elegible como titular: activa y adscrita a la dependencia.

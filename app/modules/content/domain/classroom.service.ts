@@ -46,6 +46,10 @@ export interface IClassroomService {
  */
 export interface ILessonMaterialReader {
 	sign(material: LessonMaterial): Promise<LessonMaterial>;
+	/** La misma firma para cualquier material subido: el de una sesión, también. */
+	signReference(
+		reference: string,
+	): Promise<{ fileUrl: string; downloadUrl: string } | null>;
 }
 
 /**

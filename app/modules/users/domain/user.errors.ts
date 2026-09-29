@@ -27,6 +27,7 @@ export const USER_ERROR_CODES = {
 	HAS_RELATED_RECORDS: "USER_HAS_RELATED_RECORDS",
 	INVALID_UPLOAD: "INVALID_UPLOAD",
 	EXTERNAL_REQUIRES_TRAINER: "EXTERNAL_REQUIRES_TRAINER_PROFILE",
+	LAST_ACTIVE_SUPERADMIN: "LAST_ACTIVE_SUPERADMIN",
 } as const;
 
 /**
@@ -112,6 +113,17 @@ export class HeadCannotLeaveDependencyError extends UserError {
 	readonly code = USER_ERROR_CODES.HEAD_CANNOT_LEAVE;
 	constructor() {
 		super("A dependency head cannot leave before being replaced");
+	}
+}
+
+/**
+ * Degradar o archivar a esta cuenta dejaría al sistema sin superadministrador
+ * activo, y nadie más puede otorgar ese rol ni reactivar cuentas de otros.
+ */
+export class LastActiveSuperadminError extends UserError {
+	readonly code = USER_ERROR_CODES.LAST_ACTIVE_SUPERADMIN;
+	constructor() {
+		super("At least one active superadmin must remain");
 	}
 }
 

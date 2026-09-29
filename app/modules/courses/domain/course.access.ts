@@ -10,7 +10,12 @@ import {
 	CourseForbiddenScopeError,
 	CourseOrganizerRequiredError,
 } from "./course.errors";
-import type { CourseStatus } from "./course.rules";
+import {
+	type CourseFormat,
+	type CourseModality,
+	type CourseStatus,
+	requiresTrainer,
+} from "./course.rules";
 
 /**
  * Quién ENTRA a la pantalla de cursos por su rol.
@@ -80,12 +85,15 @@ export const canManageCourses = (auth: CourseActor): boolean =>
  * ¿La ficha puede mandar a la impartición de este curso?
  *
  * Refleja `resolveTeachingScope`: organizar basta, pero el capacitador interno
- * administra lo que creó y solo pasa lista en lo que imparte.
+ * administra lo que creó y solo pasa lista en lo que imparte. Lo que creó y
+ * nadie imparte —el autogestivo sin sesiones— lo opera él.
  */
 export const canOpenTeaching = (
 	scope: CourseScope,
 	course: {
 		status: CourseStatus;
+		format: CourseFormat;
+		modality: CourseModality;
 		trainers: readonly { userDocumentId: string }[];
 	},
 	actorDocumentId: string,
@@ -96,6 +104,8 @@ export const canOpenTeaching = (
 		return false;
 	}
 	if (scope.kind === "global" || scope.kind === "dependency") return true;
+	// La ficha solo le llega al creador con lo que creó (`courseScopeWhere`).
+	if (scope.kind === "creator" && !requiresTrainer(course)) return true;
 
 	return course.trainers.some(
 		(trainer) => trainer.userDocumentId === actorDocumentId,

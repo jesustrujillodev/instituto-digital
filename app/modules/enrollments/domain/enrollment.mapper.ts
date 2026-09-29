@@ -15,6 +15,7 @@ import {
 	enrollmentClosesAt,
 	isClosingSoon,
 	isEnrollmentOpen,
+	isRemoval,
 	seatsLeftOf,
 } from "./enrollment.rules";
 import type {
@@ -148,6 +149,8 @@ export interface OwnEnrollmentRaw {
 	origin: EnrollmentOrigin;
 	status: EnrollmentStatus;
 	result: EnrollmentResult;
+	userId: number;
+	actedById: number;
 }
 
 export const toOwnEnrollment = (raw: OwnEnrollmentRaw): OwnEnrollment => ({
@@ -155,6 +158,7 @@ export const toOwnEnrollment = (raw: OwnEnrollmentRaw): OwnEnrollment => ({
 	origin: raw.origin,
 	status: raw.status,
 	result: raw.result,
+	removed: isRemoval(raw),
 });
 
 export interface RosterEntryRaw extends OwnEnrollmentRaw {

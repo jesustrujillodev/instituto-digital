@@ -56,6 +56,12 @@ export interface ICourseRepository {
 		scope: CourseScope,
 	): Promise<CourseDetail>;
 
+	/**
+	 * Las referencias de storage del material de estas sesiones. Se leen antes de
+	 * quitarlas: la cascada borra las filas y el objeto hay que soltarlo aparte.
+	 */
+	findSessionMaterialRefs(sessionDocumentIds: string[]): Promise<string[]>;
+
 	publish(documentId: string, scope: CourseScope): Promise<CourseDetail>;
 	/**
 	 * `PUBLISHED` → `FINISHED`, condicionado al estado. Devuelve `false` si otra

@@ -5,9 +5,11 @@ import type { ContentSummary } from "@/modules/content/domain/content.types";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
 import {
+	allowsSessions,
 	countsAttendance,
 	gradesAutomatically,
 	requiresSessions,
+	requiresTrainer,
 } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
@@ -67,8 +69,6 @@ export function CourseReviewStep({
 	quizQuestionCount,
 }: CourseReviewStepProps) {
 	const { documentId } = course;
-	const scheduled = requiresSessions(course.format);
-
 	return (
 		<div className="flex flex-col gap-6">
 			<CoursePublishChecklist
@@ -119,20 +119,31 @@ export function CourseReviewStep({
 					step={PROGRAM.number}
 					title={PROGRAM.title}
 					aside={
-						scheduled ? (
+						<span className="flex flex-wrap gap-1.5">
 							<CourseModalityBadge modality={course.modality} />
-						) : (
 							<CourseFormatBadge format={course.format} />
-						)
+						</span>
 					}
 				>
 					<div className="flex flex-col gap-5">
-						{scheduled && <CourseTrainers trainers={course.trainers} />}
-						{scheduled ? (
-							<CourseProgram
-								sessions={course.sessions}
-								modality={course.modality}
-							/>
+						{requiresTrainer(course) && (
+							<CourseTrainers trainers={course.trainers} />
+						)}
+						{allowsSessions(course) ? (
+							<>
+								<CourseProgram
+									sessions={course.sessions}
+									modality={course.modality}
+									optional={!requiresSessions(course.format)}
+								/>
+								{countsAttendance(course.completionRule) && (
+									<p className="text-muted-foreground text-sm">
+										El QR de asistencia se activa {course.qrOpensBeforeMinutes}{" "}
+										min antes y se cierra {course.qrClosesAfterMinutes} min
+										después de cada sesión.
+									</p>
+								)}
+							</>
 						) : (
 							<p className="text-muted-foreground text-sm">
 								Sin sesiones: quien se inscribe recorre el curso a su ritmo.
@@ -200,14 +211,6 @@ export function CourseReviewStep({
 										{
 											term: "Evaluaciones de seguimiento",
 											value: evaluationTitles.join(", "),
-										},
-									]
-								: []),
-							...(scheduled
-								? [
-										{
-											term: "Ventana del QR",
-											value: `Se activa ${course.qrOpensBeforeMinutes} min antes y se cierra ${course.qrClosesAfterMinutes} min después de cada sesión`,
 										},
 									]
 								: []),

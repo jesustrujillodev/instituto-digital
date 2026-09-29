@@ -1,5 +1,9 @@
 import * as v from "valibot";
-import { DATE_INPUT_PATTERN, TIME_INPUT_PATTERN } from "@/lib/date-utils";
+import {
+	DATE_INPUT_PATTERN,
+	DISPLAY_DATE_FORMAT,
+	TIME_INPUT_PATTERN,
+} from "@/lib/date-utils";
 import {
 	createListRule,
 	SORT_DIRECTIONS,
@@ -22,6 +26,7 @@ import {
 	CoursePlanLineLockedError,
 	CourseSessionInvalidRangeError,
 	CourseSessionMissingLinkError,
+	CourseSessionMissingPlaceError,
 	CourseSessionMissingVenueError,
 	CourseTooManySessionsError,
 	CourseWithoutActiveTrainerError,
@@ -153,10 +158,18 @@ const qrWindowMinutes = v.pipe(
 	),
 );
 
-const dateInput = v.pipe(
-	v.string("La fecha es obligatoria."),
-	v.regex(DATE_INPUT_PATTERN, "Escribe la fecha con el formato AAAA-MM-DD."),
-);
+// El formulario manda `AAAA-MM-DD` solo cuando lo escrito es un día real; lo
+// demás llega tal cual y cae aquí, así que el mensaje habla del formato que la
+// persona escribe.
+const dateInputOf = (field: string) =>
+	v.pipe(
+		v.string(`Escribe ${field}.`),
+		v.minLength(1, `Escribe ${field}.`),
+		v.regex(
+			DATE_INPUT_PATTERN,
+			`Escribe ${field} con el formato ${DISPLAY_DATE_FORMAT}, y que sea un día que exista.`,
+		),
+	);
 
 const timeInput = v.pipe(
 	v.string("La hora es obligatoria."),
@@ -277,7 +290,7 @@ export { SORT_DIRECTIONS, type SortDirection };
  */
 export const courseSessionInputRule = v.object({
 	documentId: v.optional(documentId),
-	date: dateInput,
+	date: dateInputOf("la fecha de la sesión"),
 	startTime: timeInput,
 	endTime: timeInput,
 	venue: v.optional(venue),
@@ -293,7 +306,7 @@ const courseFormShape = {
 	access: v.picklist(COURSE_ACCESS_TYPES, "Elige un tipo de acceso válido."),
 	capacity: v.optional(capacity),
 	/** Día completo: se resuelve al último minuto de esa fecha (§6.6). */
-	enrollmentDeadline: v.optional(dateInput),
+	enrollmentDeadline: v.optional(dateInputOf("la fecha límite de inscripción")),
 	minAttendance: v.optional(minAttendance),
 	requiresEvaluation: v.optional(
 		v.boolean("Indica si el curso exige evaluación."),
@@ -409,11 +422,33 @@ export const requiresSessions = (format: CourseFormat): boolean =>
 	format === "SCHEDULED";
 
 /**
- * Solo un curso que se reúne tiene quién lo imparta. El autogestivo lo opera
- * la dependencia organizadora, que ya pasa por Impartición sin asignación.
+ * Si el curso puede tener sesiones: las exige el calendarizado y las admite el
+ * híbrido autogestivo, como encuentros que complementan el temario sin contar
+ * para completarlo.
  */
-export const requiresTrainer = (format: CourseFormat): boolean =>
-	requiresSessions(format);
+export const allowsSessions = (course: {
+	format: CourseFormat;
+	modality: CourseModality;
+}): boolean => requiresSessions(course.format) || course.modality === "HYBRID";
+
+/**
+ * Tiene quién lo imparta todo curso que se reúne o puede reunirse. El
+ * autogestivo en línea lo opera la dependencia organizadora, que ya pasa por
+ * Impartición sin asignación.
+ */
+export const requiresTrainer = (course: {
+	format: CourseFormat;
+	modality: CourseModality;
+}): boolean => allowsSessions(course);
+
+/**
+ * La modalidad tal como se guarda. «Presencial y autogestivo» no describe nada:
+ * un autogestivo es en línea, o híbrido si complementa el temario con sesiones.
+ */
+export const resolveModality = (course: {
+	format: CourseFormat;
+	modality: CourseModality;
+}): CourseModality => (allowsSessions(course) ? course.modality : "ONLINE");
 
 export const countsAttendance = (rule: CourseCompletionRule): boolean =>
 	rule === "ATTENDANCE" || rule === "BOTH";
@@ -485,11 +520,24 @@ export const courseHoursOf = (course: {
 	);
 };
 
-export const requiresVenue = (modality: CourseModality): boolean =>
+export const acceptsVenue = (modality: CourseModality): boolean =>
 	modality === "IN_PERSON" || modality === "HYBRID";
 
-export const requiresLink = (modality: CourseModality): boolean =>
+export const acceptsLink = (modality: CourseModality): boolean =>
 	modality === "ONLINE" || modality === "HYBRID";
+
+/**
+ * Si la sesión ya dice dónde se imparte. Una sesión híbrida puede ser
+ * presencial o en línea, así que le basta la sede o el enlace.
+ */
+export const isSessionPlaced = (
+	modality: CourseModality,
+	session: { venue: string | null; link: string | null },
+): boolean => {
+	if (modality === "IN_PERSON") return Boolean(session.venue);
+	if (modality === "ONLINE") return Boolean(session.link);
+	return Boolean(session.venue || session.link);
+};
 
 /**
  * Una sesión termina después de empezar.
@@ -608,10 +656,10 @@ export const assertCompletionSettingsEditable = (
 };
 
 /**
- * El formato se congela al publicar.
+ * El formato se congela al publicar, y con él si el curso admite sesiones.
  *
- * Pasar a autogestivo borra las sesiones, y con ellas las marcas de asistencia
- * que cuelgan de cada una. Un curso ya publicado no puede perder eso.
+ * Pasar a autogestivo en línea borra las sesiones, y con ellas las marcas de
+ * asistencia que cuelgan de cada una. Un curso ya publicado no puede perder eso.
  */
 export const assertFormatEditable = (
 	status: CourseStatus,
@@ -677,21 +725,23 @@ export const assertPublishable = (
 	}
 
 	if (
-		requiresTrainer(course.format) &&
+		requiresTrainer(course) &&
 		!course.trainers.some((trainer) => trainer.isActive)
 	) {
 		throw new CourseWithoutActiveTrainerError();
 	}
 
 	course.sessions.forEach((session, index) => {
-		const sessionNumber = index + 1;
+		if (isSessionPlaced(course.modality, session)) return;
 
-		if (requiresVenue(course.modality) && !session.venue) {
+		const sessionNumber = index + 1;
+		if (course.modality === "IN_PERSON") {
 			throw new CourseSessionMissingVenueError(sessionNumber);
 		}
-		if (requiresLink(course.modality) && !session.link) {
+		if (course.modality === "ONLINE") {
 			throw new CourseSessionMissingLinkError(sessionNumber);
 		}
+		throw new CourseSessionMissingPlaceError(sessionNumber);
 	});
 
 	const audienceSize =
@@ -732,10 +782,8 @@ export const publishChecklist = (
 	},
 	content: CourseContentFacts,
 ): { check: PublishCheck; done: boolean }[] => {
-	const placed = course.sessions.every(
-		(session) =>
-			(!requiresVenue(course.modality) || Boolean(session.venue)) &&
-			(!requiresLink(course.modality) || Boolean(session.link)),
+	const placed = course.sessions.every((session) =>
+		isSessionPlaced(course.modality, session),
 	);
 
 	const checks: { check: PublishCheck; done: boolean }[] = [];
@@ -745,6 +793,10 @@ export const publishChecklist = (
 			{ check: "sessions", done: course.sessions.length > 0 },
 			{ check: "places", done: course.sessions.length > 0 && placed },
 		);
+	} else if (allowsSessions(course) && course.sessions.length > 0) {
+		// Las sesiones del híbrido autogestivo son opcionales, pero las que haya
+		// tienen que decir dónde se imparten.
+		checks.push({ check: "places", done: placed });
 	}
 
 	if (requiresContent(course)) {
@@ -755,7 +807,7 @@ export const publishChecklist = (
 		checks.push({ check: "quiz", done: content.finalQuizQuestionCount > 0 });
 	}
 
-	if (requiresTrainer(course.format)) {
+	if (requiresTrainer(course)) {
 		checks.push({
 			check: "trainer",
 			done: course.trainers.some((trainer) => trainer.isActive),

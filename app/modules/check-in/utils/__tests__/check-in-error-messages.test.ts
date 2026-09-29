@@ -45,7 +45,7 @@ describe("ventana de escaneo", () => {
 
 		expect(message).toContain("23:45");
 		expect(message).toContain("00:15");
-		expect(message).toContain("22 sep 2026");
+		expect(message).toContain("22-09-2026");
 	});
 
 	test("sin details utilizables no se inventa un horario", () => {

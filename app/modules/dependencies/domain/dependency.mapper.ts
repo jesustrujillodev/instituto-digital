@@ -1,6 +1,6 @@
 import * as v from "valibot";
-import { dependencySchema } from "./dependency.rules";
-import type { Dependency } from "./dependency.types";
+import { dependencyMemberSchema, dependencySchema } from "./dependency.rules";
+import type { Dependency, DependencyMember } from "./dependency.types";
 
 /**
  * Fila cruda de persistencia → dependencia de dominio.
@@ -12,3 +12,7 @@ import type { Dependency } from "./dependency.types";
  */
 export const toDomain = (raw: Record<string, unknown>): Dependency =>
 	v.parse(dependencySchema, raw);
+
+/** Fila cruda de `auth.users` → miembro. Valida el rol contra la tupla de roles. */
+export const toMember = (raw: Record<string, unknown>): DependencyMember =>
+	v.parse(dependencyMemberSchema, raw);

@@ -77,6 +77,7 @@ const createHarness = (
 		revokeFails?: boolean;
 		passwordMatches?: boolean;
 		userWithPassword?: { password: string | null } | null;
+		activeSuperadminIds?: number[];
 	} = {},
 ) => {
 	let txDepth = 0;
@@ -97,6 +98,7 @@ const createHarness = (
 		changeDependency: [] as unknown[],
 		history: [] as unknown[],
 		revoked: [] as number[],
+		superadminLocks: [] as { inTransaction: boolean }[],
 	};
 
 	const userRepository = {
@@ -134,6 +136,10 @@ const createHarness = (
 			scope: unknown,
 		) => {
 			calls.updatePassword.push({ hash, scope });
+		},
+		lockActiveSuperadminIds: async () => {
+			calls.superadminLocks.push({ inTransaction: txDepth > 0 });
+			return options.activeSuperadminIds ?? [1];
 		},
 		archive: async (documentId: string, scope: unknown) => {
 			calls.archived.push({ documentId, scope });
@@ -478,6 +484,28 @@ describe("createUserService — jerarquía en las mutaciones", () => {
 		expect(calls.archived).toEqual([]);
 	});
 
+	// Mismo rango, pero administrar auxiliares es lo único que el auxiliar no hace.
+	test("un auxiliar no degrada, archiva ni restablece a otro auxiliar", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ role: "DEPENDENCY_DEPUTY", dependencyId: 3 }),
+		});
+		const deputy = actorOf("DEPENDENCY_DEPUTY", 3);
+
+		const results = [
+			await service.update(DOCUMENT_ID, { role: "USER" }, deputy),
+			await service.archive(DOCUMENT_ID, deputy),
+			await service.resetPassword(DOCUMENT_ID, "nueva-clave-segura", deputy),
+		];
+
+		for (const result of results) {
+			expect(result.success).toBe(false);
+			if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		}
+		expect(calls.updated).toEqual([]);
+		expect(calls.archived).toEqual([]);
+		expect(calls.updatePassword).toEqual([]);
+	});
+
 	// Aquí SÍ se dice que falta permiso: el actor ya conoce la cuenta —está en su
 	// dependencia— y un 404 le haría buscar un problema que no existe.
 	test("sin rango responde FORBIDDEN_SCOPE y no USER_NOT_FOUND", async () => {
@@ -495,6 +523,103 @@ describe("createUserService — jerarquía en las mutaciones", () => {
 		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
 	});
 
+	// El formulario reenvía el rol actual aunque no se toque, y nadie puede
+	// otorgar DEPENDENCY_HEAD: pedir permiso para conservarlo bloqueaba al titular.
+	test("el titular guarda su propia cuenta reenviando su rol", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ id: 99, role: "DEPENDENCY_HEAD", dependencyId: 3 }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ firstName: "Otra", role: "DEPENDENCY_HEAD" },
+			actorOf("DEPENDENCY_HEAD", 3),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated).toHaveLength(1);
+	});
+
+	test("el superadministrador edita a un titular sin tocar su rol", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ role: "DEPENDENCY_HEAD", dependencyId: 3 }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ firstName: "Otra", role: "DEPENDENCY_HEAD" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated).toHaveLength(1);
+	});
+
+	test("el auxiliar guarda su propia cuenta reenviando su rol", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ id: 99, role: "DEPENDENCY_DEPUTY", dependencyId: 3 }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ firstName: "Otra", role: "DEPENDENCY_DEPUTY" },
+			actorOf("DEPENDENCY_DEPUTY", 3),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated).toHaveLength(1);
+	});
+
+	// La titularidad sale por el relevo de la dependencia, no por el formulario.
+	test("ni el superadministrador le quita la titularidad a un titular", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ role: "DEPENDENCY_HEAD", dependencyId: 3 }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ role: "USER" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		expect(calls.updated).toEqual([]);
+	});
+
+	// Nadie podría devolverle el rol, y podría ser el último superadministrador.
+	test("el superadministrador no se degrada a sí mismo", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ id: 99, role: "SUPERADMIN", dependencyId: null }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ role: "USER" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		expect(calls.updated).toEqual([]);
+		expect(calls.revoked).toEqual([]);
+	});
+
+	test("el superadministrador guarda su propia cuenta reenviando su rol", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ id: 99, role: "SUPERADMIN", dependencyId: null }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ firstName: "Otra", role: "SUPERADMIN" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated).toHaveLength(1);
+	});
+
 	test("cambiar a un rol que no se puede otorgar falla", async () => {
 		const { service, calls } = createHarness();
 
@@ -507,6 +632,132 @@ describe("createUserService — jerarquía en las mutaciones", () => {
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
 		expect(calls.updated).toEqual([]);
+	});
+});
+
+describe("createUserService — update revoca al cambiar el rol", () => {
+	// La escritura devuelve la cuenta con el rol nuevo: comparar contra ella nunca
+	// detectaba el cambio y el afectado seguía operando con su token anterior.
+	test("revoca cuando el rol cambia", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ role: "DEPENDENCY_DEPUTY" }),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ role: "USER" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.revoked).toEqual([7]);
+	});
+
+	test("no revoca si el rol se conserva", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ firstName: "Otra", role: "USER" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.revoked).toEqual([]);
+	});
+});
+
+describe("createUserService — al menos un superadministrador activo", () => {
+	const lastSuperadmin = userOf({
+		id: 7,
+		role: "SUPERADMIN",
+		dependencyId: null,
+	});
+
+	test("no se degrada al último superadministrador activo", async () => {
+		const { service, calls } = createHarness({
+			user: lastSuperadmin,
+			activeSuperadminIds: [7],
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ role: "USER" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.code).toBe("LAST_ACTIVE_SUPERADMIN");
+		}
+		expect(calls.updated).toEqual([]);
+		expect(calls.revoked).toEqual([]);
+	});
+
+	test("no se archiva al último superadministrador activo", async () => {
+		const { service, calls } = createHarness({
+			user: lastSuperadmin,
+			activeSuperadminIds: [7],
+		});
+
+		const result = await service.archive(DOCUMENT_ID, actorOf("SUPERADMIN"));
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.code).toBe("LAST_ACTIVE_SUPERADMIN");
+		}
+		expect(calls.archived).toEqual([]);
+		expect(calls.revoked).toEqual([]);
+	});
+
+	test("con otro activo sí se degrada y se archiva", async () => {
+		const { service, calls } = createHarness({
+			user: lastSuperadmin,
+			activeSuperadminIds: [7, 8],
+		});
+
+		const demoted = await service.update(
+			DOCUMENT_ID,
+			{ role: "USER" },
+			actorOf("SUPERADMIN"),
+		);
+		const archived = await service.archive(DOCUMENT_ID, actorOf("SUPERADMIN"));
+
+		expect(demoted.success).toBe(true);
+		expect(archived.success).toBe(true);
+		expect(calls.updated).toHaveLength(1);
+		expect(calls.archived).toHaveLength(1);
+	});
+
+	// Leído fuera de la transacción, dos superadministradores que se archivan
+	// entre sí a la vez verían cada uno al otro y los dos pasarían.
+	test("el conteo se toma bajo bloqueo dentro de la transacción", async () => {
+		const { service, calls } = createHarness({ user: lastSuperadmin });
+
+		await service.update(DOCUMENT_ID, { role: "USER" }, actorOf("SUPERADMIN"));
+		await service.archive(DOCUMENT_ID, actorOf("SUPERADMIN"));
+
+		expect(calls.superadminLocks).toEqual([
+			{ inTransaction: true },
+			{ inTransaction: true },
+		]);
+	});
+
+	// Conservar el rol de superadministrador no saca a nadie: no hace falta bloquear.
+	test("editar sin quitar el rol de superadministrador no bloquea", async () => {
+		const { service, calls } = createHarness({
+			user: lastSuperadmin,
+			activeSuperadminIds: [7],
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ firstName: "Otra", role: "SUPERADMIN" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.superadminLocks).toEqual([]);
 	});
 });
 

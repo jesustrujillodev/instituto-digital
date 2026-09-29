@@ -148,6 +148,8 @@ export interface TeachingParticipantView extends TeachingPerson {
 	/** `null` si todavía no se pasó lista en esa sesión. */
 	marks: Record<string, boolean | null>;
 	certificate: TeachingCertificate | null;
+	/** Quien mira organiza el curso y todavía puede darle de baja. */
+	removable: boolean;
 }
 
 export interface TeachingDetail {

@@ -4,6 +4,9 @@ import { toFieldErrors } from "@/shared/rules/format-vali-error";
 import { COURSE_MAX_SESSIONS } from "../course.config";
 import { COURSE_ERROR_CODES } from "../course.errors";
 import {
+	acceptsLink,
+	acceptsVenue,
+	allowsSessions,
 	assertCapacityCovers,
 	assertCompletionRuleCoherent,
 	assertCompletionSettingsEditable,
@@ -30,11 +33,10 @@ import {
 	gradesAutomatically,
 	publishChecklist,
 	requiresContent,
-	requiresLink,
 	requiresSessions,
 	requiresTrainer,
-	requiresVenue,
 	resolveEvaluationMethod,
+	resolveModality,
 } from "../course.rules";
 
 type PublishableCourse = Parameters<typeof assertPublishable>[0];
@@ -86,12 +88,38 @@ describe("transiciones de estado", () => {
 
 describe("modalidad", () => {
 	test("la presencial pide sede y la híbrida pide las dos", () => {
-		expect(requiresVenue("IN_PERSON")).toBe(true);
-		expect(requiresLink("IN_PERSON")).toBe(false);
-		expect(requiresVenue("ONLINE")).toBe(false);
-		expect(requiresLink("ONLINE")).toBe(true);
-		expect(requiresVenue("HYBRID")).toBe(true);
-		expect(requiresLink("HYBRID")).toBe(true);
+		expect(acceptsVenue("IN_PERSON")).toBe(true);
+		expect(acceptsLink("IN_PERSON")).toBe(false);
+		expect(acceptsVenue("ONLINE")).toBe(false);
+		expect(acceptsLink("ONLINE")).toBe(true);
+		expect(acceptsVenue("HYBRID")).toBe(true);
+		expect(acceptsLink("HYBRID")).toBe(true);
+	});
+});
+
+describe("formato y modalidad", () => {
+	test("admiten sesiones el calendarizado y el híbrido autogestivo", () => {
+		expect(allowsSessions({ format: "SCHEDULED", modality: "IN_PERSON" })).toBe(
+			true,
+		);
+		expect(allowsSessions({ format: "SELF_PACED", modality: "HYBRID" })).toBe(
+			true,
+		);
+		expect(allowsSessions({ format: "SELF_PACED", modality: "ONLINE" })).toBe(
+			false,
+		);
+	});
+
+	test("un autogestivo que no es híbrido se guarda en línea", () => {
+		expect(
+			resolveModality({ format: "SELF_PACED", modality: "IN_PERSON" }),
+		).toBe("ONLINE");
+		expect(resolveModality({ format: "SELF_PACED", modality: "HYBRID" })).toBe(
+			"HYBRID",
+		);
+		expect(
+			resolveModality({ format: "SCHEDULED", modality: "IN_PERSON" }),
+		).toBe("IN_PERSON");
 	});
 });
 
@@ -296,9 +324,39 @@ describe("assertPublishable", () => {
 		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER));
 	});
 
-	test("solo el calendarizado pide capacitador", () => {
-		expect(requiresTrainer("SCHEDULED")).toBe(true);
-		expect(requiresTrainer("SELF_PACED")).toBe(false);
+	test("pide capacitador todo curso que puede reunirse", () => {
+		expect(requiresTrainer({ format: "SCHEDULED", modality: "ONLINE" })).toBe(
+			true,
+		);
+		expect(requiresTrainer({ format: "SELF_PACED", modality: "HYBRID" })).toBe(
+			true,
+		);
+		expect(requiresTrainer({ format: "SELF_PACED", modality: "ONLINE" })).toBe(
+			false,
+		);
+	});
+
+	test("un híbrido autogestivo sin capacitador activo no se publica", () => {
+		expect(() =>
+			assertPublishable(
+				courseOf({
+					format: "SELF_PACED",
+					modality: "HYBRID",
+					sessions: [],
+					trainers: [],
+				}),
+				CONTENT,
+			),
+		).toThrowError(codeOf(COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER));
+	});
+
+	test("un híbrido autogestivo se publica sin sesiones", () => {
+		expect(() =>
+			assertPublishable(
+				courseOf({ format: "SELF_PACED", modality: "HYBRID", sessions: [] }),
+				CONTENT,
+			),
+		).not.toThrow();
 	});
 
 	test("un autogestivo se publica sin capacitador", () => {
@@ -361,10 +419,36 @@ describe("assertPublishable", () => {
 		).not.toThrow();
 	});
 
-	test("uno híbrido exige las dos", () => {
+	test("una sesión híbrida es presencial o en línea: le basta una de las dos", () => {
 		expect(() =>
-			assertPublishable(courseOf({ modality: "HYBRID" }), CONTENT),
-		).toThrowError(codeOf(COURSE_ERROR_CODES.SESSION_MISSING_LINK));
+			assertPublishable(
+				courseOf({
+					modality: "HYBRID",
+					sessions: [
+						sessionOf(),
+						sessionOf({ venue: null, link: "https://meet.example/x" }),
+					],
+				}),
+				CONTENT,
+			),
+		).not.toThrow();
+	});
+
+	test("señala QUÉ sesión híbrida se quedó sin sede ni enlace", () => {
+		expect(() =>
+			assertPublishable(
+				courseOf({
+					modality: "HYBRID",
+					sessions: [sessionOf(), sessionOf({ venue: null })],
+				}),
+				CONTENT,
+			),
+		).toThrowError(
+			expect.objectContaining({
+				code: COURSE_ERROR_CODES.SESSION_MISSING_PLACE,
+				details: { sessionNumber: 2 },
+			}),
+		);
 	});
 
 	test("un curso restringido sin audiencia no se publica", () => {
@@ -409,12 +493,29 @@ describe("publishChecklist", () => {
 		expect(pending(courseOf({ sessions: [] }))).toEqual(["sessions", "places"]);
 	});
 
-	test("una sesión híbrida sin enlace deja la sede pendiente", () => {
+	test("una sesión híbrida sin sede ni enlace deja el lugar pendiente", () => {
 		expect(
 			pending(
 				courseOf({
 					modality: "HYBRID",
-					sessions: [sessionOf(), sessionOf({ link: "https://x.test" })],
+					sessions: [sessionOf(), sessionOf({ venue: null })],
+				}),
+			),
+		).toEqual(["places"]);
+	});
+
+	test("las sesiones del híbrido autogestivo son opcionales, pero dicen dónde", () => {
+		const selfPacedHybrid = {
+			format: "SELF_PACED",
+			modality: "HYBRID",
+		} as const;
+
+		expect(pending(courseOf({ ...selfPacedHybrid, sessions: [] }))).toEqual([]);
+		expect(
+			pending(
+				courseOf({
+					...selfPacedHybrid,
+					sessions: [sessionOf({ venue: null })],
 				}),
 			),
 		).toEqual(["places"]);
@@ -805,7 +906,16 @@ describe("mensajes de la regla de alta", () => {
 		});
 
 		expect(errors["sessions.0.date"]).toBe(
-			"Escribe la fecha con el formato AAAA-MM-DD.",
+			"Escribe la fecha de la sesión con el formato dd-mm-aaaa, y que sea un día que exista.",
 		);
+	});
+
+	test("una sesión sin fecha la pide, no habla de formato", () => {
+		const errors = fieldErrorsOf({
+			...draft,
+			sessions: [{ date: "", startTime: "09:00", endTime: "11:00" }],
+		});
+
+		expect(errors["sessions.0.date"]).toBe("Escribe la fecha de la sesión.");
 	});
 });

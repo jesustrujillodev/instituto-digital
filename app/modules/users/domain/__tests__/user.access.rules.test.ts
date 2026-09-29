@@ -217,6 +217,33 @@ describe("canManageUser", () => {
 		).toBe(true);
 	});
 
+	test("un auxiliar no administra a otro auxiliar", () => {
+		expect(
+			canManageUser(
+				actorOf("DEPENDENCY_DEPUTY", 3, 99),
+				targetOf("DEPENDENCY_DEPUTY", 3, 7),
+			),
+		).toBe(false);
+	});
+
+	test("el auxiliar sí administra su propia cuenta", () => {
+		expect(
+			canManageUser(
+				actorOf("DEPENDENCY_DEPUTY", 3, 7),
+				targetOf("DEPENDENCY_DEPUTY", 3, 7),
+			),
+		).toBe(true);
+	});
+
+	test("el titular administra a sus auxiliares", () => {
+		expect(
+			canManageUser(
+				actorOf("DEPENDENCY_HEAD", 3),
+				targetOf("DEPENDENCY_DEPUTY", 3),
+			),
+		).toBe(true);
+	});
+
 	test("un participante solo se administra a sí mismo", () => {
 		expect(canManageUser(actorOf("USER", 3, 7), targetOf("USER", 3, 7))).toBe(
 			true,

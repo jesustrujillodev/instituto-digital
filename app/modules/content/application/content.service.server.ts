@@ -4,8 +4,6 @@ import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { buildObjectKey } from "@/shared/storage/object-key";
 import { toProxyRef } from "@/shared/storage/public-url";
-import { bucketForKey } from "@/shared/storage/storage.policy";
-import { getKeyFromUrl } from "@/shared/storage/storage.utils";
 import {
 	LESSON_MATERIAL_PREFIX,
 	LESSON_UPLOAD_TTL_S,
@@ -44,6 +42,7 @@ import type {
 	UploadUrlDto,
 } from "../domain/content.types";
 import { createContentCourseGate } from "./content-course.gate.server";
+import { createMaterialStorage } from "./material-storage.server";
 
 type Dependencies = {
 	contentRepository: ICradle["contentRepository"];
@@ -71,35 +70,12 @@ export const createContentService = ({
 	const log = logger.child({ module: "content" });
 	const run = createOperationRunner(log);
 
-	// Error de configuración, no de negocio: sale como UNEXPECTED con su mensaje
-	// real, que es lo que necesita quien opera.
-	const requireBucketOf = (key: string): string => {
-		if (!storageBucket) throw new Error("STORAGE_BUCKET_NAME no configurado");
-
-		return bucketForKey(key, {
-			defaultBucket: storageBucket,
-			publicBucket: storagePublicBucket,
-		});
-	};
-
-	/**
-	 * Borra el objeto anterior, best-effort y DESPUÉS de escribir.
-	 *
-	 * Un objeto que ya no está no puede tumbar un guardado que ya ocurrió; si el
-	 * borrado falla queda un huérfano, que el gestor de nube sabe detectar.
-	 */
-	const discardObject = (reference: string | null) => {
-		if (!reference || !storageBucket) return;
-
-		const key = getKeyFromUrl(reference);
-		if (!key) return;
-
-		void storageProvider
-			.deleteFile(requireBucketOf(key), key)
-			.catch((error) => {
-				log.warn("[content] material anterior no borrado", { key, error });
-			});
-	};
+	const { requireBucketOf, discardObject } = createMaterialStorage({
+		storageProvider,
+		storageBucket,
+		storagePublicBucket,
+		log,
+	});
 
 	const { requireCourse, requireEditableCourse } =
 		createContentCourseGate(contentRepository);

@@ -13,6 +13,9 @@ import {
 	EnrollmentInvitationsDisabledError,
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
+	EnrollmentParticipantNotEnrolledError,
+	EnrollmentRemoveClosedError,
+	EnrollmentRemovedError,
 	EnrollmentStateChangedError,
 	EnrollmentUnknownGroupError,
 	EnrollmentUnknownParticipantError,
@@ -59,6 +62,15 @@ describe("códigos estables", () => {
 			ENROLLMENT_ERROR_CODES.INVITATION_REQUIRED,
 		],
 		[new EnrollmentStateChangedError(), ENROLLMENT_ERROR_CODES.STATE_CHANGED],
+		[new EnrollmentRemovedError(), ENROLLMENT_ERROR_CODES.REMOVED],
+		[
+			new EnrollmentParticipantNotEnrolledError(),
+			ENROLLMENT_ERROR_CODES.PARTICIPANT_NOT_ENROLLED,
+		],
+		[
+			new EnrollmentRemoveClosedError("COMPLETED"),
+			ENROLLMENT_ERROR_CODES.REMOVE_CLOSED,
+		],
 	])("$constructor.name expone su código", (error, code) => {
 		expect(error.code).toBe(code);
 		expect(isDomainError(error)).toBe(true);

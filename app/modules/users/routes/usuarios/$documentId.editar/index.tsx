@@ -42,7 +42,8 @@ export function meta({ data }: Route.MetaArgs) {
 export default function EditarUsuarioPage({
 	loaderData,
 }: Route.ComponentProps) {
-	const { user, history, assignableRoles, dependencyChange } = loaderData.data;
+	const { user, history, assignableRoles, roleLock, dependencyChange } =
+		loaderData.data;
 	const navigate = useNavigate();
 	const ids = useUserFormIds();
 	const [resetOpen, setResetOpen] = useState(false);
@@ -83,6 +84,7 @@ export default function EditarUsuarioPage({
 				fetcher={fetcher}
 				user={user}
 				assignableRoles={assignableRoles}
+				roleLock={roleLock}
 				onResetPassword={() => setResetOpen(true)}
 			/>
 

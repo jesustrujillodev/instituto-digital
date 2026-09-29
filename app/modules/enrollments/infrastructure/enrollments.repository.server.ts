@@ -187,6 +187,8 @@ export const createEnrollmentRepository = ({
 				origin: true,
 				status: true,
 				result: true,
+				userId: true,
+				actedById: true,
 				grade: true,
 				completed: true,
 				progressPercent: true,
@@ -294,6 +296,7 @@ export const createEnrollmentRepository = ({
 				where: { courseId_userId: { courseId, userId } },
 				select: {
 					userId: true,
+					actedById: true,
 					documentId: true,
 					origin: true,
 					status: true,
@@ -302,7 +305,40 @@ export const createEnrollmentRepository = ({
 				},
 			});
 
-			return enrollment;
+			return (
+				enrollment && {
+					...toOwnEnrollment(enrollment),
+					userId: enrollment.userId,
+					completed: enrollment.completed,
+				}
+			);
+		},
+
+		async findParticipantEnrollment(courseId, userDocumentId) {
+			const enrollment = await prisma.enrollment.findFirst({
+				where: { courseId, user: { documentId: userDocumentId } },
+				select: {
+					userId: true,
+					actedById: true,
+					documentId: true,
+					origin: true,
+					status: true,
+					result: true,
+					completed: true,
+					dependencyId: true,
+					user: { select: { email: true, firstName: true, lastName: true } },
+				},
+			});
+
+			return (
+				enrollment && {
+					...toOwnEnrollment(enrollment),
+					userId: enrollment.userId,
+					completed: enrollment.completed,
+					dependencyId: enrollment.dependencyId,
+					...enrollment.user,
+				}
+			);
 		},
 
 		async findEnrollments(courseId, userIds) {
@@ -474,6 +510,8 @@ export const createEnrollmentRepository = ({
 					origin: true,
 					status: true,
 					result: true,
+					userId: true,
+					actedById: true,
 					updatedAt: true,
 					dependency: { select: { name: true } },
 					user: {

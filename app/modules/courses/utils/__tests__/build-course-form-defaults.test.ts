@@ -64,6 +64,7 @@ describe("buildCourseFormDefaults", () => {
 				endTime: "13:00",
 				venue: "Sala A",
 				link: "",
+				materials: [],
 			},
 		]);
 	});
@@ -111,7 +112,15 @@ describe("buildCourseFormDefaults desde una línea del plan", () => {
 describe("emptySessionValues", () => {
 	test("una fila nueva trae todas sus claves", () => {
 		expect(Object.keys(emptySessionValues()).sort()).toEqual(
-			["date", "documentId", "endTime", "link", "startTime", "venue"].sort(),
+			[
+				"date",
+				"documentId",
+				"endTime",
+				"link",
+				"materials",
+				"startTime",
+				"venue",
+			].sort(),
 		);
 	});
 });
@@ -131,7 +140,8 @@ describe("nextSessionValues", () => {
 		expect(nextSessionValues()).toEqual(emptySessionValues());
 	});
 
-	test("va al día siguiente con el mismo horario y lugar, sin la identidad", () => {
+	// El material es de esa sesión, no del programa: la siguiente empieza sin él.
+	test("va al día siguiente con el mismo horario y lugar, sin la identidad ni el material", () => {
 		const next = nextSessionValues({
 			documentId: "existente",
 			date: "2026-10-05",
@@ -139,6 +149,15 @@ describe("nextSessionValues", () => {
 			endTime: "13:00",
 			venue: "Sala A",
 			link: "https://x.test",
+			materials: [
+				{
+					draftId: "d-1",
+					type: "LINK",
+					title: "Formulario",
+					availableFromSession: false,
+					externalUrl: "https://forms.example/x",
+				},
+			],
 		});
 
 		expect(next).toEqual({
@@ -148,6 +167,7 @@ describe("nextSessionValues", () => {
 			endTime: "13:00",
 			venue: "Sala A",
 			link: "https://x.test",
+			materials: [],
 		});
 	});
 });

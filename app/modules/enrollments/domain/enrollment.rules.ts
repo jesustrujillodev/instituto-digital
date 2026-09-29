@@ -18,6 +18,9 @@ import {
 import {
 	EnrollmentFullError,
 	EnrollmentInvitationRequiredError,
+	EnrollmentRemoveClosedError,
+	EnrollmentRemovedError,
+	type RemovalBlocker,
 } from "./enrollment.errors";
 import type {
 	EnrollmentCourseSession,
@@ -74,12 +77,20 @@ const participantBatchRule = v.pipe(
 export const assignParticipantsRule = participantBatchRule;
 export const inviteParticipantsRule = participantBatchRule;
 
+export const removeParticipantRule = v.object({
+	userDocumentId: v.pipe(
+		v.string("Elige a la persona que quieres dar de baja."),
+		v.uuid("La persona elegida no es válida."),
+	),
+});
+
 export const enrollmentRules = {
 	findCourse: findEnrollmentCourseRule,
 	listAvailable: listAvailableCoursesRule,
 	searchParticipants: searchParticipantsRule,
 	assign: assignParticipantsRule,
 	invite: inviteParticipantsRule,
+	remove: removeParticipantRule,
 } as const;
 
 // ── Reglas de negocio ─────────────────────────────────────────────────────────
@@ -186,18 +197,58 @@ export const canWithdraw = (
 	return course.firstSessionAt !== null && now < course.firstSessionAt;
 };
 
+/**
+ * Una baja que la persona no dio: la hizo quien organiza. No se deshace desde
+ * el catálogo; solo quien organiza la vuelve a inscribir o a invitar.
+ */
+export const isRemoval = (enrollment: {
+	status: EnrollmentStatus;
+	userId: number;
+	actedById: number;
+}): boolean =>
+	enrollment.status === "WITHDRAWN" &&
+	enrollment.actedById !== enrollment.userId;
+
+export const assertNotRemoved = (enrollment: { removed: boolean } | null) => {
+	if (enrollment?.removed) throw new EnrollmentRemovedError();
+};
+
+/**
+ * Por qué quien organiza ya no puede dar de baja, o `null` si puede. A
+ * diferencia de la baja voluntaria, no cierra al empezar el curso: cierra al
+ * finalizarlo, porque ahí se reparten los créditos.
+ */
+export const removalBlockerOf = (
+	course: { status: CourseStatus },
+	completed: boolean,
+): RemovalBlocker | null => {
+	if (course.status !== "PUBLISHED") return "NOT_PUBLISHED";
+	if (completed) return "COMPLETED";
+	return null;
+};
+
+export const assertRemovable = (
+	course: { status: CourseStatus },
+	completed: boolean,
+): void => {
+	const blocker = removalBlockerOf(course, completed);
+	if (blocker) throw new EnrollmentRemoveClosedError(blocker);
+};
+
 /** Lo que la persona puede hacer con su propia inscripción en el curso. */
 export const participantPermissionsOf = (
 	course: EnrollmentWindow & { access: CourseAccessType },
 	status: EnrollmentStatus | null,
 	completed: boolean,
 	now: Date,
+	removed: boolean,
 ): ParticipantPermissions => {
 	const isOpen = isEnrollmentOpen(course, now);
 
 	return {
 		enroll:
 			isOpen &&
+			!removed &&
 			status !== "ENROLLED" &&
 			status !== "INVITED" &&
 			canSelfEnroll(course, status),

@@ -392,9 +392,9 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
   conserva y `null` suelta. Cancelar y finalizar no tocan el plan porque el
   estado de la línea se deriva.
 
-**Limitación conocida:** el enlace "Cursos" del menú se muestra a todo
-capacitador, también al externo, porque `SessionUser` no lleva el tipo de cuenta.
-Es UX: su loader le responde 403.
+El enlace "Cursos" del menú lo ve todo capacitador con dependencia
+(`requiresDependency`, a partir de `SessionUser.hasDependency`): el externo no
+crea cursos y ya no recibe un enlace que le respondería 403.
 
 ## 11. Añadir una operación
 

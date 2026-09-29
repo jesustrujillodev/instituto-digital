@@ -29,6 +29,13 @@ export const TEACHABLE_STATUSES = [
 ] as const satisfies readonly CourseStatus[];
 export type TeachableStatus = (typeof TEACHABLE_STATUSES)[number];
 
+/**
+ * El pase de lista manual está oculto a pedido del cliente: la asistencia se
+ * registra solo por QR. El intent `attendance` sigue vivo en el servidor, así
+ * que encenderlo devuelve la lista con casillas sin tocar nada más.
+ */
+export const MANUAL_ATTENDANCE_ENABLED = false;
+
 /** Tope de filas por envío de lista o de resultados. */
 export const TEACHING_BATCH_LIMIT = 500;
 

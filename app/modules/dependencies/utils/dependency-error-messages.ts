@@ -40,5 +40,7 @@ export const DEPENDENCY_ERROR_MESSAGES: ErrorMessageMap = {
 		"El titular tiene que pertenecer a la dependencia que administra.",
 	[DEPENDENCY_ERROR_CODES.HEAD_MUST_BE_ACTIVE]:
 		"No se puede designar titular a una cuenta archivada.",
+	[DEPENDENCY_ERROR_CODES.HEAD_MUST_NOT_BE_SUPERADMIN]:
+		"Un superadministrador no puede ser titular: perdería la administración del sistema.",
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

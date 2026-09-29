@@ -50,6 +50,7 @@ import {
 	CourseUnknownTrainerError,
 } from "../domain/course.errors";
 import {
+	allowsSessions,
 	assertCapacityCovers,
 	assertCompletionRuleCoherent,
 	assertCompletionSettingsEditable,
@@ -71,6 +72,7 @@ import {
 	requiresSessions,
 	requiresTrainer,
 	resolveEvaluationMethod,
+	resolveModality,
 } from "../domain/course.rules";
 import type { ICourseService } from "../domain/course.service";
 import type {
@@ -303,10 +305,10 @@ export const createCourseService = ({
 		assertCompletionRuleCoherent({ format, completionRule });
 		const evaluationMethod = evaluationMethodOf(dto);
 
-		// Un autogestivo no se reúne: las sesiones que el formulario haya dejado
-		// atrás se descartan aquí, y su modalidad deja de tener a qué referirse.
-		const scheduled = requiresSessions(format);
-		const inputSessions = scheduled ? dto.sessions : [];
+		// Un autogestivo en línea no se reúne: las sesiones que el formulario
+		// haya dejado atrás se descartan aquí.
+		const shape = { format, modality: dto.modality };
+		const inputSessions = allowsSessions(shape) ? dto.sessions : [];
 
 		assertSessionLimit(inputSessions.length);
 
@@ -328,9 +330,11 @@ export const createCourseService = ({
 			? endOfZonedDay(dto.enrollmentDeadline)
 			: null;
 
+		// Las sesiones del híbrido autogestivo no abren el curso: la inscripción
+		// no tiene por qué cerrar antes de la primera.
 		assertDeadlineBeforeStart(
 			enrollmentDeadline,
-			sessions.at(0)?.startsAt ?? null,
+			requiresSessions(format) ? (sessions.at(0)?.startsAt ?? null) : null,
 		);
 
 		// La audiencia solo existe cuando el acceso es restringido (§5): cambiar a
@@ -342,8 +346,8 @@ export const createCourseService = ({
 		const groupDocumentIds = wantsAudience
 			? unique(dto.audienceGroups ?? [])
 			: [];
-		// Igual que las sesiones: un autogestivo no tiene quién lo imparta.
-		const trainerDocumentIds = requiresTrainer(format)
+		// Igual que las sesiones: un autogestivo en línea no tiene quién lo imparta.
+		const trainerDocumentIds = requiresTrainer(shape)
 			? unique(dto.trainers)
 			: [];
 
@@ -370,7 +374,7 @@ export const createCourseService = ({
 			title: dto.title,
 			description: dto.description ?? null,
 			hours: dto.hours ?? null,
-			modality: scheduled ? dto.modality : "ONLINE",
+			modality: resolveModality(shape),
 			format,
 			completionRule,
 			access: dto.access,
@@ -438,12 +442,13 @@ export const createCourseService = ({
 	};
 
 	/**
-	 * Borra la portada anterior, best-effort y DESPUÉS del commit.
+	 * Borra un objeto que ya nadie referencia —la portada anterior, el material
+	 * de una sesión quitada—, best-effort y DESPUÉS del commit.
 	 *
 	 * Un objeto que ya no está no puede tumbar un guardado que ya ocurrió; si el
 	 * borrado falla queda un huérfano, que el gestor de nube sabe detectar.
 	 */
-	const discardCover = (previous: string | null) => {
+	const discardObject = (previous: string | null) => {
 		if (!previous || !storageBucket) return;
 
 		const key = getKeyFromUrl(previous);
@@ -458,7 +463,7 @@ export const createCourseService = ({
 				key,
 			)
 			.catch((error) => {
-				log.warn("[courses] portada anterior no borrada", { key, error });
+				log.warn("[courses] objeto anterior no borrado", { key, error });
 			});
 	};
 
@@ -593,9 +598,14 @@ export const createCourseService = ({
 					throw new CourseNotEditableError(course.status);
 				}
 
+				const nextShape = {
+					format: dto.format ?? course.format,
+					modality: dto.modality,
+				};
 				assertFormatEditable(
 					course.status,
-					(dto.format ?? course.format) !== course.format,
+					nextShape.format !== course.format ||
+						allowsSessions(nextShape) !== allowsSessions(course),
 				);
 				// Con los mismos defaults que `buildWriteData`: se compara lo que se
 				// va a escribir, no lo que llegó.
@@ -617,6 +627,20 @@ export const createCourseService = ({
 				}
 
 				const data = await buildWriteData(dto, scope);
+				// Quitar una sesión borra su material con ella (docs/adr/0026): la
+				// fila cae en cascada y el objeto se suelta tras el commit.
+				const keptSessions = new Set(
+					data.sessions.flatMap((session) =>
+						session.documentId ? [session.documentId] : [],
+					),
+				);
+				const removedSessions = course.sessions
+					.map((session) => session.documentId)
+					.filter((sessionDocumentId) => !keptSessions.has(sessionDocumentId));
+				const orphanedMaterials =
+					removedSessions.length > 0
+						? await courseRepository.findSessionMaterialRefs(removedSessions)
+						: [];
 				// Tres estados, no dos: archivo nuevo sustituye, `removeCover` quita,
 				// y no mandar nada conserva la que ya tenía.
 				const replaces = Boolean(cover) || dto.removeCover === true;
@@ -659,7 +683,8 @@ export const createCourseService = ({
 
 				// Fuera de las dos transacciones a propósito: el objeto viejo ya no lo
 				// referencia nadie, y su borrado no puede revertir lo ya guardado.
-				if (replaces) discardCover(course.coverImageUrl);
+				if (replaces) discardObject(course.coverImageUrl);
+				orphanedMaterials.forEach(discardObject);
 
 				return ok(updated);
 			});

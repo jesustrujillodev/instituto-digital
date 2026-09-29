@@ -8,6 +8,7 @@ import {
 	evaluatesByQuiz,
 } from "@/modules/courses/domain/course.rules";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
+import { removalBlockerOf } from "@/modules/enrollments/domain/enrollment.rules";
 import type { TeachingScope } from "./teaching.access";
 import {
 	attendancePercent,
@@ -182,7 +183,7 @@ export const toTeachingCourseSummary = (
  * `documentId`, igual que el resto del proyecto.
  *
  * `administers` dice si quien mira también administra el curso: impartir y
- * administrar son alcances distintos, y solo el segundo lo edita.
+ * administrar son alcances distintos, y solo el segundo lo edita y da de baja.
  */
 export const toTeachingDetail = (
 	course: TeachingCourse,
@@ -255,6 +256,9 @@ export const toTeachingDetail = (
 					]),
 				),
 				certificate: participant.certificate,
+				removable:
+					administers &&
+					removalBlockerOf(course, participant.completed) === null,
 			};
 		}),
 		pendingResults: pendingResultsOf(course),

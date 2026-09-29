@@ -74,6 +74,8 @@ export interface OwnEnrollment {
 	origin: EnrollmentOrigin;
 	status: EnrollmentStatus;
 	result: EnrollmentResult;
+	/** Baja que dio quien organiza y no la persona (`isRemoval`). */
+	removed: boolean;
 }
 
 /** El curso tal como lo pinta una tarjeta del catálogo. */
@@ -259,6 +261,16 @@ export interface StoredEnrollment extends OwnEnrollment {
 	userId: number;
 	completed: boolean;
 }
+
+/** La inscripción de alguien del curso, con lo que necesita su aviso de baja. */
+export interface ParticipantEnrollment extends StoredEnrollment {
+	dependencyId: number;
+	email: string;
+	firstName: string | null;
+	lastName: string | null;
+}
+
+export type RemoveParticipantDto = { userDocumentId: string };
 
 /** El avance cacheado de una inscripción activa, para recalcularlo. */
 export interface ProgressState {

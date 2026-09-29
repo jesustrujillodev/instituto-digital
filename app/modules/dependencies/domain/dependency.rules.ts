@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { atoms } from "@/shared/rules/atoms.rules";
 import {
 	createListRule,
 	SORT_DIRECTIONS,
@@ -42,6 +43,14 @@ export const dependencySchema = v.object({
 	archivedAt: v.nullable(v.date()),
 	createdAt: v.date(),
 	updatedAt: v.date(),
+});
+
+/** Ver `DependencyMember`. */
+export const dependencyMemberSchema = v.object({
+	id: v.number(),
+	documentId: v.string(),
+	archivedAt: v.nullable(v.date()),
+	role: atoms.role,
 });
 
 /** Estados por los que se puede filtrar el listado. Sin valor ⇒ "active". */

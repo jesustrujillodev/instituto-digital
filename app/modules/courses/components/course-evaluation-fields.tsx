@@ -89,40 +89,6 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 				contentHref={contentHref}
 			/>
 
-			{scheduled && (
-				<fieldset className="flex flex-col gap-3">
-					<legend className="mb-1 font-medium text-sm">
-						Ventana del código QR
-					</legend>
-					<p className="text-muted-foreground text-sm">
-						Quien llega a una sesión escanea su QR para registrar su asistencia.
-						Decide cuánto antes se activa y cuánto después deja de aceptar
-						registros.
-					</p>
-
-					<div className="grid items-start gap-4 sm:grid-cols-2">
-						<TextInput
-							id={ids.qrOpensBeforeMinutes}
-							label="Se activa (minutos antes)"
-							type="number"
-							min={0}
-							max={240}
-							error={errors.qrOpensBeforeMinutes?.message}
-							{...register("qrOpensBeforeMinutes")}
-						/>
-						<TextInput
-							id={ids.qrClosesAfterMinutes}
-							label="Se cierra (minutos después)"
-							type="number"
-							min={0}
-							max={240}
-							error={errors.qrClosesAfterMinutes?.message}
-							{...register("qrClosesAfterMinutes")}
-						/>
-					</div>
-				</fieldset>
-			)}
-
 			{requiresEvaluation && (
 				<section
 					className="flex flex-col gap-5"

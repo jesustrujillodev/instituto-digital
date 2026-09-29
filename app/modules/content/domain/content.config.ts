@@ -45,6 +45,15 @@ export const LESSON_VIDEO = {
 	maxBytes: 2 * 1024 * 1024 * 1024,
 } as const;
 
+/**
+ * El material de las sesiones (docs/adr/0026). Prefijo privado aparte del de
+ * las lecciones: cada uno tiene su fuente de referencias y su carpeta en la nube.
+ */
+export const SESSION_MATERIAL_PREFIX = "documentos/sesiones";
+
+/** Más que esto en una sola sesión deja de ser apoyo y pasa a ser temario. */
+export const SESSION_MATERIAL_MAX_PER_SESSION = 20;
+
 /** Margen para elegir el archivo y que empiece la subida, no para completarla. */
 export const LESSON_UPLOAD_TTL_S = 15 * 60;
 

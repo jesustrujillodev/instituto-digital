@@ -44,6 +44,7 @@ const ALL_EVENTS: NotificationEvent[] = [
 	{ template: "ENROLLMENT_ASSIGNED", to, course, sessions },
 	{ template: "COURSE_UPDATED", to, course, sessions },
 	{ template: "COURSE_CANCELLED", to, course },
+	{ template: "ENROLLMENT_REMOVED", to, course },
 ];
 
 const render = (event: NotificationEvent) =>
@@ -95,6 +96,16 @@ describe("renderNotification", () => {
 		expect(render(ALL_EVENTS[7]).text).toContain(
 			`${APP_URL}/dashboard/cursos-disponibles`,
 		);
+	});
+
+	// Ya no tiene acceso a la ficha: el aviso manda a buscar otro curso.
+	test("la baja dice qué curso y lleva al catálogo, no a la ficha", () => {
+		const { subject, text } = render(ALL_EVENTS[8]);
+
+		expect(subject).toContain("Seguridad en obra");
+		expect(text).toContain("te dio de baja");
+		expect(text).toContain(`${APP_URL}/dashboard/cursos-disponibles`);
+		expect(text).not.toContain("/dashboard/mis-cursos/");
 	});
 
 	test("sin nombre, el saludo es genérico", () => {

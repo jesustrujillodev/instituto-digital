@@ -1,12 +1,14 @@
 import { Prisma } from "@prisma/client";
 import type { ICradle } from "@/shared/di/container.types";
+import { HEAD_INELIGIBLE_ROLES } from "../domain/dependency.access";
 import { DEPENDENCY_LIST_DEFAULTS } from "../domain/dependency.config";
 import {
 	DependencyAlreadyHasHeadError,
 	DependencyNotFoundError,
 	DuplicateDependencyNameError,
+	HeadMustNotBeSuperadminError,
 } from "../domain/dependency.errors";
-import { toDomain } from "../domain/dependency.mapper";
+import { toDomain, toMember } from "../domain/dependency.mapper";
 import type { IDependencyRepository } from "../domain/dependency.repository";
 import type {
 	CreateDependencyDto,
@@ -33,6 +35,7 @@ const MEMBER_SELECT = {
 	id: true,
 	documentId: true,
 	archivedAt: true,
+	role: true,
 } as const;
 
 // ── Traducción de errores de Prisma ───────────────────────────────────────────
@@ -176,14 +179,19 @@ export const createDependencyRepository = ({
 			// Mismo predicado que el índice único parcial: titular Y no archivado. Un
 			// titular archivado no cuenta para la invariante, así que tampoco debe
 			// contar aquí o se intentaría degradar a quien no ocupa el puesto.
-			return prisma.user.findFirst({
+			const head = await prisma.user.findFirst({
 				where: { dependencyId, role: HEAD_ROLE, archivedAt: null },
 				select: MEMBER_SELECT,
 			});
+			return head ? toMember(head) : null;
 		},
 		async findHeadCandidates(dependencyId: number) {
 			const members = await prisma.user.findMany({
-				where: { dependencyId, archivedAt: null },
+				where: {
+					dependencyId,
+					archivedAt: null,
+					role: { notIn: [...HEAD_INELIGIBLE_ROLES] },
+				},
 				select: {
 					documentId: true,
 					firstName: true,
@@ -203,10 +211,11 @@ export const createDependencyRepository = ({
 			// La pertenencia va en el `where`, no en una comprobación posterior: así
 			// una cuenta de otra dependencia sale como null y quien llama no puede
 			// olvidarse de compararla.
-			return prisma.user.findFirst({
+			const member = await prisma.user.findFirst({
 				where: { documentId: userDocumentId, dependencyId },
 				select: MEMBER_SELECT,
 			});
+			return member ? toMember(member) : null;
 		},
 		async assignHead({ dependencyId, candidateUserId, currentHeadUserId }) {
 			try {
@@ -226,10 +235,17 @@ export const createDependencyRepository = ({
 						});
 					}
 
-					await tx.user.update({
-						where: { id: candidateUserId },
+					// Condicional y no solo comprobado antes por el servicio: si el
+					// candidato pasó a superadministrador entre esa lectura y esta
+					// escritura, la promoción no lo toca y la transacción se revierte.
+					const promoted = await tx.user.updateMany({
+						where: {
+							id: candidateUserId,
+							role: { notIn: [...HEAD_INELIGIBLE_ROLES] },
+						},
 						data: { role: HEAD_ROLE },
 					});
+					if (promoted.count === 0) throw new HeadMustNotBeSuperadminError();
 				});
 			} catch (error) {
 				translatePrismaError(error);

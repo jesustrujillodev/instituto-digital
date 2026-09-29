@@ -22,6 +22,9 @@ export const CONTENT_INTENTS = {
 	archiveModuleQuiz: "archive-module-quiz",
 	submitQuiz: "submit-quiz",
 	grantRetake: "grant-retake",
+	createSessionMaterial: "create-session-material",
+	updateSessionMaterial: "update-session-material",
+	removeSessionMaterial: "remove-session-material",
 } as const;
 
 export type ContentActionData = AppResponse<ContentCreated | null>;
@@ -41,6 +44,13 @@ export const materialPath = (
 	courseDocumentId: string,
 	lessonDocumentId: string,
 ) => `${contentPath(courseDocumentId)}/${lessonDocumentId}`;
+
+/**
+ * El material de las sesiones de un curso (docs/adr/0026). Sin componente: el
+ * panel de cada sesión lo lee y le escribe desde el alta y desde Impartición.
+ */
+export const sessionMaterialsPath = (courseDocumentId: string) =>
+	`/dashboard/cursos/${courseDocumentId}/sesiones/material`;
 
 export const LESSON_PARAM = "leccion";
 export const MODULE_PARAM = "modulo";

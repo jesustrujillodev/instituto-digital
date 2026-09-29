@@ -37,7 +37,8 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	[COURSE_ERROR_CODES.NOT_EDITABLE]:
 		"Un curso finalizado o cancelado ya no se puede modificar.",
 	[COURSE_ERROR_CODES.FORMAT_LOCKED]: {
-		message: "El formato solo se puede cambiar mientras el curso es borrador.",
+		message:
+			"Cómo se imparte el curso solo se puede cambiar mientras es borrador.",
 		fieldErrors: { format: "No se puede cambiar" },
 	},
 	[COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE]: {
@@ -75,6 +76,10 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	[COURSE_ERROR_CODES.SESSION_MISSING_LINK]: {
 		message: (error) =>
 			`La sesión ${sessionNumberOf(error)} no tiene enlace, y la modalidad lo exige.`,
+	},
+	[COURSE_ERROR_CODES.SESSION_MISSING_PLACE]: {
+		message: (error) =>
+			`La sesión ${sessionNumberOf(error)} no tiene sede ni enlace. En un curso híbrido necesita al menos uno.`,
 	},
 	[COURSE_ERROR_CODES.SESSION_INVALID_RANGE]: {
 		message: (error) =>

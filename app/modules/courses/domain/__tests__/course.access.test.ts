@@ -320,8 +320,13 @@ describe("canOpenTeaching", () => {
 	const courseOf = (
 		status: "DRAFT" | "PUBLISHED" | "FINISHED" | "CANCELLED",
 		trainerIds: string[] = [],
+		shape: {
+			format: "SCHEDULED" | "SELF_PACED";
+			modality: "IN_PERSON" | "ONLINE" | "HYBRID";
+		} = { format: "SCHEDULED", modality: "IN_PERSON" },
 	) => ({
 		status,
+		...shape,
 		trainers: trainerIds.map((userDocumentId) => ({ userDocumentId })),
 	});
 	const creator: CourseScope = { kind: "creator", dependencyId: 10, userId: 1 };
@@ -350,5 +355,27 @@ describe("canOpenTeaching", () => {
 		expect(canOpenTeaching(creator, courseOf("FINISHED", [ACTOR]), ACTOR)).toBe(
 			true,
 		);
+	});
+
+	// Nadie lo imparte, así que lo opera quien lo creó.
+	test("el capacitador interno abre su autogestivo sin sesiones", () => {
+		const selfPaced = { format: "SELF_PACED", modality: "ONLINE" } as const;
+
+		expect(
+			canOpenTeaching(creator, courseOf("PUBLISHED", [], selfPaced), ACTOR),
+		).toBe(true);
+		expect(
+			canOpenTeaching(creator, courseOf("DRAFT", [], selfPaced), ACTOR),
+		).toBe(false);
+	});
+
+	test("el autogestivo híbrido tiene quien lo imparta: el creador no lo abre", () => {
+		expect(
+			canOpenTeaching(
+				creator,
+				courseOf("PUBLISHED", [], { format: "SELF_PACED", modality: "HYBRID" }),
+				ACTOR,
+			),
+		).toBe(false);
 	});
 });

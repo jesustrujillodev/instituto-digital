@@ -23,11 +23,16 @@ import {
 	HeadCannotLeaveDependencyError,
 	InvalidCurrentPasswordError,
 	InvalidUploadError,
+	LastActiveSuperadminError,
 	UserDependencyInactiveError,
 	UserDependencyNotFoundError,
 	UserNotArchivedError,
 	UserNotFoundError,
 } from "../domain/user.errors";
+import {
+	canChangeRole,
+	leavesNoActiveSuperadmin,
+} from "../domain/user.role.rules";
 import type { IUserService } from "../domain/user.service";
 import type {
 	CreateUserDto,
@@ -94,6 +99,14 @@ export const createUserService = ({
 		if (!canManageUser(actor, user)) throw new ForbiddenScopeError();
 
 		return { user, scope };
+	};
+
+	/** Va dentro de la transacción de la escritura: el bloqueo dura hasta su commit. */
+	const requireAnotherActiveSuperadmin = async (userId: number) => {
+		const activeIds = await userRepository.lockActiveSuperadminIds();
+		if (leavesNoActiveSuperadmin(activeIds, userId)) {
+			throw new LastActiveSuperadminError();
+		}
 	};
 
 	/**
@@ -237,18 +250,26 @@ export const createUserService = ({
 
 		async update(documentId: string, dto: UpdateUserDto, actor: AuthContext) {
 			return run("update", async () => {
-				const { scope } = await requireManageable(documentId, actor);
+				const { user: current, scope } = await requireManageable(
+					documentId,
+					actor,
+				);
 
-				// Cambiar el rol sigue las mismas reglas que otorgarlo al crear.
-				if (dto.role && !canAssignRole(actor.role, dto.role)) {
+				if (dto.role && !canChangeRole(actor, current, dto.role)) {
 					throw new ForbiddenScopeError();
 				}
 
-				const user = await userRepository.update(documentId, dto, scope);
+				const user = await runInTransaction(async () => {
+					if (dto.role && dto.role !== "SUPERADMIN") {
+						await requireAnotherActiveSuperadmin(current.id);
+					}
+					return userRepository.update(documentId, dto, scope);
+				});
 
 				// Un cambio de rol viaja en el token: sin revocar, el afectado seguiría
-				// operando con el anterior hasta que expirara (regla 11).
-				if (dto.role && dto.role !== user.role) {
+				// operando con el anterior hasta que expirara (regla 11). Se compara con
+				// el rol previo: el que devuelve la escritura ya es el nuevo.
+				if (user.role !== current.role) {
 					await revokeAccess(user.id, "role-change");
 				}
 
@@ -328,9 +349,15 @@ export const createUserService = ({
 
 		async archive(documentId: string, actor: AuthContext) {
 			return run("archive", async () => {
-				const { scope } = await requireManageable(documentId, actor);
+				const { user: current, scope } = await requireManageable(
+					documentId,
+					actor,
+				);
 
-				const user = await userRepository.archive(documentId, scope);
+				const user = await runInTransaction(async () => {
+					await requireAnotherActiveSuperadmin(current.id);
+					return userRepository.archive(documentId, scope);
+				});
 
 				// Sin esto, "un usuario inactivo no puede iniciar sesión" solo se
 				// cumpliría al expirar su access token vigente: durante ese rato

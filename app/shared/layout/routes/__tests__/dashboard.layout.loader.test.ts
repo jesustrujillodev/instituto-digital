@@ -7,7 +7,11 @@ type LoaderArgs = Parameters<typeof loader>[0];
 const REQUEST = new Request("https://app.example.com/dashboard");
 
 const createHarness = (
-	options: { role?: Role | null; stateFails?: boolean } = {},
+	options: {
+		role?: Role | null;
+		dependencyId?: number | null;
+		stateFails?: boolean;
+	} = {},
 ) => {
 	const calls = { getState: 0 };
 
@@ -20,6 +24,8 @@ const createHarness = (
 						userId: 7,
 						email: "ana@empresa.com",
 						role: options.role ?? "USER",
+						dependencyId: options.dependencyId ?? null,
+						isTrainer: false,
 						iat: 1_800_000_000,
 					},
 		securityStateService: {
@@ -71,7 +77,20 @@ describe("dashboard layout loader", () => {
 			documentId: "11111111-1111-4111-8111-111111111111",
 			email: "ana@empresa.com",
 			role: "SUPERADMIN",
+			isTrainer: false,
+			hasDependency: false,
 		});
+	});
+
+	// El menú oculta lo que exige dependencia, pero el cliente no necesita saber
+	// cuál es: viaja un booleano, nunca el id.
+	test("dice si pertenece a una dependencia sin revelar cuál", async () => {
+		const { context } = createHarness({ role: "USER", dependencyId: 3 });
+
+		const result = await run(context);
+
+		expect(result.data.user.hasDependency).toBe(true);
+		expect(result.data.user).not.toHaveProperty("dependencyId");
 	});
 
 	// La proyección expuesta al cliente NO incluye el `userId` interno: fuera del

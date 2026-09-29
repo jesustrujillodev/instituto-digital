@@ -1,8 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
+	displayDateToInput,
 	endOfZonedDay,
 	formatSessionRange,
+	formatZonedDate,
+	formatZonedDateTime,
 	INSTITUTE_TIME_ZONE,
+	inputDateToDisplay,
+	maskDisplayDate,
 	startOfZonedDay,
 	utcToZonedInput,
 	zonedDayLabelOf,
@@ -110,7 +115,7 @@ describe("formatSessionRange", () => {
 
 		expect(range).toContain("23:45");
 		expect(range).toContain("00:15");
-		expect(range).toContain("6 oct 2026");
+		expect(range).toContain("06-10-2026");
 	});
 });
 
@@ -122,5 +127,37 @@ describe("zonedDayLabelOf", () => {
 		expect(label.day).toBe("5");
 		expect(label.month).toBe("oct");
 		expect(label.weekday).not.toContain(".");
+	});
+});
+
+describe("fechas en dd-mm-aaaa", () => {
+	test("se leen en Tijuana: las 23:30 del 5 siguen siendo el 5", () => {
+		const late = zonedInputToUtc("2026-10-05", "23:30");
+
+		expect(formatZonedDate(late)).toBe("05-10-2026");
+		expect(formatZonedDateTime(late)).toBe("05-10-2026 23:30");
+	});
+
+	test("lo escrito pasa a la fecha de transporte", () => {
+		expect(displayDateToInput("16-10-2026")).toBe("2026-10-16");
+		expect(inputDateToDisplay("2026-10-16")).toBe("16-10-2026");
+	});
+
+	test.each(["31-02-2026", "00-10-2026", "16-13-2026", "16/10/2026", "16-10"])(
+		"%s no es un día que exista con ese formato",
+		(text) => {
+			expect(displayDateToInput(text)).toBeNull();
+		},
+	);
+
+	test("los guiones los pone el campo mientras se escribe", () => {
+		expect(maskDisplayDate("1")).toBe("1");
+		expect(maskDisplayDate("161")).toBe("16-1");
+		expect(maskDisplayDate("16102026")).toBe("16-10-2026");
+		expect(maskDisplayDate("16/10/2026 extra")).toBe("16-10-2026");
+	});
+
+	test("lo que no es fecha de transporte se deja como está", () => {
+		expect(inputDateToDisplay("16-10")).toBe("16-10");
 	});
 });

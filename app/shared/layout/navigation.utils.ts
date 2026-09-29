@@ -5,15 +5,18 @@ import type { NavItem, NavSection } from "./navigation.types";
 export interface NavigationViewer {
 	readonly role: Role;
 	readonly isTrainer: boolean;
+	readonly hasDependency: boolean;
 }
 
 /**
  * ¿Le corresponde este item?
  *
- * Son dos condiciones que se SUMAN, no una cadena: un item marcado `trainer`
- * aparece para los roles que declara Y además para cualquier capacitador.
+ * Rol y perfil se SUMAN, no son una cadena: un item marcado `trainer` aparece
+ * para los roles que declara Y además para cualquier capacitador. La
+ * dependencia, en cambio, recorta a los dos.
  */
 const isVisible = (item: NavItem, viewer: NavigationViewer): boolean => {
+	if (item.requiresDependency && !viewer.hasDependency) return false;
 	if (item.trainer && viewer.isTrainer) return true;
 
 	return !item.roles || hasRole(viewer.role, item.roles);
