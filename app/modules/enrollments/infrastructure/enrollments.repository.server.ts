@@ -14,6 +14,7 @@ import {
 	toRosterEntry,
 } from "../domain/enrollment.mapper";
 import type {
+	CatalogFilter,
 	CourseFilter,
 	IEnrollmentRepository,
 } from "../domain/enrollment.repository";
@@ -96,21 +97,12 @@ const insensitive = (search: string) => ({
 
 const availableWhere = (
 	filters: ListAvailableCoursesDto,
-	filter: CourseFilter,
+	filter: CatalogFilter,
 	now: Date,
-	userId: number,
 ): Prisma.CourseWhereInput => ({
 	AND: [
 		asWhere(filter),
 		{ status: "PUBLISHED" },
-		// La visibilidad incluye lo que se administra o se imparte; el catálogo
-		// no. Uno por invitación solo lo ofrece a quien tiene una pendiente.
-		{
-			OR: [
-				{ access: { not: "INVITATION" as const } },
-				{ enrollments: { some: { userId, status: "INVITED" as const } } },
-			],
-		},
 		// Un calendarizado entra al catálogo mientras tenga sesiones y ninguna haya
 		// empezado; un autogestivo no tiene ninguna que mirar (docs/adr/0011).
 		{
@@ -269,7 +261,7 @@ export const createEnrollmentRepository = ({
 			const pageSize = filters.pageSize ?? AVAILABLE_LIST_DEFAULTS.pageSize;
 
 			const courses = await prisma.course.findMany({
-				where: availableWhere(filters, filter, now, userId),
+				where: availableWhere(filters, filter, now),
 				orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
 				skip: (page - 1) * pageSize,
 				take: pageSize,
@@ -285,9 +277,9 @@ export const createEnrollmentRepository = ({
 			}));
 		},
 
-		async countAvailable({ filters, filter, now, userId }) {
+		async countAvailable({ filters, filter, now }) {
 			return prisma.course.count({
-				where: availableWhere(filters, filter, now, userId),
+				where: availableWhere(filters, filter, now),
 			});
 		},
 
@@ -620,7 +612,7 @@ export const createEnrollmentRepository = ({
 			);
 		},
 
-		async findAvailableOrganizers({ filters, filter, now, userId }) {
+		async findAvailableOrganizers({ filters, filter, now }) {
 			// El filtro de dependencia se deja FUERA a propósito: si entrara, elegir
 			// una dependencia dejaría el selector con esa sola opción y no habría
 			// forma de volver. `distinct` sobre el resto da justo las que ofrecer.
@@ -629,7 +621,6 @@ export const createEnrollmentRepository = ({
 					{ ...filters, dependency: undefined },
 					filter,
 					now,
-					userId,
 				),
 				distinct: ["dependencyId"],
 				select: { dependency: { select: { documentId: true, name: true } } },

@@ -16,6 +16,7 @@ import { canRateCourse } from "@/modules/ratings/domain/rating.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
+import { catalogAccessWhere } from "../domain/enrollment.access";
 import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	AVAILABLE_LIST_DEFAULTS,
@@ -39,7 +40,10 @@ import {
 	toAvailableCourse,
 	withAvailability,
 } from "../domain/enrollment.mapper";
-import type { CourseFilter } from "../domain/enrollment.repository";
+import type {
+	CatalogFilter,
+	CourseFilter,
+} from "../domain/enrollment.repository";
 import {
 	acceptsInvitations,
 	assertNotRemoved,
@@ -124,6 +128,10 @@ export const createEnrollmentService = ({
 			isTrainer: actor.isTrainer,
 			groupIds: await groupRepository.findGroupIdsOfUser(actor.userId),
 		});
+
+	const catalogOf = async (actor: AuthContext): Promise<CatalogFilter> => ({
+		AND: [await visibilityOf(actor), catalogAccessWhere(actor.userId)],
+	});
 
 	const requireCourse = async (
 		documentId: string,
@@ -289,7 +297,7 @@ export const createEnrollmentService = ({
 		async listAvailable(filters: ListAvailableCoursesDto, actor: AuthContext) {
 			return run("listAvailable", async () => {
 				requireParticipant(actor);
-				const filter = await visibilityOf(actor);
+				const filter = await catalogOf(actor);
 				const now = clock.now();
 
 				// Las tres consultas comparten filtro y son independientes entre sí:
@@ -302,17 +310,11 @@ export const createEnrollmentService = ({
 						now,
 						userId: actor.userId,
 					}),
-					enrollmentRepository.countAvailable({
-						filters,
-						filter,
-						now,
-						userId: actor.userId,
-					}),
+					enrollmentRepository.countAvailable({ filters, filter, now }),
 					enrollmentRepository.findAvailableOrganizers({
 						filters,
 						filter,
 						now,
-						userId: actor.userId,
 					}),
 				]);
 
@@ -339,7 +341,7 @@ export const createEnrollmentService = ({
 				requireParticipant(actor);
 				const course = await requireCourse(
 					courseDocumentId,
-					await visibilityOf(actor),
+					await catalogOf(actor),
 				);
 				const now = clock.now();
 				const detail = withAvailability(course, now);

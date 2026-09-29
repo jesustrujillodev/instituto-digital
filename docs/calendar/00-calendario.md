@@ -66,9 +66,10 @@ Un parámetro mal formado responde 400. Un mes fuera de rango responde
 
 | Lentes de la sesión | Destino |
 | --- | --- |
-| Incluye `organizing` o `global` | `/dashboard/cursos/:id/editar` |
-| Incluye `enrolled` o `invited`, o `teaching` en quien puede cursar | `/dashboard/cursos-disponibles/:id` |
-| Solo `teaching` de un externo, o solo `staff` | Sin enlace: basta el panel |
+| Incluye `organizing` o `global` | `/dashboard/cursos/:id` |
+| Incluye `enrolled` o `invited` | `/dashboard/mis-cursos/:id` |
+| Solo `teaching` | `/dashboard/imparticion/:id`: un curso por invitación no existe en el catálogo para quien lo imparte sin estar invitado |
+| Solo `staff` | Sin enlace: basta el panel |
 
 ## 6. Archivos
 

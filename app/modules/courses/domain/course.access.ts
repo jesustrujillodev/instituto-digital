@@ -308,8 +308,9 @@ type AudienceBranch =
  * única que abre un curso por invitación, y también mantiene visible un curso
  * para quien salió de su audiencia después de inscribirse (§6.4).
  *
- * Ver no es poder inscribirse: el catálogo y `enroll` exigen además la
- * invitación pendiente en un curso por invitación (`canSelfEnroll`).
+ * Ver no es aparecer en el catálogo ni poder inscribirse: en un curso por
+ * invitación, el catálogo exige estar invitado (`catalogAccessWhere`) y `enroll`
+ * la invitación pendiente (`canSelfEnroll`).
  */
 export const courseVisibilityWhere = (
 	viewer: CourseViewer,

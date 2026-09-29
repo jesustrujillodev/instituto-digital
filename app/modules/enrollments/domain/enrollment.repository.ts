@@ -4,6 +4,7 @@ import type {
 	courseVisibilityWhere,
 	dependencyVisibilityWhere,
 } from "@/modules/courses/domain/course.access";
+import type { CatalogAccessWhere } from "./enrollment.access";
 import type { EnrollmentStatus } from "./enrollment.config";
 import type {
 	AvailableCourseRow,
@@ -29,7 +30,13 @@ export type CourseFilter =
 	| ReturnType<typeof courseVisibilityWhere>
 	| ReturnType<typeof dependencyVisibilityWhere>
 	| CourseScopeWhere
-	| CourseScopeWriteWhere;
+	| CourseScopeWriteWhere
+	| CatalogFilter;
+
+/** Lo que la persona ve (`courseVisibilityWhere`) y el catálogo le ofrece. */
+export type CatalogFilter = {
+	AND: [ReturnType<typeof courseVisibilityWhere>, CatalogAccessWhere];
+};
 
 export interface IEnrollmentRepository {
 	/** El curso si cumple el filtro; si no, `null`, igual que si no existiera. */
@@ -39,20 +46,19 @@ export interface IEnrollmentRepository {
 	): Promise<EnrollmentCourse | null>;
 
 	/**
-	 * Publicados, visibles y con la inscripción abierta en `now`. Uno por
-	 * invitación solo si `userId` tiene una pendiente.
+	 * Publicados, dentro del catálogo de quien mira y con la inscripción abierta
+	 * en `now`. `userId` solo trae su estado en cada curso.
 	 */
 	findAvailable(params: {
 		filters: ListAvailableCoursesDto;
-		filter: CourseFilter;
+		filter: CatalogFilter;
 		now: Date;
 		userId: number;
 	}): Promise<AvailableCourseRow[]>;
 	countAvailable(params: {
 		filters: ListAvailableCoursesDto;
-		filter: CourseFilter;
+		filter: CatalogFilter;
 		now: Date;
-		userId: number;
 	}): Promise<number>;
 	/**
 	 * Dependencias que organizan algún curso disponible para quien mira.
@@ -63,9 +69,8 @@ export interface IEnrollmentRepository {
 	 */
 	findAvailableOrganizers(params: {
 		filters: ListAvailableCoursesDto;
-		filter: CourseFilter;
+		filter: CatalogFilter;
 		now: Date;
-		userId: number;
 	}): Promise<CourseOrganizerOption[]>;
 
 	findEnrollment(

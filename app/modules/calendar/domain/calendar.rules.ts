@@ -127,15 +127,14 @@ export const lensesOf = (
  * A qué detalle lleva "Ver curso".
  *
  * Quien organiza va a la edición. Quien cursa o está invitado va a su ficha en
- * «Mis cursos»; quien imparte siendo alguien que puede cursar, a la del
- * catálogo, que ya lo deja ver su curso. El
- * capacitador externo y el titular que solo mira a su personal no tienen un
- * detalle que les responda: les basta el panel.
+ * «Mis cursos»; quien imparte, a la impartición del curso. No al catálogo: un
+ * curso por invitación no existe allí para quien lo imparte sin estar invitado.
+ * El titular que solo mira a su personal no tiene un detalle que le responda: le
+ * basta el panel.
  */
 export const resolveCourseHref = (
 	lenses: readonly CalendarLens[],
 	courseDocumentId: string,
-	plan: CalendarPlan,
 ): string | null => {
 	if (lenses.includes("organizing") || lenses.includes("global")) {
 		return `/dashboard/cursos/${courseDocumentId}`;
@@ -143,8 +142,8 @@ export const resolveCourseHref = (
 	if (lenses.includes("enrolled") || lenses.includes("invited")) {
 		return `/dashboard/mis-cursos/${courseDocumentId}`;
 	}
-	if (lenses.includes("teaching") && plan.participates) {
-		return `/dashboard/cursos-disponibles/${courseDocumentId}`;
+	if (lenses.includes("teaching")) {
+		return `/dashboard/imparticion/${courseDocumentId}`;
 	}
 	return null;
 };
@@ -184,7 +183,7 @@ export const toCalendarSessions = (
 					name: trainerName(trainer),
 				})),
 				lenses,
-				courseHref: resolveCourseHref(lenses, row.course.documentId, plan),
+				courseHref: resolveCourseHref(lenses, row.course.documentId),
 			},
 		];
 	});

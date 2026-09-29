@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { ICradle } from "@/shared/di/container.types";
+import { catalogAccessWhere } from "../../domain/enrollment.access";
+import type { CatalogFilter } from "../../domain/enrollment.repository";
 import { createEnrollmentRepository } from "../enrollments.repository.server";
 
 const AT = new Date("2026-09-03T17:00:00.000Z");
@@ -68,16 +70,14 @@ describe("setCompletion", () => {
 
 describe("catálogo", () => {
 	const NOW = new Date("2026-09-22T17:00:00.000Z");
-	const INVITATION_BRANCH = {
-		OR: [
-			{ access: { not: "INVITATION" } },
-			{ enrollments: { some: { userId: 50, status: "INVITED" } } },
-		],
-	};
+	const CATALOG_FILTER = {
+		AND: [{ OR: [] }, catalogAccessWhere(50)],
+	} as unknown as CatalogFilter;
 
 	// Quien administra o imparte un curso por invitación lo ve, pero el
-	// catálogo no se lo ofrece si no está invitado (docs/adr/0004).
-	test("un curso por invitación solo sale con una invitación pendiente", async () => {
+	// catálogo no se lo ofrece si no está invitado (docs/adr/0004). La regla
+	// viaja en el filtro; lo que no puede pasar es que una consulta lo suelte.
+	test("las tres consultas aplican el filtro del catálogo completo", async () => {
 		const wheres: unknown[] = [];
 		const record = async (args: { where: unknown }) => {
 			wheres.push(args.where);
@@ -96,17 +96,15 @@ describe("catálogo", () => {
 			} as unknown as ICradle["prisma"],
 			assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
 		});
-		const params = { filters: {}, filter: { OR: [] }, now: NOW, userId: 50 };
+		const params = { filters: {}, filter: CATALOG_FILTER, now: NOW };
 
-		await repository.findAvailable(params);
+		await repository.findAvailable({ ...params, userId: 50 });
 		await repository.countAvailable(params);
 		await repository.findAvailableOrganizers(params);
 
 		expect(wheres).toHaveLength(3);
 		for (const where of wheres) {
-			expect((where as { AND: unknown[] }).AND).toContainEqual(
-				INVITATION_BRANCH,
-			);
+			expect((where as { AND: unknown[] }).AND).toContainEqual(CATALOG_FILTER);
 		}
 	});
 });

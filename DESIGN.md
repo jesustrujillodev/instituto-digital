@@ -127,13 +127,13 @@ La plataforma es la oficina donde el personal del Ayuntamiento organiza, imparte
 
 Los componentes son **cercanos y claros**. Quien la usa es un servidor público cualquiera, a veces en una PC de oficina durante una jornada administrativa y a veces desde el celular revisando una invitación. Las formas son suavemente redondeadas, los objetivos táctiles cómodos y la jerarquía se entiende sin leer. La tipografía ITC Avant Garde, geométrica y abierta, da el tono institucional sin rigidez.
 
-Los valores de este documento son los del tema **Institucional**, el único de la plataforma, declarado en `app/app.css` con sus variantes clara y oscura. El código **nunca** escribe colores literales: consume los tokens (`bg-primary`, `text-muted-foreground`, `bg-sidebar`…), que es lo que permite que cada persona elija modo claro u oscuro, y este archivo describe lo que esos tokens valen.
+Los valores de este documento son los del tema **Institucional**, el único de la plataforma, declarado en `app/app.css` con sus variantes clara y oscura. El código **nunca** escribe colores literales: consume los tokens (`--primary`, `--muted-foreground`, `--sidebar`…), que es lo que permite que cada persona elija modo claro u oscuro, y este archivo describe lo que esos tokens valen.
 
 **Key Characteristics:**
 - Guinda como superficie de marca; papel neutro como superficie de trabajo.
 - Oro escaso: distinción, nunca relleno.
 - Una sola familia tipográfica (ITC Avant Garde) para toda la interfaz.
-- Contraste WCAG 2.1 AA comprobado por prueba en claro y oscuro.
+- Contraste WCAG 2.1 AA en claro y oscuro.
 - Profundidad por anillo tenue y sombra corta, sin bordes gruesos.
 
 ## Colors
@@ -172,7 +172,7 @@ Paleta del manual de identidad del Ayuntamiento: guinda y oro sobre neutros cál
 
 **The Oro Escaso Rule.** El oro corporativo distingue un elemento a la vez: el activo, la acción sobre guinda o un filete de marca. Nunca es una superficie grande ni el color de un estado repetido en listas. La trama de la portada generada es la excepción acotada: vive **dentro** de la superficie guinda, al 18% de opacidad, y desaparece en cuanto el curso tiene imagen propia — no señala estado ni compite con la acción.
 
-**The Token Rule.** Ningún componente escribe un color literal. Todo sale de los tokens del tema, porque el tema publicado puede cambiar sin tocar el código.
+**The Token Rule.** Ningún componente escribe un color literal. Todo sale de los tokens del tema, porque cada token tiene su variante clara y oscura y un literal no cambia con el modo.
 
 ## Typography
 
@@ -186,7 +186,7 @@ Paleta del manual de identidad del Ayuntamiento: guinda y oro sobre neutros cál
 - **Display** (Bold 700, 3rem, 1): nombre de la plataforma en la portada; 1.875rem–2.25rem en el panel de acceso. Tracking ajustado (-0.025em).
 - **Headline** (Bold 700, 1.25rem en móvil → 1.875rem en escritorio, 1.2): el `<h1>` de cada página del panel.
 - **Title** (Medium 500, 1rem): títulos de tarjeta, diálogo y panel lateral.
-- **Body** (Book 400, 0.875rem, 1.43): texto de la interfaz, celdas de tabla, descripciones. El tamaño base del documento es 1rem y la escala se deriva de él, así que el tema puede moverla entera.
+- **Body** (Book 400, 0.875rem, 1.43): texto de la interfaz, celdas de tabla, descripciones. El tamaño base del documento es 1rem y toda la escala de texto se deriva de él.
 - **Label** (Medium 500, 0.75rem): distintivos, subtítulos pequeños, ayudas de campo.
 
 ### Named Rules
@@ -196,7 +196,7 @@ Paleta del manual de identidad del Ayuntamiento: guinda y oro sobre neutros cál
 
 ## Layout
 
-El panel usa una barra lateral flotante a la izquierda (se separa del borde con margen y esquinas redondeadas), colapsable a una columna de iconos en escritorio y convertida en hoja superpuesta en móvil; el contenido ocupa el resto con su propio encabezado de página. La unidad de espaciado es 4px (`--spacing`, editable por el tema) y los componentes trabajan en múltiplos: 12px de margen horizontal en controles, 16px o 24px de relleno en tarjetas.
+El panel usa una barra lateral flotante a la izquierda (se separa del borde con margen y esquinas redondeadas), colapsable a una columna de iconos en escritorio y convertida en hoja superpuesta en móvil; el contenido ocupa el resto con su propio encabezado de página. La unidad de espaciado es 4px (`--theme-spacing`) y los componentes trabajan en múltiplos: 12px de margen horizontal en controles, 16px o 24px de relleno en tarjetas.
 
 Portada y acceso son composiciones de marca: la portada es una superficie guinda completa con el logo arriba y el mensaje centrado verticalmente a la izquierda; el acceso divide la pantalla en 5/12 guinda y 7/12 papel en escritorio, y apila la franja guinda sobre el formulario en móvil. El formulario de acceso no pasa de 384px de ancho.
 
@@ -204,7 +204,7 @@ El diseño responde primero a móvil para los participantes. Las acciones de un 
 
 ## Elevation & Depth
 
-Sistema de profundidad mínima. Las superficies flotantes (tarjetas, menús, diálogos) se separan con un **anillo de 1px del color del texto al 5%** (10% en oscuro) más una sombra corta y difusa. No hay bordes gruesos ni sombras de color. El velo detrás de diálogos y paneles es negro al 10% en claro y al 30% en oscuro: un velo atenúa, no es superficie de marca. La escala de sombras se deriva de seis parámetros del tema.
+Sistema de profundidad mínima. Las superficies flotantes (tarjetas, menús, diálogos) se separan con un **anillo de 1px del color del texto al 5%** (10% en oscuro) más una sombra corta y difusa. No hay bordes gruesos ni sombras de color. El velo detrás de diálogos y paneles es negro al 10% en claro y al 30% en oscuro: un velo atenúa, no es superficie de marca. La escala de sombras es fija, de la más corta (2xs) a la más amplia (2xl).
 
 ### Shadow Vocabulary
 - **Tarjeta** (`box-shadow: 0px 1.5px 4.5px 0px oklch(0 0 0 / 10%), 0px 0.75px 2.25px 0px oklch(0 0 0 / 10%)`): tarjetas de contenido.
@@ -254,7 +254,7 @@ Una sola ficha para todo listado de cursos: catálogo, «Mis cursos», impartici
 - **Estado:** `CourseCardStatus`, un icono con una frase de 0.75rem en peso medio. Éxito en verde servicio, aviso en oro aviso y lo cerrado en gris. El color acompaña a la frase y nunca la sustituye.
 - **Acción:** una sola, con nombre de verbo: «Continuar →», «Pasar lista →» en primario cuando hay algo que hacer hoy, «Ver detalles» en contorno cuando solo se consulta.
 - **Distintivos sobre la portada:** los de contorno del proyecto no se leen sobre una fotografía cualquiera. Sobre la portada van píldoras sólidas: la modalidad (con «· A tu ritmo» si es autogestivo) en fondo esmerilado neutro, y el estado propio —solo cuando existe— en guinda sólido. Un curso cancelado o del que la persona se dio de baja apaga su portada (gris, 60%).
-- **Una parada de tabulación:** el enlace a la ficha se estira con `after:absolute after:inset-0`; las acciones, el menú y los enlaces del detalle se elevan con `z-10`.
+- **Una parada de tabulación:** el enlace a la ficha cubre la tarjeta entera; las acciones, el menú y los enlaces del detalle quedan por encima de él y se alcanzan por separado.
 - **Invitación:** la misma ficha en renglón, teñida con un 7% del primario sobre la tarjeta y con el plazo para responder en oro aviso.
 - **Foco:** el mismo anillo de 3px al 30% que el resto de controles. La tarjeta no inventa el suyo.
 
@@ -275,7 +275,7 @@ Portada y panel de acceso usan la superficie guinda de la barra lateral con el l
 ## Do's and Don'ts
 
 ### Do:
-- **Do** consumir siempre los tokens del tema (`bg-primary`, `bg-sidebar`, `text-muted-foreground`); un color literal no cambia con el modo oscuro.
+- **Do** consumir siempre los tokens del tema (`--primary`, `--sidebar`, `--muted-foreground`); un color literal no cambia con el modo oscuro.
 - **Do** colocar el logotipo completo solo sobre la superficie guinda, y el icono del escudo en la barra lateral y como favicon.
 - **Do** mantener AA en todo par de color nuevo, en claro y en oscuro.
 - **Do** usar texto oscuro sobre el primario en modo oscuro; ningún guinda con texto claro cumple a la vez como botón y como enlace sobre fondo negro.

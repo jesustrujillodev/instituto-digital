@@ -4,6 +4,7 @@ import type { NotificationEvent } from "@/modules/notifications/domain/notificat
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
+import { catalogAccessWhere } from "../../domain/enrollment.access";
 import type { EnrollmentStatus } from "../../domain/enrollment.config";
 import { ENROLLMENT_ERROR_CODES } from "../../domain/enrollment.errors";
 import type {
@@ -294,6 +295,23 @@ describe("enrollmentService.listAvailable", () => {
 		// revelaría que existen.
 		expect(calls.courseFilters).toHaveLength(1);
 		expect(calls.organizerFilters).toEqual([{ modality: "ONLINE" }]);
+	});
+
+	// Un curso por invitación solo existe en el catálogo para quien fue invitado,
+	// aunque lo administre o lo imparta.
+	test("filtra con la visibilidad y la regla de invitación de quien mira", async () => {
+		const { service, calls } = createHarness();
+
+		await service.listAvailable({}, actorOf("DEPENDENCY_HEAD"));
+
+		expect(calls.courseFilters).toEqual([
+			{
+				AND: [
+					expect.objectContaining({ OR: expect.any(Array) }),
+					catalogAccessWhere(50),
+				],
+			},
+		]);
 	});
 
 	test("un actor que no puede cursar no ve catálogo", async () => {
@@ -943,6 +961,34 @@ describe("enrollmentService.findAvailable", () => {
 					assign: false,
 				},
 			},
+		});
+	});
+
+	// Por URL directa tampoco: la ficha usa el mismo filtro que el listado.
+	test("la ficha exige la regla de invitación del catálogo", async () => {
+		const { service, calls } = createHarness();
+
+		await service.findAvailable(COURSE_ID, actorOf("DEPENDENCY_DEPUTY"));
+
+		expect(calls.courseFilters[0]).toEqual({
+			AND: [
+				expect.objectContaining({ OR: expect.any(Array) }),
+				catalogAccessWhere(50),
+			],
+		});
+	});
+
+	test("un curso fuera del catálogo responde como inexistente", async () => {
+		const { service } = createHarness({ course: null });
+
+		const result = await service.findAvailable(
+			COURSE_ID,
+			actorOf("DEPENDENCY_HEAD", { isTrainer: true }),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.COURSE_NOT_FOUND },
 		});
 	});
 

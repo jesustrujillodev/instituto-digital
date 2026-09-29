@@ -17,7 +17,7 @@ import {
 	toCalendarSessions,
 	zonedDayOf,
 } from "../calendar.rules";
-import type { CalendarPlan, CalendarSessionRow } from "../calendar.types";
+import type { CalendarSessionRow } from "../calendar.types";
 
 const SOP = 3;
 const SDS = 4;
@@ -250,23 +250,18 @@ describe("lensesOf", () => {
 });
 
 describe("resolveCourseHref", () => {
-	const participant = resolveCalendarPlan(actorOf(), false);
-	const external = resolveCalendarPlan(
-		actorOf({ dependencyId: null, isTrainer: true }),
-		false,
-	);
-
+	// Quien imparte va a la impartición y no al catálogo: un curso por invitación
+	// no existe allí para su capacitador si no está invitado.
 	test.each([
-		[["organizing", "enrolled"], participant, "/dashboard/cursos/c1"],
-		[["global"], participant, "/dashboard/cursos/c1"],
-		[["enrolled"], participant, "/dashboard/mis-cursos/c1"],
-		[["invited"], participant, "/dashboard/mis-cursos/c1"],
-		[["teaching", "enrolled"], participant, "/dashboard/mis-cursos/c1"],
-		[["teaching"], participant, "/dashboard/cursos-disponibles/c1"],
-		[["teaching"], external, null],
-		[["staff"], participant, null],
-	] as const)("%j lleva a %s", (lenses, plan: CalendarPlan, expected) => {
-		expect(resolveCourseHref(lenses, "c1", plan)).toBe(expected);
+		[["organizing", "enrolled"], "/dashboard/cursos/c1"],
+		[["global"], "/dashboard/cursos/c1"],
+		[["enrolled"], "/dashboard/mis-cursos/c1"],
+		[["invited"], "/dashboard/mis-cursos/c1"],
+		[["teaching", "enrolled"], "/dashboard/mis-cursos/c1"],
+		[["teaching"], "/dashboard/imparticion/c1"],
+		[["staff"], null],
+	] as const)("%j lleva a %s", (lenses, expected) => {
+		expect(resolveCourseHref(lenses, "c1")).toBe(expected);
 	});
 });
 

@@ -62,7 +62,8 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Solo cursos `PUBLISHED` admiten inscribirse, aceptar, asignar o invitar | `isEnrollmentOpen` |
 | La baja se permite hasta que empiece la primera sesión; en un autogestivo, mientras no lo haya completado | `canWithdraw` |
 | Un autogestivo cae en **En curso**, no en Próximos: se recorre desde el día uno. Al completarlo pasa a **Finalizados**, porque no se cierra nunca | `classifyMyCourse` |
-| En un curso por invitación solo se inscribe quien tiene una pendiente. Quien lo administra o lo imparte lo **ve**, pero ni el catálogo se lo ofrece ni `enroll` lo acepta (`ENROLLMENT_INVITATION_REQUIRED`); a su personal se le asigna | `canSelfEnroll`, `availableWhere` |
+| Un curso por invitación solo existe en el catálogo —listado y ficha de `/dashboard/cursos-disponibles`— para quien fue invitado, con la invitación pendiente o ya aceptada. Quien lo administra o lo imparte sin estar invitado no lo encuentra ahí ni por URL (404): lo gestiona desde `/dashboard/cursos` o la impartición | `catalogAccessWhere` (`domain/enrollment.access.ts`) en `listAvailable` y `findAvailable` |
+| En un curso por invitación solo se inscribe quien tiene una pendiente; sin ella, `enroll` responde `ENROLLMENT_INVITATION_REQUIRED`. A su personal se le asigna | `canSelfEnroll` |
 | Inscribirse, aceptar y asignar ocupan lugar; invitar no | `assertSeatsFor` en `enroll`, `accept` y `assign` |
 | Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos y `SUPERADMIN` quedan fuera) |
 | Asignar es todo o nada: si no hay cupo para el lote, nadie entra | `assign` |
@@ -80,7 +81,7 @@ fechas fijas.
 
 | Operación | Quién | Alcance |
 | --- | --- | --- |
-| Ver cursos disponibles, inscribirse, baja, aceptar, rechazar | Quien cumple `canParticipate` | Lo que ve según `courseVisibilityWhere` |
+| Ver cursos disponibles, inscribirse, baja, aceptar, rechazar | Quien cumple `canParticipate` | Lo que ve según `courseVisibilityWhere`; el catálogo, además, según `catalogAccessWhere` |
 | Asignar personas o grupos | Superadministrador, titular, auxiliar, capacitador interno | Superadministrador: cualquier curso y persona. Titular y auxiliar: cursos que ve su dependencia (`dependencyVisibilityWhere`). Capacitador: los que creó. En los tres últimos, solo personal de su dependencia |
 | Invitar personas o grupos | Los mismos | Cursos `INVITATION` que ven. Quien organiza invita a cualquier dependencia; los demás, solo a su personal |
 | Ver la lista de inscritos | Los mismos | Quien organiza la ve completa; una dependencia que manda personal a un curso ajeno ve solo a la suya |
