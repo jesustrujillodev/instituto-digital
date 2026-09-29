@@ -2,6 +2,8 @@ import { canEditCertificate } from "@/modules/certificates/domain/certificate.ru
 import { CERTIFICATE_ERROR_MESSAGES } from "@/modules/certificates/utils/certificate-error-messages";
 import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
+import { acceptsEnrollmentQr } from "@/modules/enrollment-qr/domain/enrollment-qr.rules";
+import { ENROLLMENT_QR_ERROR_MESSAGES } from "@/modules/enrollment-qr/utils/enrollment-qr-error-messages";
 import { ENROLLMENT_ERROR_MESSAGES } from "@/modules/enrollments/utils/enrollment-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
@@ -68,6 +70,12 @@ export const loader = async ({
 	if (certificate && !certificate.success)
 		throw toRouteError(certificate.error, CERTIFICATE_ERROR_MESSAGES);
 
+	const enrollmentQr = acceptsEnrollmentQr(course.data)
+		? await context.enrollmentQrService.find(documentId, auth)
+		: null;
+	if (enrollmentQr && !enrollmentQr.success)
+		throw toRouteError(enrollmentQr.error, ENROLLMENT_QR_ERROR_MESSAGES);
+
 	const facts = {
 		lessonCount: content?.data.lessonCount ?? 0,
 		finalQuizQuestionCount: quiz?.success
@@ -80,6 +88,7 @@ export const loader = async ({
 		coverUrl: roster.data.course.coverUrl,
 		enrollment: toEnrollmentSummary(roster.data),
 		certificateState: certificate?.data.state ?? null,
+		enrollmentQr: enrollmentQr?.data ?? null,
 		publishChecklist: canPublish(status)
 			? publishChecklist(course.data, facts)
 			: null,

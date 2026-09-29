@@ -54,6 +54,7 @@ import { createCreditService } from "@/modules/credits/application/credits.servi
 import { createCreditRepository } from "@/modules/credits/infrastructure/credits.repository.server";
 import { createDependencyService } from "@/modules/dependencies/application/dependencies.service.server";
 import { createDependencyRepository } from "@/modules/dependencies/infrastructure/dependencies.repository.server";
+import { createEnrollmentQrService } from "@/modules/enrollment-qr/application/enrollment-qr.service.server";
 import { createEnrollmentService } from "@/modules/enrollments/application/enrollments.service.server";
 import { createEnrollmentRepository } from "@/modules/enrollments/infrastructure/enrollments.repository.server";
 import { createEvaluationService } from "@/modules/evaluations/application/evaluations.service.server";
@@ -261,6 +262,7 @@ export const configureContainer = async (
 		teachingService: asSingleton(createTeachingService),
 		completionSync: asSingleton(createCompletionSync),
 		checkInService: asSingleton(createCheckInService),
+		enrollmentQrService: asSingleton(createEnrollmentQrService),
 		creditRepository: asSingleton(createCreditRepository),
 		creditService: asSingleton(createCreditService),
 		evaluationRepository: asSingleton(createEvaluationRepository),

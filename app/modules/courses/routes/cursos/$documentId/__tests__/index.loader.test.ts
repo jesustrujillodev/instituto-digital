@@ -19,12 +19,22 @@ const createHarness = (
 		lessonCount?: number;
 		certificateState?: string;
 		certificateFails?: string;
+		access?: string;
+		enrollmentQrFails?: string;
 	} = {},
 ) => {
-	const calls = { summaries: 0, certificateLookups: 0 };
+	const calls = { summaries: 0, certificateLookups: 0, enrollmentQrLookups: 0 };
 
 	const context = {
 		authPayload: authPayloadOf(options),
+		enrollmentQrService: {
+			find: async () => {
+				calls.enrollmentQrLookups += 1;
+				return options.enrollmentQrFails
+					? failReply(options.enrollmentQrFails)
+					: okReply({ token: null, rotatedAt: null, enrollmentOpen: true });
+			},
+		},
 		certificateService: {
 			getEditor: async () => {
 				calls.certificateLookups += 1;
@@ -54,7 +64,7 @@ const createHarness = (
 							format: options.format ?? "SCHEDULED",
 							completionRule:
 								options.format === "SELF_PACED" ? "CONTENT" : "ATTENDANCE",
-							access: "PUBLIC",
+							access: options.access ?? "PUBLIC",
 							sessions: [],
 							trainers: [],
 							audience: { dependencies: [], groups: [] },
@@ -175,6 +185,44 @@ describe("cursos/:documentId loader", () => {
 
 	test("un participante recibe 403 antes de buscar nada", async () => {
 		const { context } = createHarness({ role: "USER" });
+
+		const thrown = await run(context).catch((e) => e);
+
+		expect(thrown.init.status).toBe(403);
+	});
+});
+
+describe("cursos/:documentId loader — QR de inscripción", () => {
+	test("un publicado público trae el estado de su QR", async () => {
+		const { context } = createHarness({ status: "PUBLISHED" });
+
+		const { data } = await run(context);
+
+		expect(data.enrollmentQr).toEqual({
+			token: null,
+			rotatedAt: null,
+			enrollmentOpen: true,
+		});
+	});
+
+	test.each([
+		["un borrador", { status: "DRAFT" }],
+		["un curso por invitación", { status: "PUBLISHED", access: "INVITATION" }],
+		["un finalizado", { status: "FINISHED" }],
+	])("%s no ofrece QR ni lo consulta", async (_, options) => {
+		const { context, calls } = createHarness(options);
+
+		const { data } = await run(context);
+
+		expect(data.enrollmentQr).toBeNull();
+		expect(calls.enrollmentQrLookups).toBe(0);
+	});
+
+	test("un rechazo del QR corta con su status", async () => {
+		const { context } = createHarness({
+			status: "PUBLISHED",
+			enrollmentQrFails: "ENROLLMENT_QR_FORBIDDEN_SCOPE",
+		});
 
 		const thrown = await run(context).catch((e) => e);
 

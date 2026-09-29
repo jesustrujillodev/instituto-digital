@@ -4,6 +4,8 @@ import type {
 	CourseDetail,
 	CourseSummary,
 	CreateCourseData,
+	EnrollmentQrCourse,
+	EnrollmentQrState,
 	ListCoursesDto,
 	QrCourse,
 	UpdateCourseData,
@@ -114,4 +116,17 @@ export interface ICourseRepository {
 	 * impreso deja de resolver.
 	 */
 	rotateQrToken(courseId: number, token: string, at: Date): Promise<void>;
+
+	/** El curso de un token de QR de inscripción. Sin alcance, como `findByQrToken`. */
+	findByEnrollmentQrToken(token: string): Promise<EnrollmentQrCourse | null>;
+
+	/** Quien llama ya comprobó el alcance sobre `courseId`. */
+	findEnrollmentQrState(courseId: number): Promise<EnrollmentQrState>;
+
+	/** Genera o rota el token del QR de inscripción; el impreso deja de resolver. */
+	rotateEnrollmentQrToken(
+		courseId: number,
+		token: string,
+		at: Date,
+	): Promise<void>;
 }

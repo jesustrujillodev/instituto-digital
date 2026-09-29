@@ -44,6 +44,7 @@ import type { ICreditRepository } from "@/modules/credits/domain/credit.reposito
 import type { ICreditService } from "@/modules/credits/domain/credit.service";
 import type { IDependencyRepository } from "@/modules/dependencies/domain/dependency.repository";
 import type { IDependencyService } from "@/modules/dependencies/domain/dependency.service";
+import type { IEnrollmentQrService } from "@/modules/enrollment-qr/domain/enrollment-qr.service";
 import type { IEnrollmentRepository } from "@/modules/enrollments/domain/enrollment.repository";
 import type { IEnrollmentService } from "@/modules/enrollments/domain/enrollment.service";
 import type { IEvaluationRepository } from "@/modules/evaluations/domain/evaluation.repository";
@@ -154,6 +155,7 @@ export interface ICradle {
 	// el avance por lección, que es quien completa un autogestivo (docs/adr/0014).
 	completionSync: ICompletionSync;
 	checkInService: ICheckInService;
+	enrollmentQrService: IEnrollmentQrService;
 	creditRepository: ICreditRepository;
 	creditService: ICreditService;
 	evaluationRepository: IEvaluationRepository;

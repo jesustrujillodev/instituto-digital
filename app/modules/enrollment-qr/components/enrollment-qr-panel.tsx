@@ -1,11 +1,7 @@
-import { QrCode, RefreshCw } from "lucide-react";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { useFetcher } from "react-router";
-import { formatZonedDate, INSTITUTE_TIME_ZONE_LABEL } from "@/lib/date-utils";
-import {
-	INTENT_FIELD,
-	TEACHING_INTENTS,
-	type TeachingActionData,
-} from "@/modules/teaching/utils/parse-teaching-form-data";
+import { formatZonedDate } from "@/lib/date-utils";
+import { INTENT_FIELD } from "@/modules/courses/utils/parse-course-form-data";
 import { QrCodeDownload } from "@/shared/components/common/qr-code-download";
 import {
 	AlertDialog,
@@ -21,20 +17,18 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
-import { checkInPathOf } from "../domain/check-in.config";
+import type { AppResponse } from "@/shared/response/response.types";
+import { enrollmentQrPathOf } from "../domain/enrollment-qr.config";
+import type { EnrollmentQrPanel as EnrollmentQrPanelData } from "../domain/enrollment-qr.types";
+import { ENROLLMENT_QR_INTENTS } from "../utils/enrollment-qr-intents";
 
-export interface CourseQrPanelProps {
+export interface EnrollmentQrPanelProps {
 	title: string;
-	qr: {
-		token: string | null;
-		rotatedAt: Date | null;
-		opensBeforeMinutes: number;
-		closesAfterMinutes: number;
-	};
+	qr: EnrollmentQrPanelData;
 }
 
-export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
-	const fetcher = useFetcher<TeachingActionData>();
+export function EnrollmentQrPanel({ title, qr }: EnrollmentQrPanelProps) {
+	const fetcher = useFetcher<AppResponse<null>>();
 	useFetcherToast(fetcher);
 
 	const rotating = fetcher.state !== "idle";
@@ -44,38 +38,45 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 			<CardContent className="space-y-4 pt-6">
 				<div className="space-y-1">
 					<h2 className="flex items-center gap-2 text-sm font-semibold">
-						<QrCode className="size-4" aria-hidden />
-						Asistencia por QR
+						<UserPlus className="size-4" aria-hidden />
+						Inscripción por QR
 					</h2>
 					<p className="text-xs text-muted-foreground">
-						Quien escanea registra su asistencia a la sesión en curso. Acepta
-						registros sin interrupción desde {qr.opensBeforeMinutes} min antes
-						del inicio hasta {qr.closesAfterMinutes} min después del fin de cada
-						sesión, en {INSTITUTE_TIME_ZONE_LABEL}.
+						Para carteles y avisos impresos. Quien lo escanea inicia sesión, ve
+						la ficha del curso y confirma su inscripción. Se aplican el cupo, la
+						fecha límite y la audiencia del curso.
 					</p>
 				</div>
+
+				{!qr.enrollmentOpen && (
+					<p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+						La inscripción está cerrada ahora: quien escanee verá el curso, pero
+						no podrá inscribirse.
+					</p>
+				)}
 
 				{qr.token ? (
 					<>
 						<QrCodeDownload
-							path={checkInPathOf(qr.token)}
-							fileName={`qr-${title}`}
-							ariaLabel="Código QR de asistencia del curso"
+							path={enrollmentQrPathOf(qr.token)}
+							fileName={`qr-inscripcion-${title}`}
+							ariaLabel="Código QR de inscripción del curso"
 						>
 							<p className="text-center text-xs text-muted-foreground">
-								Imprímelo a 5 cm o más para que se lea desde la puerta.
+								Imprímelo a 3 cm o más. El PNG sirve para carteles; el SVG no
+								pierde nitidez a ningún tamaño.
 							</p>
 						</QrCodeDownload>
 
 						{qr.rotatedAt && (
 							<p className="text-center text-xs text-muted-foreground">
-								Regenerado el {formatZonedDate(qr.rotatedAt)}
+								Generado el {formatZonedDate(qr.rotatedAt)}
 							</p>
 						)}
 					</>
 				) : (
 					<p className="text-sm text-muted-foreground">
-						Este curso todavía no tiene código QR.
+						Este curso todavía no tiene código QR de inscripción.
 					</p>
 				)}
 
@@ -96,13 +97,13 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 						<AlertDialogHeader>
 							<AlertDialogTitle>
 								{qr.token
-									? "¿Regenerar el código QR?"
-									: "¿Generar el código QR?"}
+									? "¿Regenerar el código QR de inscripción?"
+									: "¿Generar el código QR de inscripción?"}
 							</AlertDialogTitle>
 							<AlertDialogDescription>
 								{qr.token
-									? "El código impreso dejará de funcionar de inmediato. Tendrás que imprimir y colocar el nuevo antes de la siguiente sesión. No se borra ninguna asistencia ya registrada."
-									: "Se creará el código que el personal escaneará para registrar su asistencia."}
+									? "Los carteles ya impresos dejarán de funcionar de inmediato y tendrás que reemplazarlos. Las inscripciones ya hechas no cambian, y el QR de asistencia tampoco."
+									: "Se creará el código que el personal podrá escanear para inscribirse a este curso."}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
@@ -110,7 +111,7 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 							<AlertDialogAction
 								onClick={() =>
 									fetcher.submit(
-										{ [INTENT_FIELD]: TEACHING_INTENTS.rotateQr },
+										{ [INTENT_FIELD]: ENROLLMENT_QR_INTENTS.rotate },
 										{ method: "post" },
 									)
 								}

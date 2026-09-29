@@ -460,5 +460,31 @@ export const createCourseRepository = ({
 				data: { qrToken: token, qrTokenRotatedAt: at },
 			});
 		},
+		async findByEnrollmentQrToken(token) {
+			return prisma.course.findUnique({
+				where: { enrollmentQrToken: token },
+				select: { id: true, documentId: true, status: true, access: true },
+			});
+		},
+		async findEnrollmentQrState(courseId) {
+			const course = await prisma.course.findUniqueOrThrow({
+				where: { id: courseId },
+				select: {
+					enrollmentQrToken: true,
+					enrollmentQrTokenRotatedAt: true,
+				},
+			});
+
+			return {
+				token: course.enrollmentQrToken,
+				rotatedAt: course.enrollmentQrTokenRotatedAt,
+			};
+		},
+		async rotateEnrollmentQrToken(courseId, token, at) {
+			await prisma.course.update({
+				where: { id: courseId },
+				data: { enrollmentQrToken: token, enrollmentQrTokenRotatedAt: at },
+			});
+		},
 	};
 };

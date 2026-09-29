@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { ENROLLMENT_QR_INTENTS } from "@/modules/enrollment-qr/utils/enrollment-qr-intents";
 import {
 	COURSE_INTENTS,
 	INTENT_FIELD,
@@ -16,12 +17,24 @@ import { action } from "../index.action";
 type ActionArgs = Parameters<typeof action>[0];
 
 const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
-	const calls = { published: [] as string[], cancelled: [] as string[] };
+	const calls = {
+		published: [] as string[],
+		cancelled: [] as string[],
+		rotated: [] as string[],
+	};
 	const reply = () =>
 		options.failsWith ? failReply(options.failsWith) : okReply(null);
 
 	const context = {
 		authPayload: authPayloadOf(options),
+		enrollmentQrService: {
+			rotateToken: async (documentId: string) => {
+				calls.rotated.push(documentId);
+				return options.failsWith
+					? failReply(options.failsWith)
+					: okReply({ token: "t", rotatedAt: new Date() });
+			},
+		},
 		courseService: {
 			publish: async (documentId: string) => {
 				calls.published.push(documentId);
@@ -95,5 +108,33 @@ describe("cursos/:documentId action", () => {
 
 		expect(!result.success && result.error.code).toBe("VALIDATION_ERROR");
 		expect(calls.published).toEqual([]);
+	});
+
+	test("genera el QR de inscripción con el documentId de la URL", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(
+			{ [INTENT_FIELD]: ENROLLMENT_QR_INTENTS.rotate },
+			context,
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.rotated).toEqual([COURSE_ID]);
+		expect(calls.published).toEqual([]);
+	});
+
+	test("un QR rechazado vuelve con su código estable", async () => {
+		const { context } = createHarness({
+			failsWith: "ENROLLMENT_QR_UNAVAILABLE",
+		});
+
+		const result = await run(
+			{ [INTENT_FIELD]: ENROLLMENT_QR_INTENTS.rotate },
+			context,
+		);
+
+		expect(!result.success && result.error.code).toBe(
+			"ENROLLMENT_QR_UNAVAILABLE",
+		);
 	});
 });

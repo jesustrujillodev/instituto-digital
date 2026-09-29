@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { checkInPathOf } from "@/modules/check-in/domain/check-in.config";
+import { enrollmentQrPathOf } from "@/modules/enrollment-qr/domain/enrollment-qr.config";
 import { isSafeReturnTo, safeReturnTo } from "../return-to";
 
 const TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -18,6 +19,10 @@ describe("isSafeReturnTo", () => {
 		expect(isSafeReturnTo(checkInPathOf(TOKEN))).toBe(true);
 	});
 
+	test("acepta lo que produce enrollmentQrPathOf", () => {
+		expect(isSafeReturnTo(enrollmentQrPathOf(TOKEN))).toBe(true);
+	});
+
 	test.each([
 		["//evil.com", "protocol-relative"],
 		["https://evil.com", "absoluta"],
@@ -32,6 +37,10 @@ describe("isSafeReturnTo", () => {
 		[`/asistencia/${TOKEN}#x`, "con fragmento"],
 		["/asistencia/../dashboard", "con salto de directorio"],
 		["/asistencia/AAAA AAAA AAAA AAAA AAAA AAAA AAAA", "con espacios"],
+		["/inscripcion/", "inscripción sin token"],
+		[`/inscripcion/${TOKEN}?next=/admin`, "inscripción con query colgando"],
+		["/inscripcion/../dashboard", "inscripción con salto de directorio"],
+		[`/inscripciones/${TOKEN}`, "prefijo parecido"],
 		["", "vacía"],
 	])("rechaza %s (%s)", (value) => {
 		expect(isSafeReturnTo(value)).toBe(false);

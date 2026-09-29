@@ -5,6 +5,7 @@ import { Award, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { CertificateStatusNotice } from "@/modules/certificates/components/certificate-status-notice";
+import { EnrollmentQrPanel } from "@/modules/enrollment-qr/components/enrollment-qr-panel";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -56,6 +57,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 			enrollment,
 			publishChecklist,
 			certificateState,
+			enrollmentQr,
 			can,
 		},
 	} = loaderData;
@@ -140,6 +142,10 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						onCancel={() => setConfirmingCancel(true)}
 						onPublish={() => submitStatus(COURSE_INTENTS.publish)}
 					/>
+
+					{enrollmentQr && (
+						<EnrollmentQrPanel title={course.title} qr={enrollmentQr} />
+					)}
 
 					{certificateState && (
 						<CertificateStatusNotice

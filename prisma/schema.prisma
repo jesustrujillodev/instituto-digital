@@ -397,6 +397,11 @@ model Course {
   qrOpensBeforeMinutes Int @default(15) @map("qr_opens_before_minutes")
   qrClosesAfterMinutes Int @default(15) @map("qr_closes_after_minutes")
 
+  /// Token del QR de inscripción, independiente del de asistencia: el póster
+  /// que publicita el curso y el código del aula se regeneran por separado.
+  enrollmentQrToken          String?   @unique @map("enrollment_qr_token")
+  enrollmentQrTokenRotatedAt DateTime? @map("enrollment_qr_token_rotated_at")
+
   status CourseStatus @default(DRAFT)
 
   createdById Int  @map("created_by_id")

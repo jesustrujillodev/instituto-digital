@@ -16,6 +16,7 @@ import { coursesRoutes } from "./modules/courses/routes/routes.config";
 import { creditsRoutes } from "./modules/credits/routes/routes.config";
 import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
 import { dependenciesRoutes } from "./modules/dependencies/routes/routes.config";
+import { enrollmentQrRoutes } from "./modules/enrollment-qr/routes/routes.config";
 import { enrollmentsRoutes } from "./modules/enrollments/routes/routes.config";
 import { evaluationsRoutes } from "./modules/evaluations/routes/routes.config";
 import { groupsRoutes } from "./modules/groups/routes/routes.config";
@@ -36,6 +37,7 @@ export default [
 	...authRoutes,
 	...themeRoutes, // /preferencia-tema — el toggle vive también en landing y login
 	...checkInRoutes, // /asistencia/:token — el escaneo del QR se impone la sesión él mismo
+	...enrollmentQrRoutes, // /inscripcion/:token — igual, y redirige a la ficha del catálogo
 	...certificateVerificationRoutes, // /verificar/:id — pública sin sesión, a propósito (ADR 0020)
 
 	// ══════════════════════════════════════════════════════════════════════════

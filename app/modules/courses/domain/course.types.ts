@@ -186,6 +186,25 @@ export interface QrCourse {
 }
 
 // ===============================================================
+// Inscripcion por QR
+// ===============================================================
+// Lo consume el modulo `enrollment-qr`. Sin alcance por la misma razon que
+// `QrCourse`: el token es la autorizacion para llegar al curso.
+
+export interface EnrollmentQrCourse {
+	id: number;
+	documentId: string;
+	status: CourseStatus;
+	access: CourseAccessType;
+}
+
+/** `token` nulo mientras nadie lo haya generado. */
+export interface EnrollmentQrState {
+	token: string | null;
+	rotatedAt: Date | null;
+}
+
+// ===============================================================
 // Contrato de respuesta del modulo
 // ===============================================================
 
