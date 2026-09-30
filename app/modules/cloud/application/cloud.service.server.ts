@@ -115,7 +115,7 @@ export const createCloudService = (
 	/**
 	 * `true` si la ruta se encontró en el bucket donde la política dice que vive.
 	 *
-	 * Un objeto en el bucket equivocado (p. ej. una foto de catálogo subida antes
+	 * Un objeto en el bucket equivocado (p. ej. una portada de curso subida antes
 	 * de separar buckets) no se puede servir por el proxy ni borrar por la ruta
 	 * normal: enseñarlo solo produciría enlaces y borrados que fallan.
 	 */
@@ -432,7 +432,7 @@ export const createCloudService = (
 				);
 
 				// Agrupado por DUEÑO, no por archivo: lo que importa antes de
-				// confirmar es "esto afecta a 2 vehículos", no la lista de fotos.
+				// confirmar es "esto afecta a 2 cursos", no la lista de archivos.
 				const owners = new Map<string, DeleteImpactOwner>();
 				for (const { reference } of references.values()) {
 					const id = `${reference.owner}:${reference.href ?? reference.label}`;

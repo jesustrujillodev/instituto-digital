@@ -43,7 +43,7 @@ interface CloudDeleteDialogProps {
  * Confirmación de un borrado en cascada.
  *
  * Antes de ofrecer el botón pregunta al servidor QUÉ se va a borrar: una carpeta
- * no dice cuántos archivos tiene ni si alguno es la portada de un vehículo. Sin
+ * no dice cuántos archivos tiene ni si alguno es la portada de un curso. Sin
  * ese resumen, confirmar sería firmar a ciegas.
  */
 export function CloudDeleteDialog({

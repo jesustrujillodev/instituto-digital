@@ -14,7 +14,7 @@ interface CloudPathBarProps {
 
 /**
  * Dónde estoy y cómo lo veo. Las migas usan el nombre legible de cada carpeta
- * ("Fotos de vehículos / Ana Ruiz") y la ruta cruda queda en el
+ * ("Portadas de cursos / Inducción 2026") y la ruta cruda queda en el
  * `title`, que es lo que busca quien viene de la consola del proveedor.
  */
 export function CloudPathBar({

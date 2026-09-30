@@ -17,7 +17,7 @@ export abstract class CloudError extends DomainError {}
 /**
  * No hay bucket configurado.
  *
- * Es un error CONOCIDO y no uno inesperado porque la plantilla arranca sin
+ * Es un error CONOCIDO y no uno inesperado porque la plataforma arranca sin
  * storage (`STORAGE_PROVIDER` es opcional): la pantalla lo pinta como estado
  * vacío, no como un 500.
  */

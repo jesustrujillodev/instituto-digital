@@ -25,7 +25,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const result = await context.cloudService.list(input.data);
 
 	if (!result.success) {
-		// La plantilla arranca sin storage: eso es un estado de la pantalla, no un
+		// La plataforma arranca sin storage: eso es un estado de la pantalla, no un
 		// error de ruta.
 		if (result.error.code === CLOUD_ERROR_CODES.NOT_CONFIGURED) {
 			return ok({ configured: false as const, path: input.data.path });

@@ -82,7 +82,7 @@ export default function NubePage({ loaderData }: Route.ComponentProps) {
 			<div className="flex flex-col">
 				<PageHeader
 					title="Nube"
-					description="Archivos del almacenamiento: fotos, documentos y fotos de perfil."
+					description="Archivos del almacenamiento: portadas de cursos, material de lecciones y sesiones, firmas de certificados y fotos de perfil."
 				/>
 				<Empty className="border border-border">
 					<EmptyHeader>
@@ -238,7 +238,7 @@ function CloudBrowser({ listing }: { listing: CloudListing }) {
 		: {
 				title: "El almacenamiento está vacío",
 				description:
-					"Aquí aparecerán las fotos y documentos de los vehículos y las fotos de perfil en cuanto se suban.",
+					"Aquí aparecerán las portadas de los cursos, el material de lecciones y sesiones, las firmas de los certificados y las fotos de perfil en cuanto se suban.",
 			};
 
 	const summary = (
@@ -254,7 +254,7 @@ function CloudBrowser({ listing }: { listing: CloudListing }) {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Nube"
-				description="Archivos del almacenamiento: fotos, documentos y fotos de perfil."
+				description="Archivos del almacenamiento: portadas de cursos, material de lecciones y sesiones, firmas de certificados y fotos de perfil."
 				actions={
 					<Button variant="outline" onClick={() => setOrphansOpen(true)}>
 						<SearchCheck aria-hidden="true" />

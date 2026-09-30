@@ -7,7 +7,7 @@ import {
 } from "../cloud.rules";
 
 describe("validateCloudKey", () => {
-	test("acepta una key de vehículo", () => {
+	test("acepta una key de material", () => {
 		expect(
 			validateCloudKey("media/curso-induccion-2026/frente-1700000000.jpg"),
 		).toBe("media/curso-induccion-2026/frente-1700000000.jpg");

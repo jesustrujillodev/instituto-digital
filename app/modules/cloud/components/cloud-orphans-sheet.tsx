@@ -111,8 +111,9 @@ export function CloudOrphansSheet({
 				<SheetHeader>
 					<SheetTitle>Huérfanos en {pathLabel}</SheetTitle>
 					<SheetDescription>
-						Archivos que ningún vehículo ni usuario usa y que llevan más de{" "}
-						{GRACE_MINUTES} minutos subidos. Incluye subcarpetas.
+						Archivos que no usa ningún curso, lección, sesión, certificado ni
+						usuario y que llevan más de {GRACE_MINUTES} minutos subidos. Incluye
+						subcarpetas.
 					</SheetDescription>
 				</SheetHeader>
 
