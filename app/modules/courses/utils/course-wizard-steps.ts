@@ -228,6 +228,10 @@ export const editReturnPath = (documentId: string, returnTo: string | null) =>
 		? `/dashboard/imparticion/${documentId}`
 		: `/dashboard/cursos/${documentId}`;
 
+/** `editReturnPath`, dicho para un botón: «Guardar y salir al curso». */
+export const editReturnLabel = (returnTo: string | null) =>
+	returnTo === RETURN_TO_TEACHING ? "a Impartición" : "al curso";
+
 export const COURSE_LIST_PATH = "/dashboard/cursos";
 
 /**
@@ -242,6 +246,10 @@ export const finishReturnPath = (
 	returnTo === RETURN_TO_TEACHING
 		? `/dashboard/imparticion/${documentId}`
 		: COURSE_LIST_PATH;
+
+/** `finishReturnPath`, dicho para un botón: «Guardar y salir a Cursos». */
+export const finishReturnLabel = (returnTo: string | null) =>
+	returnTo === RETURN_TO_TEACHING ? "a Impartición" : "a Cursos";
 
 /** Pasos con al menos un campo marcado; un error anidado cuenta por su raíz. */
 export const stepsWithErrors = (

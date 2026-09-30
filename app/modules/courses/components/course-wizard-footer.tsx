@@ -7,11 +7,13 @@ interface CourseWizardFooterProps {
 	formId: string;
 	/** `null` en el primer paso: no hay atrás dentro del alta. */
 	backTo: string | null;
-	/** El paso al que lleva Continuar; `null` cuando el botón publica o guarda. */
+	/** El paso al que lleva «Guardar y continuar»; `null` cuando publica o sale. */
 	nextTitle?: string | null;
 	isSubmitting: boolean;
 	/** La revisión del alta publica; el último paso de la edición guarda y sale. */
 	submitKind: "next" | "publish" | "save";
+	/** A dónde sale el último paso de la edición: «a Cursos», «a Impartición». */
+	finishLabel?: string;
 	/** Publicar exige que no quede nada pendiente. */
 	canSubmit?: boolean;
 }
@@ -28,6 +30,7 @@ export function CourseWizardFooter({
 	nextTitle = null,
 	isSubmitting,
 	submitKind,
+	finishLabel = "a Cursos",
 	canSubmit = true,
 }: CourseWizardFooterProps) {
 	return (
@@ -68,11 +71,11 @@ export function CourseWizardFooter({
 				) : submitKind === "save" ? (
 					<>
 						<Check aria-hidden="true" />
-						{isSubmitting ? "Guardando…" : "Guardar cambios"}
+						{isSubmitting ? "Guardando…" : `Guardar y salir ${finishLabel}`}
 					</>
 				) : (
 					<>
-						{isSubmitting ? "Guardando…" : "Continuar"}
+						{isSubmitting ? "Guardando…" : "Guardar y continuar"}
 						<ArrowRight aria-hidden="true" />
 					</>
 				)}

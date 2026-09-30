@@ -29,6 +29,22 @@ export const CONTENT_INTENTS = {
 
 export type ContentActionData = AppResponse<ContentCreated | null>;
 
+/**
+ * Cada acción revalida los `fetcher.load` montados, y el panel de la lección
+ * archivada sigue montado mientras llega la respuesta: pedir otra vez su
+ * material o su práctica devuelve 404, y ese error tira la pantalla entera.
+ */
+export const shouldRevalidateAfterArchive = ({
+	formData,
+	defaultShouldRevalidate,
+}: {
+	formData?: FormData;
+	defaultShouldRevalidate: boolean;
+}): boolean =>
+	formData?.get(INTENT_FIELD) === CONTENT_INTENTS.archiveLesson
+		? false
+		: defaultShouldRevalidate;
+
 export const contentPath = (courseDocumentId: string) =>
 	`/dashboard/cursos/${courseDocumentId}/contenido`;
 

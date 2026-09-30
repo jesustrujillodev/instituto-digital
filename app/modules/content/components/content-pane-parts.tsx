@@ -1,5 +1,6 @@
 import {
 	Archive,
+	Check,
 	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
@@ -24,17 +25,16 @@ export interface PaneHandle {
 	flush: () => Promise<boolean>;
 }
 
+/** Sin `save`, el panel no se edita aquí y no enseña estado de guardado. */
 export function PaneHeader({
 	trail,
-	saving,
-	dirty,
+	save,
 	previous,
 	next,
 	menu,
 }: {
 	trail: string;
-	saving: boolean;
-	dirty: boolean;
+	save?: { saving: boolean; dirty: boolean };
 	previous?: { label: string; onClick: () => void } | null;
 	next?: { label: string; onClick: () => void } | null;
 	menu?: ReactNode;
@@ -43,14 +43,19 @@ export function PaneHeader({
 		<div className="flex items-center justify-between gap-3">
 			<p className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
 				<span className="truncate">{trail}</span>
-				{saving ? (
+				{save?.saving ? (
 					<span className="flex shrink-0 items-center gap-1">
 						<Loader2 className="size-3 animate-spin" aria-hidden="true" />
 						Guardando…
 					</span>
-				) : dirty ? (
+				) : save?.dirty ? (
 					<span className="shrink-0 text-warning-foreground">
-						· Cambios sin guardar
+						· Sin guardar: se guarda al cambiar de elemento
+					</span>
+				) : save ? (
+					<span className="flex shrink-0 items-center gap-1">
+						<Check className="size-3" aria-hidden="true" />
+						Guardado
 					</span>
 				) : null}
 			</p>

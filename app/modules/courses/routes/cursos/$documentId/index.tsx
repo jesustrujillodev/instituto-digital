@@ -25,7 +25,6 @@ import { CourseProgram } from "../../../components/course-program";
 import { CourseStatusPanel } from "../../../components/course-status-panel";
 import { CourseTrainers } from "../../../components/course-trainers";
 import {
-	allowsSessions,
 	requiresSessions,
 	requiresTrainer,
 } from "../../../domain/course.rules";
@@ -172,7 +171,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						)}
 					</DetailSection>
 
-					{allowsSessions(course) && (
+					{requiresSessions(course.format) && (
 						<DetailSection
 							title="Programa"
 							aside={
@@ -183,7 +182,6 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 							<CourseProgram
 								sessions={course.sessions}
 								modality={course.modality}
-								optional={!requiresSessions(course.format)}
 							/>
 						</DetailSection>
 					)}

@@ -5,7 +5,9 @@ import { useCourseFormIds } from "../hooks/use-course-form-ids";
 import type { loadCourseWizard } from "../routes/course-wizard.server";
 import {
 	type CourseWizardMode,
+	editReturnLabel,
 	editReturnPath,
+	finishReturnLabel,
 	finishReturnPath,
 	RETURN_PARAM,
 	stepOfNumber,
@@ -47,7 +49,9 @@ export function CourseWizardScreen({
 					? editReturnPath(course.documentId, returnTo)
 					: undefined
 			}
+			exitLabel={mode === "edit" ? editReturnLabel(returnTo) : undefined}
 			finishTo={finishReturnPath(course.documentId, returnTo)}
+			finishLabel={finishReturnLabel(returnTo)}
 			search={
 				returnTo ? `?${RETURN_PARAM}=${encodeURIComponent(returnTo)}` : ""
 			}

@@ -1,4 +1,5 @@
 import { valibotResolver } from "@hookform/resolvers/valibot";
+import { LogOut, Save } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, type Resolver, useForm } from "react-hook-form";
 import { Link, useFetcher, useNavigate } from "react-router";
@@ -72,6 +73,9 @@ const LIST_PATH = COURSE_LIST_PATH;
 
 const NO_PENDING: ReadonlySet<CourseStepKey> = new Set();
 
+/** Tras guardar: al paso siguiente, fuera del wizard, o en el mismo paso. */
+type SaveTarget = "next" | "exit" | "stay";
+
 const describeStep = (step: CourseStep, mode: CourseWizardMode): string => {
 	switch (step.key) {
 		case "identity":
@@ -81,7 +85,7 @@ const describeStep = (step: CourseStep, mode: CourseWizardMode): string => {
 		case "program":
 			return "Quién lo imparte, cuándo y dónde.";
 		case "content":
-			return "Los módulos y las lecciones que se recorren. Lo que escribes en una lección se guarda al pasar a otra o al continuar.";
+			return "Los módulos y las lecciones que se recorren.";
 		case "rules":
 			return "Qué hace falta para completar el curso y obtener el crédito, y cómo se evalúa a quien lo toma.";
 		case "access":
@@ -105,8 +109,12 @@ interface CourseWizardProps {
 	ids: CourseFormIds;
 	/** A dónde lleva salir de la edición. En el alta es siempre la ficha. */
 	exitTo?: string;
+	/** `exitTo` para el botón: «al curso», «a Impartición». */
+	exitLabel?: string;
 	/** A dónde lleva terminar: publicar o guardar el último paso. */
 	finishTo?: string;
+	/** `finishTo` para el botón: «a Cursos», «a Impartición». */
+	finishLabel?: string;
 	/** Query que viaja entre pasos, para no perder a dónde se vuelve. */
 	search?: string;
 	/** Las evaluaciones de seguimiento, ya pintadas, para el paso Evaluación. */
@@ -145,7 +153,9 @@ export function CourseWizard({
 	prefill,
 	ids,
 	exitTo,
+	exitLabel = "al curso",
 	finishTo,
+	finishLabel,
 	search = "",
 	evaluations,
 	evaluationTitles = [],
@@ -198,7 +208,14 @@ export function CourseWizard({
 	const [cover, setCover] = useState<File | null>(null);
 	const [coverRemoved, setCoverRemoved] = useState(false);
 
-	const targetRef = useRef<"next" | "exit">("next");
+	const targetRef = useRef<SaveTarget>("next");
+	// El guardado termina en el `onSuccess` del fetcher, no en `submit`: quien
+	// necesita esperarlo —el aviso de salida— recibe aquí el resultado.
+	const settleRef = useRef<((saved: boolean) => void) | null>(null);
+	const settle = (saved: boolean) => {
+		settleRef.current?.(saved);
+		settleRef.current = null;
+	};
 	// El material de las sesiones nuevas, tal como estaba al guardar: se crea
 	// cuando el servidor devuelve la identidad de esas sesiones (docs/adr/0026).
 	const pendingMaterialsRef = useRef<PendingMaterialsSnapshot | null>(null);
@@ -251,11 +268,12 @@ export function CourseWizard({
 	}, [fetcher.data, setError]);
 
 	/**
-	 * Tras guardar: la salida, o el paso siguiente. Si la regla recién elegida
-	 * pide un temario que el curso no tenía, el siguiente es Contenido aunque
-	 * quede atrás: sin él no se puede publicar.
+	 * Tras guardar: la salida, el paso siguiente, o `null` para quedarse. Si la
+	 * regla recién elegida pide un temario que el curso no tenía, el siguiente es
+	 * Contenido aunque quede atrás: sin él no se puede publicar.
 	 */
-	const destinationAfterSave = (): string => {
+	const destinationAfterSave = (): string | null => {
+		if (targetRef.current === "stay") return null;
 		if (targetRef.current === "exit") return exitPath;
 		if (isReview || !following) return finishTo ?? COURSE_LIST_PATH;
 
@@ -272,6 +290,7 @@ export function CourseWizard({
 		errorMessage: isCreate
 			? "No se pudo crear el curso"
 			: "No se pudo guardar el curso",
+		onError: () => settle(false),
 		onSuccess: () => {
 			const data = fetcher.data;
 			if (!data?.success) return;
@@ -279,15 +298,22 @@ export function CourseWizard({
 			const created = data.data as { documentId: string } | null;
 			if (isCreate) {
 				if (created) setLeavingTo(stepPath(created.documentId, 2));
+				settle(true);
 				return;
 			}
+
+			const leave = () => {
+				const destination = destinationAfterSave();
+				if (destination) setLeavingTo(destination);
+				settle(true);
+			};
 
 			const saved =
 				(data.data as { sessions?: SavedSession[] } | null)?.sessions ?? [];
 			const pendingMaterials = pendingMaterialsRef.current;
 			pendingMaterialsRef.current = null;
 			if (!pendingMaterials || pendingMaterials.entries.length === 0) {
-				setLeavingTo(destinationAfterSave());
+				leave();
 				return;
 			}
 
@@ -306,9 +332,10 @@ export function CourseWizard({
 						title: "No se guardó parte del material",
 						description: `«${lost.join("», «")}». Agrégalo de nuevo desde su sesión.`,
 					});
+					settle(false);
 					return;
 				}
-				setLeavingTo(destinationAfterSave());
+				leave();
 			});
 		},
 	});
@@ -337,37 +364,45 @@ export function CourseWizard({
 		!busy &&
 		leavingTo === null;
 
-	const submitStep = async (target: "next" | "exit") => {
+	/** `true` cuando el paso quedó guardado. */
+	const submitStep = async (target: SaveTarget): Promise<boolean> => {
 		targetRef.current = target;
+		const settled = () =>
+			new Promise<boolean>((resolve) => {
+				settle(false);
+				settleRef.current = resolve;
+			});
 
 		if (isReview) {
 			fetcher.submit(
 				{ [INTENT_FIELD]: COURSE_INTENTS.publish },
 				{ method: "post" },
 			);
-			return;
+			return settled();
 		}
 
 		// Un paso sin campos del curso no tiene nada que guardar aquí: el temario
 		// ya se persistió por su propio fetcher, lección a lección.
 		if (step.fields.length === 0 && documentId) {
 			const saveContent = contentSaveRef.current;
-			if (saveContent && !(await saveContent())) return;
+			if (saveContent && !(await saveContent())) return false;
 			// En el mismo render que la salida: si no, el aviso de cambios sin
 			// guardar todavía la bloquearía.
 			setContentDirty(false);
-			setLeavingTo(destinationAfterSave());
-			return;
+			const destination = destinationAfterSave();
+			if (destination) setLeavingTo(destination);
+			else sileo.success({ title: "Contenido guardado" });
+			return true;
 		}
 
 		const valid = await trigger(step.fields);
 		if (!valid) {
 			reportStepErrors();
-			return;
+			return false;
 		}
 
 		const saveQuiz = quizSaveRef.current;
-		if (saveQuiz && !(await saveQuiz())) return;
+		if (saveQuiz && !(await saveQuiz())) return false;
 
 		const values = getValues();
 		const { dependency, ...rest } = buildCoursePayload(values);
@@ -387,6 +422,7 @@ export function CourseWizard({
 			}),
 			{ method: "post", encType: "multipart/form-data" },
 		);
+		return settled();
 	};
 
 	// `getFieldState` y no `errors`: `trigger` acaba de escribirlos y la copia
@@ -414,13 +450,18 @@ export function CourseWizard({
 		scrollIntoView(element, { block: "center" });
 	};
 
+	// La revisión no guarda: publica. Y sin curso todavía no hay dónde guardar.
+	const canSaveInPlace = Boolean(course) && !isReview;
 	const pending = checklist ? stepsWithPending(checklist) : NO_PENDING;
 	const canPublish = !checklist || pending.size === 0;
 	const { position, total } = stepPosition(steps, step);
 
 	return (
 		<FormProvider {...methods}>
-			<UnsavedChangesDialog when={hasUnsavedChanges} />
+			<UnsavedChangesDialog
+				when={hasUnsavedChanges}
+				onSave={canSaveInPlace ? () => submitStep("stay") : undefined}
+			/>
 
 			<div className="flex flex-col">
 				<PageHeader
@@ -433,15 +474,27 @@ export function CourseWizard({
 					goBack={exitPath}
 					collapseActionsOnMobile
 					actions={
-						course && !isReview ? (
-							<Button
-								type="button"
-								variant="outline"
-								disabled={busy}
-								onClick={() => submitStep("exit")}
-							>
-								Guardar y salir
-							</Button>
+						canSaveInPlace ? (
+							<>
+								<Button
+									type="button"
+									variant="outline"
+									disabled={busy}
+									onClick={() => void submitStep("stay")}
+								>
+									<Save aria-hidden="true" />
+									{isEdit ? "Guardar cambios" : "Guardar borrador"}
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									disabled={busy}
+									onClick={() => void submitStep("exit")}
+								>
+									<LogOut aria-hidden="true" />
+									Guardar y salir {exitLabel}
+								</Button>
+							</>
 						) : course ? undefined : (
 							<Button variant="outline" asChild>
 								<Link to={LIST_PATH}>Cancelar</Link>
@@ -527,6 +580,7 @@ export function CourseWizard({
 							submitKind={
 								isReview ? "publish" : isEdit && !following ? "save" : "next"
 							}
+							finishLabel={finishLabel}
 							canSubmit={!isReview || canPublish}
 						/>
 					</div>

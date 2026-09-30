@@ -145,8 +145,7 @@ export function ContentModulePane({
 			<div className="flex flex-col gap-4">
 				<PaneHeader
 					trail={trail}
-					saving={saving}
-					dirty={dirty}
+					save={canWrite ? { saving, dirty } : undefined}
 					menu={
 						canWrite ? (
 							<PaneMenu
@@ -260,8 +259,6 @@ export function ContentModuleQuizPane({
 			<div className="flex flex-col gap-3">
 				<PaneHeader
 					trail={trail}
-					saving={false}
-					dirty={false}
 					menu={
 						canWrite && module.quiz ? (
 							<PaneMenu

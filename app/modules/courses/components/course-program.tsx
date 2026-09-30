@@ -16,22 +16,14 @@ const MISSING_PLACE: Record<CourseModality, string> = {
 interface CourseProgramProps {
 	sessions: readonly CourseSession[];
 	modality: CourseModality;
-	/** Las sesiones del híbrido autogestivo complementan el temario. */
-	optional?: boolean;
 }
 
 /** El programa del curso tal como se va a vivir: una sesión por renglón. */
-export function CourseProgram({
-	sessions,
-	modality,
-	optional = false,
-}: CourseProgramProps) {
+export function CourseProgram({ sessions, modality }: CourseProgramProps) {
 	if (sessions.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				{optional
-					? "Sin sesiones: el curso se recorre solo con el contenido."
-					: "Todavía no hay sesiones. Hace falta al menos una para publicar."}
+				Todavía no hay sesiones. Hace falta al menos una para publicar.
 			</p>
 		);
 	}

@@ -142,7 +142,14 @@ export function CourseContentPanel({
 	return (
 		<div className="flex flex-col gap-3">
 			{effectiveView === "editor" && viewToggle && (
-				<div className="flex justify-end">{viewToggle}</div>
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<p className="text-muted-foreground text-sm">
+						{canWrite
+							? "Agregar, ordenar y archivar se guarda al instante. Lo que escribes se guarda al pasar a otro elemento."
+							: null}
+					</p>
+					{viewToggle}
+				</div>
 			)}
 
 			{effectiveView === "editor" ? (
@@ -164,7 +171,12 @@ export function CourseContentPanel({
 
 			{standalone && effectiveView === "editor" && canWrite && (
 				<>
-					<UnsavedChangesDialog when={ownDirty && !saving} />
+					<UnsavedChangesDialog
+						when={ownDirty && !saving}
+						onSave={async () =>
+							ownSaveRef.current ? ownSaveRef.current() : true
+						}
+					/>
 					<div className="flex items-center justify-end gap-3">
 						{ownDirty && (
 							<span className="text-muted-foreground text-sm">

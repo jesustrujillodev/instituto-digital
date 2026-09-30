@@ -5,11 +5,9 @@ import type { ContentSummary } from "@/modules/content/domain/content.types";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
 import {
-	allowsSessions,
 	countsAttendance,
 	gradesAutomatically,
 	requiresSessions,
-	requiresTrainer,
 } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 import {
@@ -114,43 +112,34 @@ export function CourseReviewStep({
 					</div>
 				</ReviewBlock>
 
-				<ReviewBlock
-					documentId={documentId}
-					step={PROGRAM.number}
-					title={PROGRAM.title}
-					aside={
-						<span className="flex flex-wrap gap-1.5">
-							<CourseModalityBadge modality={course.modality} />
-							<CourseFormatBadge format={course.format} />
-						</span>
-					}
-				>
-					<div className="flex flex-col gap-5">
-						{requiresTrainer(course) && (
+				{requiresSessions(course.format) && (
+					<ReviewBlock
+						documentId={documentId}
+						step={PROGRAM.number}
+						title={PROGRAM.title}
+						aside={
+							<span className="flex flex-wrap gap-1.5">
+								<CourseModalityBadge modality={course.modality} />
+								<CourseFormatBadge format={course.format} />
+							</span>
+						}
+					>
+						<div className="flex flex-col gap-5">
 							<CourseTrainers trainers={course.trainers} />
-						)}
-						{allowsSessions(course) ? (
-							<>
-								<CourseProgram
-									sessions={course.sessions}
-									modality={course.modality}
-									optional={!requiresSessions(course.format)}
-								/>
-								{countsAttendance(course.completionRule) && (
-									<p className="text-muted-foreground text-sm">
-										El QR de asistencia se activa {course.qrOpensBeforeMinutes}{" "}
-										min antes y se cierra {course.qrClosesAfterMinutes} min
-										después de cada sesión.
-									</p>
-								)}
-							</>
-						) : (
-							<p className="text-muted-foreground text-sm">
-								Sin sesiones: quien se inscribe recorre el curso a su ritmo.
-							</p>
-						)}
-					</div>
-				</ReviewBlock>
+							<CourseProgram
+								sessions={course.sessions}
+								modality={course.modality}
+							/>
+							{countsAttendance(course.completionRule) && (
+								<p className="text-muted-foreground text-sm">
+									El QR de asistencia se activa {course.qrOpensBeforeMinutes}{" "}
+									min antes y se cierra {course.qrClosesAfterMinutes} min
+									después de cada sesión.
+								</p>
+							)}
+						</div>
+					</ReviewBlock>
+				)}
 
 				{content ? (
 					<ReviewBlock

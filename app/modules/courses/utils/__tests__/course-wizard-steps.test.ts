@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
 	COURSE_WIZARD_STEPS,
+	editReturnLabel,
 	editReturnPath,
+	finishReturnLabel,
 	finishReturnPath,
 	firstPendingStep,
 	LAST_STEP_NUMBER,
@@ -253,6 +255,20 @@ describe("editReturnPath", () => {
 			);
 		},
 	);
+});
+
+describe("editReturnLabel y finishReturnLabel", () => {
+	test("nombran el mismo destino que su ruta", () => {
+		expect(editReturnLabel(null)).toBe("al curso");
+		expect(editReturnLabel("imparticion")).toBe("a Impartición");
+		expect(finishReturnLabel(null)).toBe("a Cursos");
+		expect(finishReturnLabel("imparticion")).toBe("a Impartición");
+	});
+
+	test("un regreso desconocido se nombra como la ruta a la que lleva", () => {
+		expect(editReturnLabel("https://otro.sitio")).toBe("al curso");
+		expect(finishReturnLabel("/dashboard/usuarios")).toBe("a Cursos");
+	});
 });
 
 describe("stepsWithErrors", () => {

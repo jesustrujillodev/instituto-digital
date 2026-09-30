@@ -80,8 +80,7 @@ export function ContentLessonPane({
 			<div className="flex flex-col gap-4 px-4 pt-4 pb-5 sm:px-6">
 				<PaneHeader
 					trail={trail}
-					saving={saving}
-					dirty={dirty}
+					save={canWrite ? { saving, dirty } : undefined}
 					previous={previous}
 					next={next}
 					menu={
