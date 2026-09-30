@@ -2,7 +2,7 @@
 
 ## 1. Qué es
 
-`/dashboard/cursos/:documentId/certificado` es la pantalla donde quien administra un
+`/dashboard/capacitaciones/:documentId/certificado` es la pantalla donde quien administra un
 curso diseña su certificado, lo guarda y lo publica. La emisión usa el diseño
 **publicado** ([02-emision.md](./02-emision.md)). Se entra desde el botón «Certificado» de la ficha del curso, que aparece
 en todo estado menos cancelado. Las decisiones de fondo están en

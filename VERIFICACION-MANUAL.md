@@ -168,10 +168,10 @@ y `docs/adr/0003-alcance-de-cursos-y-audiencia.md`). No bloquea el recorrido.
   PRD-06 necesita.
 - [ ] **6. Cancelar.** Estado `cancelado`; sus sesiones y capacitadores quedan intactos.
 - [ ] **7. Capacitador interno.** Como `diana.sds` (rol `USER`, perfil activo): entra a
-  `/dashboard/cursos`, ve solo los que creó, puede crear uno en su dependencia y
+  `/dashboard/capacitaciones`, ve solo los que creó, puede crear uno en su dependencia y
   **no** puede editar el de `laura.sop` ni por URL directa → **403** con la barra
   lateral intacta.
-- [ ] **8. Capacitador externo.** Como `elena.torres`: `/dashboard/cursos` responde **403**.
+- [ ] **8. Capacitador externo.** Como `elena.torres`: `/dashboard/capacitaciones` responde **403**.
 - [ ] **9. Superadministrador.** Como `super@`: crear un curso eligiendo la dependencia
   organizadora; es el único que ve ese selector.
 - [ ] **10. Zona horaria.** Una sesión de **noviembre** capturada a las 09:00 se
@@ -192,14 +192,14 @@ Verificación automática del módulo:
 - `bun run typecheck` — obligatorio tras tocar `app/routes.ts`.
 - `bunx prisma db push` antes de sembrar: PRD-04, como PRD-03, no trae migración.
 
-- [ ] **1. Cursos disponibles.** Como `miguel.sds`: `/dashboard/cursos-disponibles`
+- [ ] **1. Catálogo de capacitaciones.** Como `miguel.sds`: `/dashboard/catalogo-de-capacitaciones`
   muestra "Atención ciudadana" y "Redacción de oficios"; **no** muestra borradores,
   "Liderazgo para mandos medios" (cancelado), "Ética pública" (cerrado) ni
   "Protección civil básica" (por invitación).
 - [ ] **2. Invitación por URL.** Como `miguel.sds`:
-  `/dashboard/cursos-disponibles/<documentId de Protección civil básica>` → **404**.
+  `/dashboard/catalogo-de-capacitaciones/<documentId de Protección civil básica>` → **404**.
 - [ ] **3. Inscripción propia.** `miguel.sds` se inscribe a "Atención ciudadana":
-  aparece en `/dashboard/mis-cursos` → Próximos, con sede y estado "Inscrito".
+  aparece en `/dashboard/mis-capacitaciones` → Próximos, con sede y estado "Inscrito".
   Enviar de nuevo desde otra pestaña abierta antes → mensaje "ya estás inscrito".
 - [ ] **4. Sin cupo.** `miguel.sds` intenta inscribirse a "Redacción de oficios"
   (cupo 1, lleno) → falla con copia propia y el curso sigue 1/1.
@@ -214,28 +214,28 @@ Verificación automática del módulo:
 - [ ] **8. Asignación.** `laura.sop` abre "Atención ciudadana" (de SEDESOL, pública)
   → **Inscribir a mi personal**. La pestaña Personas solo ofrece personal de SOP,
   no hay botón Invitar (el curso no es por invitación) y la lista de abajo solo
-  muestra gente de SOP. Inscribe a `carlos.sop`, que lo ve en Mis cursos como
-  inscrito por asignación. La miga "Cursos disponibles" la regresa al catálogo.
+  muestra gente de SOP. Inscribe a `carlos.sop`, que lo ve en Mis capacitaciones como
+  inscrito por asignación. La miga "Catálogo de capacitaciones" la regresa al catálogo.
 - [ ] **8b. Inscribir un grupo.** En la misma vista, pestaña **Grupos**: al marcar
   un grupo, el pie dice cuántos lugares ocuparía. Si no caben, lo dice en rojo y
   **Inscribir** queda deshabilitado antes de enviar.
 - [ ] **9. Invitar a un grupo (§9, paso 5).** Como `diana.sds` (capacitadora, rol
-  `USER`): en `/dashboard/cursos` abrir "Protección civil básica" → botón
+  `USER`): en `/dashboard/capacitaciones` abrir "Protección civil básica" → botón
   **Inscripciones** → invitar al grupo "Enlaces administrativos" → aviso
   "2 invitados, 1 omitido" (`carlos.sds` ya estaba inscrito).
 - [ ] **10. Invitar no aparta lugar.** El curso sigue con "1 de 2 lugares".
-  `miguel.sds` ve la invitación en Mis cursos, **acepta** y queda inscrito: el
+  `miguel.sds` ve la invitación en Mis capacitaciones, **acepta** y queda inscrito: el
   curso pasa a "Lleno (2/2)" y aparece en su pestaña Próximos.
 - [ ] **11. Aceptar sin cupo y rechazar.** `laura.sds` intenta aceptar → falla por
-  cupo. **Rechaza**: la invitación desaparece de Mis cursos y la fila queda
+  cupo. **Rechaza**: la invitación desaparece de Mis capacitaciones y la fila queda
   `DECLINED` (sigue viendo el curso por ser titular de la dependencia organizadora).
 - [ ] **12. Cupo al editar.** `laura.sds` edita "Protección civil básica" con cupo 1
   → falla porque ya hay 2 inscritos.
 - [ ] **13. Cambio de dependencia.** `miguel.sds` se cambia a SOP en
-  `/dashboard/perfil`: "Protección civil básica" sigue en Mis cursos y abre por URL.
+  `/dashboard/perfil`: "Protección civil básica" sigue en Mis capacitaciones y abre por URL.
 - [ ] **14. Quién no se inscribe.** `elena.torres` y `super@` en
-  `/dashboard/cursos-disponibles` → **403**. `super@` sí ve la lista de inscritos en
-  `/dashboard/cursos/<Protección civil básica>/inscripciones`.
+  `/dashboard/catalogo-de-capacitaciones` → **403**. `super@` sí ve la lista de inscritos en
+  `/dashboard/capacitaciones/<Protección civil básica>/inscripciones`.
 
 ---
 
@@ -264,16 +264,16 @@ Al hacer clic se abre un panel lateral.
 - [ ] **2. Panel y detalle.** En el paso anterior, abrir "Archivo y transparencia":
   muestra horario 17:00–19:00, "Híbrida", sede, enlace, a `diana.sds` y la etiqueta
   "Invitación pendiente". "Ver curso" lleva a
-  `/dashboard/cursos-disponibles/<id>` con Aceptar y Rechazar.
+  `/dashboard/catalogo-de-capacitaciones/<id>` con Aceptar y Rechazar.
 - [ ] **3. Inscribirse lo pone en el calendario (§7.7).** `miguel.sop` acepta la
-  invitación en Mis cursos y vuelve al calendario: el 27 de octubre deja de estar
+  invitación en Mis capacitaciones y vuelve al calendario: el 27 de octubre deja de estar
   punteado y noviembre muestra la sesión del 3, **sin ningún paso adicional**.
 - [ ] **4. Zona horaria.** La sesión del 3 de noviembre (ya en horario estándar)
   se muestra a las **17:00**, igual que la del 27 de octubre (horario de verano).
 - [ ] **5. Capacitador interno.** Como `diana.sds` (rol `USER`, perfil activo):
   - En octubre están "Atención ciudadana" (solo "Impartes"; "Ver curso" lleva a
-    cursos-disponibles) y "Protección civil básica" ("Impartes" y "Organizas";
-    "Ver curso" lleva a `/dashboard/cursos/<id>/editar`).
+    catalogo-de-capacitaciones) y "Protección civil básica" ("Impartes" y "Organizas";
+    "Ver curso" lleva a `/dashboard/capacitaciones/<id>/editar`).
   - En noviembre aparece "Borrador · Taller de lenguaje claro" el 5, que ella creó.
   - **No** aparece el borrador "Gestión documental en obra pública", que es de SOP.
 - [ ] **6. Capacitador externo.** Como `elena.torres`: septiembre muestra
@@ -298,14 +298,14 @@ Al hacer clic se abre un panel lateral.
   - El filtro Dependencia recorta a una sola.
   - **No** aparece el interruptor de personal.
 - [ ] **10. Cancelar lo saca del calendario.** `laura.sop` cancela "Ética pública"
-  desde `/dashboard/cursos`: desaparece del 15 de octubre en su calendario y en el
+  desde `/dashboard/capacitaciones`: desaparece del 15 de octubre en su calendario y en el
   de `carlos.sop`.
 - [ ] **11. Cambio de dependencia del personal.** `diana.sop` se cambia a SEDESOL
   en `/dashboard/perfil`:
   - En el calendario de `laura.sop`, con el interruptor marcado, "Archivo y
     transparencia" **ya no aparece**. No se borró nada: Diana ya no es su personal.
   - `laura.sds`, con el interruptor, lo ve con "Organizas" y "Participa tu personal".
-  - `diana.sop` lo sigue viendo en su calendario y en Mis cursos.
+  - `diana.sop` lo sigue viendo en su calendario y en Mis capacitaciones.
 - [ ] **12. Vista de lista y filtros.** Con `?view=list` (botón "Lista"), octubre se
   agrupa por día. Filtrar por modalidad "En línea" deja la lista vacía con su
   mensaje. "Hoy" vuelve a septiembre y conserva la vista.
@@ -364,7 +364,7 @@ Verificación automática:
   `/dashboard/mis-creditos`: ejercicio 2026 con **2**, acumulado **2**, y la lista
   con "Seguridad en obra" y "Primeros auxilios", las dos para Secretaría de Obras
   Públicas.
-- [ ] **6. Valorar.** Como `diana.sop` en Mis cursos, pestaña Finalizados:
+- [ ] **6. Valorar.** Como `diana.sop` en Mis capacitaciones, pestaña Finalizados:
   - "Seguridad en obra" muestra "Completado · 1 crédito" y "nota 92".
   - "Valorar curso" pide estrellas; sin elegir, el botón está deshabilitado. Con
     4 y un comentario, avisa "Gracias por valorar el curso." y la tarjeta cambia
@@ -447,15 +447,15 @@ Verificación automática:
   dice "0 de 1 realizadas (0 %)".
 - [ ] **4. Crear curso desde la línea (§9, paso 4).** En Presupuestos de obra
   pública (2026), "Crear curso":
-  - lleva a `/dashboard/cursos/nuevo?linea=…` con el título y la modalidad En línea
+  - lleva a `/dashboard/capacitaciones/nuevo?linea=…` con el título y la modalidad En línea
     precargados y el aviso "El curso se vinculará a la línea…";
   - al guardar el borrador, la línea pasa a **Programada** y "Crear curso"
     desaparece de ella;
   - la ficha del curso muestra "Plan anual · Presupuestos de obra pública".
-- [ ] **5. Un curso por línea.** Abrir otra vez `/dashboard/cursos/nuevo?linea=<la
+- [ ] **5. Un curso por línea.** Abrir otra vez `/dashboard/capacitaciones/nuevo?linea=<la
   misma>` a mano responde **409** "La línea ya tiene un curso vigente…".
 - [ ] **6. Cancelar el curso libera la línea.** Cancelar ese borrador desde
-  `/dashboard/cursos`: la línea vuelve a **Pendiente**, la columna Curso dice
+  `/dashboard/capacitaciones`: la línea vuelve a **Pendiente**, la columna Curso dice
   "1 cancelado(s)" y "Crear curso" vuelve a estar disponible.
 - [ ] **7. Realizada sin tocarla (§9, paso 10).** Como `carlos.sop` en Impartición,
   capturar el resultado pendiente de `miguel.sop` en "Seguridad en obra" y
@@ -547,7 +547,7 @@ publica, se inscribe, se cierra y otorga su crédito — y que un curso
 calendarizado se comporta **exactamente** igual que antes. La decisión está en
 [ADR 0011](docs/adr/0011-formato-de-curso-y-regla-de-completado.md).
 
-- [ ] **1. El autogestivo de la semilla.** Como `laura.sds` en `/dashboard/cursos`:
+- [ ] **1. El autogestivo de la semilla.** Como `laura.sds` en `/dashboard/capacitaciones`:
   "Marco normativo municipal en línea" lleva el distintivo **Autogestivo** junto al
   de modalidad, tanto en cuadrícula como en lista. Los demás cursos **no** llevan
   ningún distintivo de formato: "Calendarizado" no se pinta.
@@ -555,7 +555,7 @@ calendarizado se comporta **exactamente** igual que antes. La decisión está en
   Autogestivo · Público. En **Detalles** aparece "Se completa con · Evaluación" y
   **no** aparecen "Asistencia mínima" ni "QR de asistencia".
 - [ ] **3. Crear uno desde el wizard (paso Programa).** Como `laura.sop` en
-  `/dashboard/cursos/nuevo`, llegar al paso 2:
+  `/dashboard/capacitaciones/nuevo`, llegar al paso 2:
   - Hay un selector **Formato** antes de Modalidad.
   - Al elegir "Autogestivo" desaparecen Modalidad y el gestor de sesiones —no se
     deshabilitan— y queda la línea "Sin sesiones que programar. Quien se inscriba
@@ -584,10 +584,10 @@ calendarizado se comporta **exactamente** igual que antes. La decisión está en
   mientras el curso es borrador." y el campo Formato queda marcado. El selector
   **no** está deshabilitado: la defensa es del servidor, que es la que cuenta.
   Cambiarlo en un borrador sí funciona.
-- [ ] **9. Inscribirse.** Como `miguel.sds` en `/dashboard/cursos-disponibles`:
+- [ ] **9. Inscribirse.** Como `miguel.sds` en `/dashboard/catalogo-de-capacitaciones`:
   - "Marco normativo municipal en línea" aparece en el catálogo **sin fecha de
     cierre**: mientras siga publicado, la inscripción no cierra.
-  - Al inscribirse, el curso cae en `/dashboard/mis-cursos` → **En curso**, no en
+  - Al inscribirse, el curso cae en `/dashboard/mis-capacitaciones` → **En curso**, no en
     Próximos: no hay nada que esperar.
   - La baja sigue disponible, aunque no haya fecha de inicio que la limite.
 - [ ] **10. Impartir.** Como `diana.sds` en `/dashboard/imparticion`, abrir el curso:

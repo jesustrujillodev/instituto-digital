@@ -473,7 +473,7 @@ escritura respete la máquina de estados de la fila única por persona y curso.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `enrollment.rules.test.ts` | 36 | Cierre por fecha límite o primera sesión, baja hasta que empieza, quién cursa (externos y roles globales no), cupo que falla con los lugares restantes, la tabla de transiciones y la clasificación de "Mis cursos". |
+| `enrollment.rules.test.ts` | 36 | Cierre por fecha límite o primera sesión, baja hasta que empieza, quién cursa (externos y roles globales no), cupo que falla con los lugares restantes, la tabla de transiciones y la clasificación de "Mis capacitaciones". |
 | `enrollment.errors.test.ts` | 14 | El `code` estable de cada error, su herencia y los `details` serializables. |
 | `enrollment.validators.test.ts` | 7 | uuid, modalidad permitida, lote de asignación no vacío e invitación con al menos una persona o grupo. |
 | `enrollment.mapper.test.ts` | 10 | Rango de sesiones, lugares restantes y que la lista use la dependencia con la que se inscribió. Desde F-02: que las horas lleguen ya resueltas por `courseHoursOf`. |
@@ -488,10 +488,10 @@ escritura respete la máquina de estados de la fila única por persona y curso.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `cursos-disponibles/index.loader.test.ts` | 3 | Filtros del query string y 403 al externo y al superadministrador. |
+| `catalogo-de-capacitaciones/index.loader.test.ts` | 3 | Filtros del query string y 403 al externo y al superadministrador. |
 | `cursos-disponibles/$documentId/index.loader.test.ts` | 3 | **404 por URL directa** y que solo quien puede asignar reciba candidatos. |
 | `cursos-disponibles/$documentId/index.action.test.ts` | 7 | Intents por `documentId` validado, copia del módulo sin status, resumen del lote y 403 al externo. |
-| `mis-cursos/index.action.test.ts` | 4 | Aceptar y rechazar con el curso del formulario y las cuatro listas del loader. |
+| `mis-capacitaciones/index.action.test.ts` | 4 | Aceptar y rechazar con el curso del formulario y las cuatro listas del loader. |
 | `inscripciones/index.test.ts` | 6 | 403 al participante sin perfil, acceso del capacitador interno, sin opciones con la inscripción cerrada y resumen de invitados y omitidos. |
 
 ### `utils/__tests__/` — 9 tests

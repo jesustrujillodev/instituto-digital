@@ -69,7 +69,7 @@ pide por clave (`stepOfKey`), que es lo único que no cambia al insertar un paso
 ### 2.4 El temario no viaja en el payload del curso
 
 Cada paso del alta manda el curso entero, pero el contenido no. Guarda por su
-cuenta, con `useFetcher`, contra `POST /dashboard/cursos/:documentId/contenido` y
+cuenta, con `useFetcher`, contra `POST /dashboard/capacitaciones/:documentId/contenido` y
 sus propios intents. Si viajara en el payload, las reglas valibot de `courses`
 tendrían que describir módulos y lecciones, y el contrato de entrada del contenido
 dejaría de ser de su módulo. El precedente exacto es el panel de evaluaciones.

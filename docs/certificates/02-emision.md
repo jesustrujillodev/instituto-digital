@@ -76,7 +76,7 @@ finalizado, el titular o un auxiliar de la dependencia. En un curso por impartir
 | Ruta | Quién | Qué dibuja |
 | --- | --- | --- |
 | `GET /dashboard/certificados/:documentId/descargar?formato=pdf\|png` | Quien ve el curso en impartición (`teachingCourseWhere`) | Los snapshots de la emisión |
-| `GET /dashboard/cursos/:documentId/certificado/muestra?version=draft\|published&formato=pdf\|png` | Quien administra el curso | El diseño **guardado**, con datos de muestra |
+| `GET /dashboard/capacitaciones/:documentId/certificado/muestra?version=draft\|published&formato=pdf\|png` | Quien administra el curso | El diseño **guardado**, con datos de muestra |
 
 La petición solo lleva identificador, versión y formato. **El diseño nunca viaja desde el
 navegador**: el esquema de frontera ni siquiera conserva otros campos, y hay una prueba de
@@ -141,7 +141,7 @@ recorre los `.server` y fallaría con `yargs`.
 | --- | --- | --- |
 | `/dashboard/mis-certificados` | Cualquiera con sesión (`requireAuth`) | Lista **sus** certificados vigentes: curso, dependencia, fecha, horas, folio, PDF/PNG y «Verificar» |
 | `GET /dashboard/mis-certificados/:documentId/descargar?formato=pdf\|png` | La persona que lo recibió | El archivo propio, dibujado desde los snapshots y con QR |
-| «Certificado» en la tarjeta de un curso finalizado de «Mis cursos» | La persona | El mismo archivo, en un menú PDF/PNG |
+| «Certificado» en la tarjeta de un curso finalizado de «Mis capacitaciones» | La persona | El mismo archivo, en un menú PDF/PNG |
 | Correo `CERTIFICATE_ISSUED` | La persona, al emitirse por primera vez | Aviso con el folio, el mensaje del curso y el enlace a «Mis certificados» |
 
 - **Basta la sesión, no `requireParticipant`.** Un externo sin dependencia no cursa por el

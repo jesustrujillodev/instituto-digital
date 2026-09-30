@@ -20,7 +20,7 @@ Tres consecuencias de ese hueco:
 2. El autogestivo se **finaliza** como un curso con sesiones: alguien tiene que
    decidir cuándo se cierra, y el crédito sale en ese cierre. Un curso a ritmo
    propio que espera a que alguien lo cierre no es un curso a ritmo propio.
-3. «Mis cursos» es un listado. No hay dónde leer el material.
+3. «Mis capacitaciones» es un listado. No hay dónde leer el material.
 
 ## 2. Decisiones
 
@@ -133,7 +133,7 @@ Un curso con sesiones las sigue pudiendo cambiar: todo se calcula en el cierre.
 
 ### 2.7 El aula
 
-`/dashboard/mis-cursos/:documentId/aula` tiene el índice lateral como layout y un
+`/dashboard/mis-capacitaciones/:documentId/aula` tiene el índice lateral como layout y un
 índice que redirige a la lección de «Continuar»: la primera obligatoria sin
 completar, luego la primera sin completar y, con todo hecho, la primera del
 temario. Sale de las filas de avance, así que retoma igual en cualquier
@@ -152,7 +152,7 @@ dispositivo.
 
 ### 2.8 Lo que cambia alrededor
 
-- **Mis cursos.** Barra de avance cuando el contenido cuenta, y «Entrar al aula»,
+- **Mis capacitaciones.** Barra de avance cuando el contenido cuenta, y «Entrar al aula»,
   «Continuar» o «Repasar». Un autogestivo completado pasa a **Finalizados** y ya
   no se abandona (`canWithdraw`), porque su crédito quedaría sin inscripción que lo
   respalde.
