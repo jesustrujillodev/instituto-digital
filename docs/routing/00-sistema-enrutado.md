@@ -126,16 +126,11 @@ Puntos de diseño:
   Su loader lo dice en su JSDoc
   ([ADR 0020](../adr/0020-ruta-publica-de-verificacion.md)). Una ruta pública
   nueva con datos de personas sigue ese mismo patrón.
-- **URLs antiguas.** Las rutas de capacitaciones se llamaban `/dashboard/cursos`,
-  `/dashboard/cursos-disponibles` y `/dashboard/mis-cursos`, y siguen en correos
-  ya enviados y marcadores. `legacyRedirectRoutes` (`app/shared/legacy-paths/`)
-  registra un splat por prefijo en la ZONA 1 que responde **301** a
+- **URL y carpeta son independientes.** Las rutas de capacitaciones se sirven en
   `/dashboard/capacitaciones`, `/dashboard/catalogo-de-capacitaciones` y
-  `/dashboard/mis-capacitaciones`, conservando el resto de la ruta y la query.
-  Va fuera del dashboard para no pedir sesión antes de redirigir; la ruta nueva
-  la exige después. Las carpetas de los módulos conservan sus nombres
-  originales (`cursos/`, `mis-cursos/`, `cursos-disponibles/`): en este proyecto
-  la URL la decide el primer argumento de `route()`, no la carpeta.
+  `/dashboard/mis-capacitaciones`, pero las carpetas de los módulos conservan sus
+  nombres originales (`cursos/`, `cursos-disponibles/`, `mis-cursos/`): en este
+  proyecto la URL la decide el primer argumento de `route()`, no la carpeta.
 - No se crean archivos vacíos "de reserva" para zonas futuras. El repo arrastró
   siete archivos de ruta de 0 bytes precisamente por esa práctica; los marcadores
   de zona comentados cumplen la misma función sin código muerto.
