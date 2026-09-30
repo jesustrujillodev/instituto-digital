@@ -13,9 +13,15 @@ const actorOf = (
 	userId = 99,
 ): Pick<AuthContext, "userId" | "role"> => ({ userId, role });
 
-const targetOf = (role: Role, id = 7): Pick<SafeUser, "id" | "role"> => ({
+/** El superadministrador es el único interno que puede no tener dependencia. */
+const targetOf = (
+	role: Role,
+	id = 7,
+	dependencyId: number | null = role === "SUPERADMIN" ? null : 1,
+): Pick<SafeUser, "id" | "role" | "dependencyId"> => ({
 	id,
 	role,
+	dependencyId,
 });
 
 describe("roleLockOf / canChangeRole", () => {
@@ -64,12 +70,24 @@ describe("roleLockOf / canChangeRole", () => {
 		expect(canChangeRole(actor, self, "USER")).toBe(false);
 	});
 
-	test("el superadministrador sí cambia el de otro superadministrador", () => {
+	test("el superadministrador sí cambia el de otro superadministrador con dependencia", () => {
 		const actor = actorOf("SUPERADMIN");
-		const other = targetOf("SUPERADMIN");
+		const other = targetOf("SUPERADMIN", 7, 3);
 
 		expect(roleLockOf(actor, other)).toBeNull();
 		expect(canChangeRole(actor, other, "USER")).toBe(true);
+	});
+
+	// Cualquier otro rol exige dependencia: el cambio chocaría contra el CHECK
+	// `users_type_coherence` y llegaría como error inesperado.
+	test("un superadministrador sin dependencia no baja a ningún otro rol", () => {
+		const actor = actorOf("SUPERADMIN");
+		const other = targetOf("SUPERADMIN");
+
+		expect(roleLockOf(actor, other)).toBe("dependency");
+		expect(canChangeRole(actor, other, "DEPENDENCY_DEPUTY")).toBe(false);
+		expect(canChangeRole(actor, other, "USER")).toBe(false);
+		expect(canChangeRole(actor, other, "SUPERADMIN")).toBe(true);
 	});
 
 	test("quitar un rol exige poder otorgarlo", () => {

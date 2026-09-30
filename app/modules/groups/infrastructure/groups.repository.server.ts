@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { uniqueViolationTarget } from "@/core/prisma-errors";
 import type { AccessScope } from "@/shared/auth/scope.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { groupScopeWhere, groupScopeWriteWhere } from "../domain/group.access";
@@ -46,8 +47,8 @@ const translatePrismaError = (error: unknown): never => {
 		if (error.code === "P2002") {
 			// Dos índices únicos pueden romperse: el nombre dentro de la dependencia
 			// y la PK compuesta de `group_members`. El mensaje es distinto en cada
-			// caso, así que se distinguen por `meta.target`.
-			const target = String(error.meta?.target ?? "");
+			// caso, así que se distinguen por el índice roto.
+			const target = uniqueViolationTarget(error);
 
 			if (target.includes("name_per_dependency")) {
 				throw new DuplicateGroupNameError();

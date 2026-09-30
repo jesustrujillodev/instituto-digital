@@ -57,7 +57,7 @@ export class DuplicateEmailError extends UserError {
  *
  * Existe aparte de DUPLICATE_EMAIL porque son dos índices únicos distintos de la
  * misma tabla y el mismo código de Prisma: el repositorio los separa por
- * `meta.target`. Sin esta distinción, dar de alta a alguien con un número
+ * índice roto. Sin esta distinción, dar de alta a alguien con un número
  * repetido respondía "ese correo ya está registrado".
  */
 export class DuplicateEmployeeNumberError extends UserError {

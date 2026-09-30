@@ -16,19 +16,25 @@ import type { SafeUser } from "./user.types";
  * - `self`: nadie cambia su propio rol. Un superadministrador que se degradara
  *   no podría devolverse el rol.
  * - `rank`: quitar un rol exige poder otorgarlo.
+ * - `dependency`: un superadministrador sin dependencia no puede bajar a ningún
+ *   otro rol, porque todos exigen una (CHECK `users_type_coherence`). Primero se
+ *   le asigna con "Cambiar dependencia", que deja bitácora.
  *
  * `head` se evalúa primero aunque `rank` ya lo cubra: es el motivo que le dice a
  * quien edita adónde ir.
  */
-export type RoleLock = "head" | "self" | "rank";
+export type RoleLock = "head" | "self" | "rank" | "dependency";
 
 export const roleLockOf = (
 	actor: Pick<AuthContext, "userId" | "role">,
-	target: Pick<SafeUser, "id" | "role">,
+	target: Pick<SafeUser, "id" | "role" | "dependencyId">,
 ): RoleLock | null => {
 	if (target.role === "DEPENDENCY_HEAD") return "head";
 	if (target.id === actor.userId) return "self";
 	if (!canAssignRole(actor.role, target.role)) return "rank";
+	if (target.role === "SUPERADMIN" && target.dependencyId === null) {
+		return "dependency";
+	}
 	return null;
 };
 
@@ -41,7 +47,7 @@ export const roleLockOf = (
  */
 export const canChangeRole = (
 	actor: Pick<AuthContext, "userId" | "role">,
-	target: Pick<SafeUser, "id" | "role">,
+	target: Pick<SafeUser, "id" | "role" | "dependencyId">,
 	nextRole: Role,
 ): boolean =>
 	target.role === nextRole ||

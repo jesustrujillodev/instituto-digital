@@ -7,10 +7,11 @@ import {
 	useForm,
 	useWatch,
 } from "react-hook-form";
-import type { FetcherWithComponents } from "react-router";
+import { type FetcherWithComponents, Link } from "react-router";
 import { sileo } from "sileo";
 import { toFormData } from "@/lib/form-data";
 import { scrollIntoView } from "@/lib/motion";
+import { DEPENDENCY_ADMIN_ROLES } from "@/modules/dependencies/domain/dependency.access";
 import { ROLE_LABELS } from "@/shared/auth/role-labels";
 import { PasswordInput } from "@/shared/components/common/password-input";
 import { PhoneInput } from "@/shared/components/common/phone-input";
@@ -35,6 +36,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
+import { useRole } from "@/shared/hooks/use-role";
 import type { Role } from "@/shared/rules/atoms.rules";
 import type { RoleLock } from "../domain/user.role.rules";
 import { createUserRule, updateUserRule } from "../domain/user.rules";
@@ -57,6 +59,7 @@ const ROLE_LOCK_HINTS: Record<RoleLock, string> = {
 	head: "La titularidad se designa desde la dependencia.",
 	self: "No puedes cambiar tu propio rol.",
 	rank: "No puedes cambiar este rol.",
+	dependency: "Asígnale una dependencia antes de cambiarle el rol.",
 };
 
 interface UserFormProps {
@@ -122,6 +125,7 @@ export function UserForm({
 }: UserFormProps) {
 	const isEdit = mode === "edit";
 	const roleOptions = roleLock && user ? [user.role] : assignableRoles;
+	const { hasRole } = useRole();
 	const [photo, setPhoto] = useState<File | null>(null);
 
 	const defaultValues = useMemo(
@@ -407,9 +411,28 @@ export function UserForm({
 													))}
 												</SelectContent>
 											</Select>
-											{roleLock && (
+											{roleLock ? (
 												<span className="text-muted-foreground text-sm">
 													{ROLE_LOCK_HINTS[roleLock]}
+												</span>
+											) : (
+												// El titular no está entre los roles asignables: se designa
+												// con el relevo de la dependencia (ver `ASSIGNABLE_ROLES`).
+												<span className="text-muted-foreground text-sm">
+													{hasRole(DEPENDENCY_ADMIN_ROLES) ? (
+														<>
+															El titular se designa desde{" "}
+															<Link
+																to="/dashboard/dependencias"
+																className="text-primary underline underline-offset-4"
+															>
+																Dependencias
+															</Link>
+															.
+														</>
+													) : (
+														"El titular lo designa un superadministrador."
+													)}
 												</span>
 											)}
 											{fieldState.error && (

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { uniqueViolationTarget } from "@/core/prisma-errors";
 import type { AccessScope } from "@/shared/auth/scope.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import {
@@ -49,11 +50,11 @@ const translatePrismaError = (error: unknown): never => {
 	if (error instanceof Prisma.PrismaClientKnownRequestError) {
 		if (error.code === "P2002") {
 			// La tabla tiene TRES índices únicos que una escritura puede romper, y
-			// Prisma los reporta con el mismo código. Se distinguen por `meta.target`
+			// Prisma los reporta con el mismo código. Se distinguen por el índice roto
 			// porque el mensaje al usuario es distinto en cada caso: sin esto, dar de
 			// alta a alguien con un número de empleado repetido respondía "ese correo
 			// ya está registrado", que manda a corregir el campo equivocado.
-			const target = String(error.meta?.target ?? "");
+			const target = uniqueViolationTarget(error);
 
 			if (target.includes("employee_number")) {
 				throw new DuplicateEmployeeNumberError();

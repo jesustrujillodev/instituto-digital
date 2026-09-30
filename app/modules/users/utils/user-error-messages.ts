@@ -33,7 +33,7 @@ export const USER_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[USER_ERROR_CODES.DUPLICATE_EMPLOYEE_NUMBER]: {
 		message: "Ese número de empleado ya está registrado.",
-		// La razón de ser de distinguir el P2002 por `meta.target`: antes esto
+		// La razón de ser de distinguir el P2002 por índice roto: antes esto
 		// respondía "ese correo ya está registrado" y mandaba a corregir otro campo.
 		fieldErrors: {
 			employeeNumber: "Ese número de empleado ya está registrado",

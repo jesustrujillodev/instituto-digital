@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { uniqueViolationTarget } from "@/core/prisma-errors";
 import type { ICradle } from "@/shared/di/container.types";
 import { HEAD_INELIGIBLE_ROLES } from "../domain/dependency.access";
 import { DEPENDENCY_LIST_DEFAULTS } from "../domain/dependency.config";
@@ -46,10 +47,10 @@ const translatePrismaError = (error: unknown): never => {
 	if (error instanceof Prisma.PrismaClientKnownRequestError) {
 		if (error.code === "P2002") {
 			// P2002 no siempre es el nombre: `assignHead` escribe en auth.users y
-			// puede chocar con el índice único parcial del titular. Se distinguen por
-			// `meta.target`, porque el mensaje al usuario es otro por completo —
+			// puede chocar con el índice único parcial del titular. Se distinguen por el
+			// índice roto, porque el mensaje al usuario es otro por completo —
 			// "ese nombre ya existe" contra "esa dependencia ya tiene titular".
-			const target = String(error.meta?.target ?? "");
+			const target = uniqueViolationTarget(error);
 
 			if (target.includes("one_head_per_dependency")) {
 				throw new DependencyAlreadyHasHeadError();

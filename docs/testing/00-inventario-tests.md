@@ -271,8 +271,9 @@ devolver una lista vacía, que en pantalla se leería como "no tiene personal".
 `dependencies.repository.server.test.ts`. Los repositorios están excluidos de la
 cobertura, pero la **traducción de errores no**: es la única parte del archivo con
 lógica propia y la que rompería en silencio. Un P2002 puede ser el nombre
-duplicado **o el índice único parcial del titular**, y se distinguen por
-`meta.target` porque el mensaje es por completo distinto: sin esto, designar un
+duplicado **o el índice único parcial del titular**, y se distinguen por el
+índice roto (`uniqueViolationTarget` de `app/core/prisma-errors.ts`: con
+`@prisma/adapter-pg` no llega `meta.target`) porque el mensaje es por completo distinto: sin esto, designar un
 segundo titular respondía "ese nombre ya existe". Lo que no se sabe traducir se
 propaga tal cual, en vez de esconder un fallo real detrás de una copia
 tranquilizadora.

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { uniqueViolationTarget } from "@/core/prisma-errors";
 import type { ICradle } from "@/shared/di/container.types";
 import {
 	DuplicateTrainerEmailError,
@@ -59,7 +60,7 @@ const translatePrismaError = (error: unknown): never => {
 			// perfil para la misma persona llega como P2002 sobre esa clave. El
 			// correo solo puede chocar cuando esta transacción crea la cuenta del
 			// externo.
-			const target = String(error.meta?.target ?? "");
+			const target = uniqueViolationTarget(error);
 
 			if (target.includes("email")) throw new DuplicateTrainerEmailError();
 

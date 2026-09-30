@@ -620,6 +620,26 @@ describe("createUserService — jerarquía en las mutaciones", () => {
 		expect(calls.updated).toHaveLength(1);
 	});
 
+	// Todo rol que no sea superadministrador exige dependencia: el cambio chocaría
+	// contra el CHECK de la base y llegaría como error inesperado.
+	test("no se baja de rol a un superadministrador sin dependencia", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ role: "SUPERADMIN", dependencyId: null }),
+			activeSuperadminIds: [7, 8],
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ role: "DEPENDENCY_DEPUTY" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		expect(calls.updated).toEqual([]);
+		expect(calls.revoked).toEqual([]);
+	});
+
 	test("cambiar a un rol que no se puede otorgar falla", async () => {
 		const { service, calls } = createHarness();
 
@@ -668,10 +688,11 @@ describe("createUserService — update revoca al cambiar el rol", () => {
 });
 
 describe("createUserService — al menos un superadministrador activo", () => {
+	// Con dependencia: sin ella no se le puede bajar de rol (roleLock `dependency`).
 	const lastSuperadmin = userOf({
 		id: 7,
 		role: "SUPERADMIN",
-		dependencyId: null,
+		dependencyId: 3,
 	});
 
 	test("no se degrada al último superadministrador activo", async () => {

@@ -32,7 +32,7 @@ export const DEPENDENCY_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[DEPENDENCY_ERROR_CODES.INACTIVE]:
 		"La dependencia está desactivada. Restáurala antes de asignarle titular.",
-	// La copia es la razón de ser de la traducción por `meta.target` del
+	// La copia es la razón de ser de la traducción por índice roto del
 	// repositorio: sin ella, este caso respondía "ese nombre ya existe".
 	[DEPENDENCY_ERROR_CODES.ALREADY_HAS_HEAD]:
 		"Esa dependencia ya tiene titular. Designar a otro releva al actual.",
