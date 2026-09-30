@@ -6,7 +6,7 @@ import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/:documentId/aula/:lessonDocumentId
+ * GET /dashboard/mis-capacitaciones/:documentId/aula/:lessonDocumentId
  *
  * Solo lee. Abrir la lección se registra con un POST aparte: un loader que
  * escribe se dispararía también al precargar el enlace.

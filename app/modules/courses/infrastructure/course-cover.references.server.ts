@@ -44,8 +44,8 @@ export const createCourseCoverReferenceSource = ({
 						key,
 						owner: "course" as const,
 						label: course.title,
-						detail: "Portada del curso",
-						href: `/dashboard/cursos/${course.documentId}/editar`,
+						detail: "Portada de la capacitación",
+						href: `/dashboard/capacitaciones/${course.documentId}/editar`,
 					},
 				];
 			});
@@ -66,7 +66,7 @@ export const createCourseCoverReferenceSource = ({
 
 		async describeFolders(prefixes) {
 			return prefixes.includes(ROOT_PREFIX)
-				? [{ prefix: ROOT_PREFIX, label: "Portadas de cursos" }]
+				? [{ prefix: ROOT_PREFIX, label: "Portadas de capacitaciones" }]
 				: [];
 		},
 	};

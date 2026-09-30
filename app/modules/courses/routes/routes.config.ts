@@ -5,18 +5,21 @@ import { type RouteConfigEntry, route } from "@react-router/dev/routes";
  * interno (impuesto en cada loader y action con `requireCourseScope`).
  */
 export const coursesRoutes = [
-	route("cursos", "modules/courses/routes/cursos/index.tsx"),
-	route("cursos/nuevo", "modules/courses/routes/cursos/nuevo/index.tsx"),
+	route("capacitaciones", "modules/courses/routes/cursos/index.tsx"),
 	route(
-		"cursos/:documentId/nuevo/:paso",
+		"capacitaciones/nuevo",
+		"modules/courses/routes/cursos/nuevo/index.tsx",
+	),
+	route(
+		"capacitaciones/:documentId/nuevo/:paso",
 		"modules/courses/routes/cursos/$documentId.nuevo.$paso/index.tsx",
 	),
 	route(
-		"cursos/:documentId",
+		"capacitaciones/:documentId",
 		"modules/courses/routes/cursos/$documentId/index.tsx",
 	),
 	route(
-		"cursos/:documentId/editar/:paso?",
+		"capacitaciones/:documentId/editar/:paso?",
 		"modules/courses/routes/cursos/$documentId.editar.$paso/index.tsx",
 	),
 ] satisfies RouteConfigEntry[];

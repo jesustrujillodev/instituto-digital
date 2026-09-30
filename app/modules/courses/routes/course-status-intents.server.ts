@@ -32,13 +32,13 @@ export async function runStatusIntent(
 			const result = await context.courseService.publish(input.data, auth);
 			if (!result.success) return localizeError(result, COURSE_ERROR_MESSAGES);
 
-			return ok(null, { message: "Curso publicado" });
+			return ok(null, { message: "Capacitación publicada" });
 		}
 		case COURSE_INTENTS.cancel: {
 			const result = await context.courseService.cancel(input.data, auth);
 			if (!result.success) return localizeError(result, COURSE_ERROR_MESSAGES);
 
-			return ok(null, { message: "Curso cancelado" });
+			return ok(null, { message: "Capacitación cancelada" });
 		}
 		default:
 			return fail({

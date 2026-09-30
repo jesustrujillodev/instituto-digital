@@ -18,8 +18,8 @@ export const enrollmentQrTokenRule = v.pipe(
 
 export const enrollmentQrCourseRule = v.object({
 	documentId: v.pipe(
-		v.string("Falta el identificador del curso."),
-		v.uuid("El identificador del curso no es válido."),
+		v.string("Falta el identificador de la capacitación."),
+		v.uuid("El identificador de la capacitación no es válido."),
 	),
 });
 

@@ -94,13 +94,13 @@ const createHarness = (
 const run = (context: LoaderArgs["context"], documentId = COURSE_ID) =>
 	loader({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${documentId}`,
+			`https://app.example.com/dashboard/capacitaciones/${documentId}`,
 		),
 		context,
 		params: { documentId },
 	} as unknown as LoaderArgs);
 
-describe("cursos/:documentId loader", () => {
+describe("capacitaciones/:documentId loader", () => {
 	test("un borrador trae sus pendientes para publicar", async () => {
 		const { context } = createHarness();
 
@@ -192,7 +192,7 @@ describe("cursos/:documentId loader", () => {
 	});
 });
 
-describe("cursos/:documentId loader — QR de inscripción", () => {
+describe("capacitaciones/:documentId loader — QR de inscripción", () => {
 	test("un publicado público trae el estado de su QR", async () => {
 		const { context } = createHarness({ status: "PUBLISHED" });
 
@@ -230,7 +230,7 @@ describe("cursos/:documentId loader — QR de inscripción", () => {
 	});
 });
 
-describe("cursos/:documentId loader — certificado", () => {
+describe("capacitaciones/:documentId loader — certificado", () => {
 	// Es lo que hacía que un curso emitiera el diseño por defecto sin que nadie
 	// lo notara: la ficha tiene que decir que el certificado no está publicado.
 	test("trae el estado del certificado", async () => {

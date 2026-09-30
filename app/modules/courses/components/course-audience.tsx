@@ -12,7 +12,7 @@ export function CourseAudience({ access, audience }: CourseAudienceProps) {
 	if (access === "PUBLIC") {
 		return (
 			<p className="text-sm">
-				Cualquier persona interna puede verlo e inscribirse.
+				Cualquier persona interna puede verla e inscribirse.
 			</p>
 		);
 	}
@@ -20,8 +20,8 @@ export function CourseAudience({ access, audience }: CourseAudienceProps) {
 	if (access === "INVITATION") {
 		return (
 			<p className="text-sm">
-				Solo lo ven las personas invitadas. Las invitaciones se envían desde
-				Inscripciones una vez publicado.
+				Solo la ven las personas invitadas. Las invitaciones se envían desde
+				Inscripciones una vez publicada.
 			</p>
 		);
 	}
@@ -31,8 +31,8 @@ export function CourseAudience({ access, audience }: CourseAudienceProps) {
 	if (dependencies.length + groups.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				Restringido, pero todavía sin dependencias ni grupos: nadie podría
-				verlo.
+				Restringida, pero todavía sin dependencias ni grupos: nadie podría
+				verla.
 			</p>
 		);
 	}

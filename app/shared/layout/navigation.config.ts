@@ -57,14 +57,14 @@ export const navigationSections: readonly NavSection[] = [
 		roles: LEARNER_ROLES,
 		items: [
 			{
-				label: "Mis cursos",
-				path: "/dashboard/mis-cursos",
+				label: "Mis capacitaciones",
+				path: "/dashboard/mis-capacitaciones",
 				icon: BookOpenCheck,
 				requiresDependency: true,
 			},
 			{
-				label: "Cursos disponibles",
-				path: "/dashboard/cursos-disponibles",
+				label: "Catálogo de capacitaciones",
+				path: "/dashboard/catalogo-de-capacitaciones",
 				icon: LibraryBig,
 				requiresDependency: true,
 			},
@@ -96,8 +96,8 @@ export const navigationSections: readonly NavSection[] = [
 		items: [
 			{
 				// El externo solo imparte (§4): crear cursos exige una dependencia.
-				label: "Cursos",
-				path: "/dashboard/cursos",
+				label: "Capacitaciones",
+				path: "/dashboard/capacitaciones",
 				icon: NotebookPen,
 				roles: DEPENDENCY_ROLES,
 				trainer: true,
@@ -157,7 +157,11 @@ export const navigationSections: readonly NavSection[] = [
 		label: "Capacitación",
 		roles: PLATFORM_ROLES,
 		items: [
-			{ label: "Cursos", path: "/dashboard/cursos", icon: NotebookPen },
+			{
+				label: "Capacitaciones",
+				path: "/dashboard/capacitaciones",
+				icon: NotebookPen,
+			},
 			{
 				label: "Impartición",
 				path: "/dashboard/imparticion",

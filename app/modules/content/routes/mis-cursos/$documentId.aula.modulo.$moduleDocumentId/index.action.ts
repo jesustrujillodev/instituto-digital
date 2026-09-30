@@ -10,7 +10,7 @@ import { parseContentFormData } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/mis-cursos/:documentId/aula/modulo/:moduleDocumentId
+ * POST /dashboard/mis-capacitaciones/:documentId/aula/modulo/:moduleDocumentId
  *
  * Presenta la evaluación del módulo. La inscripción y el intento disponible se
  * imponen en el servicio.

@@ -40,14 +40,14 @@ const contextOf = (calls: { method: string; courseId: unknown }[]) =>
 		},
 	}) as unknown as ActionArgs["context"];
 
-describe("mis-cursos action", () => {
+describe("mis-capacitaciones action", () => {
 	test.each(["accept", "decline"])(
 		"%s usa el curso enviado en el formulario",
 		async (intent) => {
 			const calls: { method: string; courseId: unknown }[] = [];
 
 			const result = await action({
-				request: postRequest("/dashboard/mis-cursos", {
+				request: postRequest("/dashboard/mis-capacitaciones", {
 					intent,
 					courseDocumentId: COURSE_ID,
 				}),
@@ -64,7 +64,9 @@ describe("mis-cursos action", () => {
 		const calls: { method: string; courseId: unknown }[] = [];
 
 		const result = await action({
-			request: postRequest("/dashboard/mis-cursos", { intent: "accept" }),
+			request: postRequest("/dashboard/mis-capacitaciones", {
+				intent: "accept",
+			}),
 			context: contextOf(calls),
 			params: {},
 		} as unknown as ActionArgs);
@@ -74,10 +76,12 @@ describe("mis-cursos action", () => {
 	});
 });
 
-describe("mis-cursos loader", () => {
+describe("mis-capacitaciones loader", () => {
 	test("un participante recibe sus listas y el avance de cada aula", async () => {
 		const { data } = await loader({
-			request: new Request("https://app.example.com/dashboard/mis-cursos"),
+			request: new Request(
+				"https://app.example.com/dashboard/mis-capacitaciones",
+			),
 			context: contextOf([]) as unknown as LoaderArgs["context"],
 			params: {},
 		} as unknown as LoaderArgs);
@@ -98,9 +102,12 @@ describe("mis-cursos loader", () => {
 
 	test("pinta la disposición guardada en su cookie", async () => {
 		const { data } = await loader({
-			request: new Request("https://app.example.com/dashboard/mis-cursos", {
-				headers: { Cookie: "vista_mis_cursos=list" },
-			}),
+			request: new Request(
+				"https://app.example.com/dashboard/mis-capacitaciones",
+				{
+					headers: { Cookie: "vista_mis_cursos=list" },
+				},
+			),
 			context: contextOf([]) as unknown as LoaderArgs["context"],
 			params: {},
 		} as unknown as LoaderArgs);

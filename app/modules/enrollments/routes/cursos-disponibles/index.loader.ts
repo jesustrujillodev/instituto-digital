@@ -13,7 +13,7 @@ const readNumber = (value: string | null) => {
 	return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };
 
-/** GET /dashboard/cursos-disponibles */
+/** GET /dashboard/catalogo-de-capacitaciones */
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const auth = await requireParticipant(request, context);
 	const { searchParams } = new URL(request.url);

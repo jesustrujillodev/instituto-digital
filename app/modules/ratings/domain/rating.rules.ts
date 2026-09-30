@@ -8,8 +8,8 @@ import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.c
 import { RATING_COMMENT_MAX_LENGTH, RATING_SCORE_RANGE } from "./rating.config";
 
 const documentId = v.pipe(
-	v.string("Falta el identificador del curso."),
-	v.uuid("El identificador del curso no es válido."),
+	v.string("Falta el identificador de la capacitación."),
+	v.uuid("El identificador de la capacitación no es válido."),
 );
 
 export const findRatingCourseRule = v.object({ documentId });

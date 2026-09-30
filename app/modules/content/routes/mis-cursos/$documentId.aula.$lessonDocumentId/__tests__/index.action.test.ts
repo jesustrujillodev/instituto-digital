@@ -36,7 +36,7 @@ const createHarness = (reply: unknown) => {
 const run = (context: ActionArgs["context"], fields: Record<string, string>) =>
 	action({
 		request: new Request(
-			`https://app.example.com/dashboard/mis-cursos/${COURSE_DOC}/aula/${LESSON_1}`,
+			`https://app.example.com/dashboard/mis-capacitaciones/${COURSE_DOC}/aula/${LESSON_1}`,
 			{ method: "POST", body: new URLSearchParams(fields) },
 		),
 		context,
@@ -101,7 +101,8 @@ describe("aula: registrar avance", () => {
 			success: false,
 			error: {
 				code: CONTENT_ERROR_CODES.NOT_ENROLLED,
-				message: "Solo quien está inscrito al curso puede entrar a su aula.",
+				message:
+					"Solo quien está inscrito a la capacitación puede entrar a su aula.",
 			},
 		});
 	});

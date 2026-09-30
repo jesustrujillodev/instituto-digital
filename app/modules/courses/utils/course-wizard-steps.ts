@@ -41,7 +41,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		key: "program",
 		number: 2,
 		title: "Programa",
-		summary: "Quién lo imparte, cuándo y dónde",
+		summary: "Quién la imparte, cuándo y dónde",
 		fields: [
 			"format",
 			"modality",
@@ -217,7 +217,7 @@ export const stepPath = (
 	step: number,
 	mode: CourseWizardMode = "create",
 ) =>
-	`/dashboard/cursos/${documentId}/${mode === "create" ? "nuevo" : "editar"}/${step}`;
+	`/dashboard/capacitaciones/${documentId}/${mode === "create" ? "nuevo" : "editar"}/${step}`;
 
 /** A dónde vuelve la edición: la ficha, o la impartición si se entró desde ahí. */
 export const RETURN_PARAM = "volver";
@@ -226,13 +226,13 @@ export const RETURN_TO_TEACHING = "imparticion";
 export const editReturnPath = (documentId: string, returnTo: string | null) =>
 	returnTo === RETURN_TO_TEACHING
 		? `/dashboard/imparticion/${documentId}`
-		: `/dashboard/cursos/${documentId}`;
+		: `/dashboard/capacitaciones/${documentId}`;
 
 /** `editReturnPath`, dicho para un botón: «Guardar y salir al curso». */
 export const editReturnLabel = (returnTo: string | null) =>
-	returnTo === RETURN_TO_TEACHING ? "a Impartición" : "al curso";
+	returnTo === RETURN_TO_TEACHING ? "a Impartición" : "a la capacitación";
 
-export const COURSE_LIST_PATH = "/dashboard/cursos";
+export const COURSE_LIST_PATH = "/dashboard/capacitaciones";
 
 /**
  * A dónde lleva terminar —publicar el alta o guardar el último paso de la
@@ -249,7 +249,7 @@ export const finishReturnPath = (
 
 /** `finishReturnPath`, dicho para un botón: «Guardar y salir a Cursos». */
 export const finishReturnLabel = (returnTo: string | null) =>
-	returnTo === RETURN_TO_TEACHING ? "a Impartición" : "a Cursos";
+	returnTo === RETURN_TO_TEACHING ? "a Impartición" : "a Capacitaciones";
 
 /** Pasos con al menos un campo marcado; un error anidado cuenta por su raíz. */
 export const stepsWithErrors = (

@@ -48,14 +48,14 @@ const createHarness = (reply: unknown = okReply(null), isTrainer = true) => {
 const run = (context: ActionArgs["context"], fields: Record<string, string>) =>
 	action({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${COURSE_DOC}/evaluaciones`,
+			`https://app.example.com/dashboard/capacitaciones/${COURSE_DOC}/evaluaciones`,
 			{ method: "POST", body: new URLSearchParams(fields) },
 		),
 		context,
 		params: { documentId: COURSE_DOC },
 	} as unknown as ActionArgs);
 
-describe("cursos/evaluaciones action", () => {
+describe("capacitaciones/evaluaciones action", () => {
 	test("crear pasa el título y la sesión al servicio", async () => {
 		const { context, calls } = createHarness(okReply(null));
 

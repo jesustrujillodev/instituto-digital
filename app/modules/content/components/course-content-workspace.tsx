@@ -296,8 +296,8 @@ export function CourseContentWorkspace({
 					</EmptyMedia>
 					<EmptyTitle>Sin temario todavía</EmptyTitle>
 					<EmptyDescription>
-						Un módulo agrupa lecciones. Para publicar el curso hace falta al
-						menos una lección.
+						Un módulo agrupa lecciones. Para publicar la capacitación hace falta
+						al menos una lección.
 					</EmptyDescription>
 				</EmptyHeader>
 				{canWrite && (

@@ -15,17 +15,17 @@ import type { Route } from "./+types/index";
 export const shouldRevalidate: ShouldRevalidateFunction =
 	shouldRevalidateAfterPublish;
 
-const LIST_PATH = "/dashboard/cursos";
+const LIST_PATH = "/dashboard/capacitaciones";
 
 export const handle = {
 	breadcrumb: (loaderData) => [
-		{ label: "Cursos", path: LIST_PATH },
+		{ label: "Capacitaciones", path: LIST_PATH },
 		loaderData
 			? {
 					label: loaderData.data.course.title,
 					path: `${LIST_PATH}/${loaderData.data.course.documentId}`,
 				}
-			: { label: "Curso" },
+			: { label: "Capacitación" },
 		{ label: "Alta" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
@@ -34,7 +34,7 @@ export function meta({ data }: Route.MetaArgs) {
 	const course = data?.data.course;
 	const step = course && stepOfNumber(data.data.stepNumber);
 
-	if (!course || !step) return [{ title: "Alta de curso" }];
+	if (!course || !step) return [{ title: "Alta de capacitación" }];
 
 	const { position, total } = stepPosition(stepsFor(course), step);
 

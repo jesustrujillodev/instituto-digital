@@ -20,7 +20,7 @@ import {
 } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/:documentId/contenido — el temario, cambio a cambio. */
+/** POST /dashboard/capacitaciones/:documentId/contenido — el temario, cambio a cambio. */
 export const action = async ({
 	request,
 	context,

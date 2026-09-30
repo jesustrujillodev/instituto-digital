@@ -66,8 +66,8 @@ function QuizResults({
 		<Card>
 			<CardContent className="flex flex-col gap-4">
 				<p className="text-muted-foreground text-sm">
-					Este curso se evalúa con examen en línea: cada nota la escribe el
-					examen al presentarse, y no se captura a mano.
+					Esta capacitación se evalúa con examen en línea: cada nota la escribe
+					el examen al presentarse, y no se captura a mano.
 				</p>
 				<ul className="flex flex-col divide-y divide-border">
 					{participants.map((participant) => (
@@ -104,7 +104,7 @@ export function ResultsPanel({
 	if (participants.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				Nadie está inscrito en este curso.
+				Nadie está inscrito en esta capacitación.
 			</p>
 		);
 	}

@@ -253,11 +253,11 @@ describe("resolveCourseHref", () => {
 	// Quien imparte va a la impartición y no al catálogo: un curso por invitación
 	// no existe allí para su capacitador si no está invitado.
 	test.each([
-		[["organizing", "enrolled"], "/dashboard/cursos/c1"],
-		[["global"], "/dashboard/cursos/c1"],
-		[["enrolled"], "/dashboard/mis-cursos/c1"],
-		[["invited"], "/dashboard/mis-cursos/c1"],
-		[["teaching", "enrolled"], "/dashboard/mis-cursos/c1"],
+		[["organizing", "enrolled"], "/dashboard/capacitaciones/c1"],
+		[["global"], "/dashboard/capacitaciones/c1"],
+		[["enrolled"], "/dashboard/mis-capacitaciones/c1"],
+		[["invited"], "/dashboard/mis-capacitaciones/c1"],
+		[["teaching", "enrolled"], "/dashboard/mis-capacitaciones/c1"],
 		[["teaching"], "/dashboard/imparticion/c1"],
 		[["staff"], null],
 	] as const)("%j lleva a %s", (lenses, expected) => {
@@ -277,7 +277,7 @@ describe("toCalendarSessions", () => {
 		expect(sessions[0].trainers).toEqual([
 			{ documentId: "t8", name: "Elena Torres" },
 		]);
-		expect(sessions[0].courseHref).toBe("/dashboard/mis-cursos/c1");
+		expect(sessions[0].courseHref).toBe("/dashboard/mis-capacitaciones/c1");
 	});
 
 	test("sin nombre, el capacitador se muestra por su correo", () => {

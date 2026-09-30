@@ -150,7 +150,7 @@ export function TrainerProfileDialog({
 					<DialogDescription>
 						{isEdit
 							? target?.name
-							: `${target?.name} conserva su rol y además podrá crear e impartir cursos; cualquier dependencia podrá asignarle los suyos. Su sesión se cerrará para aplicar el cambio.`}
+							: `${target?.name} conserva su rol y además podrá crear e impartir capacitaciones; cualquier dependencia podrá asignarle las suyas. Su sesión se cerrará para aplicar el cambio.`}
 					</DialogDescription>
 				</DialogHeader>
 

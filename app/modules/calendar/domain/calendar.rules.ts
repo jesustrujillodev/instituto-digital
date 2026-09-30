@@ -137,10 +137,10 @@ export const resolveCourseHref = (
 	courseDocumentId: string,
 ): string | null => {
 	if (lenses.includes("organizing") || lenses.includes("global")) {
-		return `/dashboard/cursos/${courseDocumentId}`;
+		return `/dashboard/capacitaciones/${courseDocumentId}`;
 	}
 	if (lenses.includes("enrolled") || lenses.includes("invited")) {
-		return `/dashboard/mis-cursos/${courseDocumentId}`;
+		return `/dashboard/mis-capacitaciones/${courseDocumentId}`;
 	}
 	if (lenses.includes("teaching")) {
 		return `/dashboard/imparticion/${courseDocumentId}`;

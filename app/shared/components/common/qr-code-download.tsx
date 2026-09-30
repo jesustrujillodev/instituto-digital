@@ -19,7 +19,7 @@ const slugOf = (title: string) =>
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-|-$/g, "")
-		.slice(0, 60) || "curso";
+		.slice(0, 60) || "capacitacion";
 
 const download = (href: string, filename: string) => {
 	const link = document.createElement("a");

@@ -5,7 +5,7 @@ import { requireCourseScope } from "../require-course-scope.server";
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos — acciones de fila: publicar y cancelar.
+ * POST /dashboard/capacitaciones — acciones de fila: publicar y cancelar.
  *
  * Se invocan con useFetcher, así que no navegan: al terminar solo revalidan el
  * loader. No hay borrado: cancelar conserva sesiones, capacitadores y audiencia.

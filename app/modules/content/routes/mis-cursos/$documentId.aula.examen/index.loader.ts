@@ -7,7 +7,7 @@ import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/:documentId/aula/examen
+ * GET /dashboard/mis-capacitaciones/:documentId/aula/examen
  *
  * El examen final, sin respuestas correctas. `null` si el curso no se evalúa
  * con examen o todavía no tiene preguntas.

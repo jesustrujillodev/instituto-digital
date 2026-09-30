@@ -36,7 +36,7 @@ import {
 } from "../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
-const AVAILABLE_PATH = "/dashboard/cursos-disponibles";
+const AVAILABLE_PATH = "/dashboard/catalogo-de-capacitaciones";
 
 export const handle = {
 	breadcrumb: (loaderData) => {
@@ -47,15 +47,15 @@ export const handle = {
 		// ficha de administración: sus migas vuelven por donde vino.
 		return data.reach.organizer
 			? [
-					{ label: "Cursos", path: "/dashboard/cursos" },
+					{ label: "Capacitaciones", path: "/dashboard/capacitaciones" },
 					{
 						label: data.course.title,
-						path: `/dashboard/cursos/${data.course.documentId}`,
+						path: `/dashboard/capacitaciones/${data.course.documentId}`,
 					},
 					{ label: "Inscripciones" },
 				]
 			: [
-					{ label: "Cursos disponibles", path: AVAILABLE_PATH },
+					{ label: "Catálogo de capacitaciones", path: AVAILABLE_PATH },
 					{
 						label: data.course.title,
 						path: `${AVAILABLE_PATH}/${data.course.documentId}`,
@@ -106,7 +106,7 @@ export default function InscripcionesPage({
 				}
 				goBack={
 					reach.organizer
-						? `/dashboard/cursos/${course.documentId}`
+						? `/dashboard/capacitaciones/${course.documentId}`
 						: `${AVAILABLE_PATH}/${course.documentId}`
 				}
 			/>
@@ -125,8 +125,8 @@ export default function InscripcionesPage({
 			{!course.isOpen && (
 				<Alert>
 					<AlertDescription>
-						La inscripción está cerrada o el curso no está publicado: ya no se
-						puede inscribir ni invitar.
+						La inscripción está cerrada o la capacitación no está publicada: ya
+						no se puede inscribir ni invitar.
 					</AlertDescription>
 				</Alert>
 			)}
@@ -219,14 +219,14 @@ export default function InscripcionesPage({
 				<CardContent className="flex flex-col gap-3">
 					<h3 className="font-medium text-sm">
 						{reach.organizer
-							? "Personas en el curso"
-							: "Tu personal en el curso"}
+							? "Personas en la capacitación"
+							: "Tu personal en la capacitación"}
 					</h3>
 					{entries.length === 0 ? (
 						<p className="text-muted-foreground text-sm">
 							{reach.organizer
 								? "Nadie se ha inscrito ni ha sido invitado todavía."
-								: "Nadie de tu dependencia está en este curso todavía."}
+								: "Nadie de tu dependencia está en esta capacitación todavía."}
 						</p>
 					) : (
 						<ul className="flex flex-col divide-y divide-border">

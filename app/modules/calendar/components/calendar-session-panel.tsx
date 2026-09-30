@@ -86,7 +86,7 @@ export function CalendarSessionPanel({
 							<SheetFooter>
 								<Button asChild>
 									<Link to={session.courseHref}>
-										Ver curso
+										Ver capacitación
 										<ArrowRight className="h-4 w-4" />
 									</Link>
 								</Button>

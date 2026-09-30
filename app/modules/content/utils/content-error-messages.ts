@@ -33,11 +33,11 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[CONTENT_ERROR_CODES.COURSE_NOT_FOUND]: {
-		message: "El curso no existe.",
+		message: "La capacitación no existe.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[CONTENT_ERROR_CODES.COURSE_NOT_EDITABLE]: {
-		message: "Este curso ya no admite cambios en su temario.",
+		message: "Esta capacitación ya no admite cambios en su temario.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.MODULE_NOT_FOUND]: {
@@ -53,8 +53,8 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 			const limit = limitOf(error);
 
 			return limit === null
-				? "Este curso ya llegó al máximo de módulos."
-				: `Este curso ya tiene los ${limit} módulos permitidos.`;
+				? "Esta capacitación ya llegó al máximo de módulos."
+				: `Esta capacitación ya tiene los ${limit} módulos permitidos.`;
 		},
 		status: HTTP_STATUS.CONFLICT,
 	},
@@ -125,16 +125,18 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.SESSION_MATERIALS_LOCKED]: {
-		message: "El curso ya terminó o se canceló: su material queda como está.",
+		message:
+			"La capacitación ya terminó o se canceló: su material queda como está.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.NOT_ENROLLED]: {
-		message: "Solo quien está inscrito al curso puede entrar a su aula.",
+		message:
+			"Solo quien está inscrito a la capacitación puede entrar a su aula.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY]: {
 		message:
-			"El curso ya terminó: puedes repasar sus lecciones, pero ya no se registra avance.",
+			"La capacitación ya terminó: puedes repasar sus lecciones, pero ya no se registra avance.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.QUIZ_NOT_FOUND]: {
@@ -160,7 +162,7 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[CONTENT_ERROR_CODES.QUIZ_NOT_EVALUATED]: {
-		message: "Este curso no se evalúa con examen en línea.",
+		message: "Esta capacitación no se evalúa con examen en línea.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.QUIZ_COMPLETES_ON_SUBMIT]: {
@@ -169,11 +171,11 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED]: {
 		message:
-			"Solo se habilita otro intento en un curso en curso, a quien no lo ha acreditado, cuando el último quedó reprobado, agotó sus intentos y no tiene otro pendiente.",
+			"Solo se habilita otro intento en una capacitación en curso, a quien no lo ha acreditado, cuando el último quedó reprobado, agotó sus intentos y no tiene otro pendiente.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND]: {
-		message: "Esa persona ya no está inscrita en el curso.",
+		message: "Esa persona ya no está inscrita en la capacitación.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

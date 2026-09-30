@@ -6,11 +6,11 @@ import { type RouteConfigEntry, route } from "@react-router/dev/routes";
  */
 export const certificatesRoutes = [
 	route(
-		"cursos/:documentId/certificado",
+		"capacitaciones/:documentId/certificado",
 		"modules/certificates/routes/cursos/$documentId.certificado/index.tsx",
 	),
 	route(
-		"cursos/:documentId/certificado/muestra",
+		"capacitaciones/:documentId/certificado/muestra",
 		"modules/certificates/routes/cursos/$documentId.certificado.muestra/index.ts",
 	),
 	route(

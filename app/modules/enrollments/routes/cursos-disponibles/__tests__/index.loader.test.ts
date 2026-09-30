@@ -29,12 +29,12 @@ const createHarness = (options: ActorOptions = {}) => {
 
 const run = (context: LoaderArgs["context"], query = "") =>
 	loader({
-		request: getRequest(`/dashboard/cursos-disponibles${query}`),
+		request: getRequest(`/dashboard/catalogo-de-capacitaciones${query}`),
 		context,
 		params: {},
 	} as unknown as LoaderArgs);
 
-describe("cursos-disponibles loader", () => {
+describe("catalogo-de-capacitaciones loader", () => {
 	const DEPENDENCY = "44444444-4444-4444-8444-444444444444";
 
 	test("lee búsqueda, modalidad, dependencia y página del query string", async () => {

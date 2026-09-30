@@ -36,12 +36,14 @@ const createHarness = (
 
 const run = (context: LoaderArgs["context"], query = "") =>
 	loader({
-		request: getRequest(`/dashboard/cursos-disponibles/${COURSE_ID}${query}`),
+		request: getRequest(
+			`/dashboard/catalogo-de-capacitaciones/${COURSE_ID}${query}`,
+		),
 		context,
 		params: { documentId: COURSE_ID },
 	} as unknown as LoaderArgs);
 
-describe("cursos-disponibles/:documentId loader", () => {
+describe("catalogo-de-capacitaciones/:documentId loader", () => {
 	// Criterio 3 de §7: ni por URL directa.
 	test("un curso que no puede ver responde 404", async () => {
 		const { context } = createHarness({

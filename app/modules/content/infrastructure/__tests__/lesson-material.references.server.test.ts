@@ -36,7 +36,7 @@ describe("material de lecciones como referencias de storage", () => {
 				owner: "lesson",
 				label: "Qué es la transparencia",
 				detail: "Material de la lección",
-				href: `/dashboard/cursos/${COURSE_DOC}/contenido`,
+				href: `/dashboard/capacitaciones/${COURSE_DOC}/contenido`,
 			},
 		]);
 		expect(asked).toEqual([toProxyRef(KEY), toProxyRef(OTHER)]);

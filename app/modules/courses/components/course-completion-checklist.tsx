@@ -129,12 +129,12 @@ export function CourseCompletionChecklist({
 		>
 			<div className="flex flex-col gap-1">
 				<h3 id={`${ids.completionRule}-title`} className="font-medium text-sm">
-					Para completar el curso hay que…
+					Para completar la capacitación hay que…
 				</h3>
 				{locked && (
 					<p className="text-muted-foreground text-xs">
-						El curso ya está publicado y otorga créditos: estos requisitos no se
-						pueden cambiar.
+						La capacitación ya está publicada y otorga créditos: estos
+						requisitos no se pueden cambiar.
 					</p>
 				)}
 			</div>
@@ -166,7 +166,7 @@ export function CourseCompletionChecklist({
 									className="h-7 w-16 px-2 text-center text-xs tabular-nums"
 									{...register("minAttendance")}
 								/>
-								% de las sesiones del curso.
+								% de las sesiones de la capacitación.
 							</span>
 						) : (
 							"Quien asiste pasa lista con el QR de cada sesión."
@@ -193,7 +193,7 @@ export function CourseCompletionChecklist({
 				>
 					{contentDescription(content)}
 					{!scheduled &&
-						" Un autogestivo se completa siempre por su contenido."}
+						" Una autogestiva se completa siempre por su contenido."}
 				</Requirement>
 
 				<Controller

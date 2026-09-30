@@ -43,15 +43,15 @@ export function EnrollmentQrPanel({ title, qr }: EnrollmentQrPanelProps) {
 					</h2>
 					<p className="text-xs text-muted-foreground">
 						Para carteles y avisos impresos. Quien lo escanea inicia sesión, ve
-						la ficha del curso y confirma su inscripción. Se aplican el cupo, la
-						fecha límite y la audiencia del curso.
+						la ficha de la capacitación y confirma su inscripción. Se aplican el
+						cupo, la fecha límite y la audiencia de la capacitación.
 					</p>
 				</div>
 
 				{!qr.enrollmentOpen && (
 					<p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-						La inscripción está cerrada ahora: quien escanee verá el curso, pero
-						no podrá inscribirse.
+						La inscripción está cerrada ahora: quien escanee verá la
+						capacitación, pero no podrá inscribirse.
 					</p>
 				)}
 
@@ -60,7 +60,7 @@ export function EnrollmentQrPanel({ title, qr }: EnrollmentQrPanelProps) {
 						<QrCodeDownload
 							path={enrollmentQrPathOf(qr.token)}
 							fileName={`qr-inscripcion-${title}`}
-							ariaLabel="Código QR de inscripción del curso"
+							ariaLabel="Código QR de inscripción de la capacitación"
 						>
 							<p className="text-center text-xs text-muted-foreground">
 								Imprímelo a 3 cm o más. El PNG sirve para carteles; el SVG no
@@ -76,7 +76,7 @@ export function EnrollmentQrPanel({ title, qr }: EnrollmentQrPanelProps) {
 					</>
 				) : (
 					<p className="text-sm text-muted-foreground">
-						Este curso todavía no tiene código QR de inscripción.
+						Esta capacitación todavía no tiene código QR de inscripción.
 					</p>
 				)}
 
@@ -103,7 +103,7 @@ export function EnrollmentQrPanel({ title, qr }: EnrollmentQrPanelProps) {
 							<AlertDialogDescription>
 								{qr.token
 									? "Los carteles ya impresos dejarán de funcionar de inmediato y tendrás que reemplazarlos. Las inscripciones ya hechas no cambian, y el QR de asistencia tampoco."
-									: "Se creará el código que el personal podrá escanear para inscribirse a este curso."}
+									: "Se creará el código que el personal podrá escanear para inscribirse a esta capacitación."}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>

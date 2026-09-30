@@ -153,25 +153,26 @@ export function EvaluationsPanel({
 		<Card>
 			<CardContent className="flex flex-col gap-5">
 				<p className="text-muted-foreground text-sm">
-					Sirven para dar seguimiento al grupo; no cuentan para el crédito del
-					curso.
+					Sirven para dar seguimiento al grupo; no cuentan para el crédito de la
+					capacitación.
 				</p>
 
 				{evaluations.length === 0 ? (
 					<div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed p-6">
 						<div>
 							<p className="font-medium text-sm">
-								Este curso no tiene evaluaciones de seguimiento
+								Esta capacitación no tiene evaluaciones de seguimiento
 							</p>
 							<p className="text-muted-foreground text-sm">
-								Se definen al crear o editar el curso, en el paso Evaluación.
+								Se definen al crear o editar la capacitación, en el paso
+								Evaluación.
 							</p>
 						</div>
 						{defineHref && (
 							<Button type="button" variant="outline" asChild>
 								<Link to={defineHref}>
 									<Pencil className="size-4" aria-hidden />
-									Definirlas en el curso
+									Definirlas en la capacitación
 								</Link>
 							</Button>
 						)}
@@ -238,7 +239,7 @@ export function EvaluationsPanel({
 
 						{participants.length === 0 ? (
 							<p className="text-muted-foreground text-sm">
-								Nadie está inscrito en este curso.
+								Nadie está inscrito en esta capacitación.
 							</p>
 						) : (
 							<ul className="flex flex-col divide-y divide-border">

@@ -4,7 +4,7 @@ import { runParticipantIntent } from "../participant-intents.server";
 import { requireParticipant } from "../require-participant.server";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/mis-cursos — aceptar, rechazar o darse de baja desde la lista. */
+/** POST /dashboard/mis-capacitaciones — aceptar, rechazar o darse de baja desde la lista. */
 export const action = async ({
 	request,
 	context,

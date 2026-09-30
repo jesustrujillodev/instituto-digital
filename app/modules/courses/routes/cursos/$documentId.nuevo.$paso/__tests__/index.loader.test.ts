@@ -105,13 +105,13 @@ const run = (
 ) =>
 	loader({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${documentId}/nuevo/${paso}`,
+			`https://app.example.com/dashboard/capacitaciones/${documentId}/nuevo/${paso}`,
 		),
 		context,
 		params: { documentId, paso },
 	} as unknown as LoaderArgs);
 
-describe("cursos/alta loader", () => {
+describe("capacitaciones/alta loader", () => {
 	test("un borrador abre el paso con sus opciones y su checklist", async () => {
 		const { context } = createHarness();
 
@@ -129,7 +129,7 @@ describe("cursos/alta loader", () => {
 
 		expect(thrown).toBeInstanceOf(Response);
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/nuevo/1`,
+			`/dashboard/capacitaciones/${COURSE_ID}/nuevo/1`,
 		);
 	});
 
@@ -141,7 +141,7 @@ describe("cursos/alta loader", () => {
 
 		expect(thrown).toBeInstanceOf(Response);
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/nuevo/2`,
+			`/dashboard/capacitaciones/${COURSE_ID}/nuevo/2`,
 		);
 		expect(calls.trees).toBe(0);
 	});
@@ -176,7 +176,7 @@ describe("cursos/alta loader", () => {
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/editar/1`,
+			`/dashboard/capacitaciones/${COURSE_ID}/editar/1`,
 		);
 	});
 
@@ -206,7 +206,7 @@ describe("cursos/alta loader", () => {
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}`,
+			`/dashboard/capacitaciones/${COURSE_ID}`,
 		);
 	});
 

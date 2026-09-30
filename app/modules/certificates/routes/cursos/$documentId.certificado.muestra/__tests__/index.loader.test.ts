@@ -31,7 +31,7 @@ const createHarness = (options: ActorOptions = {}) => {
 const run = (context: LoaderArgs["context"], query: string) =>
 	loader({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${COURSE_ID}/certificado/muestra?${query}`,
+			`https://app.example.com/dashboard/capacitaciones/${COURSE_ID}/certificado/muestra?${query}`,
 		),
 		context,
 		params: { documentId: COURSE_ID },

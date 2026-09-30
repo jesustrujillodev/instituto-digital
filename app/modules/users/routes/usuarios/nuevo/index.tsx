@@ -67,7 +67,7 @@ export default function NuevoUsuarioPage({ loaderData }: Route.ComponentProps) {
 				description={
 					<>
 						Cuenta para el personal del Ayuntamiento. Si alguien viene de fuera
-						a impartir un curso,{" "}
+						a impartir una capacitación,{" "}
 						<Link
 							to="/dashboard/usuarios/capacitador-externo"
 							className="text-primary underline underline-offset-4"

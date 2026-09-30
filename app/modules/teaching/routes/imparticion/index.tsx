@@ -167,7 +167,7 @@ export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Impartición"
-				description="Cursos publicados y finalizados que impartes u organizas: asistencia, resultados y cierre."
+				description="Capacitaciones publicadas y finalizadas que impartes u organizas: asistencia, resultados y cierre."
 			/>
 
 			<div className="flex flex-col gap-4">
@@ -175,7 +175,7 @@ export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 					<div className="w-full md:max-w-xs">
 						<TextInput
 							name="search"
-							aria-label="Buscar cursos"
+							aria-label="Buscar capacitaciones"
 							placeholder="Buscar por título"
 							value={searchTerm}
 							onChange={(event) => setSearchTerm(event.target.value)}
@@ -285,12 +285,14 @@ function TeachingEmpty({
 					{hasFilters ? <SearchX /> : <ClipboardCheck />}
 				</EmptyMedia>
 				<EmptyTitle>
-					{hasFilters ? "Ningún curso coincide" : "Sin cursos que impartir"}
+					{hasFilters
+						? "Ninguna capacitación coincide"
+						: "Sin capacitaciones que impartir"}
 				</EmptyTitle>
 				<EmptyDescription>
 					{hasFilters
 						? "Prueba con otras palabras o quita el filtro de estado."
-						: "Aquí aparecen los cursos publicados o finalizados que impartes u organiza tu dependencia."}
+						: "Aquí aparecen las capacitaciones publicadas o finalizadas que impartes u organiza tu dependencia."}
 				</EmptyDescription>
 			</EmptyHeader>
 			{hasFilters && (

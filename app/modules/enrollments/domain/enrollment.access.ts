@@ -20,7 +20,7 @@ export type CatalogAccessWhere = {
  * Un curso por invitación solo existe allí para quien fue invitado: con la
  * invitación pendiente o ya aceptada. Administrarlo o impartirlo no basta, porque
  * `courseVisibilityWhere` abre esos cursos a su titular, auxiliar y capacitador,
- * que los gestionan desde /dashboard/cursos y no se inscriben en ellos.
+ * que los gestionan desde /dashboard/capacitaciones y no se inscriben en ellos.
  */
 export const catalogAccessWhere = (userId: number): CatalogAccessWhere => ({
 	OR: [

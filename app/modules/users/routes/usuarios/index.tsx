@@ -320,8 +320,8 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 				title="Usuarios"
 				description={
 					canFilterByDependency
-						? "Cuentas con acceso a la plataforma. Aquí también decides quién imparte cursos."
-						: "Personal de tu dependencia y capacitadores externos. Aquí también decides quién imparte cursos."
+						? "Cuentas con acceso a la plataforma. Aquí también decides quién imparte capacitaciones."
+						: "Personal de tu dependencia y capacitadores externos. Aquí también decides quién imparte capacitaciones."
 				}
 				actions={
 					<>

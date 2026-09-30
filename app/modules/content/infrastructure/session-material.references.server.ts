@@ -41,7 +41,7 @@ export const createSessionMaterialReferenceSource = ({
 						owner: "session" as const,
 						label: row.title,
 						detail: "Material de una sesión",
-						href: `/dashboard/cursos/${row.session.course.documentId}`,
+						href: `/dashboard/capacitaciones/${row.session.course.documentId}`,
 					},
 				];
 			});

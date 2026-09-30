@@ -167,7 +167,7 @@ function CreditCard({
 	layout: ViewMode;
 	showDependency: boolean;
 }) {
-	const href = `/dashboard/mis-cursos/${credit.course.documentId}`;
+	const href = `/dashboard/mis-capacitaciones/${credit.course.documentId}`;
 
 	return (
 		<CourseCardFrame
@@ -204,7 +204,7 @@ export default function MisCreditosPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col gap-6">
 			<PageHeader
 				title="Mis créditos"
-				description="Un crédito por cada curso que completas. Cuenta para la dependencia a la que pertenecías al obtenerlo."
+				description="Un crédito por cada capacitación que completas. Cuenta para la dependencia a la que pertenecías al obtenerlo."
 				actions={<ViewModeToggle value={layout} onChange={setLayout} />}
 				actionsClassName="items-end *:w-auto"
 			/>
@@ -219,14 +219,14 @@ export default function MisCreditosPage({ loaderData }: Route.ComponentProps) {
 					<EmptyHeader>
 						<EmptyTitle>Sin créditos en {data.fiscalYear}</EmptyTitle>
 						<EmptyDescription>
-							Los créditos llegan solos cuando se finaliza un curso que
+							Los créditos llegan solos cuando se finaliza una capacitación que
 							completaste.
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
 						<Button variant="outline" asChild>
-							<Link to="/dashboard/cursos-disponibles">
-								Ver cursos disponibles
+							<Link to="/dashboard/catalogo-de-capacitaciones">
+								Ver catálogo de capacitaciones
 							</Link>
 						</Button>
 					</EmptyContent>

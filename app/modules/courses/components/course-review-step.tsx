@@ -149,7 +149,8 @@ export function CourseReviewStep({
 					>
 						{content.lessonCount === 0 ? (
 							<p className="text-muted-foreground text-sm">
-								Sin temario todavía. Es lo único que este curso da a recorrer.
+								Sin temario todavía. Es lo único que esta capacitación da a
+								recorrer.
 							</p>
 						) : (
 							<ReviewFacts

@@ -7,7 +7,7 @@ import { CERTIFICATE_ERROR_MESSAGES } from "../../../utils/certificate-error-mes
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/certificado — el editor del certificado.
+ * GET /dashboard/capacitaciones/:documentId/certificado — el editor del certificado.
  *
  * Lo abre quien administra el curso, igual que su ficha: sin alcance de cursos
  * responde 403, y un curso fuera de alcance 404, igual que inexistente.

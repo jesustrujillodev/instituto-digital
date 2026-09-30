@@ -37,7 +37,7 @@ const createHarness = (reply: unknown = okReply(null)) => {
 const run = (context: ActionArgs["context"], body: FormData) =>
 	action({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${COURSE_ID}/certificado`,
+			`https://app.example.com/dashboard/capacitaciones/${COURSE_ID}/certificado`,
 			{ method: "POST", body },
 		),
 		context,
@@ -173,7 +173,7 @@ describe("certificado action", () => {
 		);
 
 		expect(!result.success && result.error.message).toBe(
-			"Una de las firmas no se subió a este curso. Vuelve a subirla.",
+			"Una de las firmas no se subió a esta capacitación. Vuelve a subirla.",
 		);
 	});
 

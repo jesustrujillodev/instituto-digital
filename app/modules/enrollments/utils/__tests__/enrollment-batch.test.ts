@@ -32,7 +32,7 @@ describe("planBatch", () => {
 	test("un curso lleno aún deja invitar si es por invitación", () => {
 		expect(
 			planBatch(selectionOf({ seatsLeft: 0, canInvite: true })).message,
-		).toBe("El curso está lleno. Aún puedes invitar.");
+		).toBe("La capacitación está llena. Aún puedes invitar.");
 	});
 
 	test("sin cupo límite no hay tope", () => {

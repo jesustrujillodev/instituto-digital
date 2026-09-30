@@ -41,9 +41,9 @@ export const ACCESS_LABELS: Record<CourseAccessType, string> = {
 
 export const STATUS_LABELS: Record<CourseStatus, string> = {
 	DRAFT: "Borrador",
-	PUBLISHED: "Publicado",
-	FINISHED: "Finalizado",
-	CANCELLED: "Cancelado",
+	PUBLISHED: "Publicada",
+	FINISHED: "Finalizada",
+	CANCELLED: "Cancelada",
 };
 
 const hoursFormat = new Intl.NumberFormat("es-MX", {

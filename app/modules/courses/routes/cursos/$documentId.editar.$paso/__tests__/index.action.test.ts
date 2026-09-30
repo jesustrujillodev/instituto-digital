@@ -59,12 +59,15 @@ const run = (
 	documentId = COURSE_ID,
 ) =>
 	action({
-		request: postRequest(`/dashboard/cursos/${documentId}/editar/1`, fields),
+		request: postRequest(
+			`/dashboard/capacitaciones/${documentId}/editar/1`,
+			fields,
+		),
 		context,
 		params: { documentId, paso: "1" },
 	} as unknown as ActionArgs);
 
-describe("cursos/edición action", () => {
+describe("capacitaciones/edición action", () => {
 	test("guarda con el documentId de la URL", async () => {
 		const { context, calls } = createHarness({ role: "USER", isTrainer: true });
 
@@ -112,7 +115,7 @@ describe("cursos/edición action", () => {
 		);
 
 		expect(!result.success && result.error.message).toBe(
-			"Un curso finalizado o cancelado ya no se puede modificar.",
+			"Una capacitación finalizada o cancelada ya no se puede modificar.",
 		);
 	});
 });

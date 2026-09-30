@@ -33,14 +33,16 @@ const createHarness = () => {
 
 const run = (context: ActionArgs["context"], intent: string) =>
 	action({
-		request: postRequest(`/dashboard/mis-cursos/${COURSE_ID}`, { intent }),
+		request: postRequest(`/dashboard/mis-capacitaciones/${COURSE_ID}`, {
+			intent,
+		}),
 		context,
 		params: { documentId: COURSE_ID },
 	} as unknown as ActionArgs);
 
-describe("mis-cursos/:documentId action", () => {
+describe("mis-capacitaciones/:documentId action", () => {
 	test.each([
-		["withdraw", "Te diste de baja del curso"],
+		["withdraw", "Te diste de baja de la capacitación"],
 		["enroll", "Quedaste inscrito"],
 		["accept", "Invitación aceptada"],
 		["decline", "Invitación rechazada"],

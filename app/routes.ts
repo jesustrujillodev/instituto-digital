@@ -61,15 +61,15 @@ export default [
 					...usersRoutes, // /dashboard/usuarios  (gestión con alcance)
 					...trainersRoutes, // /dashboard/usuarios/capacitador-externo, /dashboard/usuarios/:id/perfil-capacitador
 					...groupsRoutes, // /dashboard/grupos  (alcance por dependencia)
-					...coursesRoutes, // /dashboard/cursos  (alcance propio: incluye al capacitador interno)
-					...contentRoutes, // /dashboard/cursos/:id/contenido  (temario del autogestivo)
-					...certificatesRoutes, // /dashboard/cursos/:id/certificado (diseño), /dashboard/certificados/:id/descargar
-					...enrollmentsRoutes, // /dashboard/cursos-disponibles, /dashboard/mis-cursos, /dashboard/cursos/:id/inscripciones
+					...coursesRoutes, // /dashboard/capacitaciones  (alcance propio: incluye al capacitador interno)
+					...contentRoutes, // /dashboard/capacitaciones/:id/contenido  (temario del autogestivo)
+					...certificatesRoutes, // /dashboard/capacitaciones/:id/certificado (diseño), /dashboard/certificados/:id/descargar
+					...enrollmentsRoutes, // /dashboard/catalogo-de-capacitaciones, /dashboard/mis-capacitaciones, /dashboard/capacitaciones/:id/inscripciones
 					...calendarRoutes, // /dashboard/calendario  (cualquier sesión: cada quien ve lo suyo)
 					...teachingRoutes, // /dashboard/imparticion  (quien imparte u organiza)
 					...evaluationsRoutes, // /dashboard/imparticion/:id/evaluaciones  (solo action)
 					...creditsRoutes, // /dashboard/mis-creditos, /dashboard/creditos  (alcance por dependencia)
-					...ratingsRoutes, // /dashboard/mis-cursos/:id/valorar  (solo action)
+					...ratingsRoutes, // /dashboard/mis-capacitaciones/:id/valorar  (solo action)
 					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)
 					...cloudAdminRoutes, // /dashboard/nube  (SUPERADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (SUPERADMIN)

@@ -46,12 +46,15 @@ const run = (
 	documentId = COURSE_ID,
 ) =>
 	action({
-		request: postRequest(`/dashboard/cursos-disponibles/${documentId}`, fields),
+		request: postRequest(
+			`/dashboard/catalogo-de-capacitaciones/${documentId}`,
+			fields,
+		),
 		context,
 		params: { documentId },
 	} as unknown as ActionArgs);
 
-describe("cursos-disponibles/:documentId action", () => {
+describe("catalogo-de-capacitaciones/:documentId action", () => {
 	test("inscribirse llama al servicio con el curso de la URL", async () => {
 		const { context, calls } = createHarness();
 
@@ -76,7 +79,7 @@ describe("cursos-disponibles/:documentId action", () => {
 			success: false,
 			error: {
 				code: "ENROLLMENT_FULL",
-				message: "El curso ya no tiene lugares disponibles.",
+				message: "La capacitación ya no tiene lugares disponibles.",
 			},
 		});
 	});

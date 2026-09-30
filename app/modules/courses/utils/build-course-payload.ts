@@ -73,7 +73,7 @@ const planLineChosen = v.forward<
 >(
 	v.check(
 		(values) => values.plan === "" || values.planLine !== "",
-		"Elige la línea del plan en la que entra el curso.",
+		"Elige la línea del plan en la que entra la capacitación.",
 	),
 	["planLine"],
 );

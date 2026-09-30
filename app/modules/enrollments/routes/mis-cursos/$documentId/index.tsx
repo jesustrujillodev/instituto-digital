@@ -56,7 +56,7 @@ import {
 } from "../../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
-const LIST_PATH = "/dashboard/mis-cursos";
+const LIST_PATH = "/dashboard/mis-capacitaciones";
 
 interface Status {
 	icon: LucideIcon;
@@ -70,8 +70,12 @@ function OwnStatus({ entry }: { entry: MyCourseDetail }) {
 
 	if (course.status === "CANCELLED") {
 		return (
-			<CourseDetailStatus icon={CircleX} tone="muted" title="Curso cancelado">
-				<p>Lo canceló quien lo organiza. No requiere ninguna acción.</p>
+			<CourseDetailStatus
+				icon={CircleX}
+				tone="muted"
+				title="Capacitación cancelada"
+			>
+				<p>La canceló quien la organiza. No requiere ninguna acción.</p>
 			</CourseDetailStatus>
 		);
 	}
@@ -84,9 +88,9 @@ function OwnStatus({ entry }: { entry: MyCourseDetail }) {
 				title={withdrawalLabelOf(enrollment)}
 			>
 				<p>
-					Ya no participas en este curso.
+					Ya no participas en esta capacitación.
 					{enrollment.removed &&
-						" Si quieres volver, pídeselo a quien lo organiza."}
+						" Si quieres volver, pídeselo a quien la organiza."}
 					{can.enroll &&
 						outcome.progressPercent > 0 &&
 						" Si vuelves a inscribirte, retomas tu avance donde lo dejaste."}
@@ -110,7 +114,7 @@ function OwnStatus({ entry }: { entry: MyCourseDetail }) {
 			<CourseDetailStatus
 				icon={Mail}
 				tone="neutral"
-				title="Te invitaron a este curso"
+				title="Te invitaron a esta capacitación"
 			>
 				<p>
 					{course.enrollmentDeadline
@@ -166,13 +170,13 @@ function OwnStatus({ entry }: { entry: MyCourseDetail }) {
 
 export const handle = {
 	breadcrumb: (loaderData) => [
-		{ label: "Mis cursos", path: LIST_PATH },
-		{ label: loaderData?.data.course.title ?? "Curso" },
+		{ label: "Mis capacitaciones", path: LIST_PATH },
+		{ label: loaderData?.data.course.title ?? "Capacitación" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta({ data }: Route.MetaArgs) {
-	return [{ title: data?.data.course.title ?? "Curso" }];
+	return [{ title: data?.data.course.title ?? "Capacitación" }];
 }
 
 export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
@@ -292,7 +296,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 			<ConfirmDialog
 				open={confirmingWithdraw}
 				onOpenChange={setConfirmingWithdraw}
-				title="¿Darte de baja del curso?"
+				title="¿Darte de baja de la capacitación?"
 				description="Liberarás tu lugar. Podrás volver a inscribirte mientras la inscripción siga abierta."
 				confirmLabel="Darme de baja"
 				cancelLabel="Volver"

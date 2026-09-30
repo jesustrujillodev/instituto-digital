@@ -49,7 +49,7 @@ export const createLessonMaterialReferenceSource = ({
 						owner: "lesson" as const,
 						label: row.lesson.title,
 						detail: "Material de la lección",
-						href: `/dashboard/cursos/${row.lesson.module.course.documentId}/contenido`,
+						href: `/dashboard/capacitaciones/${row.lesson.module.course.documentId}/contenido`,
 					},
 				];
 			});

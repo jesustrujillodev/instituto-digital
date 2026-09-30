@@ -92,8 +92,8 @@ export function ParticipantPicker({
 			{candidates.length === 0 ? (
 				<p className="py-6 text-center text-muted-foreground text-sm">
 					{search
-						? "Nadie coincide con la búsqueda, o ya está en el curso."
-						: "Todas las personas disponibles ya están en el curso."}
+						? "Nadie coincide con la búsqueda, o ya está en la capacitación."
+						: "Todas las personas disponibles ya están en la capacitación."}
 				</p>
 			) : (
 				<ul className="-mx-2 flex max-h-80 flex-col overflow-y-auto">

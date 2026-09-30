@@ -109,7 +109,7 @@ describe("imparticion/cuestionarios action", () => {
 			error: {
 				code: CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED,
 				message:
-					"Solo se habilita otro intento en un curso en curso, a quien no lo ha acreditado, cuando el último quedó reprobado, agotó sus intentos y no tiene otro pendiente.",
+					"Solo se habilita otro intento en una capacitación en curso, a quien no lo ha acreditado, cuando el último quedó reprobado, agotó sus intentos y no tiene otro pendiente.",
 			},
 		});
 	});

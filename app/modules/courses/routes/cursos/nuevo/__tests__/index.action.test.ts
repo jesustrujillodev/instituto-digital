@@ -47,14 +47,14 @@ const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
 
 const run = (payload: string, context: ActionArgs["context"]) =>
 	action({
-		request: postRequest("/dashboard/cursos/nuevo", {
+		request: postRequest("/dashboard/capacitaciones/nuevo", {
 			[INTENT_FIELD]: COURSE_INTENTS.create,
 			[PAYLOAD_FIELD]: payload,
 		}),
 		context,
 	} as ActionArgs);
 
-describe("cursos/nuevo action", () => {
+describe("capacitaciones/nuevo action", () => {
 	test("un participante recibe 403 sin llegar al servicio", async () => {
 		const { context, calls } = createHarness({ role: "USER" });
 
@@ -110,7 +110,7 @@ describe("cursos/nuevo action", () => {
 		const result = await run(JSON.stringify(validCourse), context);
 
 		expect(!result.success && result.error.message).toBe(
-			"Elige la dependencia que organiza el curso.",
+			"Elige la dependencia que organiza la capacitación.",
 		);
 	});
 });

@@ -242,7 +242,7 @@ export default function CalendarioPage({ loaderData }: Route.ComponentProps) {
 							}
 						/>
 						<Label htmlFor="calendar-staff" className="font-normal">
-							Incluir cursos de mi personal
+							Incluir capacitaciones de mi personal
 						</Label>
 					</div>
 				)}

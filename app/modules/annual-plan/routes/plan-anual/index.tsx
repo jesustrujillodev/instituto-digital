@@ -92,7 +92,7 @@ export default function PlanAnualPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Plan anual"
-				description="Los cursos que la dependencia prevé dar en el año. Orienta, no restringe: un curso puede existir sin línea de plan."
+				description="Las capacitaciones que la dependencia prevé dar en el año. Orienta, no restringe: una capacitación puede existir sin línea de plan."
 				actions={
 					canManage &&
 					creatableYears.length > 0 && (

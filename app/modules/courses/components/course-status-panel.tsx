@@ -63,9 +63,9 @@ export function CourseStatusPanel({
 	onCancel,
 	onPublish,
 }: CourseStatusPanelProps) {
-	const rosterPath = `/dashboard/cursos/${documentId}/inscripciones`;
+	const rosterPath = `/dashboard/capacitaciones/${documentId}/inscripciones`;
 	const teachingPath = `/dashboard/imparticion/${documentId}`;
-	const contentPath = `/dashboard/cursos/${documentId}/contenido`;
+	const contentPath = `/dashboard/capacitaciones/${documentId}/contenido`;
 
 	return (
 		<Card size="sm">
@@ -153,7 +153,7 @@ export function CourseStatusPanel({
 							<Button asChild variant="outline">
 								<Link to={contentPath}>
 									<LayoutList aria-hidden="true" />
-									Contenido del curso
+									Contenido de la capacitación
 									<ArrowRight className="ml-auto" aria-hidden="true" />
 								</Link>
 							</Button>
@@ -171,7 +171,7 @@ export function CourseStatusPanel({
 						onClick={onCancel}
 					>
 						<Ban aria-hidden="true" />
-						Cancelar curso
+						Cancelar capacitación
 					</Button>
 				)}
 			</CardContent>

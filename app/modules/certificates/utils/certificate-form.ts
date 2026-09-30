@@ -17,7 +17,7 @@ export type CertificateActionData = AppResponse<{
 } | null>;
 
 export const certificatePath = (courseDocumentId: string) =>
-	`/dashboard/cursos/${courseDocumentId}/certificado`;
+	`/dashboard/capacitaciones/${courseDocumentId}/certificado`;
 
 export interface CertificateFormData {
 	intent: FormDataEntryValue | null;

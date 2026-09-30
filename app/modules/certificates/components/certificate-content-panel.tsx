@@ -40,7 +40,7 @@ export function CertificateContentPanel({
 				value={design.description}
 				disabled={disabled}
 				error={errors.description}
-				helperText="Vacía, el certificado usa la descripción del curso."
+				helperText="Vacía, el certificado usa la descripción de la capacitación."
 				onChange={(event) => update({ description: event.target.value })}
 			/>
 

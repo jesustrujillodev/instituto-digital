@@ -7,17 +7,17 @@ import { useCourseFormIds } from "../../../hooks/use-course-form-ids";
 import { stepOfKey } from "../../../utils/course-wizard-steps";
 import type { Route } from "./+types/index";
 
-const LIST_PATH = "/dashboard/cursos";
+const LIST_PATH = "/dashboard/capacitaciones";
 
 export const handle = {
 	breadcrumb: () => [
-		{ label: "Cursos", path: LIST_PATH },
-		{ label: "Nuevo curso" },
+		{ label: "Capacitaciones", path: LIST_PATH },
+		{ label: "Nueva capacitación" },
 	],
 } satisfies BreadcrumbHandle;
 
 export function meta() {
-	return [{ title: "Nuevo curso" }];
+	return [{ title: "Nueva capacitación" }];
 }
 
 /** Paso 1 del alta: el único que corre sin curso todavía. */

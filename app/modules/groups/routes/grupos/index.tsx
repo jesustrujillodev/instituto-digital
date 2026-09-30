@@ -143,7 +143,7 @@ export default function GruposPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Grupos"
-				description="Listas nominales de tu dependencia. Sirven para restringir un curso o invitar a varias personas de una vez."
+				description="Listas nominales de tu dependencia. Sirven para restringir una capacitación o invitar a varias personas de una vez."
 				actions={
 					canManage && (
 						<Button asChild>

@@ -87,7 +87,7 @@ import type { Route } from "./+types/index";
 export const handle = {
 	breadcrumb: () => [
 		{ label: "Impartición", path: "/dashboard/imparticion" },
-		{ label: "Curso" },
+		{ label: "Capacitación" },
 	],
 } satisfies BreadcrumbHandle;
 
@@ -108,7 +108,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 		<Card>
 			<CardContent className="flex flex-wrap items-center justify-between gap-3">
 				<div className="min-w-0">
-					<h3 className="font-medium text-sm">Finalizar curso</h3>
+					<h3 className="font-medium text-sm">Finalizar capacitación</h3>
 					<p className="text-muted-foreground text-xs">
 						{detail.finishBlocker
 							? finishBlockerMessage(detail.finishBlocker, {
@@ -130,7 +130,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 			<ConfirmDialog
 				open={confirming}
 				onOpenChange={setConfirming}
-				title="¿Finalizar el curso?"
+				title="¿Finalizar la capacitación?"
 				description={`Se otorgan los créditos y se emiten los certificados a quien completó. Después, solo el titular o un auxiliar de la dependencia pueden corregir ${MANUAL_ATTENDANCE_ENABLED ? "asistencia y resultados" : "resultados"}.`}
 				confirmLabel="Finalizar"
 				cancelLabel="Volver"
@@ -176,7 +176,7 @@ function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
 					</h3>
 					<p className="text-muted-foreground text-xs">
 						{open
-							? "Un curso autogestivo no se finaliza: cada participante lo completa al terminarlo y recibe su crédito en ese momento."
+							? "Una capacitación autogestiva no se finaliza: cada participante la completa al terminarla y recibe su crédito en ese momento."
 							: `Cerradas el ${formatZonedDate(new Date(closedAt))}. Quien ya está inscrito puede seguir avanzando.`}
 					</p>
 				</div>
@@ -194,7 +194,7 @@ function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
 				open={confirming}
 				onOpenChange={setConfirming}
 				title="¿Cerrar las inscripciones?"
-				description="El curso deja de aparecer en el catálogo y nadie nuevo puede inscribirse. Quien ya está inscrito sigue avanzando. Puedes reabrirlas cuando quieras."
+				description="La capacitación deja de aparecer en el catálogo y nadie nuevo puede inscribirse. Quien ya está inscrito sigue avanzando. Puedes reabrirlas cuando quieras."
 				confirmLabel="Cerrar inscripciones"
 				cancelLabel="Volver"
 				onConfirm={() => {
@@ -298,8 +298,8 @@ function IssueCertificatesCard({ detail }: { detail: TeachingDetail }) {
 					<h3 className="font-medium text-sm">Certificados pendientes</h3>
 					<p className="text-muted-foreground text-xs">
 						{detail.pendingCertificates === 1
-							? "1 persona completó el curso y no tiene certificado."
-							: `${detail.pendingCertificates} personas completaron el curso y no tienen certificado.`}
+							? "1 persona completó la capacitación y no tiene certificado."
+							: `${detail.pendingCertificates} personas completaron la capacitación y no tienen certificado.`}
 					</p>
 				</div>
 				<Button
@@ -454,7 +454,7 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 				title="¿Dar de baja a esta persona?"
 				description={
 					removing
-						? `${personNameOf(removing)} deja el curso, su lugar queda libre y se le avisa por correo. No podrá volver a inscribirse por su cuenta: solo quien organiza el curso puede inscribirla o invitarla de nuevo.`
+						? `${personNameOf(removing)} deja la capacitación, su lugar queda libre y se le avisa por correo. No podrá volver a inscribirse por su cuenta: solo quien organiza la capacitación puede inscribirla o invitarla de nuevo.`
 						: ""
 				}
 				confirmLabel="Dar de baja"
@@ -469,7 +469,7 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 							},
 							{
 								method: "post",
-								action: `/dashboard/cursos/${detail.course.documentId}/inscripciones`,
+								action: `/dashboard/capacitaciones/${detail.course.documentId}/inscripciones`,
 							},
 						);
 					}
@@ -509,7 +509,7 @@ export default function ImparticionDetallePage({
 						<Button variant="outline" asChild>
 							<Link to={editHref(1)}>
 								<Pencil aria-hidden="true" />
-								Editar curso
+								Editar capacitación
 							</Link>
 						</Button>
 					) : undefined
@@ -530,7 +530,7 @@ export default function ImparticionDetallePage({
 					<AlertDescription>
 						{detail.can.correct
 							? `Finalizado el ${course.finishedAt ? formatZonedDate(new Date(course.finishedAt)) : ""}. Cada corrección de ${MANUAL_ATTENDANCE_ENABLED ? "asistencia o resultados" : "resultados"} recalcula los créditos y queda registrado quién la hizo.`
-							: "El curso está finalizado. Solo el titular o un auxiliar de la dependencia organizadora pueden corregirlo."}
+							: "La capacitación está finalizada. Solo el titular o un auxiliar de la dependencia organizadora pueden corregirla."}
 					</AlertDescription>
 				</Alert>
 			)}

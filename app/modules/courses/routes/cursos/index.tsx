@@ -97,14 +97,14 @@ const SORT_OPTIONS = [
 const EAGER_COVERS = 4;
 
 const detailPath = (course: CourseCard) =>
-	`/dashboard/cursos/${course.documentId}`;
+	`/dashboard/capacitaciones/${course.documentId}`;
 
 export const handle = {
-	breadcrumb: () => [{ label: "Cursos" }],
+	breadcrumb: () => [{ label: "Capacitaciones" }],
 } satisfies BreadcrumbHandle;
 
 export function meta() {
-	return [{ title: "Cursos" }];
+	return [{ title: "Capacitaciones" }];
 }
 
 export default function CursosPage({ loaderData }: Route.ComponentProps) {
@@ -175,13 +175,13 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="flex flex-col">
 			<PageHeader
-				title="Cursos"
-				description="Borradores, publicados y cancelados de tu alcance. Publicar exige sesiones, un capacitador activo y, si es restringido, audiencia."
+				title="Capacitaciones"
+				description="Capacitaciones en borrador, publicadas y canceladas de tu alcance. Publicar exige sesiones, un capacitador activo y, si es restringida, audiencia."
 				actions={
 					<Button asChild>
-						<Link to="/dashboard/cursos/nuevo">
+						<Link to="/dashboard/capacitaciones/nuevo">
 							<Plus className="h-4 w-4" />
-							Nuevo curso
+							Nueva capacitación
 						</Link>
 					</Button>
 				}
@@ -193,7 +193,7 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 					<div className="w-full lg:max-w-xs">
 						<TextInput
 							name="search"
-							aria-label="Buscar cursos"
+							aria-label="Buscar capacitaciones"
 							placeholder="Buscar por título o descripción"
 							value={searchTerm}
 							onChange={(event) => setSearchTerm(event.target.value)}
@@ -355,9 +355,9 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 				onOpenChange={(open) => {
 					if (!open) setPendingCancel(null);
 				}}
-				title="¿Cancelar el curso?"
+				title="¿Cancelar la capacitación?"
 				description={`"${pendingCancel?.title ?? ""}" dejará de ofrecerse. Sus sesiones, capacitadores y audiencia se conservan, pero no podrá volver a publicarse.`}
-				confirmLabel="Cancelar curso"
+				confirmLabel="Cancelar capacitación"
 				cancelLabel="Volver"
 				destructive
 				onConfirm={() => {
@@ -460,7 +460,7 @@ function CourseMenu({
 				{cancel && (
 					<DropdownMenuItem variant="destructive" onSelect={onCancel}>
 						<Ban />
-						Cancelar curso
+						Cancelar capacitación
 					</DropdownMenuItem>
 				)}
 			</DropdownMenuContent>
@@ -483,12 +483,14 @@ function CoursesEmpty({
 					{hasFilters ? <SearchX /> : <BookOpen />}
 				</EmptyMedia>
 				<EmptyTitle>
-					{hasFilters ? "Ningún curso coincide" : "Todavía no hay cursos"}
+					{hasFilters
+						? "Ninguna capacitación coincide"
+						: "Todavía no hay capacitaciones"}
 				</EmptyTitle>
 				<EmptyDescription>
 					{hasFilters
 						? "Prueba con otras palabras o quita algún filtro."
-						: "Crea el primero con Nuevo curso."}
+						: "Crea la primera con Nueva capacitación."}
 				</EmptyDescription>
 			</EmptyHeader>
 			{hasFilters && (

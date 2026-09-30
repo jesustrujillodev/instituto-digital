@@ -303,14 +303,14 @@ export function CourseWizardStepper(props: CourseWizardStepperProps) {
 
 	return (
 		<>
-			<nav aria-label="Pasos del curso" className="hidden lg:block">
+			<nav aria-label="Pasos de la capacitación" className="hidden lg:block">
 				<StepBar {...props} />
 			</nav>
 
 			{/* En móvil el índice no cabe como fila: se reduce a la posición, una
 			    barra de avance y un desplegable con los mismos pasos. */}
 			<nav
-				aria-label="Pasos del curso"
+				aria-label="Pasos de la capacitación"
 				className="flex flex-col gap-2 lg:hidden"
 			>
 				<Popover>

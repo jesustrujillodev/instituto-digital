@@ -17,7 +17,7 @@ import { requireSessionMaterialScope } from "../../require-session-material.serv
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos/:documentId/sesiones/material
+ * POST /dashboard/capacitaciones/:documentId/sesiones/material
  *
  * Pedir permiso para subir, agregar, editar y quitar. El archivo nunca pasa
  * por aquí: lo escribe el navegador en el bucket con la URL firmada.

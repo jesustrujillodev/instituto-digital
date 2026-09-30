@@ -40,17 +40,17 @@ import {
 import { STATE_LABELS } from "../../../utils/certificate-labels";
 import type { Route } from "./+types/index";
 
-const LIST_PATH = "/dashboard/cursos";
+const LIST_PATH = "/dashboard/capacitaciones";
 
 export const handle = {
 	breadcrumb: (loaderData) => [
-		{ label: "Cursos", path: LIST_PATH },
+		{ label: "Capacitaciones", path: LIST_PATH },
 		loaderData
 			? {
 					label: loaderData.data.editor.course.title,
 					path: `${LIST_PATH}/${loaderData.data.editor.course.documentId}`,
 				}
-			: { label: "Curso" },
+			: { label: "Capacitación" },
 		{ label: "Certificado" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
@@ -180,7 +180,8 @@ export default function CursoCertificadoPage({
 			{!canEdit && (
 				<Alert>
 					<AlertDescription>
-						El curso está cancelado: su certificado ya no se puede cambiar.
+						La capacitación está cancelada: su certificado ya no se puede
+						cambiar.
 					</AlertDescription>
 				</Alert>
 			)}

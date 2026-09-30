@@ -56,12 +56,12 @@ const run = (
 	documentId = COURSE_ID,
 ) =>
 	action({
-		request: postRequest(`/dashboard/cursos/${documentId}`, fields),
+		request: postRequest(`/dashboard/capacitaciones/${documentId}`, fields),
 		context,
 		params: { documentId },
 	} as unknown as ActionArgs);
 
-describe("cursos/:documentId action", () => {
+describe("capacitaciones/:documentId action", () => {
 	test("publica con el documentId de la URL", async () => {
 		const { context, calls } = createHarness();
 
@@ -70,7 +70,10 @@ describe("cursos/:documentId action", () => {
 			context,
 		);
 
-		expect(result).toMatchObject({ success: true, message: "Curso publicado" });
+		expect(result).toMatchObject({
+			success: true,
+			message: "Capacitación publicada",
+		});
 		expect(calls.published).toEqual([COURSE_ID]);
 	});
 

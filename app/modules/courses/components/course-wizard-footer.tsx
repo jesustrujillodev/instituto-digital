@@ -30,7 +30,7 @@ export function CourseWizardFooter({
 	nextTitle = null,
 	isSubmitting,
 	submitKind,
-	finishLabel = "a Cursos",
+	finishLabel = "a Capacitaciones",
 	canSubmit = true,
 }: CourseWizardFooterProps) {
 	return (
@@ -66,7 +66,7 @@ export function CourseWizardFooter({
 				{submitKind === "publish" ? (
 					<>
 						<Send aria-hidden="true" />
-						{isSubmitting ? "Publicando…" : "Publicar curso"}
+						{isSubmitting ? "Publicando…" : "Publicar capacitación"}
 					</>
 				) : submitKind === "save" ? (
 					<>

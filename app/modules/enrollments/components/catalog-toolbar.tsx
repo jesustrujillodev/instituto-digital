@@ -51,7 +51,7 @@ export function CatalogToolbar({
 			<div className="w-full md:max-w-xs">
 				<TextInput
 					name="search"
-					aria-label="Buscar cursos"
+					aria-label="Buscar capacitaciones"
 					placeholder="Buscar por título o descripción"
 					icon={<Search className="size-4" />}
 					value={searchTerm}

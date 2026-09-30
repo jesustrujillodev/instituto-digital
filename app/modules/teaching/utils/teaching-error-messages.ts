@@ -9,15 +9,15 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[TEACHING_ERROR_CODES.FORBIDDEN_SCOPE]: {
-		message: "No impartes ni organizas cursos.",
+		message: "No impartes ni organizas capacitaciones.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[TEACHING_ERROR_CODES.COURSE_NOT_FOUND]: {
-		message: "El curso no existe o no lo impartes.",
+		message: "La capacitación no existe o no la impartes.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[TEACHING_ERROR_CODES.SESSION_NOT_FOUND]: {
-		message: "La sesión no pertenece a este curso.",
+		message: "La sesión no pertenece a esta capacitación.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[TEACHING_ERROR_CODES.SESSION_NOT_STARTED]: {
@@ -29,25 +29,25 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.EVALUATION_NOT_REQUIRED]: {
-		message: "Este curso no requiere evaluación.",
+		message: "Esta capacitación no requiere evaluación.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.CORRECTION_FORBIDDEN]: {
 		message:
-			"El curso ya se finalizó: solo el titular o un auxiliar de la dependencia pueden corregirlo.",
+			"La capacitación ya se finalizó: solo el titular o un auxiliar de la dependencia pueden corregirla.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[TEACHING_ERROR_CODES.NOT_PUBLISHED]: {
-		message: "Solo se finaliza un curso publicado.",
+		message: "Solo se finaliza una capacitación publicada.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.WITHOUT_SESSIONS]: {
-		message: "El curso no tiene sesiones.",
+		message: "La capacitación no tiene sesiones.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.FINISH_TOO_EARLY]: {
 		message:
-			"El curso se puede finalizar a partir del día de su última sesión.",
+			"La capacitación se puede finalizar a partir del día de su última sesión.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.PENDING_RESULTS]: {
@@ -56,27 +56,27 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.STATE_CHANGED]: {
-		message: "El curso cambió mientras guardabas. Recarga la página.",
+		message: "La capacitación cambió mientras guardabas. Recarga la página.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE]: {
 		message:
-			"Un curso autogestivo no se finaliza: cada participante lo completa al terminarlo. Para dejar de recibir gente, cierra las inscripciones.",
+			"Una capacitación autogestiva no se finaliza: cada participante la completa al terminarla. Para dejar de recibir gente, cierra las inscripciones.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.NOT_SELF_PACED]: {
 		message:
-			"Solo un curso autogestivo abre y cierra sus inscripciones a mano; uno con sesiones las cierra al empezar.",
+			"Solo una capacitación autogestiva abre y cierra sus inscripciones a mano; una con sesiones las cierra al empezar.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE]: {
 		message:
-			"Los certificados se emiten al finalizar el curso: todavía no se sabe quién lo completó.",
+			"Los certificados se emiten al finalizar la capacitación: todavía no se sabe quién la completó.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.RESULTS_BY_QUIZ]: {
 		message:
-			"Este curso se evalúa con examen en línea: el resultado lo escribe el examen, no se captura a mano.",
+			"Esta capacitación se evalúa con examen en línea: el resultado lo escribe el examen, no se captura a mano.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

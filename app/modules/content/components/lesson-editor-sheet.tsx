@@ -202,7 +202,7 @@ function LessonEditorBody({
 					</div>
 					<div className="flex h-9 items-center gap-3">
 						<Label htmlFor={`${id}-required`} className="font-normal text-sm">
-							Obligatoria para completar el curso
+							Obligatoria para completar la capacitación
 						</Label>
 						<Switch
 							id={`${id}-required`}

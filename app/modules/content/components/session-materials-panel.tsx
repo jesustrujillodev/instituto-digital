@@ -34,7 +34,7 @@ export function SessionMaterialsPanel({
 					<h3 className="font-medium text-sm">Material de las sesiones</h3>
 					<p className="text-muted-foreground text-sm">
 						Presentaciones, lecturas o grabaciones que el participante ve bajo
-						cada sesión. No cuentan para completar el curso.
+						cada sesión. No cuentan para completar la capacitación.
 					</p>
 				</div>
 

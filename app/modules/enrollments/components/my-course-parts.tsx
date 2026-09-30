@@ -70,7 +70,9 @@ export function ClassroomLink({
 
 	return (
 		<Button size={size} asChild>
-			<Link to={`/dashboard/mis-cursos/${entry.course.documentId}/aula`}>
+			<Link
+				to={`/dashboard/mis-capacitaciones/${entry.course.documentId}/aula`}
+			>
 				<BookOpen />
 				{label}
 			</Link>

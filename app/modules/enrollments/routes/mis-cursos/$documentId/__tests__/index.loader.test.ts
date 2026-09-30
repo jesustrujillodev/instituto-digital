@@ -47,12 +47,12 @@ const createHarness = (
 
 const run = (context: LoaderArgs["context"], documentId = COURSE_ID) =>
 	loader({
-		request: getRequest(`/dashboard/mis-cursos/${documentId}`),
+		request: getRequest(`/dashboard/mis-capacitaciones/${documentId}`),
 		context,
 		params: { documentId },
 	} as unknown as LoaderArgs);
 
-describe("mis-cursos/:documentId loader", () => {
+describe("mis-capacitaciones/:documentId loader", () => {
 	test("sin inscripción que enseñar manda a la ficha del catálogo", async () => {
 		const { context } = createHarness({ detail: null });
 
@@ -61,7 +61,7 @@ describe("mis-cursos/:documentId loader", () => {
 		expect(thrown).toBeInstanceOf(Response);
 		expect(thrown.status).toBe(302);
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos-disponibles/${COURSE_ID}`,
+			`/dashboard/catalogo-de-capacitaciones/${COURSE_ID}`,
 		);
 	});
 

@@ -240,7 +240,7 @@ export const CourseEnrollmentFields = memo(function CourseEnrollmentFields({
 					options={ACCESS_OPTIONS}
 					helperText={
 						access === "INVITATION"
-							? "Las invitaciones se envían después de publicarlo."
+							? "Las invitaciones se envían después de publicarla."
 							: undefined
 					}
 				/>
@@ -368,7 +368,7 @@ export const CourseEnrollmentFields = memo(function CourseEnrollmentFields({
 				</span>
 				<div className="flex min-w-0 flex-col gap-0.5">
 					<span className="font-medium text-sm">
-						{isPublished ? "Así está publicado" : "Al publicarlo"}
+						{isPublished ? "Así está publicada" : "Al publicarla"}
 					</span>
 					<p className="text-muted-foreground text-sm" aria-live="polite">
 						{summary}

@@ -44,7 +44,7 @@ const createHarness = (
 const run = (context: LoaderArgs["context"], query = "") =>
 	loader({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/nuevo${query}`,
+			`https://app.example.com/dashboard/capacitaciones/nuevo${query}`,
 		),
 		context,
 		params: {},

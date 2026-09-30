@@ -70,8 +70,8 @@ export function AttendancePanel({
 		return (
 			<p className="text-muted-foreground text-sm">
 				{sessions.length === 0
-					? "El curso no tiene sesiones."
-					: "Nadie está inscrito en este curso."}
+					? "La capacitación no tiene sesiones."
+					: "Nadie está inscrito en esta capacitación."}
 			</p>
 		);
 	}
@@ -104,7 +104,7 @@ export function AttendancePanel({
 						<h3 className="font-medium text-sm">Registro por sesión</h3>
 						<p className="text-muted-foreground text-xs">
 							Se llena solo: cada persona queda registrada al escanear el código
-							QR del curso.
+							QR de la capacitación.
 						</p>
 					</div>
 				)}

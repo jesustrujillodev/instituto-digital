@@ -6,7 +6,7 @@ import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/:documentId/aula
+ * GET /dashboard/mis-capacitaciones/:documentId/aula
  *
  * El índice del aula con el estado de cada lección. Registrar avance vuelve a
  * validar este loader, y así el índice se entera sin pedírselo.

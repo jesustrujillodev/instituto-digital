@@ -6,7 +6,7 @@ import { ENROLLMENT_ERROR_MESSAGES } from "../../../utils/enrollment-error-messa
 import { requireParticipant } from "../../require-participant.server";
 import type { Route } from "./+types/index";
 
-/** GET /dashboard/cursos-disponibles/:documentId — 404 si quien pregunta no puede verlo. */
+/** GET /dashboard/catalogo-de-capacitaciones/:documentId — 404 si quien pregunta no puede verlo. */
 export const loader = async ({
 	request,
 	context,

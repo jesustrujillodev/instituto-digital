@@ -21,54 +21,54 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[COURSE_ERROR_CODES.NOT_FOUND]: {
-		message: "El curso ya no existe.",
+		message: "La capacitación ya no existe.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[COURSE_ERROR_CODES.FORBIDDEN_SCOPE]: {
-		message: "No puedes administrar cursos.",
+		message: "No puedes administrar capacitaciones.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[COURSE_ERROR_CODES.ORGANIZER_REQUIRED]: {
-		message: "Elige la dependencia que organiza el curso.",
+		message: "Elige la dependencia que organiza la capacitación.",
 		fieldErrors: { dependency: "Elige una dependencia" },
 	},
 	[COURSE_ERROR_CODES.DEPENDENCY_INACTIVE]:
-		"La dependencia organizadora está desactivada y no admite cursos nuevos.",
+		"La dependencia organizadora está desactivada y no admite capacitaciones nuevas.",
 	[COURSE_ERROR_CODES.NOT_EDITABLE]:
-		"Un curso finalizado o cancelado ya no se puede modificar.",
+		"Una capacitación finalizada o cancelada ya no se puede modificar.",
 	[COURSE_ERROR_CODES.FORMAT_LOCKED]: {
 		message:
-			"Cómo se imparte el curso solo se puede cambiar mientras es borrador.",
+			"Cómo se imparte la capacitación solo se puede cambiar mientras es borrador.",
 		fieldErrors: { format: "No se puede cambiar" },
 	},
 	[COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE]: {
 		message:
-			"Un curso autogestivo no tiene sesiones, así que no puede completarse por asistencia.",
+			"Una capacitación autogestiva no tiene sesiones, así que no puede completarse por asistencia.",
 		fieldErrors: { completionRule: "Elige otra regla" },
 	},
 	[COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD]: {
 		message:
-			"Un curso autogestivo no tiene capacitador que capture resultados: se evalúa con examen en línea.",
+			"Una capacitación autogestiva no tiene capacitador que capture resultados: se evalúa con examen en línea.",
 		fieldErrors: { evaluationMethod: "Elige examen en línea" },
 	},
 	[COURSE_ERROR_CODES.COMPLETION_LOCKED]: {
 		message:
-			"Un curso autogestivo publicado ya otorga créditos: su regla de completado y su evaluación no se pueden cambiar.",
+			"Una capacitación autogestiva publicada ya otorga créditos: su regla de completado y su evaluación no se pueden cambiar.",
 		fieldErrors: {
 			completionRule: "No se puede cambiar",
 			requiresEvaluation: "No se puede cambiar",
 		},
 	},
 	[COURSE_ERROR_CODES.INVALID_TRANSITION]:
-		"El curso ya no está en un estado que permita esta acción.",
+		"La capacitación ya no está en un estado que permita esta acción.",
 	[COURSE_ERROR_CODES.WITHOUT_SESSIONS]:
-		"Para publicar, el curso necesita al menos una sesión.",
+		"Para publicar, la capacitación necesita al menos una sesión.",
 	[COURSE_ERROR_CODES.WITHOUT_LESSONS]:
-		"Para publicar, un curso autogestivo necesita al menos una lección.",
+		"Para publicar, una capacitación autogestiva necesita al menos una lección.",
 	[COURSE_ERROR_CODES.WITHOUT_QUIZ]:
-		"Para publicar, un curso evaluado con examen en línea necesita un examen con al menos una pregunta.",
+		"Para publicar, una capacitación evaluada con examen en línea necesita un examen con al menos una pregunta.",
 	[COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER]:
-		"Para publicar, el curso necesita al menos un capacitador con el perfil activo.",
+		"Para publicar, la capacitación necesita al menos un capacitador con el perfil activo.",
 	[COURSE_ERROR_CODES.SESSION_MISSING_VENUE]: {
 		message: (error) =>
 			`La sesión ${sessionNumberOf(error)} no tiene sede, y la modalidad la exige.`,
@@ -79,7 +79,7 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[COURSE_ERROR_CODES.SESSION_MISSING_PLACE]: {
 		message: (error) =>
-			`La sesión ${sessionNumberOf(error)} no tiene sede ni enlace. En un curso híbrido necesita al menos uno.`,
+			`La sesión ${sessionNumberOf(error)} no tiene sede ni enlace. En una capacitación híbrida necesita al menos uno.`,
 	},
 	[COURSE_ERROR_CODES.SESSION_INVALID_RANGE]: {
 		message: (error) =>
@@ -87,7 +87,7 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[COURSE_ERROR_CODES.TOO_MANY_SESSIONS]: {
 		message: (error) =>
-			`Un curso admite como máximo ${Number(error.details?.maxSessions ?? 0)} sesiones.`,
+			`Una capacitación admite como máximo ${Number(error.details?.maxSessions ?? 0)} sesiones.`,
 	},
 	[COURSE_ERROR_CODES.DEADLINE_AFTER_START]: {
 		message:
@@ -97,7 +97,7 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 		},
 	},
 	[COURSE_ERROR_CODES.AUDIENCE_REQUIRED]:
-		"Un curso restringido necesita al menos una dependencia o un grupo.",
+		"Una capacitación restringida necesita al menos una dependencia o un grupo.",
 	[COURSE_ERROR_CODES.UNKNOWN_TRAINER]:
 		"Alguno de los capacitadores elegidos ya no está disponible.",
 	[COURSE_ERROR_CODES.UNKNOWN_AUDIENCE]:
@@ -113,7 +113,7 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[COURSE_ERROR_CODES.PLAN_LINE_LOCKED]: {
 		message:
-			"El plan anual solo se puede cambiar mientras el curso es borrador.",
+			"El plan anual solo se puede cambiar mientras la capacitación es borrador.",
 		fieldErrors: { planLine: "No se puede cambiar" },
 	},
 	[COURSE_ERROR_CODES.COVER_INVALID]: {

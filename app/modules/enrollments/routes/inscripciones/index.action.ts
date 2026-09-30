@@ -18,7 +18,7 @@ import {
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos/:documentId/inscripciones — inscribir, invitar o dar
+ * POST /dashboard/capacitaciones/:documentId/inscripciones — inscribir, invitar o dar
  * de baja. La baja se ofrece desde la impartición, pero la inscripción es de
  * este módulo.
  */

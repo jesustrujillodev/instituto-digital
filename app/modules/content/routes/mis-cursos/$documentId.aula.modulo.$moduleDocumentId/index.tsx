@@ -59,7 +59,7 @@ export default function AulaModuleQuizPage({
 					</>
 				) : (
 					<p className="text-muted-foreground text-sm">
-						El curso terminó: la evaluación ya no se puede presentar.
+						La capacitación terminó: la evaluación ya no se puede presentar.
 					</p>
 				)}
 

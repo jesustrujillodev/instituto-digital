@@ -69,7 +69,7 @@ export default function VerificarCertificadoPage() {
 				</div>
 				<p className="mt-2 text-sm text-muted-foreground">
 					El certificado con folio <strong>{data.folio}</strong> fue revocado y
-					ya no acredita el curso.
+					ya no acredita la capacitación.
 				</p>
 			</Shell>
 		);
@@ -87,7 +87,7 @@ export default function VerificarCertificadoPage() {
 
 			<dl className="mt-5 grid gap-3">
 				<Row label="Otorgado a" value={data.recipientName} />
-				<Row label="Curso" value={data.courseTitle} />
+				<Row label="Capacitación" value={data.courseTitle} />
 				<Row label="Dependencia" value={data.dependencyName} />
 				{data.hours && <Row label="Duración" value={data.hours} />}
 				<Row label="Fecha de emisión" value={data.issuedOn} />

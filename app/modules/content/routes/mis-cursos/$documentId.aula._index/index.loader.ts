@@ -7,7 +7,7 @@ import { examPath, stopPath } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/:documentId/aula (índice)
+ * GET /dashboard/mis-capacitaciones/:documentId/aula (índice)
  *
  * «Continuar donde lo dejaste»: manda a lo primero que cuenta y falta, sea una
  * obligatoria o la evaluación de un módulo.

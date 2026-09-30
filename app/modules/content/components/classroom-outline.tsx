@@ -116,7 +116,7 @@ export function ClassroomOutline({
 						{module.lessons.map((lesson) => (
 							<li key={lesson.documentId}>
 								<NavLink
-									to={`/dashboard/mis-cursos/${courseDocumentId}/aula/${lesson.documentId}`}
+									to={`/dashboard/mis-capacitaciones/${courseDocumentId}/aula/${lesson.documentId}`}
 									className={({ isActive }) =>
 										cn(
 											"flex items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent",

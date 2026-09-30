@@ -18,7 +18,8 @@ export default function AulaIndexPage() {
 				</EmptyMedia>
 				<EmptyTitle>Todavía no hay lecciones</EmptyTitle>
 				<EmptyDescription>
-					Cuando quien imparte el curso publique su temario, aparecerá aquí.
+					Cuando quien imparte la capacitación publique su temario, aparecerá
+					aquí.
 				</EmptyDescription>
 			</EmptyHeader>
 		</Empty>

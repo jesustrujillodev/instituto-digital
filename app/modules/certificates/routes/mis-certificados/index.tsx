@@ -114,7 +114,7 @@ export default function MisCertificadosPage({
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title="Mis certificados"
-				description="Los certificados de los cursos que completaste. Cualquiera puede comprobarlos con el QR impreso o con «Verificar»."
+				description="Los certificados de las capacitaciones que completaste. Cualquiera puede comprobarlos con el QR impreso o con «Verificar»."
 			/>
 
 			{certificates.length === 0 ? (
@@ -122,7 +122,7 @@ export default function MisCertificadosPage({
 					<EmptyHeader>
 						<EmptyTitle>Todavía no tienes certificados</EmptyTitle>
 						<EmptyDescription>
-							Aparecen aquí cuando completas un curso.
+							Aparecen aquí cuando completas una capacitación.
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>

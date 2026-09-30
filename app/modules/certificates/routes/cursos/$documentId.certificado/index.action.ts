@@ -16,7 +16,7 @@ import {
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos/:documentId/certificado.
+ * POST /dashboard/capacitaciones/:documentId/certificado.
  *
  * Guardar y publicar reciben el diseño de la pantalla; publicar lo guarda
  * además (docs/adr/0023). Descartar no recibe diseño: vuelve al publicado.

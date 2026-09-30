@@ -10,11 +10,11 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[CERTIFICATE_ERROR_CODES.COURSE_NOT_FOUND]: {
-		message: "El curso no existe.",
+		message: "La capacitación no existe.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[CERTIFICATE_ERROR_CODES.NOT_EDITABLE]: {
-		message: "Un curso cancelado ya no cambia de certificado.",
+		message: "Una capacitación cancelada ya no cambia de certificado.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CERTIFICATE_ERROR_CODES.NEVER_PUBLISHED]: {
@@ -26,7 +26,8 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED]: {
-		message: "Una de las firmas no se subió a este curso. Vuelve a subirla.",
+		message:
+			"Una de las firmas no se subió a esta capacitación. Vuelve a subirla.",
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[CERTIFICATE_ERROR_CODES.ISSUE_NOT_FOUND]: {
@@ -35,7 +36,7 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[CERTIFICATE_ERROR_CODES.ISSUE_REVOKED]: {
 		message:
-			"Este certificado se revocó: la persona ya no cumple con lo que pide el curso.",
+			"Este certificado se revocó: la persona ya no cumple con lo que pide la capacitación.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CERTIFICATE_ERROR_CODES.EXPORT_UNAVAILABLE]: {

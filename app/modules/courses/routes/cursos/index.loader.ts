@@ -17,7 +17,7 @@ const readNumber = (value: string | null) => {
 	return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };
 
-/** GET /dashboard/cursos — listado recortado por el alcance de quien lo pide. */
+/** GET /dashboard/capacitaciones — listado recortado por el alcance de quien lo pide. */
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const { scope } = await requireCourseScope(request, context);
 	const isGlobal = canChooseOrganizer(scope);
