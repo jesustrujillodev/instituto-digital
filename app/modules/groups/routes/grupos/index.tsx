@@ -21,6 +21,7 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import {
 	GroupStatusBadge,
@@ -45,6 +46,7 @@ export function meta() {
 }
 
 export default function GruposPage({ loaderData }: Route.ComponentProps) {
+	const isReloading = useRouteReloading();
 	const {
 		data: { groups, filters, canManage },
 		pagination,
@@ -189,6 +191,7 @@ export default function GruposPage({ loaderData }: Route.ComponentProps) {
 
 			<div className="overflow-hidden rounded-lg border border-border bg-card">
 				<DataTable
+					isLoading={isReloading}
 					data={rows}
 					columns={columns}
 					actions={actions}

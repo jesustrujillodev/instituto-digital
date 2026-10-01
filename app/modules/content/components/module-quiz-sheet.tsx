@@ -45,6 +45,7 @@ export function ModuleQuizSheet({
 							owner={{
 								lessonDocumentId: null,
 								moduleDocumentId: module.documentId,
+								followUpDocumentId: null,
 							}}
 							defaultTitle={`Evaluación · ${module.title}`}
 							canWrite={canWrite}

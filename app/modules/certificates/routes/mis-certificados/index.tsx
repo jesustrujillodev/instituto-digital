@@ -76,6 +76,7 @@ function CertificateRow({
 									variant="outline"
 									size="sm"
 									disabled={pending !== null}
+									pending={pending === url}
 									onClick={() => download(url, `certificado.${format}`)}
 								>
 									<Download aria-hidden="true" />

@@ -33,7 +33,7 @@ Lo que **no** hace todavía:
 | --- | --- |
 | `org.course_attendance` | Una marca por `(session_id, user_id)`: `attended`, `source` (`MANUAL`/`QR`), `recorded_by_id`, `recorded_at` |
 | `org.enrollments.grade` | Nota opcional 0–100 |
-| `org.course_evaluations`, `org.evaluation_results` | Las evaluaciones del curso y lo capturado en ellas ([referencia](../evaluations/00-evaluaciones.md)) |
+| `org.quizzes.session_id` | Las evaluaciones de seguimiento de cada sesión ([ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)) |
 | `org.enrollments.completed` | Resultado del último cierre o corrección |
 | `org.enrollments.result_recorded_by_id`, `result_recorded_at` | Quién capturó o corrigió el resultado |
 | `org.courses.finished_at` | Cuándo se finalizó |
@@ -53,16 +53,14 @@ Lo que **no** hace todavía:
 - El envío es la lista completa de la sesión. Solo se escriben las marcas que
   **cambian** (`resolveAttendanceMarks`), para que `recorded_by` diga quién hizo
   el último cambio y no quién pulsó guardar después.
-- Los resultados existen solo si el curso `requiresEvaluation`. Una nota
-  acompaña a `PASSED` o `FAILED`, nunca a `PENDING`.
-- No confundir el **resultado** con las **evaluaciones**. El resultado es uno por
-  persona y curso, se captura a mano y es el que otorga el crédito. Las
-  evaluaciones son varias, documentales, y no tocan el cierre ni los créditos
-  ([ADR 0010](../adr/0010-evaluaciones-por-curso.md)).
+- **El resultado no se captura a mano**
+  ([ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)). Lo
+  escriben las evaluaciones en línea por `progressSync`, y la pestaña Resultados,
+  que aparece donde la nota se calcula sola, es de solo lectura.
 - Si alguien del envío ya no está inscrito, se rechaza el envío entero
   (`TEACHING_UNKNOWN_PARTICIPANT`).
-- La lista y los resultados viajan como un JSON en el campo `payload`, igual que
-  el formulario de cursos.
+- La lista viaja como un JSON en el campo `payload`, igual que el formulario de
+  cursos.
 
 ## 4. Finalizar
 
@@ -72,8 +70,9 @@ POST /dashboard/imparticion/:id  intent=finish
   ▼ runInTransaction
   │ lockCourseSeats(course)          FOR UPDATE sobre la fila del curso
   │ findCourseById                   relectura con el bloqueo tomado
-  │ assertFinishable                 publicado · con sesiones · en su día · sin pendientes
+  │ assertFinishable                 publicado · con sesiones · en su día
   │ courseRepository.finish          UPDATE ... WHERE status = 'PUBLISHED'
+  │ progressSync.recalculate         con todo seguimiento cerrado: los ceros cuentan
   │ completionSync.sync              (teaching/application/completion-sync.server.ts)
   │   completedParticipantsOf        según completion_rule (§4.1)
   │   enrollmentRepository.setCompletion
@@ -89,7 +88,6 @@ ok({ completed, credits })
 | Es autogestivo: no se finaliza nunca (§4.2) | `TEACHING_SELF_PACED_NOT_FINISHABLE` |
 | Sin sesiones | `TEACHING_WITHOUT_SESSIONS` |
 | Antes del día de la última sesión | `TEACHING_FINISH_TOO_EARLY` + `opensAt` |
-| Resultados pendientes | `TEACHING_PENDING_RESULTS` + `pending` |
 | Otra petición lo finalizó antes | `TEACHING_STATE_CHANGED` |
 
 La ficha calcula el mismo impedimento con `finishBlockerOf` para deshabilitar el
@@ -159,15 +157,24 @@ el avance por lección (docs/content/00-modulos-y-lecciones.md §8).
 
 ### 4.4 · Curso evaluado con examen en línea
 
-Con `evaluation_method = QUIZ`, el resultado lo escribe el examen del participante
-([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)) y hay **una sola vía**:
+Con `requires_evaluation`, el resultado lo escribe el examen del participante
+([ADR 0015](../adr/0015-cuestionarios-autocalificados.md),
+[ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)):
 
-- Resultados queda de solo lectura, y capturar a mano, también al corregir,
-  responde `TEACHING_RESULTS_BY_QUIZ`.
+- Resultados es de solo lectura.
 - Un pendiente no bloquea el cierre. Al finalizar, quien no lo presentó pasa a
   `FAILED` sin nota, y la pantalla lo enseña como «No presentó».
 - Un autogestivo no se cierra: acredita al momento de presentar y quien no lo
   presentó queda pendiente.
+
+### 4.5 · Evaluaciones de seguimiento
+
+La pestaña Evaluaciones lista el seguimiento de cada sesión con su estado
+(Programada, Abierta, Cerrada) y la mejor nota de cada quien. Las manuales se
+abren y cierran desde ahí (`open-follow-up`, `close-follow-up` contra
+`/dashboard/imparticion/:id/cuestionarios`); cerrar es definitivo y recalcula la
+nota con los ceros. Otro intento se habilita desde Intentos, como el resto de
+cuestionarios.
 
 ## 5. Corrección posterior
 

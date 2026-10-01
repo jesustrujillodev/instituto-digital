@@ -5,7 +5,6 @@ import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
 	validateFindTeachingCourse,
 	validateSaveAttendance,
-	validateSaveResults,
 	validateSetEnrollmentOpen,
 } from "../../../domain/teaching.validators";
 import {
@@ -55,25 +54,6 @@ export const action = async ({
 
 			return ok(null, {
 				message: savedMessage(result.data.affected, "Lista guardada"),
-			});
-		}
-		case TEACHING_INTENTS.results: {
-			const input = parseInput(() => ({
-				documentId: documentId(),
-				dto: validateSaveResults(form.payload),
-			}));
-			if (!input.success) return localizeError(input, TEACHING_ERROR_MESSAGES);
-
-			const result = await context.teachingService.saveResults(
-				input.data.documentId,
-				input.data.dto,
-				auth,
-			);
-			if (!result.success)
-				return localizeError(result, TEACHING_ERROR_MESSAGES);
-
-			return ok(null, {
-				message: savedMessage(result.data.affected, "Resultados guardados"),
 			});
 		}
 		case TEACHING_INTENTS.finish: {

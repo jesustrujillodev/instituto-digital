@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, Loader2, X } from "lucide-react";
+import { Archive, ArrowRight, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -239,8 +239,7 @@ function LessonEditorBody({
 							<ArrowRight aria-hidden="true" />
 						</Button>
 					)}
-					<Button type="button" disabled={saving} onClick={onClose}>
-						{saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+					<Button type="button" pending={saving} onClick={onClose}>
 						{saving ? "Guardando…" : "Listo"}
 					</Button>
 				</div>

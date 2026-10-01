@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { toFormData } from "../form-data";
+import { pendingIntentOf, toFormData } from "../form-data";
 
 const fileOf = (name: string, content = "binario") =>
 	new File([content], name, { type: "image/png" });
@@ -74,5 +74,32 @@ describe("toFormData", () => {
 
 	test("an empty object produces empty FormData", () => {
 		expect([...toFormData({}).keys()]).toEqual([]);
+	});
+});
+
+describe("pendingIntentOf", () => {
+	const formOf = (intent: string) => {
+		const formData = new FormData();
+		formData.set("intent", intent);
+		return formData;
+	};
+
+	test("un fetcher libre no tiene intención en vuelo", () => {
+		expect(
+			pendingIntentOf({ state: "idle", formData: formOf("publish") }),
+		).toBe(null);
+	});
+
+	test("enviando o recargando, devuelve la intención enviada", () => {
+		expect(
+			pendingIntentOf({ state: "submitting", formData: formOf("publish") }),
+		).toBe("publish");
+		expect(
+			pendingIntentOf({ state: "loading", formData: formOf("cancel") }),
+		).toBe("cancel");
+	});
+
+	test("una carga sin formulario no tiene intención", () => {
+		expect(pendingIntentOf({ state: "loading" })).toBe(null);
 	});
 });

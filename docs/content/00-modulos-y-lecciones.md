@@ -273,15 +273,18 @@ el cierre.
 
 ## 9. Cuestionarios
 
-Hay tres, sobre las mismas tablas
+Hay cuatro, sobre las mismas tablas
 ([ADR 0015](../adr/0015-cuestionarios-autocalificados.md),
-[ADR 0016](../adr/0016-evaluacion-por-modulo.md)). El dueño decide cuál:
+[ADR 0016](../adr/0016-evaluacion-por-modulo.md),
+[ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)). El
+dueño decide cuál:
 
 | Uso | Quién lo arma y dónde | Al enviarse |
 | --- | --- | --- |
-| **Examen final** (`lesson_id` y `module_id` nulos) | Paso 4 «Evaluación» del wizard, en `/nuevo/4` o `/editar/4` | Escribe `Enrollment.result` y `grade` por la misma vía que la captura manual |
+| **Examen final** (`lesson_id`, `module_id` y `session_id` nulos) | Paso 4 «Evaluación» del wizard, en `/nuevo/4` o `/editar/4` | Recalcula `Enrollment.result` y `grade` con `progressSync` |
 | **Práctica** (lección `QUIZ`) | Panel de la lección en el temario | Completa la lección, apruebe o no |
 | **Evaluación del módulo** (`module_id`) | «Agregar evaluación» en el módulo, en el temario | Aprobada, cuenta para el avance como una obligatoria más |
+| **Seguimiento** (`session_id`) | «Evaluaciones de seguimiento» en el paso 4 | Se presenta tras registrar asistencia en su sesión, dentro de su ventana; si cuenta, entra al promedio |
 
 ### 9.1 Reglas
 

@@ -100,6 +100,7 @@ describe("quizRepository.replaceBank", () => {
 					courseId: 7,
 					lessonId: null,
 					moduleId: null,
+					sessionId: null,
 					archivedAt: null,
 				},
 				select: { id: true },

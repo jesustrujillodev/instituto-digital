@@ -390,6 +390,29 @@ export function CourseCardList({
 	);
 }
 
+/**
+ * La lista en siluetas mientras se recarga con otros filtros o de página.
+ * Tantas como caben en la página, para que la lista no cambie de alto.
+ */
+export function CourseCardListSkeleton({
+	layout,
+	count,
+}: {
+	layout: ViewMode;
+	count: number;
+}) {
+	return (
+		<CourseCardList layout={layout}>
+			{Array.from({ length: count }, (_, index) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: siluetas idénticas, sin identidad propia.
+				<li key={index} aria-hidden="true">
+					<CourseCardSkeleton layout={layout} />
+				</li>
+			))}
+		</CourseCardList>
+	);
+}
+
 /** Silueta de la tarjeta mientras el loader responde. */
 export function CourseCardSkeleton({ layout }: { layout: ViewMode }) {
 	if (layout === "list") {

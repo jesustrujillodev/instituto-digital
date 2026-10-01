@@ -14,6 +14,7 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -34,6 +35,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { useFetcherPromise } from "@/shared/hooks/use-fetcher-promise";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import {
@@ -60,8 +62,11 @@ import {
 	formatMinutes,
 	minutesOf,
 	outlineStats,
+	pendingCreationOf,
+	pendingOutlineChangeOf,
 	withLessonMoved,
 	withModuleMoved,
+	withPendingChange,
 } from "../utils/content-outline";
 import { ContentModuleDialog } from "./content-module-dialog";
 import { LessonEditorSheet } from "./lesson-editor-sheet";
@@ -121,13 +126,26 @@ interface CourseContentManagerProps {
  */
 export function CourseContentManager({
 	courseDocumentId,
-	tree,
+	tree: savedTree,
 	canWrite = true,
 	actions,
 }: CourseContentManagerProps) {
 	const mutation = useFetcherPromise<ContentActionData>();
 	useFetcherToast(mutation.fetcher);
 	const busy = mutation.fetcher.state !== "idle";
+
+	// Reordenar y archivar se ven al instante: el árbol se pinta como quedará.
+	// Si el servidor lo rechaza, la recarga trae el real y el cambio se deshace.
+	const tree = useMemo(
+		() =>
+			withPendingChange(
+				savedTree,
+				busy ? pendingOutlineChangeOf(mutation.fetcher.formData) : null,
+			),
+		[savedTree, busy, mutation.fetcher.formData],
+	);
+	const creatingModule =
+		busy && pendingCreationOf(mutation.fetcher.formData)?.kind === "module";
 
 	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 	const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -194,11 +212,11 @@ export function CourseContentManager({
 
 	const closeLesson = useCallback(() => setOpenLesson(null), []);
 
-	const archiveLesson = async (lessonDocumentId: string) => {
-		const result = await mutate(CONTENT_INTENTS.archiveLesson, {
-			lessonDocumentId,
-		});
-		if (result?.success && openLesson === lessonDocumentId) setOpenLesson(null);
+	// La lección deja de pintarse en cuanto se archiva, así que su panel se
+	// cierra ya; si el servidor lo rechaza, reaparece en la lista.
+	const archiveLesson = (lessonDocumentId: string) => {
+		if (openLesson === lessonDocumentId) setOpenLesson(null);
+		void mutate(CONTENT_INTENTS.archiveLesson, { lessonDocumentId });
 	};
 
 	if (tree.length === 0) {
@@ -220,7 +238,7 @@ export function CourseContentManager({
 						<Button
 							type="button"
 							variant="outline"
-							disabled={busy}
+							pending={busy}
 							onClick={addModule}
 						>
 							<Plus aria-hidden="true" />
@@ -475,7 +493,7 @@ export function CourseContentManager({
 															<ArchiveItem
 																label="Archivar lección"
 																onSelect={() =>
-																	void archiveLesson(lesson.documentId)
+																	archiveLesson(lesson.documentId)
 																}
 															/>
 														</RowMenu>
@@ -586,6 +604,7 @@ export function CourseContentManager({
 					type="button"
 					variant="outline"
 					disabled={busy || stats.modules >= CONTENT_MAX_MODULES_PER_COURSE}
+					pending={creatingModule}
 					onClick={addModule}
 					className="h-12 w-full rounded-xl border-dashed bg-transparent"
 				>
@@ -613,7 +632,7 @@ export function CourseContentManager({
 				busy={busy}
 				onNavigate={setOpenLesson}
 				onClose={closeLesson}
-				onArchive={(lessonDocumentId) => void archiveLesson(lessonDocumentId)}
+				onArchive={archiveLesson}
 			/>
 
 			<ModuleQuizSheet
@@ -719,7 +738,7 @@ function NewLessonRow({
 	return (
 		<div className="flex items-center gap-3 rounded-lg border border-primary/60 px-2 py-1.5 ring-3 ring-primary/10">
 			<span className={ICON_TILE}>
-				<Plus className="size-4" aria-hidden="true" />
+				{busy ? <Spinner /> : <Plus className="size-4" aria-hidden="true" />}
 			</span>
 			<input
 				ref={inputRef}
@@ -746,7 +765,7 @@ function NewLessonRow({
 				className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
 			/>
 			<span className="hidden shrink-0 text-muted-foreground text-xs sm:inline">
-				Enter para crear · Esc para cancelar
+				{busy ? "Creando…" : "Enter para crear · Esc para cancelar"}
 			</span>
 		</div>
 	);

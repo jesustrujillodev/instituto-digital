@@ -5,6 +5,8 @@ import { loader } from "../index.loader";
 type LoaderArgs = Parameters<typeof loader>[0];
 
 const TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+const COURSE_DOC = "11111111-1111-4111-8111-111111111111";
+const SESSION_DOC = "33333333-3333-4333-8333-333333333333";
 
 const authPayload = {
 	sub: "99999999-9999-4999-8999-999999999999",
@@ -25,7 +27,7 @@ const okReply = (data: unknown) => ({
 const createHarness = (
 	options: { anonymous?: boolean; allowed?: boolean } = {},
 ) => {
-	const calls = { previews: 0 };
+	const calls = { previews: 0, followUps: [] as unknown[][] };
 
 	const context = {
 		authPayload: options.anonymous ? null : authPayload,
@@ -38,7 +40,17 @@ const createHarness = (
 		checkInService: {
 			preview: async () => {
 				calls.previews += 1;
-				return okReply({ canRegister: true });
+				return okReply({
+					canRegister: true,
+					course: { documentId: COURSE_DOC },
+					session: { documentId: SESSION_DOC },
+				});
+			},
+		},
+		quizService: {
+			findParticipantFollowUps: async (...args: unknown[]) => {
+				calls.followUps.push(args);
+				return okReply([{ documentId: "f-1", availability: "AVAILABLE" }]);
 			},
 		},
 	} as unknown as LoaderArgs["context"];
@@ -76,6 +88,20 @@ describe("escaneo loader", () => {
 
 		expect(result.success).toBe(true);
 		expect(calls.previews).toBe(1);
+	});
+
+	// docs/adr/0027: las evaluaciones de la sesión se presentan desde aquí.
+	test("trae las evaluaciones de seguimiento de esa sesión", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(context);
+
+		expect(result.data.followUps).toEqual([
+			{ documentId: "f-1", availability: "AVAILABLE" },
+		]);
+		expect(calls.followUps).toEqual([
+			[COURSE_DOC, expect.anything(), SESSION_DOC],
+		]);
 	});
 
 	test("sin sesión manda al login conservando el token", async () => {

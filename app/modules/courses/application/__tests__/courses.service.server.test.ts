@@ -9,6 +9,7 @@ import type { NotificationEvent } from "@/modules/notifications/domain/notificat
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
+import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import { toProxyRef } from "@/shared/storage/public-url";
 import { COURSE_ERROR_CODES } from "../../domain/course.errors";
 import { hasScheduleChanges } from "../../domain/course.rules";
@@ -67,7 +68,6 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	enrollmentDeadline: null,
 	minAttendance: 80,
 	requiresEvaluation: false,
-	evaluationMethod: "MANUAL",
 	minPassingGrade: 70,
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,
@@ -158,6 +158,12 @@ const createHarness = (
 		noBucket?: boolean;
 		/** Lecciones activas del temario; solo las mira un autogestivo. */
 		lessons?: number;
+		/** Preguntas del examen final; solo las mira un curso evaluado por examen. */
+		finalQuizQuestions?: number;
+		/** Sesiones quitadas cuyo seguimiento ya tiene intentos. */
+		sessionsWithAttempts?: string[];
+		/** Hace fallar el conteo del temario. */
+		countFails?: boolean;
 		/** Referencias del material de las sesiones que se quitan. */
 		sessionMaterialRefs?: string[];
 	} = {},
@@ -179,6 +185,7 @@ const createHarness = (
 		uploaded: [] as { bucket: string; key: string; contentType?: string }[],
 		deleted: [] as { bucket: string; key: string }[],
 		lessonCounts: [] as number[],
+		quizQuestionCounts: [] as number[],
 		materialRefQueries: [] as string[][],
 	};
 
@@ -327,12 +334,21 @@ const createHarness = (
 			`/api/storage?key=${encodeURIComponent(key)}`,
 	} as unknown as ICradle["storageProvider"];
 
-	// Lo único que este módulo le pide al temario: cuántas lecciones vivas hay.
+	// Lo único que este módulo le pide al temario: cuántas lecciones vivas hay y
+	// cuántas preguntas tiene el examen final.
 	const contentRepository = {
 		countActiveLessons: async (courseId: number) => {
+			if (options.countFails) throw new Error("base caída");
 			calls.lessonCounts.push(courseId);
 			return options.lessons ?? 0;
 		},
+		countFinalQuizQuestions: async (courseId: number) => {
+			calls.quizQuestionCounts.push(courseId);
+			return options.finalQuizQuestions ?? 0;
+		},
+		countFollowUps: async () => ({ withoutQuestions: 0, counted: 0 }),
+		findSessionsWithFollowUpAttempts: async () =>
+			options.sessionsWithAttempts ?? [],
 	} as unknown as ICradle["contentRepository"];
 
 	const service = createCourseService({
@@ -497,7 +513,6 @@ describe("coursesService.create", () => {
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
 				requiresEvaluation: true,
-				evaluationMethod: "QUIZ",
 			}),
 			actorOf(),
 		);
@@ -549,38 +564,6 @@ describe("coursesService.create", () => {
 		);
 
 		expect(result.success).toBe(true);
-	});
-
-	test("un autogestivo no se evalúa con captura manual", async () => {
-		const { service, calls } = createHarness();
-
-		const result = await service.create(
-			dtoOf({
-				format: "SELF_PACED",
-				completionRule: "CONTENT",
-				requiresEvaluation: true,
-				evaluationMethod: "MANUAL",
-			}),
-			actorOf(),
-		);
-
-		expect(result).toMatchObject({
-			success: false,
-			error: { code: COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD },
-		});
-		expect(calls.created).toHaveLength(0);
-	});
-
-	test("un autogestivo sin evaluación guarda el método como examen", async () => {
-		const { service, calls } = createHarness();
-
-		const result = await service.create(
-			dtoOf({ format: "SELF_PACED", completionRule: "CONTENT" }),
-			actorOf(),
-		);
-
-		expect(result.success).toBe(true);
-		expect(calls.created[0]).toMatchObject({ evaluationMethod: "QUIZ" });
 	});
 
 	test("un autogestivo descarta los capacitadores que traiga", async () => {
@@ -961,7 +944,6 @@ describe("coursesService.update", () => {
 				modality: "HYBRID",
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
-				evaluationMethod: "QUIZ",
 			}),
 		});
 
@@ -1022,6 +1004,25 @@ describe("coursesService.update", () => {
 		);
 	});
 
+	// docs/adr/0027: la cascada se llevaría notas que ya cuentan.
+	test("no se quita una sesión cuyo seguimiento ya presentó alguien", async () => {
+		const { service, calls } = createHarness({
+			sessionsWithAttempts: ["44444444-4444-4444-8444-444444444444"],
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf() as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.SESSION_HAS_ATTEMPTS },
+		});
+		expect(calls.updated).toHaveLength(0);
+	});
+
 	test("conservar las sesiones no busca material que soltar", async () => {
 		const { service, calls } = createHarness();
 
@@ -1054,7 +1055,6 @@ describe("coursesService.update", () => {
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
 				requiresEvaluation: false,
-				evaluationMethod: "QUIZ",
 				sessions: [],
 			}),
 		});
@@ -1065,7 +1065,6 @@ describe("coursesService.update", () => {
 				format: "SELF_PACED",
 				completionRule: "CONTENT",
 				requiresEvaluation: true,
-				evaluationMethod: "QUIZ",
 			}) as UpdateCourseDto,
 			actorOf(),
 		);
@@ -1294,7 +1293,6 @@ const selfPacedCourse = () =>
 	courseOf({
 		format: "SELF_PACED",
 		completionRule: "CONTENT",
-		requiresEvaluation: true,
 		sessions: [],
 	});
 
@@ -1376,6 +1374,63 @@ describe("coursesService.publish", () => {
 
 		expect(result).toMatchObject({ success: false, error: { code } });
 		expect(calls.published).toHaveLength(0);
+	});
+});
+
+describe("coursesService.findContentFacts", () => {
+	test("un autogestivo cuenta sus lecciones y no mira el examen", async () => {
+		const { service, calls } = createHarness({
+			lessons: 4,
+			finalQuizQuestions: 9,
+		});
+
+		const result = await service.findContentFacts(selfPacedCourse());
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { lessonCount: 4, finalQuizQuestionCount: 0 },
+		});
+		expect(calls.lessonCounts).toEqual([7]);
+		expect(calls.quizQuestionCounts).toEqual([]);
+	});
+
+	test("un curso evaluado por examen cuenta sus preguntas", async () => {
+		const { service, calls } = createHarness({ finalQuizQuestions: 9 });
+
+		const result = await service.findContentFacts(
+			courseOf({ requiresEvaluation: true }),
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { lessonCount: 0, finalQuizQuestionCount: 9 },
+		});
+		expect(calls.lessonCounts).toEqual([]);
+		expect(calls.quizQuestionCounts).toEqual([7]);
+	});
+
+	test("un curso por asistencia y sin examen no consulta nada", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.findContentFacts(courseOf());
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { lessonCount: 0, finalQuizQuestionCount: 0 },
+		});
+		expect(calls.lessonCounts).toEqual([]);
+		expect(calls.quizQuestionCounts).toEqual([]);
+	});
+
+	test("un fallo de la base sale como error inesperado", async () => {
+		const { service } = createHarness({ countFails: true });
+
+		const result = await service.findContentFacts(selfPacedCourse());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: RESPONSE_ERROR_CODES.UNEXPECTED },
+		});
 	});
 });
 

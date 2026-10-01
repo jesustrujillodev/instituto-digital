@@ -1,5 +1,6 @@
-import { Download, Loader2, Trash2, X } from "lucide-react";
+import { Download, Trash2, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import { Spinner } from "@/shared/components/ui/spinner";
 import type { ZipDownloadState } from "../hooks/use-zip-download";
 import { formatBytes, pluralize } from "../utils/cloud-format";
 
@@ -86,10 +87,7 @@ function ZipProgress({
 	return (
 		<div className="flex flex-col gap-2.5 px-2 py-1">
 			<div className="flex items-center gap-3">
-				<Loader2
-					className="size-4 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
-					aria-hidden="true"
-				/>
+				<Spinner className="shrink-0 text-muted-foreground" />
 				<div className="flex min-w-0 flex-1 flex-col">
 					<span className="truncate font-medium text-sm">{zip.fileName}</span>
 					<span

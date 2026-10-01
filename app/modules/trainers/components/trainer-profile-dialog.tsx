@@ -207,7 +207,7 @@ export function TrainerProfileDialog({
 					>
 						Cancelar
 					</Button>
-					<Button type="submit" form={ids.form} disabled={isSubmitting}>
+					<Button type="submit" form={ids.form} pending={isSubmitting}>
 						{!isEdit && <GraduationCap aria-hidden="true" />}
 						{isEdit
 							? isSubmitting

@@ -16,9 +16,7 @@ import {
 	isSessionOpen,
 	issueCandidatesOf,
 	meetsAttendance,
-	pendingResultsOf,
 	resolveAttendanceMarks,
-	resolveResultEntries,
 	syncsOnWrite,
 } from "../teaching.rules";
 import {
@@ -346,11 +344,6 @@ describe("finishBlockerOf / assertFinishable", () => {
 				assertFinishable(courseOf(), zonedInputToUtc("2026-09-02", "23:59")),
 			),
 		).toBe(TEACHING_ERROR_CODES.FINISH_TOO_EARLY);
-		expect(
-			codeOf(() =>
-				assertFinishable(courseOf({ requiresEvaluation: true }), onLastDay),
-			),
-		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
 	});
 
 	// docs/adr/0014: cada participante lo completa; el curso no se cierra.
@@ -367,8 +360,12 @@ describe("finishBlockerOf / assertFinishable", () => {
 		);
 	});
 
-	test("sin evaluación, un resultado pendiente no bloquea", () => {
+	// docs/adr/0027: sin captura manual, un pendiente ya no bloquea el cierre.
+	test("un resultado pendiente no bloquea, haya o no evaluación final", () => {
 		expect(finishBlockerOf(courseOf(), onLastDay)).toBeNull();
+		expect(
+			finishBlockerOf(courseOf({ requiresEvaluation: true }), onLastDay),
+		).toBeNull();
 	});
 });
 
@@ -430,48 +427,6 @@ describe("resolveAttendanceMarks", () => {
 	});
 });
 
-describe("resolveResultEntries", () => {
-	const evaluated = courseOf({ requiresEvaluation: true });
-
-	test("sin evaluación no se capturan resultados", () => {
-		expect(
-			codeOf(() =>
-				resolveResultEntries(courseOf(), [
-					{ userDocumentId: ANA_DOC, result: "PASSED", grade: null },
-				]),
-			),
-		).toBe(TEACHING_ERROR_CODES.EVALUATION_NOT_REQUIRED);
-	});
-
-	test("un cambio de nota cuenta como cambio", () => {
-		const course = {
-			...evaluated,
-			participants: [participantOf({ result: "PASSED", grade: 80 })],
-		};
-
-		expect(
-			resolveResultEntries(course, [
-				{ userDocumentId: ANA_DOC, result: "PASSED", grade: 80 },
-			]),
-		).toEqual([]);
-		expect(
-			resolveResultEntries(course, [
-				{ userDocumentId: ANA_DOC, result: "PASSED", grade: 90 },
-			]),
-		).toEqual([{ userId: 50, result: "PASSED", grade: 90 }]);
-	});
-
-	test("un curso finalizado no vuelve a pendiente", () => {
-		expect(
-			codeOf(() =>
-				resolveResultEntries({ ...evaluated, status: "FINISHED" }, [
-					{ userDocumentId: ANA_DOC, result: "PENDING", grade: null },
-				]),
-			),
-		).toBe(TEACHING_ERROR_CODES.PENDING_RESULTS);
-	});
-});
-
 describe("syncsOnWrite", () => {
 	test.each([
 		[
@@ -494,26 +449,5 @@ describe("syncsOnWrite", () => {
 		],
 	] as const)("%s", (_, format, status, expected) => {
 		expect(syncsOnWrite({ format, status })).toBe(expected);
-	});
-});
-
-describe("pendingResultsOf con examen en línea", () => {
-	test("un pendiente no cuenta: nadie lo captura a mano", () => {
-		const pending = participantOf();
-
-		expect(
-			pendingResultsOf(
-				courseOf({
-					requiresEvaluation: true,
-					evaluationMethod: "QUIZ",
-					participants: [pending],
-				}),
-			),
-		).toBe(0);
-		expect(
-			pendingResultsOf(
-				courseOf({ requiresEvaluation: true, participants: [pending] }),
-			),
-		).toBe(1);
 	});
 });

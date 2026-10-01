@@ -46,7 +46,7 @@ export function MyCertificateMenu({
 					variant="outline"
 					size="sm"
 					className={className}
-					disabled={pending !== null}
+					pending={pending !== null}
 				>
 					<Award aria-hidden="true" />
 					{pending ? "Generando…" : "Certificado"}

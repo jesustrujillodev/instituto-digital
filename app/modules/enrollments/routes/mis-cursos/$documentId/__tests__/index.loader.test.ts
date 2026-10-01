@@ -17,6 +17,7 @@ const createHarness = (
 		findFails?: string;
 		classrooms?: string[];
 		sessionMaterials?: object[];
+		followUps?: object[];
 	} = {},
 ) => {
 	const context = {
@@ -39,6 +40,9 @@ const createHarness = (
 		},
 		sessionMaterialService: {
 			findForParticipant: async () => okReply(options.sessionMaterials ?? []),
+		},
+		quizService: {
+			findParticipantFollowUps: async () => okReply(options.followUps ?? []),
 		},
 	} as unknown as LoaderArgs["context"];
 
@@ -74,6 +78,16 @@ describe("mis-capacitaciones/:documentId loader", () => {
 			course: { documentId: COURSE_ID },
 			hasClassroom: true,
 		});
+	});
+
+	// docs/adr/0027: también se presentan desde el detalle.
+	test("entrega las evaluaciones de seguimiento", async () => {
+		const followUps = [{ documentId: "f-1", availability: "NOT_YET" }];
+		const { context } = createHarness({ followUps });
+
+		const { data } = await run(context);
+
+		expect(data).toMatchObject({ followUps });
 	});
 
 	test("entrega el material de cada sesión", async () => {

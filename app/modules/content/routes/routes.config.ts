@@ -28,11 +28,17 @@ export const contentRoutes = [
 		"capacitaciones/:documentId/cuestionario",
 		"modules/content/routes/cursos/$documentId.cuestionario/index.ts",
 	),
-	// Sin componente: quien imparte habilita otro intento de una evaluación de
-	// módulo desde la pestaña Avance (docs/adr/0016).
+	// Sin componente: quien imparte habilita otro intento desde la pestaña
+	// Avance (docs/adr/0016) y abre o cierra el seguimiento (docs/adr/0027).
 	route(
 		"imparticion/:documentId/cuestionarios",
 		"modules/content/routes/imparticion/$documentId.cuestionarios/index.ts",
+	),
+	// Una evaluación de seguimiento: se llega desde la pantalla del QR o desde
+	// el detalle de la capacitación, no desde el aula (docs/adr/0027).
+	route(
+		"mis-capacitaciones/:documentId/seguimiento/:followUpDocumentId",
+		"modules/content/routes/mis-cursos/$documentId.seguimiento.$followUpDocumentId/index.tsx",
 	),
 	// El aula del participante (docs/adr/0014): el índice lateral es el layout y
 	// su índice redirige a la lección donde se quedó.

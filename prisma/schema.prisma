@@ -4,8 +4,12 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// relationJoins: las relaciones anidadas viajan en la misma consulta (JOIN
+// LATERAL) en vez de una consulta por relación, que contra una base remota es
+// un viaje de red cada una.
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -83,9 +87,6 @@ model User {
   quizAttempts       QuizAttempt[]      @relation("QuizAttemptParticipant")
   quizRetakesGranted QuizAttempt[]      @relation("QuizRetakeGranter")
   attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
-  evaluationsCreated CourseEvaluation[] @relation("EvaluationCreator")
-  evaluationResults  EvaluationResult[] @relation("EvaluationParticipant")
-  evaluationsGraded  EvaluationResult[] @relation("EvaluationRecorder")
   credits            Credit[]           @relation("CreditHolder")
   certificates       CertificateIssue[] @relation("CertificateHolder")
   creditsGranted     Credit[]           @relation("CreditGranter")
@@ -377,15 +378,13 @@ model Course {
   enrollmentDeadline DateTime? @map("enrollment_deadline")
 
   /// Porcentaje. El 80 por defecto sale de §6.8 y se ajusta por curso.
-  minAttendance      Int              @default(80) @map("min_attendance")
-  requiresEvaluation Boolean          @default(false) @map("requires_evaluation")
-  /// Con qué se evalúa, si se evalúa: captura manual o examen en línea
-  /// (docs/adr/0015). Se congela al publicar.
-  evaluationMethod   EvaluationMethod @default(MANUAL) @map("evaluation_method")
-  /// Promedio con el que se acredita cuando la nota se calcula sola: examen en
-  /// línea o evaluaciones del temario (docs/adr/0024). Compensa: reprobar una
-  /// evaluación no impide acreditar si el promedio alcanza.
-  minPassingGrade    Int              @default(70) @map("min_passing_grade")
+  minAttendance      Int     @default(80) @map("min_attendance")
+  /// Exige el examen final en línea: no hay captura manual (docs/adr/0027).
+  requiresEvaluation Boolean @default(false) @map("requires_evaluation")
+  /// Promedio con el que se acredita cuando la nota se calcula sola (docs/adr/0024,
+  /// 0027). Compensa: reprobar una evaluación no impide acreditar si el promedio
+  /// alcanza.
+  minPassingGrade    Int     @default(70) @map("min_passing_grade")
 
   /// Token opaco del QR de asistencia. Nulo mientras nadie lo genere: así la
   /// ficha distingue "sin QR" de "con QR", y una columna única no obliga a un
@@ -431,7 +430,6 @@ model Course {
   dependencyAudience CourseDependencyAudience[]
   groupAudience      CourseGroupAudience[]
   enrollments        Enrollment[]
-  evaluations        CourseEvaluation[]
   quizzes            Quiz[]
   credits            Credit[]
   ratings            CourseRating[]
@@ -534,9 +532,9 @@ model CourseSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  attendance  CourseAttendance[]
-  evaluations CourseEvaluation[]
-  materials   SessionMaterial[]
+  attendance CourseAttendance[]
+  quizzes    Quiz[]
+  materials  SessionMaterial[]
 
   @@index([courseId, startsAt])
   @@index([startsAt])
@@ -858,63 +856,6 @@ model CourseAttendance {
   @@schema("org")
 }
 
-/// Una evaluacion del curso (§6.8). Hay varias por curso y la sesion es
-/// opcional: un proyecto final no corresponde a un dia concreto.
-model CourseEvaluation {
-  id         Int    @id @default(autoincrement())
-  documentId String @unique @default(uuid()) @db.Uuid
-
-  courseId Int    @map("course_id")
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-  /// `SetNull` y no `Cascade`: borrar una sesion al editar el curso no puede
-  /// llevarse por delante evaluaciones ya capturadas.
-  sessionId Int?           @map("session_id")
-  session   CourseSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-
-  title String
-
-  createdById Int  @map("created_by_id")
-  createdBy   User @relation("EvaluationCreator", fields: [createdById], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  results EvaluationResult[]
-
-  @@index([courseId])
-  @@index([sessionId])
-  @@map("course_evaluations")
-  @@schema("org")
-}
-
-/// Resultado por persona. La fila existe solo si se capturo: su ausencia es
-/// "sin capturar", igual que en el pase de lista.
-model EvaluationResult {
-  evaluationId Int              @map("evaluation_id")
-  evaluation   CourseEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
-
-  userId Int  @map("user_id")
-  user   User @relation("EvaluationParticipant", fields: [userId], references: [id], onDelete: Restrict)
-
-  /// `null` es "sin veredicto todavia": la fila existe porque hay observacion.
-  /// Sin capturar de verdad es que no haya fila, igual que en el pase de lista.
-  passed Boolean?
-
-  /// Observacion de quien imparte. Interna: ninguna proyeccion del participante
-  /// la selecciona.
-  note String?
-
-  recordedById Int      @map("recorded_by_id")
-  recordedBy   User     @relation("EvaluationRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
-  recordedAt   DateTime @map("recorded_at")
-
-  @@id([evaluationId, userId])
-  @@index([userId])
-  @@map("evaluation_results")
-  @@schema("org")
-}
-
 /// Un crédito por persona y curso. Retirarlo marca `revokedAt` en vez de borrar
 /// la fila, y volver a otorgarlo la limpia (docs/adr/0006).
 model Credit {
@@ -1104,9 +1045,12 @@ model LessonProgress {
   @@schema("org")
 }
 
-enum EvaluationMethod {
+/// Cuándo se abre una evaluación de seguimiento (docs/adr/0027).
+enum QuizAvailabilityMode {
+  SESSION_START
+  SESSION_END
+  RANGE
   MANUAL
-  QUIZ
 
   @@schema("org")
 }
@@ -1118,9 +1062,10 @@ enum QuizQuestionType {
   @@schema("org")
 }
 
-/// Un cuestionario autocalificado (docs/adr/0015, 0016). Con `lessonId` es la
-/// práctica de una lección `QUIZ`; con `moduleId`, la evaluación de ese módulo;
-/// sin ninguno, el examen final del curso. Hay a lo sumo un examen por curso y
+/// Un cuestionario autocalificado (docs/adr/0015, 0016, 0027). Con `lessonId` es
+/// la práctica de una lección `QUIZ`; con `moduleId`, la evaluación de ese módulo;
+/// con `sessionId`, una evaluación de seguimiento de esa sesión; sin ninguno, el
+/// examen final del curso. Hay a lo sumo un examen por curso y
 /// un cuestionario activo por módulo: no se expresa con índices parciales, lo
 /// impone el servicio con la fila del curso bloqueada.
 model Quiz {
@@ -1135,6 +1080,19 @@ model Quiz {
 
   moduleId Int?          @map("module_id")
   module   CourseModule? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  /// Quitar la sesión se lo lleva solo si nadie lo presentó: con intentos, el
+  /// servicio de cursos rechaza quitarla.
+  sessionId Int?           @map("session_id")
+  session   CourseSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  /// Solo el de seguimiento usa las columnas que siguen; en los demás son nulas.
+  countsTowardGrade  Boolean?              @map("counts_toward_grade")
+  availability       QuizAvailabilityMode?
+  opensBeforeMinutes Int?                  @map("opens_before_minutes")
+  closesAfterMinutes Int?                  @map("closes_after_minutes")
+  openedAt           DateTime?             @map("opened_at")
+  closedAt           DateTime?             @map("closed_at")
 
   /// Solo el de módulo se archiva: sus intentos respaldan completados ya dados.
   archivedAt DateTime? @map("archived_at")
@@ -1155,6 +1113,7 @@ model Quiz {
 
   @@index([courseId])
   @@index([moduleId])
+  @@index([sessionId])
   @@map("quizzes")
   @@schema("org")
 }

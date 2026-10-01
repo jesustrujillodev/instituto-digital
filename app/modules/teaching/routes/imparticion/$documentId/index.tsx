@@ -16,6 +16,7 @@ import { formatZonedDate } from "@/lib/date-utils";
 import { useFileDownload } from "@/modules/certificates/hooks/use-file-download";
 import { certificateDownloadUrl } from "@/modules/certificates/utils/certificate-urls";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
+import { FollowUpBoardPanel } from "@/modules/content/components/follow-up-board";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
 import { QuizResults } from "@/modules/content/components/quiz-results";
 import { SessionMaterialsPanel } from "@/modules/content/components/session-materials-panel";
@@ -32,14 +33,10 @@ import {
 	requiresContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
-import {
-	COMPLETION_RULE_LABELS,
-	EVALUATION_METHOD_LABELS,
-} from "@/modules/courses/utils/course-labels";
+import { COMPLETION_RULE_LABELS } from "@/modules/courses/utils/course-labels";
 import {
 	RETURN_PARAM,
 	RETURN_TO_TEACHING,
-	stepOfKey,
 	stepPath,
 } from "@/modules/courses/utils/course-wizard-steps";
 import {
@@ -52,7 +49,6 @@ import {
 	type EnrollmentActionData,
 	USER_FIELD,
 } from "@/modules/enrollments/utils/parse-enrollment-form-data";
-import { EvaluationsPanel } from "@/modules/evaluations/components/evaluations-panel";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
@@ -111,15 +107,13 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 					<h3 className="font-medium text-sm">Finalizar capacitación</h3>
 					<p className="text-muted-foreground text-xs">
 						{detail.finishBlocker
-							? finishBlockerMessage(detail.finishBlocker, {
-									opensAt,
-									pendingResults: detail.pendingResults,
-								})
+							? finishBlockerMessage(detail.finishBlocker, { opensAt })
 							: "Calcula quién completó, otorga créditos y certificados y abre la valoración."}
 					</p>
 				</div>
 				<Button
-					disabled={!detail.can.finish || fetcher.state !== "idle"}
+					disabled={!detail.can.finish}
+					pending={fetcher.state !== "idle"}
 					onClick={() => setConfirming(true)}
 				>
 					<Flag className="h-4 w-4" />
@@ -182,7 +176,8 @@ function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
 				</div>
 				<Button
 					variant={open ? "outline" : "default"}
-					disabled={!detail.can.toggleEnrollment || fetcher.state !== "idle"}
+					disabled={!detail.can.toggleEnrollment}
+					pending={fetcher.state !== "idle"}
 					onClick={() => (open ? setConfirming(true) : submit(true))}
 				>
 					{open ? <DoorClosed /> : <DoorOpen />}
@@ -303,7 +298,7 @@ function IssueCertificatesCard({ detail }: { detail: TeachingDetail }) {
 					</p>
 				</div>
 				<Button
-					disabled={fetcher.state !== "idle"}
+					pending={fetcher.state !== "idle"}
 					onClick={() =>
 						fetcher.submit(
 							{ [INTENT_FIELD]: TEACHING_INTENTS.issueCertificates },
@@ -350,11 +345,12 @@ function CertificateCell({
 						variant="ghost"
 						size="sm"
 						disabled={pending !== null}
+						pending={pending === url}
 						aria-label={`Descargar certificado ${certificate.folio} en ${format.toUpperCase()}`}
 						onClick={() => download(url, `certificado.${format}`)}
 					>
 						<Download aria-hidden="true" />
-						{pending === url ? "…" : format.toUpperCase()}
+						{format.toUpperCase()}
 					</Button>
 				);
 			})}
@@ -432,6 +428,11 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 											variant="ghost"
 											size="sm"
 											disabled={removal.state !== "idle"}
+											pending={
+												removal.state !== "idle" &&
+												removal.formData?.get(USER_FIELD) ===
+													participant.userDocumentId
+											}
 											aria-label={`Dar de baja a ${personNameOf(participant)}`}
 											onClick={() => setRemoving(participant)}
 										>
@@ -484,7 +485,7 @@ export default function ImparticionDetallePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { ratings, evaluations, quizBoard, ...detail },
+		data: { ratings, followUps, gradesAutomatically, quizBoard, ...detail },
 	} = loaderData;
 	const { course } = detail;
 	const finished = course.status === "FINISHED";
@@ -502,7 +503,7 @@ export default function ImparticionDetallePage({
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
-				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? `, evaluado con ${EVALUATION_METHOD_LABELS[course.evaluationMethod].toLowerCase()}` : ""}.`}
+				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? ", evaluado con examen en línea" : ""}.`}
 				goBack="/dashboard/imparticion"
 				actions={
 					detail.can.editCourse ? (
@@ -550,13 +551,10 @@ export default function ImparticionDetallePage({
 					{withAttendance && (
 						<TabsTrigger value="materials">Material</TabsTrigger>
 					)}
-					{course.requiresEvaluation && (
-						<TabsTrigger value="results">
-							Resultados
-							{detail.pendingResults > 0 && ` (${detail.pendingResults})`}
-						</TabsTrigger>
+					{gradesAutomatically && (
+						<TabsTrigger value="results">Resultados</TabsTrigger>
 					)}
-					{evaluations && (
+					{followUps && (
 						<TabsTrigger value="evaluations">Evaluaciones</TabsTrigger>
 					)}
 					{(withContent || quizBoard) && (
@@ -591,23 +589,22 @@ export default function ImparticionDetallePage({
 						<SessionMaterialsPanel courseDocumentId={course.documentId} />
 					</TabsContent>
 				)}
-				{course.requiresEvaluation && (
+				{gradesAutomatically && (
 					<TabsContent value="results">
 						<ResultsPanel detail={detail} />
 					</TabsContent>
 				)}
-				{evaluations && (
+				{followUps && (
 					<TabsContent value="evaluations">
-						<EvaluationsPanel
+						<FollowUpBoardPanel
 							courseDocumentId={course.documentId}
-							board={evaluations}
+							board={followUps}
 							sessions={detail.sessions}
-							participants={detail.participants}
-							defineHref={
-								detail.can.editCourse
-									? editHref(stepOfKey("rules").number)
-									: null
-							}
+							participants={detail.participants.map((participant) => ({
+								userDocumentId: participant.userDocumentId,
+								name: personNameOf(participant),
+								marks: participant.marks,
+							}))}
 						/>
 					</TabsContent>
 				)}

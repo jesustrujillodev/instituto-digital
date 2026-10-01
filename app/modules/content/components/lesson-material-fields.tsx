@@ -1,6 +1,6 @@
-import { Loader2 } from "lucide-react";
 import { lazy, Suspense, useId } from "react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import type {
 	LessonMaterialState,
 	MaterialLesson,
@@ -15,16 +15,40 @@ import { QuizBankPanel } from "./quiz-bank-panel";
 // Tiptap solo lo descarga quien captura, y solo al abrir una lección de texto.
 const LessonBodyEditor = lazy(() => import("./lesson-body-editor"));
 
-function Loading({ label, className }: { label: string; className?: string }) {
+/**
+ * La silueta de lo que va a aparecer, con su forma: el editor, el reproductor o
+ * el campo de subida. Lo que carga ocupa el mismo sitio y nada salta al llegar.
+ */
+function MaterialSkeleton({
+	type,
+	label,
+	className,
+}: {
+	type: MaterialLesson["type"];
+	label: string;
+	className?: string;
+}) {
 	return (
-		<div
-			className={cn(
-				"flex items-center gap-2 text-muted-foreground text-sm",
-				className,
+		<div aria-busy="true" className={cn("flex flex-col gap-3", className)}>
+			<span className="sr-only">{label}</span>
+			{type === "TEXT" ? (
+				<>
+					<Skeleton className="h-9 w-full rounded-md" />
+					<Skeleton className="h-64 w-full rounded-md" />
+				</>
+			) : type === "LINK" ? (
+				<>
+					<Skeleton className="h-4 w-32 rounded-md" />
+					<Skeleton className="h-9 w-full rounded-md" />
+				</>
+			) : (
+				<>
+					{type === "VIDEO" && (
+						<Skeleton className="aspect-video w-full rounded-xl" />
+					)}
+					<Skeleton className="h-20 w-full rounded-xl" />
+				</>
 			)}
-		>
-			<Loader2 className="size-4 animate-spin" aria-hidden="true" />
-			{label}
 		</div>
 	);
 }
@@ -61,6 +85,7 @@ export function LessonMaterialFields({
 					owner={{
 						lessonDocumentId: lesson.documentId,
 						moduleDocumentId: null,
+						followUpDocumentId: null,
 					}}
 					defaultTitle={lesson.title}
 					canWrite={canWrite}
@@ -70,7 +95,13 @@ export function LessonMaterialFields({
 	}
 
 	if (!material) {
-		return <Loading label="Cargando el material…" className={inset} />;
+		return (
+			<MaterialSkeleton
+				type={lesson.type}
+				label="Cargando el material…"
+				className={inset}
+			/>
+		);
 	}
 
 	const current = material.fileName
@@ -81,7 +112,13 @@ export function LessonMaterialFields({
 		case "TEXT":
 			return canWrite ? (
 				<Suspense
-					fallback={<Loading label="Cargando el editor…" className={inset} />}
+					fallback={
+						<MaterialSkeleton
+							type="TEXT"
+							label="Cargando el editor…"
+							className={inset}
+						/>
+					}
 				>
 					<LessonBodyEditor
 						key={lesson.documentId}

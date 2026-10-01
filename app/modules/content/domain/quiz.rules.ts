@@ -1,10 +1,12 @@
 import * as v from "valibot";
 import {
 	type CourseCompletionRule,
+	type CourseStatus,
 	countsContent,
 } from "@/modules/courses/domain/course.rules";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import {
+	FOLLOW_UP_MINUTES_RANGE,
 	QUIZ_ATTEMPTS_RANGE,
 	QUIZ_MAX_QUESTIONS,
 	QUIZ_OPTION_MAX_LENGTH,
@@ -15,6 +17,8 @@ import {
 	TRUE_FALSE_LABELS,
 } from "./content.config";
 import {
+	ContentFollowUpNotAttendedError,
+	ContentFollowUpNotOpenError,
 	ContentQuizAlreadyTakenError,
 	ContentQuizIncompleteError,
 	ContentQuizLockedError,
@@ -36,11 +40,17 @@ import type {
 export const QUIZ_QUESTION_TYPES = ["SINGLE_CHOICE", "TRUE_FALSE"] as const;
 export type QuizQuestionType = (typeof QUIZ_QUESTION_TYPES)[number];
 
-/** Si quien lo presenta puede hacerlo ya, todavía no, o ya lo hizo. */
+/**
+ * Si quien lo presenta puede hacerlo ya, todavía no, o ya lo hizo. Los tres
+ * últimos son solo del seguimiento (docs/adr/0027).
+ */
 export const QUIZ_AVAILABILITIES = [
 	"AVAILABLE",
 	"LOCKED_BY_CONTENT",
 	"TAKEN",
+	"NOT_YET",
+	"CLOSED",
+	"NOT_ATTENDED",
 ] as const;
 export type QuizAvailability = (typeof QUIZ_AVAILABILITIES)[number];
 
@@ -50,36 +60,61 @@ const documentId = v.pipe(
 );
 
 /** De quién cuelga un cuestionario, y con ello qué hace al enviarse. */
-export const QUIZ_KINDS = ["FINAL", "PRACTICE", "MODULE"] as const;
+export const QUIZ_KINDS = ["FINAL", "PRACTICE", "MODULE", "FOLLOW_UP"] as const;
 export type QuizKind = (typeof QUIZ_KINDS)[number];
 
 export const quizKindOf = (owner: QuizOwnerRef): QuizKind => {
 	if (owner.lessonDocumentId !== null) return "PRACTICE";
 	if (owner.moduleDocumentId !== null) return "MODULE";
+	if (owner.followUpDocumentId) return "FOLLOW_UP";
 	return "FINAL";
 };
+
+/** Cuándo se abre una evaluación de seguimiento (docs/adr/0027). */
+export const FOLLOW_UP_AVAILABILITY_MODES = [
+	"SESSION_START",
+	"SESSION_END",
+	"RANGE",
+	"MANUAL",
+] as const;
+export type FollowUpAvailabilityMode =
+	(typeof FOLLOW_UP_AVAILABILITY_MODES)[number];
 
 export const FINAL_QUIZ_OWNER: QuizOwnerRef = {
 	lessonDocumentId: null,
 	moduleDocumentId: null,
+	followUpDocumentId: null,
 };
+
+/** El dueño de una evaluación de seguimiento. */
+export const followUpOwnerOf = (followUpDocumentId: string): QuizOwnerRef => ({
+	lessonDocumentId: null,
+	moduleDocumentId: null,
+	followUpDocumentId,
+});
 
 // ── Contratos de entrada ──────────────────────────────────────────────────────
 
 /**
- * Los dos nulos: el examen final del curso. Con lección, la práctica de esa
- * lección `QUIZ`; con módulo, la evaluación de ese módulo. Nunca los dos.
+ * Los tres nulos: el examen final del curso. Con lección, la práctica de esa
+ * lección `QUIZ`; con módulo, la evaluación de ese módulo; con seguimiento, esa
+ * evaluación de seguimiento. Nunca más de uno.
  */
 const owner = {
 	lessonDocumentId: v.nullable(documentId),
 	moduleDocumentId: v.optional(v.nullable(documentId), null),
+	followUpDocumentId: v.optional(v.nullable(documentId), null),
 };
 
 const ownedBySingleParent = <T extends QuizOwnerRef>(entry: T) =>
-	entry.lessonDocumentId === null || entry.moduleDocumentId === null;
+	[
+		entry.lessonDocumentId,
+		entry.moduleDocumentId,
+		entry.followUpDocumentId ?? null,
+	].filter((id) => id !== null).length <= 1;
 
 const OWNER_CONFLICT_MESSAGE =
-	"Un cuestionario cuelga de una lección o de un módulo, no de los dos.";
+	"Un cuestionario cuelga de una lección, de un módulo o de una sesión, no de varios.";
 
 const title = v.pipe(
 	v.string("El título del cuestionario es obligatorio."),
@@ -144,41 +179,44 @@ const question = v.pipe(
 	),
 );
 
+/** Los datos del cuestionario, sin sus preguntas. */
+const bankFields = {
+	title,
+	passingScore: v.pipe(
+		v.number("La calificación mínima debe ser un número."),
+		v.integer("La calificación mínima debe ser un número entero."),
+		v.minValue(0, "La calificación mínima va de 0 a 100."),
+		v.maxValue(100, "La calificación mínima va de 0 a 100."),
+	),
+	/** `null`: sin límite. */
+	maxAttempts: v.nullable(
+		v.pipe(
+			v.number("Los intentos deben ser un número."),
+			v.integer("Los intentos deben ser un número entero."),
+			v.minValue(
+				QUIZ_ATTEMPTS_RANGE.min,
+				`Los intentos van de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
+			),
+			v.maxValue(
+				QUIZ_ATTEMPTS_RANGE.max,
+				`Los intentos van de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
+			),
+		),
+	),
+	shuffleQuestions: v.boolean("Indica si las preguntas se barajan."),
+};
+
+const questions = v.pipe(
+	v.array(question, "Agrega las preguntas del cuestionario."),
+	v.minLength(1, "Agrega al menos una pregunta."),
+	v.maxLength(
+		QUIZ_MAX_QUESTIONS,
+		`Un cuestionario no puede tener más de ${QUIZ_MAX_QUESTIONS} preguntas.`,
+	),
+);
+
 export const saveQuizRule = v.pipe(
-	v.object({
-		...owner,
-		title,
-		passingScore: v.pipe(
-			v.number("La calificación mínima debe ser un número."),
-			v.integer("La calificación mínima debe ser un número entero."),
-			v.minValue(0, "La calificación mínima va de 0 a 100."),
-			v.maxValue(100, "La calificación mínima va de 0 a 100."),
-		),
-		/** `null`: sin límite. */
-		maxAttempts: v.nullable(
-			v.pipe(
-				v.number("Los intentos deben ser un número."),
-				v.integer("Los intentos deben ser un número entero."),
-				v.minValue(
-					QUIZ_ATTEMPTS_RANGE.min,
-					`Los intentos van de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
-				),
-				v.maxValue(
-					QUIZ_ATTEMPTS_RANGE.max,
-					`Los intentos van de ${QUIZ_ATTEMPTS_RANGE.min} a ${QUIZ_ATTEMPTS_RANGE.max}, o sin límite.`,
-				),
-			),
-		),
-		shuffleQuestions: v.boolean("Indica si las preguntas se barajan."),
-		questions: v.pipe(
-			v.array(question, "Agrega las preguntas del cuestionario."),
-			v.minLength(1, "Agrega al menos una pregunta."),
-			v.maxLength(
-				QUIZ_MAX_QUESTIONS,
-				`Un cuestionario no puede tener más de ${QUIZ_MAX_QUESTIONS} preguntas.`,
-			),
-		),
-	}),
+	v.object({ ...owner, ...bankFields, questions }),
 	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
 );
 
@@ -216,6 +254,83 @@ export const grantRetakeRule = v.pipe(
 	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
 );
 
+const followUpMinutes = (label: string) =>
+	v.nullable(
+		v.pipe(
+			v.number(`Los minutos ${label} deben ser un número.`),
+			v.integer(`Los minutos ${label} deben ser un número entero.`),
+			v.minValue(
+				FOLLOW_UP_MINUTES_RANGE.min,
+				`Los minutos ${label} no pueden ser negativos.`,
+			),
+			v.maxValue(
+				FOLLOW_UP_MINUTES_RANGE.max,
+				`Los minutos ${label} no pueden pasar de ${FOLLOW_UP_MINUTES_RANGE.max}.`,
+			),
+		),
+	);
+
+const followUpSettings = {
+	sessionDocumentId: v.pipe(
+		v.string("Elige la sesión de la evaluación."),
+		v.uuid("Elige una sesión válida."),
+	),
+	countsTowardGrade: v.boolean(
+		"Indica si la evaluación cuenta para la calificación.",
+	),
+	availability: v.picklist(
+		FOLLOW_UP_AVAILABILITY_MODES,
+		"Elige cuándo se abre la evaluación.",
+	),
+	opensBeforeMinutes: followUpMinutes("antes del inicio"),
+	closesAfterMinutes: followUpMinutes("después del fin"),
+};
+
+/** El rango pide las dos tolerancias; «al terminar», cuánto dura abierta. */
+const hasRequiredMinutes = <
+	T extends {
+		availability: FollowUpAvailabilityMode;
+		opensBeforeMinutes: number | null;
+		closesAfterMinutes: number | null;
+	},
+>(
+	entry: T,
+) => {
+	if (entry.availability === "RANGE") {
+		return (
+			entry.opensBeforeMinutes !== null && entry.closesAfterMinutes !== null
+		);
+	}
+	if (entry.availability === "SESSION_END") {
+		return entry.closesAfterMinutes !== null;
+	}
+	return true;
+};
+
+const MISSING_MINUTES_MESSAGE =
+	"Indica los minutos de la ventana en que estará abierta la evaluación.";
+
+/**
+ * La configuración de una evaluación de seguimiento, la del modal: sus datos y
+ * cuándo se abre, sin las preguntas. Sin `followUpDocumentId`, se crea.
+ */
+export const saveFollowUpRule = v.pipe(
+	v.object({
+		followUpDocumentId: v.optional(v.nullable(documentId), null),
+		...bankFields,
+		...followUpSettings,
+	}),
+	v.check(hasRequiredMinutes, MISSING_MINUTES_MESSAGE),
+);
+
+/** Sus preguntas, que se guardan con el paso, como las del examen final. */
+export const saveFollowUpQuestionsRule = v.object({
+	followUpDocumentId: documentId,
+	questions,
+});
+
+export const followUpRule = v.object({ followUpDocumentId: documentId });
+
 export const quizRules = {
 	find: findQuizRule,
 	save: saveQuizRule,
@@ -223,7 +338,27 @@ export const quizRules = {
 	submit: submitQuizRule,
 	archiveModuleQuiz: moduleQuizRule,
 	grantRetake: grantRetakeRule,
+	saveFollowUp: saveFollowUpRule,
+	saveFollowUpQuestions: saveFollowUpQuestionsRule,
+	followUp: followUpRule,
 } as const;
+
+/** Solo se guardan los minutos que el modo usa: así lo guardado no miente. */
+export const toFollowUpSettingsWrite = (dto: {
+	countsTowardGrade: boolean;
+	availability: FollowUpAvailabilityMode;
+	opensBeforeMinutes: number | null;
+	closesAfterMinutes: number | null;
+}) => ({
+	countsTowardGrade: dto.countsTowardGrade,
+	availability: dto.availability,
+	opensBeforeMinutes:
+		dto.availability === "RANGE" ? dto.opensBeforeMinutes : null,
+	closesAfterMinutes:
+		dto.availability === "RANGE" || dto.availability === "SESSION_END"
+			? dto.closesAfterMinutes
+			: null,
+});
 
 // ── El banco ──────────────────────────────────────────────────────────────────
 
@@ -235,7 +370,12 @@ export const toTrueFalseOptions = (correctIndex: number) =>
 	}));
 
 /** Lo que se escribe: verdadero o falso con su texto fijo, lo demás tal cual. */
-export const toQuizBankWrite = (dto: SaveQuizDto): QuizBankWrite => ({
+export const toQuizBankWrite = (
+	dto: Pick<
+		SaveQuizDto,
+		"title" | "passingScore" | "maxAttempts" | "shuffleQuestions" | "questions"
+	>,
+): QuizBankWrite => ({
 	title: dto.title,
 	passingScore: dto.passingScore,
 	maxAttempts: dto.maxAttempts,
@@ -318,6 +458,16 @@ export const isAccredited = (enrollment: {
 	completed: boolean;
 }): boolean => enrollment.result === "PASSED" || enrollment.completed;
 
+/** Un intento reprobado se repite mientras queden intentos y no se acredite. */
+const isReopened = (
+	enrollment: { result: EnrollmentResult; completed: boolean } | null,
+	latestAttempt: AttemptSummary,
+	maxAttempts: number | null,
+) =>
+	!latestAttempt.passed &&
+	!(enrollment && isAccredited(enrollment)) &&
+	hasAttemptsLeft(maxAttempts, latestAttempt);
+
 /**
  * El examen final de un curso que cuenta contenido espera a que se terminen las
  * obligatorias. Uno que no lo cuenta está disponible desde la inscripción.
@@ -337,12 +487,8 @@ export const quizAvailabilityOf = (
 	kind: QuizKind,
 	maxAttempts: number | null,
 ): QuizAvailability => {
-	if (latestAttempt) {
-		const reopened =
-			!latestAttempt.passed &&
-			!(enrollment && isAccredited(enrollment)) &&
-			hasAttemptsLeft(maxAttempts, latestAttempt);
-		if (!reopened) return "TAKEN";
+	if (latestAttempt && !isReopened(enrollment, latestAttempt, maxAttempts)) {
+		return "TAKEN";
 	}
 	if (
 		kind === "FINAL" &&
@@ -401,11 +547,121 @@ export const assertRetakeGrantable = <T extends AttemptSummary>(
 };
 
 export const assertCanSubmit = (availability: QuizAvailability): void => {
-	if (availability === "TAKEN") throw new ContentQuizAlreadyTakenError();
-	if (availability === "LOCKED_BY_CONTENT") {
-		throw new ContentQuizNotAvailableError();
+	switch (availability) {
+		case "AVAILABLE":
+			return;
+		case "TAKEN":
+			throw new ContentQuizAlreadyTakenError();
+		case "LOCKED_BY_CONTENT":
+			throw new ContentQuizNotAvailableError();
+		case "NOT_YET":
+		case "CLOSED":
+			throw new ContentFollowUpNotOpenError();
+		case "NOT_ATTENDED":
+			throw new ContentFollowUpNotAttendedError();
 	}
 };
+
+// ── Evaluaciones de seguimiento (docs/adr/0027) ──────────────────────────────
+
+const MINUTE_MS = 60_000;
+
+const plusMinutes = (at: Date, minutes: number) =>
+	new Date(at.getTime() + minutes * MINUTE_MS);
+
+/** Cuándo abre y cierra; `null` es que todavía no se sabe (modo manual). */
+export const followUpWindowOf = (
+	followUp: {
+		availability: FollowUpAvailabilityMode;
+		opensBeforeMinutes: number | null;
+		closesAfterMinutes: number | null;
+		openedAt: Date | null;
+		closedAt: Date | null;
+	},
+	session: { startsAt: Date; endsAt: Date },
+): { opensAt: Date | null; closesAt: Date | null } => {
+	switch (followUp.availability) {
+		case "SESSION_START":
+			return { opensAt: session.startsAt, closesAt: session.endsAt };
+		case "SESSION_END":
+			return {
+				opensAt: session.endsAt,
+				closesAt: plusMinutes(session.endsAt, followUp.closesAfterMinutes ?? 0),
+			};
+		case "RANGE":
+			return {
+				opensAt: plusMinutes(
+					session.startsAt,
+					-(followUp.opensBeforeMinutes ?? 0),
+				),
+				closesAt: plusMinutes(session.endsAt, followUp.closesAfterMinutes ?? 0),
+			};
+		case "MANUAL":
+			return { opensAt: followUp.openedAt, closesAt: followUp.closedAt };
+	}
+};
+
+export const FOLLOW_UP_STATES = ["SCHEDULED", "OPEN", "CLOSED"] as const;
+export type FollowUpState = (typeof FOLLOW_UP_STATES)[number];
+
+/** Toda ventana se cierra también cuando el curso deja de impartirse. */
+export const followUpStateOf = (
+	window: { opensAt: Date | null; closesAt: Date | null },
+	courseStatus: CourseStatus,
+	now: Date,
+): FollowUpState => {
+	if (courseStatus !== "PUBLISHED") return "CLOSED";
+	if (window.closesAt && now >= window.closesAt) return "CLOSED";
+	if (!window.opensAt || now < window.opensAt) return "SCHEDULED";
+	return "OPEN";
+};
+
+/**
+ * Lo que puede hacer quien lo presenta. Los intentos siguen las reglas del
+ * resto de cuestionarios; además, la ventana tiene que estar abierta y la
+ * persona tiene que haber registrado asistencia en la sesión.
+ */
+export const followUpAvailabilityOf = (
+	state: FollowUpState,
+	attended: boolean,
+	enrollment: { result: EnrollmentResult; completed: boolean } | null,
+	latestAttempt: AttemptSummary | null,
+	maxAttempts: number | null,
+): QuizAvailability => {
+	if (latestAttempt && !isReopened(enrollment, latestAttempt, maxAttempts)) {
+		return "TAKEN";
+	}
+	if (state === "SCHEDULED") return "NOT_YET";
+	if (state === "CLOSED") return "CLOSED";
+	if (!attended) return "NOT_ATTENDED";
+	return "AVAILABLE";
+};
+
+/** Lo que una evaluación de seguimiento aporta al promedio de una persona. */
+export interface FollowUpScore {
+	countsTowardGrade: boolean;
+	closed: boolean;
+	best: number | null;
+}
+
+/**
+ * Las notas que promedia la calificación del curso: el temario que cuenta, el
+ * examen final y el seguimiento que cuenta. Un seguimiento que cuenta y cerró
+ * sin intento vale 0; mientras siga abierto, todavía no entra.
+ */
+export const courseScoresOf = (parts: {
+	content: readonly number[];
+	finalBest: number | null;
+	followUps: readonly FollowUpScore[];
+}): number[] => [
+	...parts.content,
+	...(parts.finalBest === null ? [] : [parts.finalBest]),
+	...parts.followUps.flatMap((followUp) => {
+		if (!followUp.countsTowardGrade) return [];
+		if (followUp.best !== null) return [followUp.best];
+		return followUp.closed ? [0] : [];
+	}),
+];
 
 /** Generador determinista (mulberry32): la misma semilla, el mismo orden. */
 const seededRandom = (seed: string) => {

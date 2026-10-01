@@ -2,7 +2,7 @@ import { valibotResolver } from "@hookform/resolvers/valibot";
 import { LogOut, Save } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, type Resolver, useForm } from "react-hook-form";
-import { Link, useFetcher, useNavigate } from "react-router";
+import { Link, useFetcher, useNavigate, useNavigation } from "react-router";
 import { sileo } from "sileo";
 import { toFormData } from "@/lib/form-data";
 import { scrollIntoView } from "@/lib/motion";
@@ -87,7 +87,7 @@ const describeStep = (step: CourseStep, mode: CourseWizardMode): string => {
 		case "content":
 			return "Los módulos y las lecciones que se recorren.";
 		case "rules":
-			return "Qué hace falta para completar la capacitación y obtener el crédito, y cómo se evalúa a quien la toma.";
+			return "Qué hace falta para acreditar la capacitación y cómo se evalúa.";
 		case "access":
 			return "Quién puede verla e inscribirse, y cuántos lugares hay.";
 		case "review":
@@ -117,9 +117,14 @@ interface CourseWizardProps {
 	finishLabel?: string;
 	/** Query que viaja entre pasos, para no perder a dónde se vuelve. */
 	search?: string;
-	/** Las evaluaciones de seguimiento, ya pintadas, para el paso Evaluación. */
-	evaluations?: ReactNode;
-	evaluationTitles?: readonly string[];
+	/**
+	 * Las evaluaciones de seguimiento del paso Evaluación. Es función porque sus
+	 * preguntas se guardan al continuar, como las del examen.
+	 */
+	followUps?: (bindings: FollowUpBindings) => ReactNode;
+	followUpTitles?: readonly string[];
+	/** Las que entran al promedio, para el resumen de cómo se acredita. */
+	countedFollowUpTitles?: readonly string[];
 	/**
 	 * El editor del examen para el paso Evaluación. Es función porque el wizard
 	 * lo guarda al continuar y lo cuenta como cambio sin guardar.
@@ -127,6 +132,12 @@ interface CourseWizardProps {
 	quiz?: (bindings: QuizBindings) => ReactNode;
 	/** Preguntas del examen guardado, para la revisión. */
 	quizQuestionCount?: number;
+}
+
+/** Lo que el wizard le pasa a las preguntas del seguimiento. */
+export interface FollowUpBindings {
+	saveRef: QuizSaveRef;
+	onDirtyChange: (dirty: boolean) => void;
 }
 
 /** Lo que el wizard le pasa al editor del examen. */
@@ -157,8 +168,9 @@ export function CourseWizard({
 	finishTo,
 	finishLabel,
 	search = "",
-	evaluations,
-	evaluationTitles = [],
+	followUps,
+	followUpTitles = [],
+	countedFollowUpTitles = [],
 	quiz,
 	quizQuestionCount = 0,
 }: CourseWizardProps) {
@@ -225,6 +237,16 @@ export function CourseWizard({
 	const [savingMaterials, setSavingMaterials] = useState(false);
 	const busy = isSubmitting || savingMaterials;
 	const [leavingTo, setLeavingTo] = useState<string | null>(null);
+	// Guardado el paso, el botón sigue ocupado hasta que se pinta el destino: sin
+	// esto quedaba un hueco sin respuesta mientras cargaba el paso siguiente.
+	const navigation = useNavigation();
+	const [openedAfterSave, setOpenedAfterSave] = useState(false);
+	const opening = openedAfterSave && navigation.state !== "idle";
+	// Qué botón lanzó el guardado: es el que enseña que está trabajando.
+	const [submittedTarget, setSubmittedTarget] = useState<SaveTarget | null>(
+		null,
+	);
+	const pendingTarget = busy || opening ? submittedTarget : null;
 
 	const headingRef = useRef<HTMLHeadingElement>(null);
 	// `watch` y no `useWatch`: el proveedor del formulario se monta más abajo en
@@ -346,6 +368,7 @@ export function CourseWizard({
 		if (!leavingTo) return;
 
 		navigate(leavingTo);
+		setOpenedAfterSave(true);
 		setLeavingTo(null);
 	}, [leavingTo, navigate]);
 
@@ -358,15 +381,19 @@ export function CourseWizard({
 	const quizSaveRef: QuizSaveRef = useRef(null);
 	const [quizDirty, setQuizDirty] = useState(false);
 	const [quizSummary, setQuizSummary] = useState<string | null>(null);
+	// Las preguntas del seguimiento, igual: cada evaluación guarda las suyas.
+	const followUpSaveRef: QuizSaveRef = useRef(null);
+	const [followUpDirty, setFollowUpDirty] = useState(false);
 
 	const hasUnsavedChanges =
-		(isDirty || coverTouched || contentDirty || quizDirty) &&
+		(isDirty || coverTouched || contentDirty || quizDirty || followUpDirty) &&
 		!busy &&
 		leavingTo === null;
 
 	/** `true` cuando el paso quedó guardado. */
 	const submitStep = async (target: SaveTarget): Promise<boolean> => {
 		targetRef.current = target;
+		setSubmittedTarget(target);
 		const settled = () =>
 			new Promise<boolean>((resolve) => {
 				settle(false);
@@ -403,6 +430,8 @@ export function CourseWizard({
 
 		const saveQuiz = quizSaveRef.current;
 		if (saveQuiz && !(await saveQuiz())) return false;
+		const saveFollowUps = followUpSaveRef.current;
+		if (saveFollowUps && !(await saveFollowUps())) return false;
 
 		const values = getValues();
 		const { dependency, ...rest } = buildCoursePayload(values);
@@ -479,7 +508,8 @@ export function CourseWizard({
 								<Button
 									type="button"
 									variant="outline"
-									disabled={busy}
+									disabled={busy || opening}
+									pending={pendingTarget === "stay"}
 									onClick={() => void submitStep("stay")}
 								>
 									<Save aria-hidden="true" />
@@ -488,7 +518,8 @@ export function CourseWizard({
 								<Button
 									type="button"
 									variant="outline"
-									disabled={busy}
+									disabled={busy || opening}
+									pending={pendingTarget === "exit"}
 									onClick={() => void submitStep("exit")}
 								>
 									<LogOut aria-hidden="true" />
@@ -544,8 +575,12 @@ export function CourseWizard({
 								isPublished={course?.status === "PUBLISHED"}
 								checklist={checklist ?? []}
 								content={content ?? null}
-								evaluations={evaluations}
-								evaluationTitles={evaluationTitles}
+								followUps={followUps?.({
+									saveRef: followUpSaveRef,
+									onDirtyChange: setFollowUpDirty,
+								})}
+								followUpTitles={followUpTitles}
+								countedFollowUpTitles={countedFollowUpTitles}
 								quiz={quiz?.({
 									saveRef: quizSaveRef,
 									onDirtyChange: setQuizDirty,
@@ -576,7 +611,14 @@ export function CourseWizard({
 							formId={ids.form}
 							backTo={preceding ? hrefOf(preceding.number) : null}
 							nextTitle={isReview ? null : (following?.title ?? null)}
-							isSubmitting={busy}
+							busy={busy || opening}
+							pendingPhase={
+								pendingTarget === "next"
+									? opening
+										? "opening"
+										: "saving"
+									: null
+							}
 							submitKind={
 								isReview ? "publish" : isEdit && !following ? "save" : "next"
 							}
@@ -599,8 +641,9 @@ function StepFields({
 	checklist,
 	content,
 	cover,
-	evaluations,
-	evaluationTitles,
+	followUps,
+	followUpTitles,
+	countedFollowUpTitles,
 	quiz,
 	quizSummary,
 	quizQuestionCount,
@@ -616,8 +659,9 @@ function StepFields({
 	checklist: PublishChecklist;
 	content: CourseContentTree | null;
 	cover: CourseCoverControl;
-	evaluations?: ReactNode;
-	evaluationTitles: readonly string[];
+	followUps?: ReactNode;
+	followUpTitles: readonly string[];
+	countedFollowUpTitles: readonly string[];
 	quiz?: ReactNode;
 	quizSummary: string | null;
 	quizQuestionCount: number;
@@ -663,7 +707,8 @@ function StepFields({
 				<CourseEvaluationFields
 					ids={ids}
 					isPublished={isPublished}
-					evaluations={evaluations}
+					followUps={followUps}
+					countedFollowUpTitles={countedFollowUpTitles}
 					quiz={quiz}
 					quizSummary={quizSummary}
 					content={
@@ -693,7 +738,7 @@ function StepFields({
 					course={course}
 					checklist={checklist}
 					content={content ? toContentSummary(content) : null}
-					evaluationTitles={evaluationTitles}
+					followUpTitles={followUpTitles}
 					quizQuestionCount={quizQuestionCount}
 				/>
 			) : null;

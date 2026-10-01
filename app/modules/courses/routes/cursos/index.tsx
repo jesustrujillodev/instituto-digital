@@ -20,6 +20,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { placeholderCountOf } from "@/lib/placeholders";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { ListPagination } from "@/shared/components/common/list-pagination";
@@ -49,16 +50,21 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { VIEW_MODE_SCREENS, type ViewMode } from "@/shared/view-mode/view-mode";
 import {
 	CourseCardFrame,
 	CourseCardList,
+	CourseCardListSkeleton,
 	CourseCardStatus,
 	type CourseMetaItem,
 } from "../../components/course-card-frame";
-import { COURSE_PAGE_SIZES } from "../../domain/course.config";
+import {
+	COURSE_LIST_DEFAULTS,
+	COURSE_PAGE_SIZES,
+} from "../../domain/course.config";
 import {
 	COURSE_MODALITIES,
 	COURSE_STATUSES,
@@ -114,6 +120,7 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 	} = loaderData;
 	const [, setSearchParams] = useSearchParams();
 	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.courses, view);
+	const isLoading = useRouteReloading();
 
 	const fetcher = useFetcher<CourseActionData>();
 	useFetcherToast(fetcher);
@@ -287,7 +294,15 @@ export default function CursosPage({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
-				{courses.length === 0 ? (
+				{isLoading ? (
+					<CourseCardListSkeleton
+						layout={layout}
+						count={placeholderCountOf(
+							courses.length,
+							pagination?.pageSize ?? COURSE_LIST_DEFAULTS.pageSize,
+						)}
+					/>
+				) : courses.length === 0 ? (
 					<CoursesEmpty hasFilters={hasFilters} onClear={clearFilters} />
 				) : (
 					<CourseCardList layout={layout}>

@@ -4,12 +4,9 @@ import type { IssueCandidate } from "@/modules/certificates/domain/certificate.t
 import {
 	countsAttendance,
 	countsContent,
-	evaluatesByQuiz,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
 import type { CreditCandidate } from "@/modules/credits/domain/credit.types";
-import { ENROLLMENT_RESULTS } from "@/modules/enrollments/domain/enrollment.config";
-import type { ResultWrite } from "@/modules/enrollments/domain/enrollment.types";
 import { createListRule, SORT_DIRECTIONS } from "@/shared/rules/list.rules";
 import { canCorrect, type TeachingScope } from "./teaching.access";
 import {
@@ -22,19 +19,15 @@ import {
 	TeachingCertificatesNotIssuableError,
 	TeachingCorrectionForbiddenError,
 	TeachingCourseNotFoundError,
-	TeachingEvaluationNotRequiredError,
 	TeachingFinishTooEarlyError,
 	TeachingNotPublishedError,
 	TeachingNotSelfPacedError,
-	TeachingPendingResultsError,
-	TeachingResultsByQuizError,
 	TeachingSelfPacedNotFinishableError,
 	TeachingUnknownParticipantError,
 	TeachingWithoutSessionsError,
 } from "./teaching.errors";
 import type {
 	SaveAttendanceDto,
-	SaveResultsDto,
 	TeachingCourse,
 	TeachingParticipant,
 	TeachingSession,
@@ -77,47 +70,6 @@ export const saveAttendanceRule = v.object({
 	),
 });
 
-export const GRADE_RANGE = { min: 0, max: 100 } as const;
-
-const resultEntry = v.pipe(
-	v.object({
-		userDocumentId: documentId,
-		result: v.picklist(ENROLLMENT_RESULTS, "Elige un resultado válido."),
-		grade: v.optional(
-			v.nullable(
-				v.pipe(
-					v.number("La calificación debe ser un número."),
-					v.integer("La calificación debe ser un número entero."),
-					v.minValue(
-						GRADE_RANGE.min,
-						`La calificación mínima es ${GRADE_RANGE.min}.`,
-					),
-					v.maxValue(
-						GRADE_RANGE.max,
-						`La calificación máxima es ${GRADE_RANGE.max}.`,
-					),
-				),
-			),
-			null,
-		),
-	}),
-	v.check(
-		(entry) => entry.result !== "PENDING" || entry.grade === null,
-		"La nota solo acompaña a un resultado capturado.",
-	),
-);
-
-export const saveResultsRule = v.object({
-	entries: v.pipe(
-		v.array(resultEntry, "Revisa la captura de resultados."),
-		v.minLength(1, "Captura al menos un resultado."),
-		v.maxLength(
-			TEACHING_BATCH_LIMIT,
-			`No puedes guardar más de ${TEACHING_BATCH_LIMIT} resultados a la vez.`,
-		),
-	),
-});
-
 export const setEnrollmentOpenRule = v.object({
 	open: v.boolean("Indica si la inscripción queda abierta o cerrada."),
 });
@@ -126,7 +78,6 @@ export const teachingRules = {
 	find: findTeachingCourseRule,
 	list: listTeachingCoursesRule,
 	attendance: saveAttendanceRule,
-	results: saveResultsRule,
 	enrollmentWindow: setEnrollmentOpenRule,
 } as const;
 
@@ -247,17 +198,6 @@ export const fiscalYearOf = (
 	fallback: Date,
 ): number => zonedYearOf(lastSessionOf(course)?.startsAt ?? fallback);
 
-/**
- * Resultados que faltan capturar. Con examen en línea no cuentan: nadie los
- * captura, y quien no lo presentó queda «No presentó» al cierre (docs/adr/0015).
- */
-export const pendingResultsOf = (course: TeachingCourse): number =>
-	course.requiresEvaluation && !evaluatesByQuiz(course)
-		? course.participants.filter(
-				(participant) => participant.result === "PENDING",
-			).length
-		: 0;
-
 export const finishBlockerOf = (
 	course: TeachingCourse,
 	now: Date,
@@ -268,8 +208,6 @@ export const finishBlockerOf = (
 	const opensAt = finishOpensAt(course);
 	if (!opensAt) return "WITHOUT_SESSIONS";
 	if (now < opensAt) return "TOO_EARLY";
-
-	if (pendingResultsOf(course) > 0) return "PENDING_RESULTS";
 
 	return null;
 };
@@ -347,8 +285,6 @@ export const assertFinishable = (course: TeachingCourse, now: Date): void => {
 			throw new TeachingWithoutSessionsError();
 		case "TOO_EARLY":
 			throw new TeachingFinishTooEarlyError(finishOpensAt(course) as Date);
-		case "PENDING_RESULTS":
-			throw new TeachingPendingResultsError(pendingResultsOf(course));
 	}
 };
 
@@ -411,43 +347,4 @@ export const resolveAttendanceMarks = (
 			? []
 			: [{ userId: participant.userId, attended: mark.attended }];
 	});
-};
-
-/**
- * Los resultados que cambian algo. En un curso finalizado no se admite volver
- * a `PENDING`: el cierre ya exigió que no quedara ninguno.
- */
-export const resolveResultEntries = (
-	course: TeachingCourse,
-	entries: SaveResultsDto["entries"],
-): ResultWrite[] => {
-	if (!course.requiresEvaluation) {
-		throw new TeachingEvaluationNotRequiredError();
-	}
-	if (evaluatesByQuiz(course)) throw new TeachingResultsByQuizError();
-
-	const participants = participantsByDocument(course);
-	const resolved = entries.map((entry) => {
-		const participant = participants.get(entry.userDocumentId);
-		if (!participant) throw new TeachingUnknownParticipantError();
-		return { participant, entry };
-	});
-
-	if (course.status === "FINISHED") {
-		const pending = resolved.filter(({ entry }) => entry.result === "PENDING");
-		if (pending.length > 0)
-			throw new TeachingPendingResultsError(pending.length);
-	}
-
-	return resolved.flatMap(({ participant, entry }) =>
-		participant.result === entry.result && participant.grade === entry.grade
-			? []
-			: [
-					{
-						userId: participant.userId,
-						result: entry.result,
-						grade: entry.grade,
-					},
-				],
-	);
 };

@@ -43,7 +43,6 @@ const courseSelect = (courseFilter: CourseFilter) =>
 		status: true,
 		minAttendance: true,
 		requiresEvaluation: true,
-		evaluationMethod: true,
 		minPassingGrade: true,
 		finishedAt: true,
 		enrollmentClosedAt: true,
@@ -237,5 +236,13 @@ export const createTeachingRepository = ({
 		});
 
 		return true;
+	},
+
+	async findAttendedSessionIds(courseId, userId) {
+		const rows = await prisma.courseAttendance.findMany({
+			where: { userId, attended: true, session: { courseId } },
+			select: { sessionId: true },
+		});
+		return rows.map((row) => row.sessionId);
 	},
 });

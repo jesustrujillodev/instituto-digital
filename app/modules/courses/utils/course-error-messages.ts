@@ -46,14 +46,9 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 			"Una capacitación autogestiva no tiene sesiones, así que no puede completarse por asistencia.",
 		fieldErrors: { completionRule: "Elige otra regla" },
 	},
-	[COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD]: {
-		message:
-			"Una capacitación autogestiva no tiene capacitador que capture resultados: se evalúa con examen en línea.",
-		fieldErrors: { evaluationMethod: "Elige examen en línea" },
-	},
 	[COURSE_ERROR_CODES.COMPLETION_LOCKED]: {
 		message:
-			"Una capacitación autogestiva publicada ya otorga créditos: su regla de completado y su evaluación no se pueden cambiar.",
+			"La capacitación ya está publicada: la evaluación final y la calificación mínima no se pueden cambiar, ni la regla de completado de una autogestiva.",
 		fieldErrors: {
 			completionRule: "No se puede cambiar",
 			requiresEvaluation: "No se puede cambiar",
@@ -66,7 +61,11 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	[COURSE_ERROR_CODES.WITHOUT_LESSONS]:
 		"Para publicar, una capacitación autogestiva necesita al menos una lección.",
 	[COURSE_ERROR_CODES.WITHOUT_QUIZ]:
-		"Para publicar, una capacitación evaluada con examen en línea necesita un examen con al menos una pregunta.",
+		"Para publicar, una capacitación con evaluación final necesita un examen con al menos una pregunta.",
+	[COURSE_ERROR_CODES.FOLLOW_UP_WITHOUT_QUESTIONS]:
+		"Para publicar, cada evaluación de seguimiento necesita al menos una pregunta.",
+	[COURSE_ERROR_CODES.SESSION_HAS_ATTEMPTS]:
+		"No se puede quitar una sesión cuya evaluación de seguimiento ya presentó alguien.",
 	[COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER]:
 		"Para publicar, la capacitación necesita al menos un capacitador con el perfil activo.",
 	[COURSE_ERROR_CODES.SESSION_MISSING_VENUE]: {

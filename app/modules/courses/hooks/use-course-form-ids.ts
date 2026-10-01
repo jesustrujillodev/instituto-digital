@@ -16,7 +16,6 @@ const FIELD_KEYS = [
 	"enrollmentDeadline",
 	"minAttendance",
 	"requiresEvaluation",
-	"evaluationMethod",
 	"minPassingGrade",
 	"qrOpensBeforeMinutes",
 	"qrClosesAfterMinutes",

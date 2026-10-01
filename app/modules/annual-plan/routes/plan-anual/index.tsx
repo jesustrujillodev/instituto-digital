@@ -17,6 +17,7 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { PlanProgressBar } from "../../components/plan-badges";
 import type { PlanSummary } from "../../domain/annual-plan.types";
@@ -42,6 +43,7 @@ export function meta() {
 }
 
 export default function PlanAnualPage({ loaderData }: Route.ComponentProps) {
+	const isReloading = useRouteReloading();
 	const {
 		data: {
 			plans,
@@ -102,6 +104,10 @@ export default function PlanAnualPage({ loaderData }: Route.ComponentProps) {
 									key={year}
 									onClick={() => createPlan(year)}
 									disabled={fetcher.state !== "idle"}
+									pending={
+										fetcher.state !== "idle" &&
+										fetcher.formData?.get(YEAR_FIELD) === String(year)
+									}
 								>
 									<Plus className="h-4 w-4" />
 									Crear plan {year}
@@ -141,6 +147,7 @@ export default function PlanAnualPage({ loaderData }: Route.ComponentProps) {
 
 			<div className="overflow-hidden rounded-lg border border-border bg-card">
 				<DataTable
+					isLoading={isReloading}
 					data={rows}
 					columns={columns}
 					emptyState={{

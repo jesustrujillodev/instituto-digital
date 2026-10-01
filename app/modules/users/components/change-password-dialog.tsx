@@ -121,7 +121,7 @@ function ChangePasswordBody({ onDone }: { onDone: () => void }) {
 						Cancelar
 					</Button>
 				</DialogClose>
-				<Button type="submit" disabled={isSubmitting}>
+				<Button type="submit" pending={isSubmitting}>
 					{isSubmitting ? "Guardando…" : "Guardar contraseña"}
 				</Button>
 			</DialogFooter>

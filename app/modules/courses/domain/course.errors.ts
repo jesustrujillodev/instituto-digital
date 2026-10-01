@@ -5,7 +5,6 @@ import type {
 	CourseCompletionRule,
 	CourseFormat,
 	CourseStatus,
-	EvaluationMethod,
 } from "./course.rules";
 
 export const COURSE_ERROR_CODES = {
@@ -16,12 +15,13 @@ export const COURSE_ERROR_CODES = {
 	NOT_EDITABLE: "COURSE_NOT_EDITABLE",
 	FORMAT_LOCKED: "COURSE_FORMAT_LOCKED",
 	INCOMPATIBLE_COMPLETION_RULE: "COURSE_INCOMPATIBLE_COMPLETION_RULE",
-	INCOMPATIBLE_EVALUATION_METHOD: "COURSE_INCOMPATIBLE_EVALUATION_METHOD",
 	COMPLETION_LOCKED: "COURSE_COMPLETION_LOCKED",
 	INVALID_TRANSITION: "COURSE_INVALID_TRANSITION",
 	WITHOUT_SESSIONS: "COURSE_WITHOUT_SESSIONS",
 	WITHOUT_LESSONS: "COURSE_WITHOUT_LESSONS",
 	WITHOUT_QUIZ: "COURSE_WITHOUT_QUIZ",
+	FOLLOW_UP_WITHOUT_QUESTIONS: "COURSE_FOLLOW_UP_WITHOUT_QUESTIONS",
+	SESSION_HAS_ATTEMPTS: "COURSE_SESSION_HAS_ATTEMPTS",
 	WITHOUT_ACTIVE_TRAINER: "COURSE_WITHOUT_ACTIVE_TRAINER",
 	SESSION_MISSING_VENUE: "COURSE_SESSION_MISSING_VENUE",
 	SESSION_MISSING_LINK: "COURSE_SESSION_MISSING_LINK",
@@ -122,19 +122,6 @@ export class CourseIncompatibleCompletionRuleError extends CourseError {
 	}
 }
 
-/** Un autogestivo no tiene quién capture su resultado a mano. */
-export class CourseIncompatibleEvaluationMethodError extends CourseError {
-	readonly code = COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD;
-	readonly details: {
-		format: CourseFormat;
-		evaluationMethod: EvaluationMethod;
-	};
-	constructor(format: CourseFormat, evaluationMethod: EvaluationMethod) {
-		super(`Format ${format} cannot be evaluated by ${evaluationMethod}`);
-		this.details = { format, evaluationMethod };
-	}
-}
-
 /** La regla y la evaluación de un autogestivo publicado (docs/adr/0014). */
 export class CourseCompletionLockedError extends CourseError {
 	readonly code = COURSE_ERROR_CODES.COMPLETION_LOCKED;
@@ -155,6 +142,29 @@ export class CourseWithoutQuizError extends CourseError {
 	readonly code = COURSE_ERROR_CODES.WITHOUT_QUIZ;
 	constructor() {
 		super("A course evaluated by quiz needs a quiz with at least one question");
+	}
+}
+
+/** Una evaluación de seguimiento sin preguntas no se puede presentar (docs/adr/0027). */
+export class CourseFollowUpWithoutQuestionsError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.FOLLOW_UP_WITHOUT_QUESTIONS;
+	readonly details: { count: number };
+	constructor(count: number) {
+		super(`${count} follow-up evaluations have no questions`);
+		this.details = { count };
+	}
+}
+
+/**
+ * Quitar una sesión se llevaría los intentos de su evaluación de seguimiento, y
+ * con ellos notas que ya cuentan (docs/adr/0027).
+ */
+export class CourseSessionHasAttemptsError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.SESSION_HAS_ATTEMPTS;
+	readonly details: { sessionDocumentIds: string[] };
+	constructor(sessionDocumentIds: string[]) {
+		super("A removed session has follow-up attempts");
+		this.details = { sessionDocumentIds };
 	}
 }
 

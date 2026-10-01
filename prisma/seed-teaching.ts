@@ -72,7 +72,6 @@ export async function seedTeaching(prisma: PrismaClient): Promise<Seeded> {
 			modality: "HYBRID",
 			access: "PUBLIC",
 			capacity: 20,
-			requiresEvaluation: true,
 			sessions: {
 				create: [
 					session("2026-09-01", "09:00", "12:00"),
@@ -83,13 +82,7 @@ export async function seedTeaching(prisma: PrismaClient): Promise<Seeded> {
 			trainers: { create: [{ userId: trainerSop.id }] },
 			enrollments: {
 				create: [
-					{
-						...enrolled(dianaSop, headSop.id, now),
-						result: "PASSED",
-						grade: 92,
-						resultRecordedBy: { connect: { id: trainerSop.id } },
-						resultRecordedAt: now,
-					},
+					enrolled(dianaSop, headSop.id, now),
 					enrolled(miguelSop, headSop.id, now),
 				],
 			},
@@ -115,50 +108,72 @@ export async function seedTeaching(prisma: PrismaClient): Promise<Seeded> {
 		]),
 	});
 
-	// Dos evaluaciones: una atada a la sesión 2 y otra sin día, como el proyecto
-	// final. Lo capturado es interno: no sale en "Mis cursos" (§6.8).
-	await prisma.courseEvaluation.create({
+	// Una evaluación de seguimiento de la sesión 2 que cuenta para la nota
+	// (docs/adr/0027). Diana asistió y la presentó; Miguel faltó a esa sesión,
+	// así que al cerrarse le cuenta como 0.
+	const followUp = await prisma.quiz.create({
 		data: {
 			courseId: safety.id,
 			sessionId: safety.sessions[1].id,
 			title: "Práctica de campo",
-			createdById: trainerSop.id,
-			results: {
+			passingScore: 60,
+			maxAttempts: 1,
+			countsTowardGrade: true,
+			availability: "SESSION_START",
+			questions: {
 				create: [
 					{
-						userId: dianaSop.id,
-						passed: true,
-						note: "Aplicó el protocolo sin ayuda.",
-						recordedById: trainerSop.id,
-						recordedAt: now,
+						statement: "¿Qué se revisa antes de subir a un andamio?",
+						type: "SINGLE_CHOICE",
+						points: 1,
+						order: 1,
+						options: {
+							create: [
+								{ text: "Anclajes y barandales", isCorrect: true, order: 1 },
+								{ text: "El color del casco", isCorrect: false, order: 2 },
+							],
+						},
 					},
 					{
-						userId: miguelSop.id,
-						passed: false,
-						note: "No se presentó a la práctica.",
-						recordedById: trainerSop.id,
-						recordedAt: now,
+						statement: "El arnés se usa a partir de 1.8 m de altura.",
+						type: "TRUE_FALSE",
+						points: 1,
+						order: 2,
+						options: {
+							create: [
+								{ text: "Verdadero", isCorrect: true, order: 1 },
+								{ text: "Falso", isCorrect: false, order: 2 },
+							],
+						},
 					},
 				],
 			},
 		},
+		select: {
+			id: true,
+			questions: {
+				select: {
+					id: true,
+					options: { where: { isCorrect: true }, select: { id: true } },
+				},
+			},
+		},
 	});
 
-	await prisma.courseEvaluation.create({
+	await prisma.quizAttempt.create({
 		data: {
-			courseId: safety.id,
-			title: "Proyecto final",
-			createdById: trainerSop.id,
-			results: {
-				create: [
-					{
-						userId: miguelSop.id,
-						passed: null,
-						note: "Falta que entregue el reporte.",
-						recordedById: trainerSop.id,
-						recordedAt: now,
-					},
-				],
+			quizId: followUp.id,
+			userId: dianaSop.id,
+			number: 1,
+			submittedAt: now,
+			score: 100,
+			passed: true,
+			answers: {
+				create: followUp.questions.map((question) => ({
+					questionId: question.id,
+					optionId: question.options[0].id,
+					isCorrect: true,
+				})),
 			},
 		},
 	});

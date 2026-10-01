@@ -99,7 +99,7 @@ const CONFIRM_COPY: Record<QuizKind, { title: string; description: string }> = {
 	FINAL: {
 		title: "¿Enviar el examen?",
 		description:
-			"Tu calificación de la capacitación será el promedio de tu mejor nota en este examen y en las evaluaciones del temario.",
+			"Tu calificación de la capacitación será el promedio de tu mejor nota en este examen y en las demás evaluaciones que cuentan.",
 	},
 	PRACTICE: {
 		title: "¿Enviar el cuestionario?",
@@ -110,6 +110,11 @@ const CONFIRM_COPY: Record<QuizKind, { title: string; description: string }> = {
 		title: "¿Enviar la evaluación del módulo?",
 		description:
 			"Enviarla cuenta para tu avance, apruebes o no, y tu mejor nota entra al promedio de la capacitación.",
+	},
+	FOLLOW_UP: {
+		title: "¿Enviar la evaluación?",
+		description:
+			"Si la evaluación cuenta para la calificación, tu mejor nota entra al promedio de la capacitación.",
 	},
 };
 
@@ -214,7 +219,8 @@ export function QuizTaker({
 				</span>
 				<Button
 					type="button"
-					disabled={!complete || busy}
+					disabled={!complete}
+					pending={busy}
 					onClick={() => setConfirming(true)}
 				>
 					<Send />

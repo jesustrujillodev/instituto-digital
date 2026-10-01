@@ -1,6 +1,7 @@
 # ADR 0024 · Intentos configurables y calificación mínima aprobatoria del curso
 
-**Estado:** aceptado · 2026-09-28
+**Estado:** aceptado · 2026-09-28 · §2.4 (qué entra al promedio y cuándo se
+escribe el resultado) enmendado por [ADR-0027](./0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)
 **Contexto del cambio:** MVP-02 · evaluaciones automáticas de los cursos
 **Enmienda:** [ADR-0015](./0015-cuestionarios-autocalificados.md) (un solo intento),
 [ADR-0016](./0016-evaluacion-por-modulo.md) §2.4 (cuándo se habilita otro intento) y

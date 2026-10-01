@@ -23,7 +23,6 @@ export const COURSE_PAGE_SIZES = [12, 24, 48] as const;
 export const COURSE_DEFAULTS = {
 	format: "SCHEDULED",
 	completionRule: "ATTENDANCE",
-	evaluationMethod: "MANUAL",
 	minAttendance: 80,
 	/** El promedio con el que se acredita cuando la nota se calcula sola (docs/adr/0024). */
 	minPassingGrade: 70,

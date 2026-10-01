@@ -17,19 +17,23 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const { auth, scope } = await requireCourseScope(request, context);
 	const lineParam = new URL(request.url).searchParams.get(PLAN_LINE_PARAM);
 
-	const options = await context.courseService.listFormOptions(scope);
-	if (!options.success)
-		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
+	if (!lineParam) {
+		const options = await context.courseService.listFormOptions(scope);
+		if (!options.success)
+			throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 
-	if (!lineParam) return ok({ options: options.data, prefill: null });
+		return ok({ options: options.data, prefill: null });
+	}
 
 	const line = parseInput(() => validateFindPlan({ documentId: lineParam }));
 	if (!line.success) throw toRouteError(line.error, ANNUAL_PLAN_ERROR_MESSAGES);
 
-	const prefill = await context.annualPlanService.findLineForCourse(
-		line.data.documentId,
-		auth,
-	);
+	const [options, prefill] = await Promise.all([
+		context.courseService.listFormOptions(scope),
+		context.annualPlanService.findLineForCourse(line.data.documentId, auth),
+	]);
+	if (!options.success)
+		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 	if (!prefill.success) {
 		throw toRouteError(prefill.error, ANNUAL_PLAN_ERROR_MESSAGES);
 	}

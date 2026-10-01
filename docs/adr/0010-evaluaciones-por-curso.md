@@ -1,6 +1,6 @@
 # ADR 0010 · Evaluaciones múltiples por curso
 
-**Estado:** aceptado · 2026-09-17
+**Estado:** sustituido por [ADR-0027](./0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md) · 2026-09-17
 **Contexto del cambio:** evaluaciones del curso (§6.8)
 
 ## 1. Contexto

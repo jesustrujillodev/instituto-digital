@@ -18,12 +18,47 @@ const adapter = new PrismaPg({
  */
 const TRANSACTION_TIMEOUT_MS = 20_000;
 
+/**
+ * Solo en desarrollo: cuenta las consultas de cada petición para medir cuántos
+ * viajes a la base paga una pantalla. Apagado no registra el evento.
+ */
+const COUNT_QUERIES =
+	process.env.NODE_ENV !== "production" &&
+	process.env.DEBUG_QUERY_COUNT === "true";
+
+type QueryStats = { count: number; dbMs: number };
+
+const queryStatsContext = new AsyncLocalStorage<QueryStats>();
+
 const prismaClientSingleton = () => {
-	return new PrismaClient({
+	const client = new PrismaClient({
 		adapter,
 		transactionOptions: { timeout: TRANSACTION_TIMEOUT_MS },
+		log: COUNT_QUERIES ? [{ level: "query", emit: "event" }] : [],
 	});
+
+	if (COUNT_QUERIES) {
+		client.$on("query" as never, (event: Prisma.QueryEvent) => {
+			const stats = queryStatsContext.getStore();
+			if (!stats) return;
+			stats.count += 1;
+			stats.dbMs += event.duration;
+		});
+	}
+
+	return client;
 };
+
+/** Ejecuta `callback` contando sus consultas; sin la bandera, no mide nada. */
+export async function measureQueries<T>(
+	callback: () => Promise<T>,
+): Promise<{ result: T; stats: QueryStats | null }> {
+	if (!COUNT_QUERIES) return { result: await callback(), stats: null };
+
+	const stats: QueryStats = { count: 0, dbMs: 0 };
+	const result = await queryStatsContext.run(stats, callback);
+	return { result, stats };
+}
 
 type GlobalWithPrisma = typeof globalThis & {
 	prismaGlobal: ReturnType<typeof prismaClientSingleton> | undefined;

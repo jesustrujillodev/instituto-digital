@@ -208,7 +208,8 @@ function ChangeDependencyBody({
 				<Button
 					type="button"
 					onClick={submit}
-					disabled={isSubmitting || !target}
+					disabled={!target}
+					pending={isSubmitting}
 				>
 					{isSubmitting ? "Cambiando…" : "Cambiar dependencia"}
 				</Button>

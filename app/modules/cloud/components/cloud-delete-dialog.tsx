@@ -1,7 +1,5 @@
-import { Loader2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useFetcher } from "react-router";
-import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import {
 	AlertDialog,
@@ -174,16 +172,10 @@ export function CloudDeleteDialog({
 					<Button
 						type="button"
 						variant="destructive"
-						disabled={!impact || !confirmed || deleting}
+						disabled={!impact || !confirmed}
+						pending={deleting}
 						onClick={() => request && onConfirm(request)}
-						className={cn(deleting && "cursor-progress")}
 					>
-						{deleting && (
-							<Loader2
-								className="animate-spin motion-reduce:animate-none"
-								aria-hidden="true"
-							/>
-						)}
 						{deleting ? "Eliminando…" : "Eliminar"}
 					</Button>
 				</AlertDialogFooter>

@@ -19,7 +19,11 @@ import {
 } from "../../domain/__tests__/content.fixtures";
 import type { CompletedLessonRow } from "../../domain/classroom.types";
 import type { ContentModuleRaw } from "../../domain/content.mapper";
-import type { QuizScoreRow } from "../../domain/quiz.types";
+import type {
+	FollowUpScoreRow,
+	QuizScoreRow,
+	StoredFollowUp,
+} from "../../domain/quiz.types";
 import { createProgressSync } from "../progress-sync.server";
 
 const AT = new Date("2027-03-10T18:00:00.000Z");
@@ -73,12 +77,56 @@ const treeOf = (lessons: string[], withQuiz: boolean): ContentModuleRaw[] => [
 	},
 ];
 
+const SESSION = {
+	id: 3,
+	documentId: "33333333-3333-4333-8333-333333333333",
+	startsAt: new Date("2027-03-01T16:00:00.000Z"),
+	endsAt: new Date("2027-03-01T18:00:00.000Z"),
+};
+
+/** Una evaluación de seguimiento; por defecto cuenta y abre con la sesión. */
+const followUpOf = (
+	overrides: Partial<StoredFollowUp> = {},
+): StoredFollowUp => ({
+	id: 40,
+	documentId: "44444444-4444-4444-8444-444444444444",
+	title: "Práctica de campo",
+	passingScore: 60,
+	maxAttempts: 1,
+	shuffleQuestions: false,
+	countsTowardGrade: true,
+	availability: "SESSION_START",
+	opensBeforeMinutes: null,
+	closesAfterMinutes: null,
+	openedAt: null,
+	closedAt: null,
+	session: SESSION,
+	questionCount: 2,
+	attemptCount: 0,
+	...overrides,
+});
+
+const followUpScoreOf = (
+	userId: number,
+	score: number,
+	quizId = 40,
+): FollowUpScoreRow => ({
+	quizId,
+	quizDocumentId: "44444444-4444-4444-8444-444444444444",
+	userId,
+	userDocumentId: "55555555-5555-4555-8555-555555555555",
+	score,
+});
+
 const createHarness = (options: {
 	lessons: string[];
 	states: StoredProgress[];
 	completed: CompletedLessonRow[];
 	moduleQuiz?: boolean;
 	scores?: QuizScoreRow[];
+	finals?: { userId: number; score: number }[];
+	followUps?: StoredFollowUp[];
+	followUpScores?: FollowUpScoreRow[];
 }) => {
 	const calls = {
 		locks: 0,
@@ -107,6 +155,9 @@ const createHarness = (options: {
 				(options.scores ?? []).filter(
 					(row) => !userIds || userIds.includes(row.userId),
 				),
+			findFinalBestScores: async () => options.finals ?? [],
+			findFollowUps: async () => options.followUps ?? [],
+			findFollowUpBestScores: async () => options.followUpScores ?? [],
 		} as unknown as ICradle["quizRepository"],
 		enrollmentRepository: {
 			lockCourseSeats: async () => {
@@ -314,10 +365,13 @@ describe("progressSync.recalculate", () => {
 		expect(calls.syncs).toEqual([]);
 	});
 
-	// Solo hacia adelante: lo acreditado queda fijo, con cualquier regla.
+	// Solo hacia adelante: con el crédito dado, la nota queda fija.
 	test.each([
-		["aprobado", { result: "PASSED" as const, grade: 90 }],
-		["completado antes de la mínima", { completed: true }],
+		["completado", { completed: true }],
+		[
+			"completado antes de la mínima",
+			{ result: "PASSED" as const, completed: true },
+		],
 	])("a quien ya está %s no se le recalifica", async (_label, stored) => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1],
@@ -422,6 +476,169 @@ describe("progressSync.recalculate", () => {
 			[{ userId: 50, percent: 100, completedAt: AT }],
 		]);
 		expect(calls.syncs).toEqual([{ courseId: 7, actorId: 2, at: AT }]);
+	});
+
+	test("sin el examen final presentado no se califica", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [],
+			states: [stateOf(50, 0, null)],
+			completed: [],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SCHEDULED", {
+				completionRule: "ATTENDANCE",
+				requiresEvaluation: true,
+			}),
+			50,
+			AT,
+			[50],
+		);
+
+		expect(calls.results).toEqual([]);
+	});
+
+	// ADR-0024: el examen final se compensa con el temario si el promedio alcanza.
+	test("el examen final entra al promedio con el temario", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 100, EARLIER)],
+			completed: [{ userId: 50, lessonDocumentId: LESSON_1 }],
+			moduleQuiz: true,
+			scores: [
+				{ userId: 50, itemDocumentId: LESSON_1, score: 100 },
+				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 100 },
+			],
+			finals: [{ userId: 50, score: 0 }],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SELF_PACED", { requiresEvaluation: true }),
+			50,
+			AT,
+			[50],
+		);
+
+		expect(calls.results[0]?.entries).toEqual([
+			{ userId: 50, result: "FAILED", grade: 66 },
+		]);
+	});
+
+	// ADR-0027: un seguimiento que cuenta y cerró sin intento vale 0.
+	test("un seguimiento que cuenta y ya cerró sin intento vale 0", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [],
+			states: [stateOf(50, 0, null)],
+			completed: [],
+			followUps: [followUpOf(), followUpOf({ id: 41 })],
+			followUpScores: [followUpScoreOf(50, 100)],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SCHEDULED", { completionRule: "ATTENDANCE" }),
+			50,
+			AT,
+			[50],
+		);
+
+		expect(calls.results[0]?.entries).toEqual([
+			{ userId: 50, result: "FAILED", grade: 50 },
+		]);
+	});
+
+	test("un seguimiento todavía abierto sin intento no entra al promedio", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [],
+			states: [stateOf(50, 0, null)],
+			completed: [],
+			followUps: [
+				followUpOf(),
+				followUpOf({ id: 41, availability: "MANUAL", openedAt: EARLIER }),
+			],
+			followUpScores: [followUpScoreOf(50, 100)],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SCHEDULED", { completionRule: "ATTENDANCE" }),
+			50,
+			AT,
+			[50],
+		);
+
+		expect(calls.results[0]?.entries).toEqual([
+			{ userId: 50, result: "PASSED", grade: 100 },
+		]);
+	});
+
+	test("al cerrar la capacitación todo seguimiento cuenta como cerrado", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [],
+			states: [stateOf(50, 0, null)],
+			completed: [],
+			followUps: [
+				followUpOf(),
+				followUpOf({ id: 41, availability: "MANUAL", openedAt: EARLIER }),
+			],
+			followUpScores: [followUpScoreOf(50, 100)],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SCHEDULED", { completionRule: "ATTENDANCE" }),
+			2,
+			AT,
+			undefined,
+			{ closing: true },
+		);
+
+		expect(calls.results[0]?.entries).toEqual([
+			{ userId: 50, result: "FAILED", grade: 50 },
+		]);
+	});
+
+	test("un seguimiento que no cuenta no califica la capacitación", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [],
+			states: [stateOf(50, 0, null)],
+			completed: [],
+			followUps: [followUpOf({ countsTowardGrade: false })],
+			followUpScores: [followUpScoreOf(50, 20)],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SCHEDULED", { completionRule: "ATTENDANCE" }),
+			50,
+			AT,
+			[50],
+			{ closing: true },
+		);
+
+		expect(calls.results).toEqual([]);
+	});
+
+	// En un calendarizado el resultado es provisional hasta el cierre.
+	test("un aprobado sin crédito se recalcula con el seguimiento", async () => {
+		const { sync, calls } = createHarness({
+			lessons: [],
+			states: [stateOf(50, 0, null, { result: "PASSED", grade: 100 })],
+			completed: [],
+			finals: [{ userId: 50, score: 100 }],
+			followUps: [followUpOf()],
+		});
+
+		await sync.recalculate(
+			courseOf("PUBLISHED", "SCHEDULED", {
+				completionRule: "ATTENDANCE",
+				requiresEvaluation: true,
+			}),
+			2,
+			AT,
+			undefined,
+			{ closing: true },
+		);
+
+		expect(calls.results[0]?.entries).toEqual([
+			{ userId: 50, result: "FAILED", grade: 50 },
+		]);
 	});
 
 	test("si nada cambia no escribe", async () => {

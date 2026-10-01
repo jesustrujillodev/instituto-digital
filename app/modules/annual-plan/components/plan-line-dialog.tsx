@@ -200,7 +200,8 @@ export function PlanLineDialog({
 				<DialogFooter>
 					<Button
 						onClick={submit}
-						disabled={draft.title.trim() === "" || fetcher.state !== "idle"}
+						disabled={draft.title.trim() === ""}
+						pending={fetcher.state !== "idle"}
 					>
 						{line ? "Guardar cambios" : "Agregar línea"}
 					</Button>

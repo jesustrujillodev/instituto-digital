@@ -2,10 +2,11 @@ export { loader } from "./index.loader";
 
 import { BookOpen, SearchX } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigation, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { placeholderCountOf } from "@/lib/placeholders";
 import {
 	CourseCardList,
-	CourseCardSkeleton,
+	CourseCardListSkeleton,
 } from "@/modules/courses/components/course-card-frame";
 import { ListPagination } from "@/shared/components/common/list-pagination";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -19,6 +20,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { VIEW_MODE_SCREENS } from "@/shared/view-mode/view-mode";
@@ -34,12 +36,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 /** Portadas que se cargan sin esperar al scroll: la primera fila visible. */
 const EAGER_COVERS = 4;
-
-/** Claves fijas de las siluetas: son idénticas entre sí y no tienen identidad. */
-const SKELETON_KEYS = Array.from(
-	{ length: AVAILABLE_PAGE_SIZES.at(-1) ?? 48 },
-	(_, index) => `skeleton-${index}`,
-);
 
 export const handle = {
 	breadcrumb: () => [{ label: "Catálogo de capacitaciones" }],
@@ -58,8 +54,7 @@ export default function CursosDisponiblesPage({
 	} = loaderData;
 	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.available, view);
 	const [, setSearchParams] = useSearchParams();
-	const navigation = useNavigation();
-	const location = useLocation();
+	const isLoading = useRouteReloading();
 
 	const updateParams = useCallback(
 		(patch: Record<string, string | number | null>) => {
@@ -102,12 +97,6 @@ export default function CursosDisponiblesPage({
 		});
 	};
 
-	// Solo una navegación a ESTA ruta es un cambio de filtro o de página. Sin
-	// comparar el destino, hacer clic en una tarjeta disolvería la cuadrícula
-	// entera en siluetas mientras se va a otra pantalla.
-	const isLoading =
-		navigation.state === "loading" &&
-		navigation.location?.pathname === location.pathname;
 	const hasFilters = Boolean(
 		filters.search || filters.modality || filters.dependency,
 	);
@@ -142,16 +131,13 @@ export default function CursosDisponiblesPage({
 				</p>
 
 				{isLoading ? (
-					<CourseCardList layout={layout}>
-						{SKELETON_KEYS.slice(
-							0,
+					<CourseCardListSkeleton
+						layout={layout}
+						count={placeholderCountOf(
+							courses.length,
 							pagination?.pageSize ?? AVAILABLE_LIST_DEFAULTS.pageSize,
-						).map((key) => (
-							<li key={key}>
-								<CourseCardSkeleton layout={layout} />
-							</li>
-						))}
-					</CourseCardList>
+						)}
+					/>
 				) : courses.length === 0 ? (
 					<CatalogEmpty hasFilters={hasFilters} onClear={clearFilters} />
 				) : (

@@ -5,7 +5,6 @@ import type {
 	CourseFormat,
 	CourseModality,
 	CourseStatus,
-	EvaluationMethod,
 } from "@/modules/courses/domain/course.rules";
 import type { CreditDiff } from "@/modules/credits/domain/credit.types";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
@@ -14,7 +13,6 @@ import type { FinishBlocker } from "./teaching.config";
 import type {
 	listTeachingCoursesRule,
 	saveAttendanceRule,
-	saveResultsRule,
 	setEnrollmentOpenRule,
 } from "./teaching.rules";
 
@@ -22,7 +20,6 @@ export type ListTeachingCoursesDto = v.InferOutput<
 	typeof listTeachingCoursesRule
 >;
 export type SaveAttendanceDto = v.InferOutput<typeof saveAttendanceRule>;
-export type SaveResultsDto = v.InferOutput<typeof saveResultsRule>;
 export type SetEnrollmentOpenDto = v.InferOutput<typeof setEnrollmentOpenRule>;
 
 // ── Lo que el repositorio lee ─────────────────────────────────────────────────
@@ -81,7 +78,6 @@ export interface TeachingCourse {
 	status: CourseStatus;
 	minAttendance: number;
 	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
 	minPassingGrade: number;
 	finishedAt: Date | null;
 	enrollmentClosedAt: Date | null;
@@ -163,7 +159,6 @@ export interface TeachingDetail {
 		status: CourseStatus;
 		minAttendance: number;
 		requiresEvaluation: boolean;
-		evaluationMethod: EvaluationMethod;
 		minPassingGrade: number;
 		finishedAt: Date | null;
 		finishOpensAt: Date | null;
@@ -174,13 +169,11 @@ export interface TeachingDetail {
 	qr: TeachingQrView | null;
 	sessions: TeachingSessionView[];
 	participants: TeachingParticipantView[];
-	pendingResults: number;
 	/** Quienes completaron y todavía no tienen certificado. */
 	pendingCertificates: number;
 	finishBlocker: FinishBlocker | null;
 	can: {
 		recordAttendance: boolean;
-		recordResults: boolean;
 		finish: boolean;
 		/** El curso está finalizado y quien mira puede corregirlo. */
 		correct: boolean;

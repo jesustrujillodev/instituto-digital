@@ -31,6 +31,9 @@ const run = (fields: Record<string, string>) => {
 			saveBank: record("saveBank"),
 			renameQuiz: record("renameQuiz"),
 			archiveModuleQuiz: record("archiveModuleQuiz"),
+			saveFollowUp: record("saveFollowUp"),
+			saveFollowUpQuestions: record("saveFollowUpQuestions"),
+			removeFollowUp: record("removeFollowUp"),
 		},
 	} as unknown as ActionArgs["context"];
 
@@ -103,5 +106,89 @@ describe("capacitaciones/cuestionario action", () => {
 			moduleDocumentId: MODULE_A,
 			maxAttempts: 2,
 		});
+	});
+});
+
+// docs/adr/0027: el seguimiento se define desde el paso Evaluación, en un
+// solo formulario con sus preguntas.
+describe("capacitaciones/cuestionario action: seguimiento", () => {
+	const FOLLOW_UP = "44444444-4444-4444-8444-444444444444";
+	const questions = [
+		{
+			statement: "¿Cuál?",
+			type: "SINGLE_CHOICE",
+			points: 1,
+			options: [
+				{ text: "Esta", isCorrect: true },
+				{ text: "Aquella", isCorrect: false },
+			],
+		},
+	];
+	const form = {
+		title: "Práctica de campo",
+		passingScore: 60,
+		maxAttempts: 1,
+		shuffleQuestions: false,
+		sessionDocumentId: "33333333-3333-4333-8333-333333333333",
+		countsTowardGrade: true,
+		availability: "SESSION_END",
+		opensBeforeMinutes: null,
+		closesAfterMinutes: 30,
+	};
+
+	test("guarda la configuración del modal", async () => {
+		const { result, calls } = run({
+			intent: "save-follow-up",
+			payload: JSON.stringify(form),
+		});
+
+		expect(await result).toMatchObject({
+			success: true,
+			message: "Evaluación de seguimiento guardada.",
+		});
+		expect(calls[0]?.method).toBe("saveFollowUp");
+		expect(calls[0]?.args.slice(0, 2)).toEqual([
+			COURSE_DOC,
+			{ ...form, followUpDocumentId: null },
+		]);
+	});
+
+	test("guarda sus preguntas aparte", async () => {
+		const { result, calls } = run({
+			intent: "save-follow-up-questions",
+			payload: JSON.stringify({ followUpDocumentId: FOLLOW_UP, questions }),
+		});
+
+		expect(await result).toMatchObject({
+			success: true,
+			message: "Preguntas guardadas.",
+		});
+		expect(calls[0]?.method).toBe("saveFollowUpQuestions");
+	});
+
+	test("sin los minutos que pide su modo no llega al servicio", async () => {
+		const { result, calls } = run({
+			intent: "save-follow-up",
+			payload: JSON.stringify({ ...form, closesAfterMinutes: null }),
+		});
+
+		expect(await result).toMatchObject({
+			success: false,
+			error: { code: "VALIDATION_ERROR" },
+		});
+		expect(calls).toEqual([]);
+	});
+
+	test("elimina por su identificador", async () => {
+		const { result, calls } = run({
+			intent: "remove-follow-up",
+			payload: JSON.stringify({ followUpDocumentId: FOLLOW_UP }),
+		});
+
+		expect(await result).toMatchObject({ success: true });
+		expect(calls[0]?.args.slice(0, 2)).toEqual([
+			COURSE_DOC,
+			{ followUpDocumentId: FOLLOW_UP },
+		]);
 	});
 });

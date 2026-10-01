@@ -69,7 +69,6 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 			"completionRule",
 			"minAttendance",
 			"requiresEvaluation",
-			"evaluationMethod",
 			"minPassingGrade",
 		],
 	},
@@ -167,6 +166,7 @@ const STEP_OF_CHECK: Record<PublishCheck, CourseStepKey> = {
 	audience: "access",
 	content: "content",
 	quiz: "rules",
+	followUps: "rules",
 };
 
 export type PublishChecklist = readonly {

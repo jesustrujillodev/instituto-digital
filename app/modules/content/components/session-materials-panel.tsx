@@ -3,6 +3,7 @@ import { useState } from "react";
 import { formatSessionRange } from "@/lib/date-utils";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { useSessionMaterials } from "../hooks/use-session-materials";
 import {
 	SESSION_MATERIAL_ICONS,
@@ -39,7 +40,19 @@ export function SessionMaterialsPanel({
 				</div>
 
 				{state.board === null ? (
-					<p className="text-muted-foreground text-sm">Cargando…</p>
+					<div aria-busy="true">
+						<span className="sr-only">
+							Cargando el material de las sesiones…
+						</span>
+						<ol className="flex flex-col divide-y divide-border">
+							{["first", "second"].map((key) => (
+								<li key={key} className="flex flex-col gap-2 py-3">
+									<Skeleton className="h-4 w-56 rounded-md" />
+									<Skeleton className="h-3 w-24 rounded-md" />
+								</li>
+							))}
+						</ol>
+					</div>
 				) : (
 					<ol className="flex flex-col divide-y divide-border">
 						{sessions.map((session, index) => (

@@ -1,7 +1,7 @@
 export { loader } from "./dashboard.layout.loader";
 
 import type { CSSProperties } from "react";
-import { Outlet, useLoaderData } from "react-router";
+import { Outlet, useLoaderData, useNavigation } from "react-router";
 import { formatZonedDateTime } from "@/lib/date-utils";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import {
@@ -14,11 +14,13 @@ import { DashboardBreadcrumb } from "../components/dashboard-breadcrumb";
 import { DashboardSidebar } from "../components/dashboard-sidebar";
 import { DashboardToaster } from "../components/dashboard-toaster";
 import { DashboardUserMenu } from "../components/dashboard-user-menu";
+import { NavigationProgress } from "../components/navigation-progress";
 
 export default function DashboardLayout() {
 	const {
 		data: { user, securityState },
 	} = useLoaderData<typeof import("./dashboard.layout.loader").loader>();
+	const loadingPage = useNavigation().state !== "idle";
 
 	// TooltipProvider es necesario aquí: SidebarProvider NO lo incluye, y
 	// SidebarMenuButton monta un Tooltip cuando la barra está colapsada a iconos.
@@ -35,7 +37,8 @@ export default function DashboardLayout() {
 				{/* `min-w-0`: sin él, este hijo flex crece hasta el ancho mínimo de su
 				    contenido y una tabla ancha empuja toda la página en horizontal en
 				    vez de desplazarse dentro de su propio `overflow-x-auto`. */}
-				<SidebarInset className="min-w-0">
+				<SidebarInset className="min-w-0" aria-busy={loadingPage || undefined}>
+					<NavigationProgress />
 					<header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
 						<SidebarTrigger className="-ml-1" />
 						<DashboardBreadcrumb />

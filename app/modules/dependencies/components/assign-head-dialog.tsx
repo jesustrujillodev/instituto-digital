@@ -141,7 +141,8 @@ export function AssignHeadDialog({
 					</Button>
 					<Button
 						onClick={submit}
-						disabled={isSubmitting || !selected || candidates.length === 0}
+						disabled={!selected || candidates.length === 0}
+						pending={isSubmitting}
 					>
 						<UserCog className="h-4 w-4" />
 						{isSubmitting ? "Designando…" : "Designar titular"}

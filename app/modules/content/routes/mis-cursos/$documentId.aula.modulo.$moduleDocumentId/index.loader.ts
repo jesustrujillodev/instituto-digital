@@ -31,7 +31,7 @@ export const loader = async ({
 
 	const view = await context.quizService.findView(
 		documentId,
-		{ lessonDocumentId: null, moduleDocumentId },
+		{ lessonDocumentId: null, moduleDocumentId, followUpDocumentId: null },
 		auth,
 	);
 	if (!view.success) throw toRouteError(view.error, CONTENT_ERROR_MESSAGES);

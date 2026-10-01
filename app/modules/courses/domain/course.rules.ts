@@ -19,9 +19,9 @@ import {
 	CourseCapacityBelowEnrolledError,
 	CourseCompletionLockedError,
 	CourseDeadlineAfterStartError,
+	CourseFollowUpWithoutQuestionsError,
 	CourseFormatLockedError,
 	CourseIncompatibleCompletionRuleError,
-	CourseIncompatibleEvaluationMethodError,
 	CourseInvalidTransitionError,
 	CoursePlanLineLockedError,
 	CourseSessionInvalidRangeError,
@@ -69,10 +69,6 @@ export const COURSE_COMPLETION_RULES = [
 	"BOTH",
 ] as const;
 export type CourseCompletionRule = (typeof COURSE_COMPLETION_RULES)[number];
-
-/** Con qué se evalúa, si se evalúa (docs/adr/0015). */
-export const EVALUATION_METHODS = ["MANUAL", "QUIZ"] as const;
-export type EvaluationMethod = (typeof EVALUATION_METHODS)[number];
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
@@ -244,7 +240,6 @@ export const courseDetailSchema = v.object({
 	enrollmentDeadline: v.nullable(v.date()),
 	minAttendance: v.number(),
 	requiresEvaluation: v.boolean(),
-	evaluationMethod: v.picklist(EVALUATION_METHODS),
 	minPassingGrade: v.number(),
 	completionRule: v.picklist(COURSE_COMPLETION_RULES),
 	qrOpensBeforeMinutes: v.number(),
@@ -310,9 +305,6 @@ const courseFormShape = {
 	minAttendance: v.optional(minAttendance),
 	requiresEvaluation: v.optional(
 		v.boolean("Indica si la capacitación exige evaluación."),
-	),
-	evaluationMethod: v.optional(
-		v.picklist(EVALUATION_METHODS, "Elige con qué se evalúa la capacitación."),
 	),
 	minPassingGrade: v.optional(minPassingGrade),
 	completionRule: v.optional(
@@ -484,26 +476,35 @@ export interface CourseContentFacts {
 	lessonCount: number;
 	/** Preguntas del examen final; 0 si todavía no se armó. */
 	finalQuizQuestionCount: number;
+	/** Evaluaciones de seguimiento todavía sin preguntas (docs/adr/0027). */
+	followUpsWithoutQuestions: number;
+	/** Evaluaciones de seguimiento que cuentan para la calificación. */
+	countedFollowUps: number;
 }
 
-/** El resultado lo escribe el examen en línea, no quien imparte (docs/adr/0015). */
+/**
+ * Evaluar es presentar el examen final en línea: no hay captura manual
+ * (docs/adr/0027).
+ */
 export const evaluatesByQuiz = (course: {
 	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
-}): boolean => course.requiresEvaluation && course.evaluationMethod === "QUIZ";
+}): boolean => course.requiresEvaluation;
 
 /**
  * La nota se calcula sola, como promedio, y se acredita con la mínima del
- * curso: con examen en línea, o sin evaluación y con temario que cuenta
- * (docs/adr/0021, 0024). En la captura manual decide quien imparte.
+ * curso: con examen final, con temario que cuenta o con al menos una
+ * evaluación de seguimiento que cuenta (docs/adr/0024, 0027).
  */
-export const gradesAutomatically = (course: {
-	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
-	completionRule: CourseCompletionRule;
-}): boolean =>
+export const gradesAutomatically = (
+	course: {
+		requiresEvaluation: boolean;
+		completionRule: CourseCompletionRule;
+	},
+	countedFollowUps = 0,
+): boolean =>
 	evaluatesByQuiz(course) ||
-	(!course.requiresEvaluation && countsContent(course.completionRule));
+	countsContent(course.completionRule) ||
+	countedFollowUps > 0;
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -595,37 +596,13 @@ export const assertCompletionRuleCoherent = (course: {
 };
 
 /**
- * Con qué se evalúa, tal como se guarda.
- *
- * Un autogestivo no tiene capacitador: nadie capturaría su resultado a mano y
- * quien terminó todo se quedaría sin crédito. Solo se evalúa con examen. Si no
- * pide evaluación, el método no se usa y se guarda como examen, igual que su
- * modalidad deja de referirse a nada: así el formulario y lo guardado coinciden.
- */
-export const resolveEvaluationMethod = (course: {
-	format: CourseFormat;
-	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
-}): EvaluationMethod => {
-	if (requiresSessions(course.format)) return course.evaluationMethod;
-
-	if (course.requiresEvaluation && course.evaluationMethod === "MANUAL") {
-		throw new CourseIncompatibleEvaluationMethodError(
-			course.format,
-			course.evaluationMethod,
-		);
-	}
-	return "QUIZ";
-};
-
-/**
  * Lo que se congela al publicar.
  *
- * En cualquier curso, el método de evaluación y la calificación mínima: cambiar
- * cualquiera a mitad dejaría resultados medidos de dos formas (docs/adr/0015,
- * 0024). En un autogestivo, además, la regla y la evaluación: sus créditos se
- * otorgan conforme cada quien completa, y cambiar el criterio dejaría los ya
- * otorgados medidos con otro (docs/adr/0014).
+ * En cualquier curso, el examen final y la calificación mínima: cambiar
+ * cualquiera a mitad dejaría resultados medidos de dos formas (docs/adr/0024,
+ * 0027). En un autogestivo, además, la regla: sus créditos se otorgan conforme
+ * cada quien completa, y cambiar el criterio dejaría los ya otorgados medidos
+ * con otro (docs/adr/0014).
  */
 export const assertCompletionSettingsEditable = (
 	stored: {
@@ -633,30 +610,25 @@ export const assertCompletionSettingsEditable = (
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
-		evaluationMethod: EvaluationMethod;
 		minPassingGrade: number;
 	},
 	next: {
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
-		evaluationMethod: EvaluationMethod;
 		minPassingGrade: number;
 	},
 ): void => {
 	if (stored.status === "DRAFT") return;
 
 	if (
-		next.evaluationMethod !== stored.evaluationMethod ||
+		next.requiresEvaluation !== stored.requiresEvaluation ||
 		next.minPassingGrade !== stored.minPassingGrade
 	) {
 		throw new CourseCompletionLockedError();
 	}
 	if (requiresSessions(stored.format)) return;
 
-	if (
-		next.completionRule !== stored.completionRule ||
-		next.requiresEvaluation !== stored.requiresEvaluation
-	) {
+	if (next.completionRule !== stored.completionRule) {
 		throw new CourseCompletionLockedError();
 	}
 };
@@ -706,7 +678,6 @@ export const assertPublishable = (
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
-		evaluationMethod: EvaluationMethod;
 		access: CourseAccessType;
 		sessions: readonly { venue: string | null; link: string | null }[];
 		trainers: readonly { isActive: boolean }[];
@@ -728,6 +699,12 @@ export const assertPublishable = (
 
 	if (evaluatesByQuiz(course) && content.finalQuizQuestionCount === 0) {
 		throw new CourseWithoutQuizError();
+	}
+
+	if (content.followUpsWithoutQuestions > 0) {
+		throw new CourseFollowUpWithoutQuestionsError(
+			content.followUpsWithoutQuestions,
+		);
 	}
 
 	if (
@@ -764,7 +741,8 @@ export type PublishCheck =
 	| "places"
 	| "audience"
 	| "content"
-	| "quiz";
+	| "quiz"
+	| "followUps";
 
 /**
  * Las mismas condiciones de `assertPublishable`, pero todas a la vez y sin
@@ -780,7 +758,6 @@ export const publishChecklist = (
 		format: CourseFormat;
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
-		evaluationMethod: EvaluationMethod;
 		access: CourseAccessType;
 		sessions: readonly { venue: string | null; link: string | null }[];
 		trainers: readonly { isActive: boolean }[];
@@ -811,6 +788,10 @@ export const publishChecklist = (
 
 	if (evaluatesByQuiz(course)) {
 		checks.push({ check: "quiz", done: content.finalQuizQuestionCount > 0 });
+	}
+
+	if (content.followUpsWithoutQuestions > 0) {
+		checks.push({ check: "followUps", done: false });
 	}
 
 	if (requiresTrainer(course)) {

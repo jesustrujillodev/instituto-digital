@@ -85,6 +85,7 @@ export function CourseStatusPanel({
 								<Button
 									type="button"
 									disabled={isChangingStatus}
+									pending={isPublishing}
 									onClick={onPublish}
 								>
 									<Send aria-hidden="true" />

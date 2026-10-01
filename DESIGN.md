@@ -258,6 +258,12 @@ Una sola ficha para todo listado de cursos: catálogo, «Mis cursos», impartici
 - **Invitación:** la misma ficha en renglón, teñida con un 7% del primario sobre la tarjeta y con el plazo para responder en oro aviso.
 - **Foco:** el mismo anillo de 3px al 30% que el resto de controles. La tarjeta no inventa el suyo.
 
+### Ficha del curso
+La página de un curso, en el catálogo y en «Mis cursos». `app/modules/enrollments/components/course-detail.tsx`.
+- **Cabecera:** una sola tarjeta con la portada en miniatura 16:9 (18rem en escritorio, 7rem en móvil), los datos clave en pares etiqueta/valor y, debajo, dónde está la persona. La portada nunca va a todo el ancho: empujaba la información fuera del primer vistazo.
+- **Estado:** `CourseDetailStatus`, un icono y una frase en peso medio con el tono de la tarjeta de curso, y debajo lo que la explica (fecha límite, avance, asistencia, próxima sesión). Sustituye a la fila de distintivos y a los avisos sueltos.
+- **Cuerpo:** «Sesiones» solo si el curso las tiene; «Acerca del curso» con la descripción y los capacitadores. Lado a lado en escritorio, apilados en móvil.
+
 ### Inputs / Fields
 - **Style:** 36px de alto, esquina de 8.8px, sin borde visible en reposo. El relleno es apenas perceptible: la superficie apagada (gris apagado) en claro y el gris campo al 30% en oscuro. Aplica a campos de texto, áreas de texto, selects, grupos de campo, buscador de comandos y buscador de la barra lateral.
 - **Focus:** el borde toma el color del anillo y aparece un halo de 3px al 30%.
@@ -271,6 +277,16 @@ Una sola ficha para todo listado de cursos: catálogo, «Mis cursos», impartici
 
 ### Superficie de marca
 Portada y panel de acceso usan la superficie guinda de la barra lateral con el logotipo completo del Ayuntamiento, que es blanco y solo se lee sobre guinda (64px de alto en escritorio, 48px en móvil). El nombre de la plataforma va en Display y un filete oro de 64×4px puede anteceder al titular de la portada.
+
+### Estados de carga
+Un solo vocabulario para toda la plataforma. Nada aparece antes de 150 ms (una espera menor no se nota y enseñarla solo parpadea) y, una vez visible, nada desaparece antes de 300 ms (`app/shared/hooks/use-delayed-flag.ts`).
+- **Navegar a otra página:** una barra de 2px en el primario sobre el área de trabajo (`NavigationProgress`). Avanza deprisa y se frena antes del final; al llegar la página se completa y se desvanece. La selección de la barra lateral pasa al destino en cuanto se elige.
+- **Recargar la misma pantalla** (búsqueda, filtros, página): la lista se vuelve siluetas en su sitio (`useRouteReloading`). Las tablas conservan encabezados y paginación, y pintan las filas que tenían (mínimo 3, máximo una página) para no cambiar de alto.
+- **Datos que llegan dentro de una vista** (material de una lección, banco de un cuestionario, material de sesiones): la silueta tiene la forma de lo que viene —el editor, el reproductor 16:9, el campo de subida—. Nunca un spinner con «Cargando…» en medio del contenido.
+- **Una acción enviada:** el botón que la lanzó pasa a `pending`: no admite otro clic, se anuncia ocupado, cambia su icono inicial por el spinner y conserva la opacidad completa, porque trabaja, no está deshabilitado. La etiqueta pasa a gerundio («Guardando…»). Con varias acciones en un mismo formulario, solo trabaja la que se envió (`pendingIntentOf`); las demás se deshabilitan.
+- **Guardar y seguir:** un botón sigue pendiente hasta que se pinta la vista a la que lleva («Abriendo el paso…»), no solo hasta que responde el guardado.
+- **Temario:** reordenar y archivar se ven al instante y se deshacen solos si el servidor los rechaza; crear aparta una fila en silueta hasta que el servidor da identidad a lo nuevo.
+- **Movimiento reducido:** el spinner deja de girar y late; la barra deja de avanzar y late a todo lo ancho.
 
 ## Do's and Don'ts
 

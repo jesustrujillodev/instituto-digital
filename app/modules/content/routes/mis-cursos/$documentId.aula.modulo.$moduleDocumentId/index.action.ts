@@ -36,6 +36,7 @@ export const action = async ({
 				...(form.payload as object),
 				lessonDocumentId: null,
 				moduleDocumentId,
+				followUpDocumentId: null,
 			}),
 		};
 	});

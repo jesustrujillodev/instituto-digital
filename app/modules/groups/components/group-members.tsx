@@ -205,7 +205,8 @@ export function GroupMembers({
 
 						<Button
 							onClick={addSelected}
-							disabled={isSubmitting || selected.length === 0}
+							disabled={selected.length === 0}
+							pending={isSubmitting}
 						>
 							<UserPlus className="h-4 w-4" />
 							{isSubmitting

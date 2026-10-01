@@ -1,6 +1,7 @@
-import { FileUp, Loader2, Upload } from "lucide-react";
+import { FileUp, Upload } from "lucide-react";
 import { useState } from "react";
 import { Dropzone } from "@/shared/components/ui/dropzone";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { validateUploadInput } from "@/shared/storage/upload-validation";
 import { type LessonUploadKind, uploadLimitsOf } from "../domain/content.rules";
 
@@ -109,7 +110,7 @@ export function LessonUploadField({
 		return (
 			<div className="flex flex-col gap-2 rounded-xl border border-border border-dashed p-5 text-sm">
 				<span className="flex items-center gap-2">
-					<Loader2 className="size-4 animate-spin" aria-hidden="true" />
+					<Spinner />
 					<span className="flex-1">Subiendo…</span>
 					<span className="text-muted-foreground tabular-nums">
 						{progress}%

@@ -22,7 +22,7 @@ const arrowLeftOf = (index: number, count: number) =>
 
 interface CourseChoiceFieldProps {
 	id: string;
-	name: "format" | "modality" | "evaluationMethod" | "access" | "plan";
+	name: "format" | "modality" | "access" | "plan";
 	legend: string;
 	options: readonly ChoiceOption[];
 	required?: boolean;

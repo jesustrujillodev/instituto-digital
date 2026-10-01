@@ -1,3 +1,4 @@
+import { Lock } from "lucide-react";
 import type { ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Link } from "react-router";
@@ -26,80 +27,125 @@ const ruleOf = (attendance: boolean, content: boolean): CourseCompletionRule =>
 const plural = (count: number, one: string, many: string) =>
 	`${count} ${count === 1 ? one : many}`;
 
-const contentDescription = (facts: CompletionContentFacts | null) => {
+const contentDescription = (
+	facts: CompletionContentFacts | null,
+	fixed: boolean,
+) => {
+	const lead = fixed ? "Siempre se pide cuando hay contenido a su ritmo." : "";
 	if (!facts) {
-		return "Las lecciones se arman en Contenido, que se agrega al continuar.";
+		return [
+			lead,
+			"Las lecciones se arman en Contenido, que se agrega al continuar.",
+		]
+			.filter(Boolean)
+			.join(" ");
 	}
 	const lessons =
 		facts.requiredLessons === 0
-			? "Todavía no hay lecciones obligatorias en Contenido"
-			: `${plural(facts.requiredLessons, "lección marcada", "lecciones marcadas")} como obligatorias en Contenido`;
-
-	return facts.moduleEvaluations === 0
-		? `${lessons}.`
-		: `${lessons}, y ${plural(facts.moduleEvaluations, "evaluación de módulo", "evaluaciones de módulo")} que hay que aprobar.`;
+			? "Todavía no hay lecciones obligatorias."
+			: `Hoy son ${plural(facts.requiredLessons, "lección", "lecciones")}${
+					facts.moduleEvaluations === 0
+						? "."
+						: ` y ${plural(facts.moduleEvaluations, "evaluación de módulo", "evaluaciones de módulo")}.`
+				}`;
+	return [lead, lessons].filter(Boolean).join(" ");
 };
 
 function Requirement({
 	id,
 	checked,
 	disabled,
+	fixed = false,
 	onCheckedChange,
 	title,
 	children,
 	aside,
+	expanded,
 }: {
 	id: string;
 	checked: boolean;
 	disabled: boolean;
+	/** Se pide siempre: un candado en vez de casilla. */
+	fixed?: boolean;
 	onCheckedChange: (checked: boolean) => void;
 	title: string;
 	children: ReactNode;
 	aside?: ReactNode;
+	/** Lo que se configura cuando el requisito está marcado. */
+	expanded?: ReactNode;
 }) {
 	return (
-		<li className="flex items-start gap-3 px-4 py-3.5">
-			<Checkbox
-				id={id}
-				checked={checked}
-				disabled={disabled}
-				onCheckedChange={(value) => onCheckedChange(value === true)}
-				className="mt-0.5"
-			/>
-			<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<Label
-					htmlFor={id}
-					className={cn("font-medium text-sm", disabled && "cursor-default")}
-				>
-					{title}
-				</Label>
-				<div className="text-muted-foreground text-xs">{children}</div>
+		<li className="flex flex-col gap-4 px-4 py-3.5">
+			<div className="flex items-start gap-3">
+				{fixed ? (
+					<span
+						className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] bg-muted text-muted-foreground"
+						aria-hidden="true"
+					>
+						<Lock className="size-3" />
+					</span>
+				) : (
+					<Checkbox
+						id={id}
+						checked={checked}
+						disabled={disabled}
+						onCheckedChange={(value) => onCheckedChange(value === true)}
+						className="mt-0.5"
+					/>
+				)}
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					{fixed ? (
+						<span className="font-medium text-sm">{title}</span>
+					) : (
+						<Label
+							htmlFor={id}
+							className={cn(
+								"font-medium text-sm",
+								disabled && "cursor-default",
+							)}
+						>
+							{title}
+						</Label>
+					)}
+					<div className="text-muted-foreground text-xs">{children}</div>
+				</div>
+				{aside && <div className="shrink-0">{aside}</div>}
 			</div>
-			{aside && <div className="shrink-0">{aside}</div>}
+			{checked && expanded && <div className="sm:pl-7">{expanded}</div>}
 		</li>
 	);
 }
 
 /**
- * Qué hace falta para completar el curso, como una lista de requisitos.
+ * «Requisitos»: qué hace falta para completar el curso.
  *
  * Asistencia y contenido son las dos casillas de `completionRule` (nunca las
- * dos vacías); la evaluación final es `requiresEvaluation`. Un autogestivo se
- * completa siempre por su contenido: esa casilla va marcada y fija.
+ * dos vacías); la evaluación final es `requiresEvaluation` y despliega su
+ * examen. Un autogestivo se completa siempre por su contenido: esa fila va con
+ * candado.
  */
 export function CourseCompletionChecklist({
 	ids,
 	scheduled,
 	locked,
+	isPublished,
 	content,
 	contentHref,
+	finalExam,
+	finalExamSummary,
 }: {
 	ids: CourseFormIds;
 	scheduled: boolean;
 	/** Autogestivo publicado: ya otorga créditos y no cambia (docs/adr/0014). */
 	locked: boolean;
+	/** Publicado: la evaluación final ya no cambia (docs/adr/0027). */
+	isPublished: boolean;
 	content: CompletionContentFacts | null;
 	contentHref: string | null;
+	/** El editor del examen, dentro de su requisito. */
+	finalExam?: ReactNode;
+	/** "5 preguntas · 5 puntos · se aprueba con 4". */
+	finalExamSummary?: string | null;
 }) {
 	const {
 		control,
@@ -128,8 +174,8 @@ export function CourseCompletionChecklist({
 			aria-labelledby={`${ids.completionRule}-title`}
 		>
 			<div className="flex flex-col gap-1">
-				<h3 id={`${ids.completionRule}-title`} className="font-medium text-sm">
-					Para completar la capacitación hay que…
+				<h3 id={`${ids.completionRule}-title`} className="font-bold text-lg">
+					Requisitos
 				</h3>
 				{locked && (
 					<p className="text-muted-foreground text-xs">
@@ -166,7 +212,8 @@ export function CourseCompletionChecklist({
 									className="h-7 w-16 px-2 text-center text-xs tabular-nums"
 									{...register("minAttendance")}
 								/>
-								% de las sesiones de la capacitación.
+								% de las sesiones. Quien asiste pasa lista con el QR de cada
+								sesión.
 							</span>
 						) : (
 							"Quien asiste pasa lista con el QR de cada sesión."
@@ -177,7 +224,8 @@ export function CourseCompletionChecklist({
 				<Requirement
 					id={`${ids.completionRule}-content`}
 					checked={byContent}
-					disabled={locked || !scheduled || (byContent && !attendance)}
+					fixed={!scheduled}
+					disabled={locked || (byContent && !attendance)}
 					onCheckedChange={(checked) => setRule(ruleOf(attendance, checked))}
 					title="Terminar las lecciones obligatorias"
 					aside={
@@ -191,9 +239,7 @@ export function CourseCompletionChecklist({
 						) : null
 					}
 				>
-					{contentDescription(content)}
-					{!scheduled &&
-						" Una autogestiva se completa siempre por su contenido."}
+					{contentDescription(content, !scheduled)}
 				</Requirement>
 
 				<Controller
@@ -203,12 +249,22 @@ export function CourseCompletionChecklist({
 						<Requirement
 							id={ids.requiresEvaluation}
 							checked={field.value}
-							disabled={locked}
+							disabled={locked || isPublished}
 							onCheckedChange={field.onChange}
-							title="Aprobar una evaluación final"
+							title="Presentar un examen final"
+							aside={
+								field.value && finalExamSummary ? (
+									<span className="text-muted-foreground text-xs tabular-nums">
+										{finalExamSummary}
+									</span>
+								) : null
+							}
+							expanded={finalExam}
 						>
-							El resultado queda como aprobado o no aprobado, con su
-							calificación.
+							Un examen en línea con calificación automática. Su nota entra al
+							promedio de la capacitación.
+							{isPublished &&
+								" La capacitación ya está publicada: no se puede quitar ni agregar."}
 						</Requirement>
 					)}
 				/>

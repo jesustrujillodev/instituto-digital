@@ -124,7 +124,8 @@ export function ContentModuleDialog({
 					<Button
 						type="submit"
 						form={`${id}-form`}
-						disabled={busy || title.trim() === ""}
+						disabled={title.trim() === ""}
+						pending={busy}
 					>
 						{module ? "Guardar cambios" : "Crear módulo"}
 					</Button>

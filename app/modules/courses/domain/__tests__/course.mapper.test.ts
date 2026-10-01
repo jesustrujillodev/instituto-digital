@@ -78,7 +78,6 @@ const detailRow = {
 	qrOpensBeforeMinutes: 15,
 	qrClosesAfterMinutes: 15,
 	requiresEvaluation: true,
-	evaluationMethod: "MANUAL",
 	minPassingGrade: 70,
 	planLine: null,
 	publishedAt: null,

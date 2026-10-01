@@ -5,9 +5,11 @@ import { ContentQuizAlreadyTakenError } from "../domain/content.errors";
 import type { IQuizRepository } from "../domain/quiz.repository";
 import { quizKindOf } from "../domain/quiz.rules";
 import type {
+	FollowUpScoreRow,
 	QuizAttemptRow,
 	QuizBoardEntry,
 	QuizOwnerIds,
+	StoredFollowUp,
 	StoredQuiz,
 } from "../domain/quiz.types";
 
@@ -20,13 +22,20 @@ const ACTIVE = { archivedAt: null } as const;
 const asCourseWhere = (where: TeachingCourseWhere) =>
 	where as unknown as Prisma.CourseWhereInput;
 
-/** El cuestionario activo de ese dueño: los dos nulos son el examen final. */
-const ownerWhere = (courseId: number, owner: QuizOwnerIds) => ({
-	courseId,
-	lessonId: owner.lessonId,
-	moduleId: owner.moduleId,
-	...ACTIVE,
-});
+/** El examen final: sin lección, módulo ni sesión. */
+const FINAL_QUIZ = { lessonId: null, moduleId: null, sessionId: null } as const;
+
+/** El cuestionario activo de ese dueño; el seguimiento se busca por su fila. */
+const ownerWhere = (courseId: number, owner: QuizOwnerIds) =>
+	owner.followUpId
+		? { courseId, id: owner.followUpId }
+		: {
+				courseId,
+				lessonId: owner.lessonId,
+				moduleId: owner.moduleId,
+				sessionId: null,
+				...ACTIVE,
+			};
 
 /** Un cuestionario de módulo cuenta mientras él y su módulo sigan activos. */
 const activeModuleQuizOf = (courseId: number) => ({
@@ -35,7 +44,7 @@ const activeModuleQuizOf = (courseId: number) => ({
 	module: { courseId, ...ACTIVE },
 });
 
-/** Lo que se presenta: prácticas y módulos activos, y el examen final. */
+/** Lo que se presenta: prácticas y módulos activos, seguimiento y examen final. */
 const presentableQuizOf = (courseId: number) => ({
 	courseId,
 	...ACTIVE,
@@ -43,9 +52,48 @@ const presentableQuizOf = (courseId: number) => ({
 	OR: [
 		{ lesson: { ...ACTIVE, module: { courseId, ...ACTIVE } } },
 		{ module: { courseId, ...ACTIVE } },
-		{ lessonId: null, moduleId: null },
+		{ session: { courseId } },
+		FINAL_QUIZ,
 	],
 });
+
+const FOLLOW_UP_SELECT = {
+	id: true,
+	documentId: true,
+	title: true,
+	passingScore: true,
+	maxAttempts: true,
+	shuffleQuestions: true,
+	countsTowardGrade: true,
+	availability: true,
+	opensBeforeMinutes: true,
+	closesAfterMinutes: true,
+	openedAt: true,
+	closedAt: true,
+	session: {
+		select: { id: true, documentId: true, startsAt: true, endsAt: true },
+	},
+	_count: { select: { questions: true, attempts: true } },
+} satisfies Prisma.QuizSelect;
+
+type FollowUpRow = Prisma.QuizGetPayload<{ select: typeof FOLLOW_UP_SELECT }>;
+
+/** Las columnas del seguimiento solo son nulas fuera de él. */
+const toStoredFollowUps = (rows: readonly FollowUpRow[]): StoredFollowUp[] =>
+	rows.flatMap(({ session, _count, ...row }) =>
+		session
+			? [
+					{
+						...row,
+						countsTowardGrade: row.countsTowardGrade ?? false,
+						availability: row.availability ?? "MANUAL",
+						session,
+						questionCount: _count.questions,
+						attemptCount: _count.attempts,
+					},
+				]
+			: [],
+	);
 
 const QUIZ_SELECT = {
 	id: true,
@@ -252,10 +300,112 @@ export const createQuizRepository = ({
 		return [...best.values()];
 	},
 
+	async findFinalBestScores(courseId, userIds) {
+		const rows = await prisma.quizAttempt.groupBy({
+			by: ["userId"],
+			where: {
+				quiz: { courseId, ...FINAL_QUIZ, ...ACTIVE },
+				...(userIds ? { userId: { in: [...userIds] } } : {}),
+			},
+			_max: { score: true },
+		});
+		return rows.flatMap((row) =>
+			row._max.score === null
+				? []
+				: [{ userId: row.userId, score: row._max.score }],
+		);
+	},
+
+	async findFollowUps(courseId) {
+		const rows = await prisma.quiz.findMany({
+			where: { courseId, sessionId: { not: null } },
+			orderBy: [{ session: { startsAt: "asc" } }, { createdAt: "asc" }],
+			select: FOLLOW_UP_SELECT,
+		});
+		return toStoredFollowUps(rows);
+	},
+
+	async findFollowUp(courseId, documentId) {
+		const row = await prisma.quiz.findFirst({
+			where: { courseId, documentId, sessionId: { not: null } },
+			select: FOLLOW_UP_SELECT,
+		});
+		return row ? (toStoredFollowUps([row])[0] ?? null) : null;
+	},
+
+	async findSessionId(courseId, sessionDocumentId) {
+		const session = await prisma.courseSession.findFirst({
+			where: { courseId, documentId: sessionDocumentId },
+			select: { id: true },
+		});
+		return session?.id ?? null;
+	},
+
+	async createFollowUp(courseId, write) {
+		return prisma.quiz.create({
+			data: { courseId, ...write },
+			select: { id: true, documentId: true },
+		});
+	},
+
+	async updateFollowUp(id, write) {
+		await prisma.quiz.update({ where: { id }, data: write });
+	},
+
+	async deleteFollowUp(id) {
+		await prisma.quiz.delete({ where: { id } });
+	},
+
+	async openFollowUp(id, at) {
+		await prisma.quiz.update({ where: { id }, data: { openedAt: at } });
+	},
+
+	async closeFollowUp(id, at) {
+		await prisma.quiz.update({ where: { id }, data: { closedAt: at } });
+	},
+
+	async findFollowUpBestScores(courseId, userIds) {
+		const rows = await prisma.quizAttempt.findMany({
+			where: {
+				quiz: { courseId, sessionId: { not: null } },
+				...(userIds ? { userId: { in: [...userIds] } } : {}),
+			},
+			select: {
+				score: true,
+				quiz: { select: { id: true, documentId: true } },
+				user: { select: { id: true, documentId: true } },
+			},
+		});
+
+		const best = new Map<string, FollowUpScoreRow>();
+		for (const row of rows) {
+			const key = `${row.quiz.id}:${row.user.id}`;
+			const current = best.get(key);
+			if (!current || row.score > current.score) {
+				best.set(key, {
+					quizId: row.quiz.id,
+					quizDocumentId: row.quiz.documentId,
+					userId: row.user.id,
+					userDocumentId: row.user.documentId,
+					score: row.score,
+				});
+			}
+		}
+		return [...best.values()];
+	},
+
 	async findTeachingCourse(courseDocumentId, where) {
 		return prisma.course.findFirst({
 			where: { AND: [{ documentId: courseDocumentId }, asCourseWhere(where)] },
-			select: { id: true, status: true, format: true, dependencyId: true },
+			select: {
+				id: true,
+				status: true,
+				format: true,
+				dependencyId: true,
+				completionRule: true,
+				requiresEvaluation: true,
+				minPassingGrade: true,
+			},
 		});
 	},
 
@@ -275,16 +425,24 @@ export const createQuizRepository = ({
 					},
 				},
 				module: { select: { documentId: true, title: true, order: true } },
+				session: { select: { startsAt: true } },
 			},
 		});
 
 		// El temario manda: cada módulo con sus prácticas y luego su evaluación;
-		// el examen, al final.
+		// después el seguimiento, por sesión; el examen, al final.
 		const positionOf = (
 			quiz: (typeof quizzes)[number],
 		): [number, number, number] => {
 			if (quiz.lesson) return [quiz.lesson.module.order, 0, quiz.lesson.order];
 			if (quiz.module) return [quiz.module.order, 1, 0];
+			if (quiz.session) {
+				return [
+					Number.MAX_SAFE_INTEGER - 1,
+					0,
+					quiz.session.startsAt.getTime(),
+				];
+			}
 			return [Number.MAX_SAFE_INTEGER, 0, 0];
 		};
 
@@ -297,6 +455,7 @@ export const createQuizRepository = ({
 				const owner = {
 					lessonDocumentId: quiz.lesson?.documentId ?? null,
 					moduleDocumentId: quiz.module?.documentId ?? null,
+					followUpDocumentId: quiz.session ? quiz.documentId : null,
 				};
 				return {
 					quizDocumentId: quiz.documentId,

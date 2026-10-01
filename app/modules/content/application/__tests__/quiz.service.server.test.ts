@@ -8,22 +8,20 @@ import {
 	COURSE_DOC,
 	LESSON_1,
 	MODULE_A,
-	MODULE_QUIZ_A,
 	OTHER_DOC,
 } from "../../domain/__tests__/content.fixtures";
 import type { ClassroomCourse } from "../../domain/classroom.types";
 import { CONTENT_ERROR_CODES } from "../../domain/content.errors";
-import type { ContentModuleRaw } from "../../domain/content.mapper";
-import { FINAL_QUIZ_OWNER } from "../../domain/quiz.rules";
+import { FINAL_QUIZ_OWNER, followUpOwnerOf } from "../../domain/quiz.rules";
 import type {
 	GradedAttempt,
 	QuizAttemptRow,
 	QuizBankWrite,
 	QuizOwnerIds,
 	QuizParticipantRef,
-	QuizScoreRow,
 	QuizTeachingCourseRef,
 	StoredAttempt,
+	StoredFollowUp,
 	StoredQuiz,
 } from "../../domain/quiz.types";
 import { createQuizService } from "../quiz.service.server";
@@ -33,7 +31,11 @@ const ANA = actorOf({ userId: 50, role: "USER" });
 const HEAD = actorOf();
 const TRAINER = actorOf({ userId: 70, role: "USER", isTrainer: true });
 const NOBODY = actorOf({ userId: 80, role: "USER", isTrainer: false });
-const MODULE_OWNER = { lessonDocumentId: null, moduleDocumentId: MODULE_A };
+const MODULE_OWNER = {
+	lessonDocumentId: null,
+	moduleDocumentId: MODULE_A,
+	followUpDocumentId: null,
+};
 const Q1 = "11111111-1111-4111-8111-111111111111";
 const RIGHT = "01000000-0000-4000-8000-000000000000";
 const WRONG = "02000000-0000-4000-8000-000000000000";
@@ -79,7 +81,6 @@ const classroomCourseOf = (
 	format: "SELF_PACED",
 	completionRule: "CONTENT",
 	requiresEvaluation: true,
-	evaluationMethod: "QUIZ",
 	minPassingGrade: 70,
 	enrollment: {
 		status: "ENROLLED",
@@ -91,35 +92,35 @@ const classroomCourseOf = (
 	...overrides,
 });
 
-/** Un módulo con una práctica obligatoria y su evaluación. */
-const treeRaw: ContentModuleRaw[] = [
-	{
-		documentId: MODULE_A,
-		title: "Fundamentos",
-		description: null,
-		order: 1,
-		lessons: [
-			{
-				documentId: LESSON_1,
-				title: "Repaso",
-				type: "QUIZ",
-				order: 1,
-				isRequired: true,
-				estimatedMinutes: null,
-				content: null,
-				quiz: null,
-			},
-		],
-		quizzes: [
-			{
-				documentId: MODULE_QUIZ_A,
-				title: "Evaluación",
-				maxAttempts: 1,
-				_count: { questions: 2 },
-			},
-		],
-	},
-];
+const SESSION = {
+	id: 3,
+	documentId: "33333333-3333-4333-8333-333333333333",
+	startsAt: new Date("2027-03-10T17:00:00.000Z"),
+	endsAt: new Date("2027-03-10T19:00:00.000Z"),
+};
+const FOLLOW_UP_DOC = "44444444-4444-4444-8444-444444444444";
+
+/** Una evaluación de seguimiento de la sesión, abierta a la hora del test. */
+const followUpOf = (
+	overrides: Partial<StoredFollowUp> = {},
+): StoredFollowUp => ({
+	id: 40,
+	documentId: FOLLOW_UP_DOC,
+	title: "Práctica de campo",
+	passingScore: 60,
+	maxAttempts: 1,
+	shuffleQuestions: false,
+	countsTowardGrade: true,
+	availability: "SESSION_START",
+	opensBeforeMinutes: null,
+	closesAfterMinutes: null,
+	openedAt: null,
+	closedAt: null,
+	session: SESSION,
+	questionCount: 1,
+	attemptCount: 0,
+	...overrides,
+});
 
 const BOARD_ENTRY = {
 	quizDocumentId: quizOf().documentId,
@@ -144,7 +145,10 @@ const attemptOf = (overrides: Partial<StoredAttempt> = {}): StoredAttempt => ({
 const createHarness = (
 	options: {
 		course?: ClassroomCourse | null;
-		editable?: { status: CourseStatus } | null;
+		editable?: {
+			status: CourseStatus;
+			format?: "SCHEDULED" | "SELF_PACED";
+		} | null;
 		quiz?: StoredQuiz | null;
 		attempt?: StoredAttempt | null;
 		attemptCount?: number;
@@ -153,10 +157,11 @@ const createHarness = (
 		teaching?: QuizTeachingCourseRef | null;
 		participant?: QuizParticipantRef | null;
 		attempts?: QuizAttemptRow[];
-		tree?: ContentModuleRaw[];
-		scores?: QuizScoreRow[];
-		/** La mejor nota guardada, ya con el intento recién enviado. */
-		bestScore?: number | null;
+		followUps?: StoredFollowUp[];
+		/** Sesiones con asistencia de quien presenta. */
+		attended?: number[];
+		/** La sesión del curso que se busca; `null` finge que es de otro. */
+		sessionId?: number | null;
 	} = {},
 ) => {
 	let inTransaction = false;
@@ -169,9 +174,14 @@ const createHarness = (
 		results: [] as ResultWrite[][],
 		progress: [] as string[],
 		recalculated: [] as (readonly number[] | undefined)[],
-		synced: 0,
 		lockedInTransaction: [] as boolean[],
+		followUpsCreated: [] as unknown[],
+		followUpsUpdated: [] as unknown[],
+		followUpsDeleted: [] as number[],
+		opened: [] as number[],
+		closed: [] as number[],
 	};
+	const followUps = options.followUps ?? [];
 	const quiz = options.quiz === undefined ? quizOf() : options.quiz;
 
 	const contentRepository = {
@@ -181,7 +191,7 @@ const createHarness = (
 				: {
 						id: 7,
 						status: options.editable?.status ?? "DRAFT",
-						format: "SELF_PACED",
+						format: options.editable?.format ?? "SELF_PACED",
 					},
 		findLesson: async (_courseId: number, documentId: string) =>
 			documentId === LESSON_1
@@ -192,7 +202,6 @@ const createHarness = (
 						isRequired: true,
 					}
 				: null,
-		findTree: async () => options.tree ?? [],
 		findModule: async (_courseId: number, documentId: string) =>
 			documentId === MODULE_A
 				? { id: 21, activeLessons: 2, hasActiveQuiz: true }
@@ -229,7 +238,6 @@ const createHarness = (
 			calls.archived.push(quizId);
 		},
 		findAttempt: async () => options.attempt ?? null,
-		findBestScore: async () => options.bestScore ?? null,
 		saveAttempt: async (
 			_quizId: number,
 			_userId: number,
@@ -243,7 +251,15 @@ const createHarness = (
 		},
 		findTeachingCourse: async () =>
 			options.teaching === undefined
-				? { id: 7, status: "PUBLISHED", format: "SELF_PACED", dependencyId: 3 }
+				? {
+						id: 7,
+						status: "PUBLISHED",
+						format: "SCHEDULED",
+						dependencyId: 3,
+						completionRule: "ATTENDANCE",
+						requiresEvaluation: false,
+						minPassingGrade: 70,
+					}
 				: options.teaching,
 		findEnrolledParticipant: async (_courseId: number, documentId: string) =>
 			documentId === ANA.documentId
@@ -253,7 +269,28 @@ const createHarness = (
 				: null,
 		findBoardQuizzes: async () => [BOARD_ENTRY],
 		findLatestAttempts: async () => options.attempts ?? [],
-		findBestScores: async () => options.scores ?? [],
+		findFollowUps: async () => followUps,
+		findFollowUp: async (_courseId: number, documentId: string) =>
+			followUps.find((row) => row.documentId === documentId) ?? null,
+		findSessionId: async () =>
+			options.sessionId === undefined ? SESSION.id : options.sessionId,
+		createFollowUp: async (_courseId: number, write: unknown) => {
+			calls.followUpsCreated.push(write);
+			return { id: 40, documentId: FOLLOW_UP_DOC };
+		},
+		updateFollowUp: async (_id: number, write: unknown) => {
+			calls.followUpsUpdated.push(write);
+		},
+		deleteFollowUp: async (id: number) => {
+			calls.followUpsDeleted.push(id);
+		},
+		openFollowUp: async (id: number) => {
+			calls.opened.push(id);
+		},
+		closeFollowUp: async (id: number) => {
+			calls.closed.push(id);
+		},
+		findFollowUpBestScores: async () => [],
 	} as unknown as ICradle["quizRepository"];
 
 	const enrollmentRepository = {
@@ -280,6 +317,9 @@ const createHarness = (
 		classroomRepository,
 		quizRepository,
 		enrollmentRepository,
+		teachingRepository: {
+			findAttendedSessionIds: async () => options.attended ?? [SESSION.id],
+		} as unknown as ICradle["teachingRepository"],
 		progressSync: {
 			recalculate: async (
 				_course: unknown,
@@ -291,12 +331,6 @@ const createHarness = (
 				return [];
 			},
 		} as unknown as ICradle["progressSync"],
-		completionSync: {
-			sync: async () => {
-				calls.synced += 1;
-				return { completed: 1, diff: { grant: [], restore: [], revoke: [] } };
-			},
-		} as unknown as ICradle["completionSync"],
 		runInTransaction,
 		clock: { now: () => NOW },
 		logger: silentLogger,
@@ -402,8 +436,9 @@ describe("submit: examen final", () => {
 		answers: [{ questionDocumentId: Q1, optionDocumentId }],
 	});
 
-	// El resultado entra por la misma vía que la captura manual.
-	test("escribe resultado y nota, y un autogestivo acredita al momento", async () => {
+	// La nota la calcula `progressSync`, por la misma vía que el resto
+	// (docs/adr/0024, 0027): aquí solo se comprueba que se recalcula.
+	test("guarda el intento y recalcula la nota de quien lo presentó", async () => {
 		const { service, calls } = createHarness();
 
 		const result = await service.submit(COURSE_DOC, submitDto(RIGHT), ANA);
@@ -412,94 +447,21 @@ describe("submit: examen final", () => {
 			success: true,
 			data: { score: 100, passed: true, questions: [{ correct: true }] },
 		});
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "PASSED", grade: 100 }],
-		]);
-		expect(calls.synced).toBe(1);
+		expect(calls.attempts.map((row) => row.number)).toEqual([1]);
+		expect(calls.recalculated).toEqual([[50]]);
 		expect(calls.lockedInTransaction).toEqual([true]);
 	});
 
-	test("reprobar también escribe el resultado", async () => {
+	test("reprobar también guarda el intento y recalcula", async () => {
 		const { service, calls } = createHarness();
-
-		await service.submit(COURSE_DOC, submitDto(WRONG), ANA);
-
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "FAILED", grade: 0 }],
-		]);
-	});
-
-	// ADR-0021, 0024: la nota del curso es el promedio con las mejores del temario.
-	test("la nota es el promedio con las evaluaciones del temario", async () => {
-		const { service, calls } = createHarness({
-			tree: treeRaw,
-			scores: [
-				{ userId: 50, itemDocumentId: LESSON_1, score: 90 },
-				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 70 },
-			],
-		});
-
-		await service.submit(COURSE_DOC, submitDto(RIGHT), ANA);
-
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "PASSED", grade: 86 }],
-		]);
-	});
-
-	test("si el curso no cuenta el contenido, la nota es solo la del examen", async () => {
-		const { service, calls } = createHarness({
-			course: classroomCourseOf({
-				format: "SCHEDULED",
-				completionRule: "ATTENDANCE",
-			}),
-			tree: treeRaw,
-			scores: [{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 70 }],
-		});
-
-		await service.submit(COURSE_DOC, submitDto(RIGHT), ANA);
-
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "PASSED", grade: 100 }],
-		]);
-	});
-
-	// ADR-0024: se acredita con el promedio, no con el examen solo.
-	test("un examen reprobado se compensa con el temario si el promedio alcanza", async () => {
-		const { service, calls } = createHarness({
-			course: classroomCourseOf({ minPassingGrade: 60 }),
-			tree: treeRaw,
-			scores: [
-				{ userId: 50, itemDocumentId: LESSON_1, score: 100 },
-				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 100 },
-			],
-		});
 
 		const result = await service.submit(COURSE_DOC, submitDto(WRONG), ANA);
 
 		expect(result).toMatchObject({ success: true, data: { passed: false } });
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "PASSED", grade: 66 }],
-		]);
+		expect(calls.recalculated).toEqual([[50]]);
 	});
 
-	test("un promedio bajo la mínima del curso reprueba aunque el examen apruebe", async () => {
-		const { service, calls } = createHarness({
-			course: classroomCourseOf({ minPassingGrade: 80 }),
-			tree: treeRaw,
-			scores: [
-				{ userId: 50, itemDocumentId: LESSON_1, score: 40 },
-				{ userId: 50, itemDocumentId: MODULE_QUIZ_A, score: 50 },
-			],
-		});
-
-		await service.submit(COURSE_DOC, submitDto(RIGHT), ANA);
-
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "FAILED", grade: 63 }],
-		]);
-	});
-
-	test("con intentos restantes se presenta como el siguiente número y cuenta la mejor", async () => {
+	test("con intentos restantes se presenta como el siguiente número", async () => {
 		const { service, calls } = createHarness({
 			course: classroomCourseOf({
 				format: "SCHEDULED",
@@ -507,30 +469,11 @@ describe("submit: examen final", () => {
 			}),
 			quiz: quizOf({ maxAttempts: 2 }),
 			attempt: attemptOf({ score: 50, passed: false }),
-			bestScore: 50,
 		});
 
 		await service.submit(COURSE_DOC, submitDto(WRONG), ANA);
 
 		expect(calls.attempts.map((row) => row.number)).toEqual([2]);
-		expect(calls.results).toEqual([
-			[{ userId: 50, result: "FAILED", grade: 50 }],
-		]);
-	});
-
-	// Uno con sesiones calcula el completado al cierre.
-	test("un curso con sesiones publicado guarda la nota sin recalcular", async () => {
-		const { service, calls } = createHarness({
-			course: classroomCourseOf({
-				format: "SCHEDULED",
-				completionRule: "ATTENDANCE",
-			}),
-		});
-
-		await service.submit(COURSE_DOC, submitDto(RIGHT), ANA);
-
-		expect(calls.results).toHaveLength(1);
-		expect(calls.synced).toBe(0);
 	});
 
 	test("sin intentos restantes, otro envío se rechaza y no escribe", async () => {
@@ -545,7 +488,7 @@ describe("submit: examen final", () => {
 			error: { code: CONTENT_ERROR_CODES.QUIZ_ALREADY_TAKEN },
 		});
 		expect(calls.attempts).toEqual([]);
-		expect(calls.results).toEqual([]);
+		expect(calls.recalculated).toEqual([]);
 	});
 
 	test("con el contenido sin terminar todavía no se presenta", async () => {
@@ -583,9 +526,9 @@ describe("submit: examen final", () => {
 		});
 	});
 
-	test("en un curso de captura manual el examen no se presenta", async () => {
+	test("sin evaluación final el examen no se presenta", async () => {
 		const { service } = createHarness({
-			course: classroomCourseOf({ evaluationMethod: "MANUAL" }),
+			course: classroomCourseOf({ requiresEvaluation: false }),
 		});
 
 		expect(
@@ -601,6 +544,7 @@ describe("submit: práctica (docs/adr/0021, 0024)", () => {
 	const submitDto = (optionDocumentId: string) => ({
 		lessonDocumentId: LESSON_1,
 		moduleDocumentId: null,
+		followUpDocumentId: null,
 		answers: [{ questionDocumentId: Q1, optionDocumentId }],
 	});
 
@@ -747,9 +691,9 @@ describe("findView", () => {
 		});
 	});
 
-	test("un curso de captura manual no enseña examen", async () => {
+	test("un curso sin evaluación final no enseña examen", async () => {
 		const { service } = createHarness({
-			course: classroomCourseOf({ evaluationMethod: "MANUAL" }),
+			course: classroomCourseOf({ requiresEvaluation: false }),
 		});
 
 		expect(
@@ -873,7 +817,6 @@ describe("evaluación de módulo (docs/adr/0016)", () => {
 		const { service, calls } = createHarness({
 			course: classroomCourseOf({
 				requiresEvaluation: false,
-				evaluationMethod: "MANUAL",
 				enrollment: {
 					status: "ENROLLED",
 					progressPercent: 0,
@@ -1003,6 +946,9 @@ describe("otro intento (docs/adr/0016, 0024)", () => {
 				id: 7,
 				status: "FINISHED",
 				format: "SCHEDULED",
+				completionRule: "ATTENDANCE",
+				requiresEvaluation: false,
+				minPassingGrade: 70,
 				dependencyId: 3,
 			},
 		});
@@ -1057,5 +1003,364 @@ describe("otro intento (docs/adr/0016, 0024)", () => {
 				attempts: [latest],
 			},
 		});
+	});
+});
+
+describe("evaluaciones de seguimiento (docs/adr/0027)", () => {
+	const SCHEDULED = { status: "DRAFT" as const, format: "SCHEDULED" as const };
+	const settings = {
+		sessionDocumentId: "33333333-3333-4333-8333-333333333333",
+		countsTowardGrade: true,
+		availability: "RANGE" as const,
+		opensBeforeMinutes: 10,
+		closesAfterMinutes: 20,
+	};
+	const saveDto = (overrides: object = {}) => ({
+		title: "Práctica de campo",
+		passingScore: 70,
+		maxAttempts: 1,
+		shuffleQuestions: false,
+		...settings,
+		followUpDocumentId: null,
+		...overrides,
+	});
+	const questionsDto = {
+		followUpDocumentId: FOLLOW_UP_DOC,
+		questions: bankDto.questions,
+	};
+	const FOLLOW_UP_OWNER = { lessonId: null, moduleId: null, followUpId: 40 };
+
+	test("crearla desde el modal la deja sin preguntas", async () => {
+		const { service, calls } = createHarness({ editable: SCHEDULED });
+
+		const result = await service.saveFollowUp(COURSE_DOC, saveDto(), HEAD);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { documentId: FOLLOW_UP_DOC },
+		});
+		expect(calls.followUpsCreated).toEqual([
+			{
+				title: "Práctica de campo",
+				sessionId: SESSION.id,
+				countsTowardGrade: true,
+				availability: "RANGE",
+				opensBeforeMinutes: 10,
+				closesAfterMinutes: 20,
+				passingScore: 70,
+				maxAttempts: 1,
+				shuffleQuestions: false,
+			},
+		]);
+		expect(calls.replaced).toEqual([]);
+		expect(calls.lockedInTransaction).toEqual([true]);
+	});
+
+	// Las preguntas se guardan con el paso, sin tocar lo que puso el modal.
+	test("sus preguntas se escriben con los datos que ya tiene", async () => {
+		const { service, calls } = createHarness({
+			editable: SCHEDULED,
+			followUps: [followUpOf({ passingScore: 60, maxAttempts: 2 })],
+		});
+
+		const result = await service.saveFollowUpQuestions(
+			COURSE_DOC,
+			questionsDto,
+			HEAD,
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.replaced).toEqual([
+			{
+				owner: FOLLOW_UP_OWNER,
+				bank: expect.objectContaining({
+					title: "Práctica de campo",
+					passingScore: 60,
+					maxAttempts: 2,
+					questions: [expect.objectContaining({ statement: "¿Cuál?" })],
+				}),
+			},
+		]);
+		expect(calls.lockedInTransaction).toEqual([true]);
+	});
+
+	test("con intentos sus preguntas ya no cambian", async () => {
+		const { service, calls } = createHarness({
+			editable: SCHEDULED,
+			followUps: [followUpOf({ attemptCount: 1 })],
+		});
+
+		expect(
+			await service.saveFollowUpQuestions(COURSE_DOC, questionsDto, HEAD),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.QUIZ_LOCKED },
+		});
+		expect(calls.replaced).toEqual([]);
+	});
+
+	test("un autogestivo no tiene seguimiento", async () => {
+		const { service, calls } = createHarness({
+			editable: { status: "DRAFT", format: "SELF_PACED" },
+		});
+
+		expect(
+			await service.saveFollowUp(COURSE_DOC, saveDto(), HEAD),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_SELF_PACED },
+		});
+		expect(calls.followUpsCreated).toEqual([]);
+	});
+
+	test("una sesión de otro curso se rechaza", async () => {
+		const { service } = createHarness({ editable: SCHEDULED, sessionId: null });
+
+		expect(
+			await service.saveFollowUp(COURSE_DOC, saveDto(), HEAD),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.SESSION_NOT_FOUND },
+		});
+	});
+
+	test("con el tope alcanzado no se crea otra", async () => {
+		const { service, calls } = createHarness({
+			editable: SCHEDULED,
+			followUps: Array.from({ length: 20 }, (_, index) =>
+				followUpOf({ id: index + 1 }),
+			),
+		});
+
+		expect(
+			await service.saveFollowUp(COURSE_DOC, saveDto(), HEAD),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.TOO_MANY_FOLLOW_UPS },
+		});
+		expect(calls.replaced).toEqual([]);
+	});
+
+	test("editarla desde el modal no toca sus preguntas", async () => {
+		const { service, calls } = createHarness({
+			editable: SCHEDULED,
+			followUps: [followUpOf()],
+		});
+
+		const result = await service.saveFollowUp(
+			COURSE_DOC,
+			saveDto({ followUpDocumentId: FOLLOW_UP_DOC, title: "Práctica 2" }),
+			HEAD,
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.followUpsCreated).toEqual([]);
+		expect(calls.followUpsUpdated).toEqual([
+			expect.objectContaining({ title: "Práctica 2", availability: "RANGE" }),
+		]);
+		expect(calls.replaced).toEqual([]);
+	});
+
+	test("con intentos no cambian la mínima ni si cuenta, pero sí su ventana", async () => {
+		const followUps = [followUpOf({ attemptCount: 2 })];
+		const locked = createHarness({ editable: SCHEDULED, followUps });
+
+		expect(
+			await locked.service.saveFollowUp(
+				COURSE_DOC,
+				saveDto({
+					followUpDocumentId: FOLLOW_UP_DOC,
+					countsTowardGrade: false,
+				}),
+				HEAD,
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.QUIZ_LOCKED },
+		});
+		expect(locked.calls.followUpsUpdated).toEqual([]);
+
+		const minimum = createHarness({ editable: SCHEDULED, followUps });
+		expect(
+			await minimum.service.saveFollowUp(
+				COURSE_DOC,
+				saveDto({ followUpDocumentId: FOLLOW_UP_DOC, passingScore: 90 }),
+				HEAD,
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.QUIZ_LOCKED },
+		});
+
+		const open = createHarness({ editable: SCHEDULED, followUps });
+		const result = await open.service.saveFollowUp(
+			COURSE_DOC,
+			saveDto({
+				followUpDocumentId: FOLLOW_UP_DOC,
+				passingScore: 60,
+				closesAfterMinutes: 45,
+			}),
+			HEAD,
+		);
+		expect(result.success).toBe(true);
+		expect(open.calls.followUpsUpdated).toHaveLength(1);
+	});
+
+	test("eliminarla solo mientras nadie la presentó", async () => {
+		const free = createHarness({
+			editable: SCHEDULED,
+			followUps: [followUpOf()],
+		});
+		await free.service.removeFollowUp(
+			COURSE_DOC,
+			{ followUpDocumentId: FOLLOW_UP_DOC },
+			HEAD,
+		);
+		expect(free.calls.followUpsDeleted).toEqual([40]);
+
+		const taken = createHarness({
+			editable: SCHEDULED,
+			followUps: [followUpOf({ attemptCount: 1 })],
+		});
+		expect(
+			await taken.service.removeFollowUp(
+				COURSE_DOC,
+				{ followUpDocumentId: FOLLOW_UP_DOC },
+				HEAD,
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_HAS_ATTEMPTS },
+		});
+		expect(taken.calls.followUpsDeleted).toEqual([]);
+	});
+
+	test("abrir a mano una que no es manual se rechaza", async () => {
+		const { service, calls } = createHarness({ followUps: [followUpOf()] });
+
+		expect(
+			await service.openFollowUp(
+				COURSE_DOC,
+				{ followUpDocumentId: FOLLOW_UP_DOC },
+				TRAINER,
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_MANUAL },
+		});
+		expect(calls.opened).toEqual([]);
+	});
+
+	test("abrir una manual la deja abierta", async () => {
+		const { service, calls } = createHarness({
+			followUps: [followUpOf({ availability: "MANUAL" })],
+		});
+
+		const result = await service.openFollowUp(
+			COURSE_DOC,
+			{ followUpDocumentId: FOLLOW_UP_DOC },
+			TRAINER,
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.opened).toEqual([40]);
+	});
+
+	test("cerrar una que cuenta recalcula la nota de todos", async () => {
+		const { service, calls } = createHarness({
+			followUps: [followUpOf({ availability: "MANUAL", openedAt: NOW })],
+		});
+
+		const result = await service.closeFollowUp(
+			COURSE_DOC,
+			{ followUpDocumentId: FOLLOW_UP_DOC },
+			TRAINER,
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.closed).toEqual([40]);
+		expect(calls.recalculated).toEqual([undefined]);
+	});
+
+	test("cerrar es definitivo", async () => {
+		const { service } = createHarness({
+			followUps: [
+				followUpOf({ availability: "MANUAL", openedAt: NOW, closedAt: NOW }),
+			],
+		});
+
+		expect(
+			await service.closeFollowUp(
+				COURSE_DOC,
+				{ followUpDocumentId: FOLLOW_UP_DOC },
+				TRAINER,
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_CLOSED },
+		});
+	});
+
+	describe("presentarla", () => {
+		const scheduledCourse = classroomCourseOf({
+			format: "SCHEDULED",
+			completionRule: "ATTENDANCE",
+			requiresEvaluation: false,
+		});
+		const submitDto = {
+			...followUpOwnerOf(FOLLOW_UP_DOC),
+			answers: [{ questionDocumentId: Q1, optionDocumentId: RIGHT }],
+		};
+
+		test("abierta y con asistencia, guarda el intento y recalcula la nota", async () => {
+			const { service, calls } = createHarness({
+				course: scheduledCourse,
+				followUps: [followUpOf()],
+			});
+
+			const result = await service.submit(COURSE_DOC, submitDto, ANA);
+
+			expect(result).toMatchObject({ success: true, data: { score: 100 } });
+			expect(calls.attempts.map((row) => row.number)).toEqual([1]);
+			expect(calls.recalculated).toEqual([[50]]);
+		});
+
+		test("sin asistencia en su sesión se rechaza", async () => {
+			const { service, calls } = createHarness({
+				course: scheduledCourse,
+				followUps: [followUpOf()],
+				attended: [],
+			});
+
+			expect(await service.submit(COURSE_DOC, submitDto, ANA)).toMatchObject({
+				success: false,
+				error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_ATTENDED },
+			});
+			expect(calls.attempts).toEqual([]);
+		});
+
+		test("fuera de su ventana se rechaza", async () => {
+			const { service, calls } = createHarness({
+				course: scheduledCourse,
+				followUps: [followUpOf({ availability: "MANUAL" })],
+			});
+
+			expect(await service.submit(COURSE_DOC, submitDto, ANA)).toMatchObject({
+				success: false,
+				error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_OPEN },
+			});
+			expect(calls.attempts).toEqual([]);
+		});
+	});
+
+	test("sin inscripción vigente el participante no ve ninguna", async () => {
+		const { service } = createHarness({
+			course: classroomCourseOf({ format: "SCHEDULED", enrollment: null }),
+			followUps: [followUpOf()],
+		});
+
+		expect(
+			await service.findParticipantFollowUps(COURSE_DOC, ANA),
+		).toMatchObject({ success: true, data: [] });
 	});
 });

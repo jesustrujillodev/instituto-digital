@@ -38,6 +38,7 @@ export const action = async ({
 				...(form.payload as object),
 				lessonDocumentId: params.lessonDocumentId,
 				moduleDocumentId: null,
+				followUpDocumentId: null,
 			}),
 		}));
 		if (!quizInput.success) {

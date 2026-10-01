@@ -9,7 +9,10 @@ interface CourseWizardFooterProps {
 	backTo: string | null;
 	/** El paso al que lleva «Guardar y continuar»; `null` cuando publica o sale. */
 	nextTitle?: string | null;
-	isSubmitting: boolean;
+	/** Hay un guardado o una salida en curso, lance quien lo lance. */
+	busy: boolean;
+	/** Qué hace la acción de este pie si la lanzó él: guardar o abrir el destino. */
+	pendingPhase: "saving" | "opening" | null;
 	/** La revisión del alta publica; el último paso de la edición guarda y sale. */
 	submitKind: "next" | "publish" | "save";
 	/** A dónde sale el último paso de la edición: «a Cursos», «a Impartición». */
@@ -28,7 +31,8 @@ export function CourseWizardFooter({
 	formId,
 	backTo,
 	nextTitle = null,
-	isSubmitting,
+	busy,
+	pendingPhase,
 	submitKind,
 	finishLabel = "a Capacitaciones",
 	canSubmit = true,
@@ -56,7 +60,8 @@ export function CourseWizardFooter({
 				type="submit"
 				form={formId}
 				size="lg"
-				disabled={isSubmitting || !canSubmit}
+				disabled={busy || !canSubmit}
+				pending={pendingPhase !== null}
 				className={cn(
 					"flex-1 md:flex-none",
 					!nextTitle && "md:ml-auto",
@@ -66,16 +71,24 @@ export function CourseWizardFooter({
 				{submitKind === "publish" ? (
 					<>
 						<Send aria-hidden="true" />
-						{isSubmitting ? "Publicando…" : "Publicar capacitación"}
+						{pendingPhase ? "Publicando…" : "Publicar capacitación"}
 					</>
 				) : submitKind === "save" ? (
 					<>
 						<Check aria-hidden="true" />
-						{isSubmitting ? "Guardando…" : `Guardar y salir ${finishLabel}`}
+						{pendingPhase === "opening"
+							? "Saliendo…"
+							: pendingPhase === "saving"
+								? "Guardando…"
+								: `Guardar y salir ${finishLabel}`}
 					</>
 				) : (
 					<>
-						{isSubmitting ? "Guardando…" : "Guardar y continuar"}
+						{pendingPhase === "opening"
+							? "Abriendo el paso…"
+							: pendingPhase === "saving"
+								? "Guardando…"
+								: "Guardar y continuar"}
 						<ArrowRight aria-hidden="true" />
 					</>
 				)}

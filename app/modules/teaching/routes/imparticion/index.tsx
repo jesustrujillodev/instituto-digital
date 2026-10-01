@@ -12,9 +12,11 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { placeholderCountOf } from "@/lib/placeholders";
 import {
 	CourseCardFrame,
 	CourseCardList,
+	CourseCardListSkeleton,
 	CourseCardStatus,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
@@ -40,11 +42,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import { useViewMode } from "@/shared/hooks/use-view-mode";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { VIEW_MODE_SCREENS } from "@/shared/view-mode/view-mode";
 import {
 	TEACHABLE_STATUSES,
+	TEACHING_LIST_DEFAULTS,
 	TEACHING_PAGE_SIZES,
 } from "../../domain/teaching.config";
 import type { TeachingCourseSummary } from "../../domain/teaching.types";
@@ -124,6 +128,7 @@ export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 	} = loaderData;
 	const [, setSearchParams] = useSearchParams();
 	const [layout, setLayout] = useViewMode(VIEW_MODE_SCREENS.teaching, view);
+	const isLoading = useRouteReloading();
 
 	const updateParams = useCallback(
 		(patch: Record<string, string | number | null>) => {
@@ -223,7 +228,15 @@ export default function ImparticionPage({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 
-				{courses.length === 0 ? (
+				{isLoading ? (
+					<CourseCardListSkeleton
+						layout={layout}
+						count={placeholderCountOf(
+							courses.length,
+							pagination?.pageSize ?? TEACHING_LIST_DEFAULTS.pageSize,
+						)}
+					/>
+				) : courses.length === 0 ? (
 					<TeachingEmpty hasFilters={hasFilters} onClear={clearFilters} />
 				) : (
 					<CourseCardList layout={layout}>

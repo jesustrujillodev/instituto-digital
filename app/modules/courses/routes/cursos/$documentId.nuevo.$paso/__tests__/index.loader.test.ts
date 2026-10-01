@@ -48,7 +48,13 @@ const createHarness = (
 		lessons?: boolean;
 	} = {},
 ) => {
-	const calls = { trees: 0, evaluations: 0 };
+	const calls = {
+		trees: 0,
+		banks: 0,
+		facts: 0,
+		followUps: 0,
+		followUpBanks: 0,
+	};
 
 	const context = {
 		authPayload: authPayloadOf(options),
@@ -59,23 +65,39 @@ const createHarness = (
 			},
 		},
 		quizService: {
-			findBank: async () => okReply(null),
-		},
-		evaluationService: {
-			findDefinitions: async () => {
-				calls.evaluations += 1;
+			findBank: async (
+				_courseDocumentId: string,
+				owner: { followUpDocumentId: string | null },
+			) => {
+				if (owner.followUpDocumentId) calls.followUpBanks += 1;
+				else calls.banks += 1;
+				return okReply(null);
+			},
+			findFollowUps: async () => {
+				calls.followUps += 1;
 				return okReply([
 					{
 						documentId: "44444444-4444-4444-8444-444444444444",
-						title: "Examen parcial",
-						sessionDocumentId: null,
-						captures: {},
-						recorded: 0,
+						title: "Práctica de campo",
+						sessionDocumentId: "33333333-3333-4333-8333-333333333333",
+						countsTowardGrade: true,
+						questionCount: 0,
 					},
 				]);
 			},
 		},
 		courseService: {
+			// Como el servicio real: solo un autogestivo cuenta sus lecciones.
+			findContentFacts: async (course: { format: string }) => {
+				calls.facts += 1;
+				return okReply({
+					lessonCount:
+						course.format === "SELF_PACED" && options.lessons !== false ? 1 : 0,
+					finalQuizQuestionCount: 0,
+					followUpsWithoutQuestions: course.format === "SCHEDULED" ? 1 : 0,
+					countedFollowUps: 0,
+				});
+			},
 			findById: async () =>
 				options.findFails
 					? failReply(options.findFails)
@@ -157,6 +179,27 @@ describe("capacitaciones/alta loader", () => {
 		expect(data.checklist).toContainEqual({ check: "content", done: true });
 	});
 
+	test("un paso que no pinta el temario solo lo cuenta", async () => {
+		const { context, calls } = createHarness({ format: "SELF_PACED" });
+
+		const { data } = await run(context, { paso: "1" });
+
+		expect(calls.trees).toBe(0);
+		expect(calls.facts).toBe(1);
+		expect(data.content).toBeNull();
+		expect(data.checklist).toContainEqual({ check: "content", done: true });
+	});
+
+	test("solo el paso de evaluación lee el banco del examen", async () => {
+		const { context, calls } = createHarness();
+
+		await run(context, { paso: "2" });
+		expect(calls.banks).toBe(0);
+
+		await run(context, { paso: "4" });
+		expect(calls.banks).toBe(1);
+	});
+
 	test("un autogestivo sin lecciones deja el contenido pendiente", async () => {
 		const { context } = createHarness({
 			format: "SELF_PACED",
@@ -185,19 +228,48 @@ describe("capacitaciones/alta loader", () => {
 
 		const { data } = await run(context, { paso: "4" });
 
-		expect(data.evaluations).toEqual([
-			expect.objectContaining({ title: "Examen parcial" }),
+		expect(data.followUps).toEqual([
+			expect.objectContaining({ title: "Práctica de campo" }),
 		]);
-		expect(calls.evaluations).toBe(1);
+		expect(calls.followUps).toBe(1);
 	});
 
-	test("los pasos que no las muestran no leen evaluaciones", async () => {
+	// Sus preguntas se editan en el paso, como las del examen.
+	test("el paso de evaluación trae las preguntas de cada una", async () => {
+		const { context, calls } = createHarness();
+
+		const { data } = await run(context, { paso: "4" });
+
+		expect(calls.followUpBanks).toBe(1);
+		expect(data.followUpBanks).toEqual({
+			"44444444-4444-4444-8444-444444444444": null,
+		});
+	});
+
+	test("los pasos que no las muestran no las leen", async () => {
 		const { context, calls } = createHarness();
 
 		const { data } = await run(context, { paso: "2" });
 
-		expect(data.evaluations).toEqual([]);
-		expect(calls.evaluations).toBe(0);
+		expect(data.followUps).toEqual([]);
+		expect(calls.followUps).toBe(0);
+	});
+
+	test("un autogestivo no tiene seguimiento que leer", async () => {
+		const { context, calls } = createHarness({ format: "SELF_PACED" });
+
+		await run(context, { paso: "4" });
+
+		expect(calls.followUps).toBe(0);
+	});
+
+	// docs/adr/0027: un seguimiento sin preguntas queda pendiente en el alta.
+	test("un seguimiento sin preguntas queda pendiente", async () => {
+		const { context } = createHarness();
+
+		const { data } = await run(context, { paso: "2" });
+
+		expect(data.checklist).toContainEqual({ check: "followUps", done: false });
 	});
 
 	test("un cancelado lleva a su ficha, que es lo único que le queda", async () => {

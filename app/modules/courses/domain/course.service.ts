@@ -2,6 +2,8 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { UploadInput } from "@/shared/storage/upload-validation";
 import type { CourseScope } from "./course.access";
 import type {
+	CourseContentFactsInput,
+	CourseContentFactsResponse,
 	CourseDetail,
 	CourseFormOptionsResponse,
 	CourseListResponse,
@@ -34,6 +36,13 @@ export interface ICourseService {
 		scope: CourseScope,
 		course?: Pick<CourseDetail, "documentId" | "dependencyId">,
 	): Promise<CourseFormOptionsResponse>;
+	/**
+	 * Lecciones y preguntas del examen final de un curso ya leído con su
+	 * alcance. Solo cuenta lo que el curso exige; lo demás vale 0.
+	 */
+	findContentFacts(
+		course: CourseContentFactsInput,
+	): Promise<CourseContentFactsResponse>;
 
 	/**
 	 * La portada viaja aparte del DTO y no dentro de él: un `File` no existe en

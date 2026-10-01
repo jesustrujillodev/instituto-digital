@@ -11,7 +11,6 @@ import type { CourseDetail } from "../domain/course.types";
 import {
 	COMPLETION_RULE_LABELS,
 	courseHoursLabel,
-	EVALUATION_METHOD_LABELS,
 } from "../utils/course-labels";
 
 const dateOf = (value: Date | string) => formatZonedDate(new Date(value));
@@ -65,9 +64,7 @@ export function CourseFacts({
 
 	facts.push({
 		term: "Evaluación final",
-		value: course.requiresEvaluation
-			? EVALUATION_METHOD_LABELS[course.evaluationMethod]
-			: "Sin evaluación",
+		value: course.requiresEvaluation ? "Examen en línea" : "Sin evaluación",
 	});
 
 	if (gradesAutomatically(course)) {

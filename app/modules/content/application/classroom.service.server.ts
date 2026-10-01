@@ -196,17 +196,14 @@ export const createClassroomService = ({
 				const course = await requireCourse(courseDocumentId, actor);
 				assertClassroomReadable(course);
 
-				const { tree, withStatus } = await readProgress(course, actor.userId);
+				const [{ tree, withStatus }, raw] = await Promise.all([
+					readProgress(course, actor.userId),
+					contentRepository.findMaterial(course.id, lessonDocumentId),
+				]);
 				const lesson = tree
 					.flatMap((module) => module.lessons)
 					.find((row) => row.documentId === lessonDocumentId);
-				if (!lesson) throw new ContentLessonNotFoundError();
-
-				const raw = await contentRepository.findMaterial(
-					course.id,
-					lessonDocumentId,
-				);
-				if (!raw) throw new ContentLessonNotFoundError();
+				if (!lesson || !raw) throw new ContentLessonNotFoundError();
 
 				const { previous, next } = neighborsOf(tree, {
 					kind: "LESSON",

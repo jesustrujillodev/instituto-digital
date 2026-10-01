@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import {
@@ -106,12 +105,9 @@ export function UnsavedChangesDialog({
 					{onSave && (
 						<Button
 							type="button"
-							disabled={saving}
+							pending={saving}
 							onClick={() => void saveAndLeave()}
 						>
-							{saving && (
-								<Loader2 className="animate-spin" aria-hidden="true" />
-							)}
 							{saving ? "Guardando…" : "Guardar y salir"}
 						</Button>
 					)}

@@ -63,10 +63,11 @@ export const emptyQuestion = (): DraftQuestion => ({
 	options: emptyOptions(),
 });
 
-/** La práctica nace sin límite, como siempre fue; el examen y el módulo, con uno. */
+/** La práctica nace sin límite, como siempre fue; las evaluaciones, con uno. */
 const DEFAULT_MAX_ATTEMPTS: Record<QuizKind, number | null> = {
 	FINAL: 1,
 	MODULE: 1,
+	FOLLOW_UP: 1,
 	PRACTICE: null,
 };
 

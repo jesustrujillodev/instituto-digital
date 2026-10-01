@@ -1,6 +1,6 @@
-import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useFetcher } from "react-router";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import type { AppResponse } from "@/shared/response/response.types";
 import type { QuizBank, QuizOwnerRef } from "../domain/quiz.types";
 import { quizPath } from "../utils/content-form";
@@ -30,14 +30,7 @@ export function QuizBankPanel({
 		loader.load(path);
 	}, [path]);
 
-	if (!loader.data) {
-		return (
-			<div className="flex items-center gap-2 text-muted-foreground text-sm">
-				<Loader2 className="size-4 animate-spin" />
-				Cargando el cuestionario…
-			</div>
-		);
-	}
+	if (!loader.data) return <QuizEditorSkeleton />;
 
 	return (
 		<QuizEditor
@@ -47,5 +40,26 @@ export function QuizBankPanel({
 			defaultTitle={defaultTitle}
 			disabled={!canWrite}
 		/>
+	);
+}
+
+/** La silueta del editor: datos del cuestionario y un par de preguntas. */
+function QuizEditorSkeleton() {
+	return (
+		<div aria-busy="true" className="flex flex-col gap-5">
+			<span className="sr-only">Cargando el cuestionario…</span>
+			<div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]">
+				{["w-24", "w-20", "w-16"].map((width) => (
+					<div key={width} className="flex flex-col gap-1.5">
+						<Skeleton className={`h-4 rounded-md ${width}`} />
+						<Skeleton className="h-9 w-full rounded-md" />
+					</div>
+				))}
+			</div>
+			<Skeleton className="h-5 w-48 rounded-md" />
+			{["first", "second"].map((key) => (
+				<Skeleton key={key} className="h-32 w-full rounded-xl" />
+			))}
+		</div>
 	);
 }

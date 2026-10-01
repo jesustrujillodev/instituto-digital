@@ -4,6 +4,7 @@ import type {
 	CourseContentTree,
 	ReorderContentDto,
 } from "../domain/content.types";
+import { CONTENT_INTENTS, parseContentFormData } from "./content-form";
 
 /** Lo que el editor del temario tiene abierto a la derecha. */
 export type OutlineSelection =
@@ -183,4 +184,154 @@ export const withLessonMoved = (
 				: entry,
 		),
 	};
+};
+
+/** Ordena según `ids`; lo que `ids` no nombra conserva su orden, al final. */
+const sortedBy = <T>(
+	items: readonly T[],
+	ids: readonly string[],
+	idOf: (item: T) => string,
+): T[] => {
+	const rank = new Map(ids.map((id, index) => [id, index]));
+	return [...items].sort(
+		(a, b) =>
+			(rank.get(idOf(a)) ?? Number.POSITIVE_INFINITY) -
+			(rank.get(idOf(b)) ?? Number.POSITIVE_INFINITY),
+	);
+};
+
+/** El árbol con el orden pedido aplicado: lo que el servidor guardará. */
+export const withOrder = (
+	tree: CourseContentTree,
+	order: ReorderContentDto,
+): CourseContentTree => {
+	const lessonsOf = new Map(
+		order.lessons.map((entry) => [
+			entry.moduleDocumentId,
+			entry.lessonDocumentIds,
+		]),
+	);
+
+	return sortedBy(tree, order.modules, (module) => module.documentId).map(
+		(module) => {
+			const lessonIds = lessonsOf.get(module.documentId);
+			return lessonIds
+				? {
+						...module,
+						lessons: sortedBy(
+							module.lessons,
+							lessonIds,
+							(lesson) => lesson.documentId,
+						),
+					}
+				: module;
+		},
+	);
+};
+
+/** Lo que una mutación del temario en vuelo deja ver ya, antes de la respuesta. */
+export type PendingOutlineChange =
+	| { kind: "reorder"; order: ReorderContentDto }
+	| { kind: "archive-lesson"; lessonDocumentId: string }
+	| { kind: "archive-module"; moduleDocumentId: string }
+	| { kind: "archive-module-quiz"; moduleDocumentId: string };
+
+/**
+ * El árbol como quedará si la mutación sale bien. Si falla, la recarga trae
+ * el árbol real y el cambio se deshace solo.
+ */
+export const withPendingChange = (
+	tree: CourseContentTree,
+	change: PendingOutlineChange | null,
+): CourseContentTree => {
+	if (!change) return tree;
+
+	switch (change.kind) {
+		case "reorder":
+			return withOrder(tree, change.order);
+		case "archive-lesson":
+			return tree.map((module) =>
+				module.lessons.some(
+					(lesson) => lesson.documentId === change.lessonDocumentId,
+				)
+					? {
+							...module,
+							lessons: module.lessons.filter(
+								(lesson) => lesson.documentId !== change.lessonDocumentId,
+							),
+						}
+					: module,
+			);
+		case "archive-module":
+			return tree.filter(
+				(module) => module.documentId !== change.moduleDocumentId,
+			);
+		case "archive-module-quiz":
+			return tree.map((module) =>
+				module.documentId === change.moduleDocumentId
+					? { ...module, quiz: null }
+					: module,
+			);
+	}
+};
+
+const stringField = (payload: unknown, key: string): string | null => {
+	const value = (payload as Record<string, unknown> | null)?.[key];
+	return typeof value === "string" ? value : null;
+};
+
+/**
+ * Qué cambio del temario lleva en vuelo un envío, leído del mismo formulario
+ * que recibe el servidor. Crear o guardar no se adelantan: necesitan lo que el
+ * servidor responde.
+ */
+export const pendingOutlineChangeOf = (
+	formData: FormData | undefined,
+): PendingOutlineChange | null => {
+	if (!formData) return null;
+	const { intent, payload } = parseContentFormData(formData);
+
+	switch (intent) {
+		case CONTENT_INTENTS.reorder: {
+			const order = payload as ReorderContentDto | undefined;
+			return Array.isArray(order?.modules) && Array.isArray(order?.lessons)
+				? { kind: "reorder", order }
+				: null;
+		}
+		case CONTENT_INTENTS.archiveLesson: {
+			const lessonDocumentId = stringField(payload, "lessonDocumentId");
+			return lessonDocumentId
+				? { kind: "archive-lesson", lessonDocumentId }
+				: null;
+		}
+		case CONTENT_INTENTS.archiveModule:
+		case CONTENT_INTENTS.archiveModuleQuiz: {
+			const moduleDocumentId = stringField(payload, "moduleDocumentId");
+			if (!moduleDocumentId) return null;
+			return intent === CONTENT_INTENTS.archiveModule
+				? { kind: "archive-module", moduleDocumentId }
+				: { kind: "archive-module-quiz", moduleDocumentId };
+		}
+		default:
+			return null;
+	}
+};
+
+/** Lo que se está creando: su sitio se aparta mientras el servidor responde. */
+export type PendingCreation =
+	| { kind: "module" }
+	| { kind: "lesson"; moduleDocumentId: string };
+
+export const pendingCreationOf = (
+	formData: FormData | undefined,
+): PendingCreation | null => {
+	if (!formData) return null;
+	const { intent, payload } = parseContentFormData(formData);
+
+	if (intent === CONTENT_INTENTS.createModule) return { kind: "module" };
+	if (intent === CONTENT_INTENTS.createLesson) {
+		const moduleDocumentId = stringField(payload, "moduleDocumentId");
+		return moduleDocumentId ? { kind: "lesson", moduleDocumentId } : null;
+	}
+	return null;
 };

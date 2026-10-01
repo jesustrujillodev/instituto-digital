@@ -40,6 +40,14 @@ const run = (fields: Record<string, string>, success = true) => {
 				calls.push(args);
 				return reply(success);
 			},
+			openFollowUp: async (...args: unknown[]) => {
+				calls.push(["open", ...args]);
+				return reply(success);
+			},
+			closeFollowUp: async (...args: unknown[]) => {
+				calls.push(["close", ...args]);
+				return reply(success);
+			},
 		},
 	} as unknown as ActionArgs["context"];
 
@@ -77,6 +85,7 @@ describe("imparticion/cuestionarios action", () => {
 			{
 				lessonDocumentId: null,
 				moduleDocumentId: MODULE_A,
+				followUpDocumentId: null,
 				userDocumentId: OTHER_DOC,
 			},
 		]);
@@ -97,6 +106,7 @@ describe("imparticion/cuestionarios action", () => {
 		expect(calls[0]?.[1]).toEqual({
 			lessonDocumentId: null,
 			moduleDocumentId: null,
+			followUpDocumentId: null,
 			userDocumentId: OTHER_DOC,
 		});
 	});
@@ -126,6 +136,44 @@ describe("imparticion/cuestionarios action", () => {
 
 	test("otra acción no se reconoce", async () => {
 		const { result, calls } = run({ ...grant, intent: "save-quiz" });
+
+		expect(await result).toMatchObject({ success: false });
+		expect(calls).toEqual([]);
+	});
+});
+
+// docs/adr/0027: quien imparte abre y cierra el seguimiento manual.
+describe("imparticion/cuestionarios action: seguimiento manual", () => {
+	const payload = JSON.stringify({
+		followUpDocumentId: "44444444-4444-4444-8444-444444444444",
+	});
+
+	test("abre la evaluación", async () => {
+		const { result, calls } = run({ intent: "open-follow-up", payload });
+
+		expect(await result).toMatchObject({
+			success: true,
+			message: "Evaluación abierta.",
+		});
+		expect(calls[0]?.slice(0, 3)).toEqual([
+			"open",
+			COURSE_DOC,
+			{ followUpDocumentId: "44444444-4444-4444-8444-444444444444" },
+		]);
+	});
+
+	test("cierra la evaluación", async () => {
+		const { result, calls } = run({ intent: "close-follow-up", payload });
+
+		expect(await result).toMatchObject({
+			success: true,
+			message: "Evaluación cerrada.",
+		});
+		expect(calls[0]?.[0]).toBe("close");
+	});
+
+	test("un intent desconocido no llega al servicio", async () => {
+		const { result, calls } = run({ intent: "otra-cosa", payload });
 
 		expect(await result).toMatchObject({ success: false });
 		expect(calls).toEqual([]);

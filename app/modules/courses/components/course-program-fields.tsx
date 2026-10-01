@@ -87,7 +87,6 @@ export function CourseProgramFields({
 			setValue("format", value, { shouldDirty: true });
 			if (requiresSessions(value)) return;
 			setValue("completionRule", "CONTENT");
-			setValue("evaluationMethod", "QUIZ");
 		},
 		[setValue],
 	);

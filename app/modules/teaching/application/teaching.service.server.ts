@@ -29,7 +29,6 @@ import {
 	assertWritable,
 	isSessionOpen,
 	resolveAttendanceMarks,
-	resolveResultEntries,
 	sessionOpensAt,
 	syncsOnWrite,
 } from "../domain/teaching.rules";
@@ -37,7 +36,6 @@ import type { ITeachingService } from "../domain/teaching.service";
 import type {
 	ListTeachingCoursesDto,
 	SaveAttendanceDto,
-	SaveResultsDto,
 	SetEnrollmentOpenDto,
 	TeachingCourse,
 } from "../domain/teaching.types";
@@ -47,6 +45,7 @@ type Dependencies = {
 	courseRepository: ICradle["courseRepository"];
 	enrollmentRepository: ICradle["enrollmentRepository"];
 	completionSync: ICradle["completionSync"];
+	progressSync: ICradle["progressSync"];
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -57,6 +56,7 @@ export const createTeachingService = ({
 	courseRepository,
 	enrollmentRepository,
 	completionSync,
+	progressSync,
 	runInTransaction,
 	clock,
 	logger,
@@ -170,40 +170,6 @@ export const createTeachingService = ({
 			});
 		},
 
-		async saveResults(
-			documentId: string,
-			dto: SaveResultsDto,
-			actor: AuthContext,
-		) {
-			return run("saveResults", async () => {
-				const scope = requireScope(actor);
-				const { id } = await requireCourse(documentId, scope);
-				const now = clock.now();
-
-				const affected = await runInTransaction(async () => {
-					const course = await lockCourse(id);
-					assertWritable(course, scope);
-
-					const entries = resolveResultEntries(course, dto.entries);
-					if (entries.length === 0) return 0;
-
-					await enrollmentRepository.saveResults(
-						course.id,
-						entries,
-						actor.userId,
-						now,
-					);
-					if (syncsOnWrite(course)) {
-						await completionSync.sync(course.id, actor.userId, now);
-					}
-
-					return entries.length;
-				});
-
-				return ok({ affected });
-			});
-		},
-
 		async finish(documentId: string, actor: AuthContext) {
 			return run("finish", async () => {
 				const scope = requireScope(actor);
@@ -217,6 +183,11 @@ export const createTeachingService = ({
 					if (!(await courseRepository.finish(course.id, now))) {
 						throw new TeachingStateChangedError();
 					}
+					// Al cerrar, todo seguimiento cierra: quien no presentó uno que
+					// cuenta saca 0, y la nota se recalcula con él (docs/adr/0027).
+					await progressSync.recalculate(course, actor.userId, now, undefined, {
+						closing: true,
+					});
 					// Quien no presentó el examen no tiene resultado: al cerrar queda
 					// reprobado, que es lo que la pantalla enseña como «No presentó».
 					if (evaluatesByQuiz(course)) {
