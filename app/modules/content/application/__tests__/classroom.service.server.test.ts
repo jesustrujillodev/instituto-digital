@@ -107,7 +107,6 @@ const courseOf = (
 	format: "SELF_PACED",
 	completionRule: "CONTENT",
 	requiresEvaluation: false,
-	evaluationMethod: "MANUAL",
 	minPassingGrade: 70,
 	enrollment: {
 		status: "ENROLLED",
@@ -490,7 +489,7 @@ describe("cuestionarios en el aula (docs/adr/0015)", () => {
 
 	test("el índice enseña el examen de un curso evaluado por examen", async () => {
 		const { service } = createHarness({
-			course: courseOf({ requiresEvaluation: true, evaluationMethod: "QUIZ" }),
+			course: courseOf({ requiresEvaluation: true }),
 			quizQuestions: 3,
 			quizAttempt: { score: 80, passed: true },
 		});

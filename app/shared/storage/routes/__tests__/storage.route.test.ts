@@ -183,6 +183,17 @@ describe("storage proxy — modo por defecto (URL firmada)", () => {
 		expect(response.headers.get("Location")).toContain("X-Amz-Signature");
 		expect(calls.getFile).toEqual([]);
 	});
+
+	test("el navegador guarda la redirección menos de lo que vive la firma", async () => {
+		const { context } = createHarness();
+
+		const response = await run(
+			requestOf(`?key=${encodeURIComponent(PUBLIC_KEY)}`),
+			context,
+		);
+
+		expect(response.headers.get("Cache-Control")).toBe("private, max-age=240");
+	});
 });
 
 describe("storage proxy — modo inline", () => {

@@ -19,7 +19,7 @@ Lo que ya añadieron los PRD siguientes:
 | Hecho | Dónde |
 | --- | --- |
 | Sesiones inscritas en el calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
-| `result`, `grade`, `completed` y quién capturó el resultado | PRD-06: los escribe `teaching` por `saveResults` y `setCompletion` |
+| `result`, `grade`, `completed` y quién escribió el resultado | `content` (`progressSync`, las evaluaciones en línea) y `teaching` (`setCompletion`); sin captura manual desde [ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md) |
 | "Mis capacitaciones" enseña asistencia, nota, si completó y el diálogo para valorar | PRD-06 (`MyCourseEntry.outcome` y `canRate`) |
 | Correos de invitación, inscripción y asignación | PRD-08 (`docs/notifications/00-notificaciones.md`) |
 | Avance por lección en caché, entrada al aula y cierre a mano del autogestivo | MVP-02 · F-05 ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)) |

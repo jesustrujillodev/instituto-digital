@@ -20,6 +20,13 @@ import type { Route } from "./+types/storage.route";
 // seguridad para no cargar en RAM un objeto inesperadamente grande.
 const MAX_INLINE_BYTES = 15 * 1024 * 1024; // 15 MB
 const SIGNED_URL_TTL_S = 300;
+/**
+ * El navegador guarda la redirección menos tiempo del que vive la firma: una
+ * portada que se repite en el listado deja de pasar por aquí en cada render, y
+ * nunca se sirve una URL a punto de vencer. `private`: la firma es de quien la
+ * pidió y ninguna caché compartida debe guardarla.
+ */
+const REDIRECT_CACHE_CONTROL = `private, max-age=${SIGNED_URL_TTL_S - 60}`;
 
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const { logger, storageProvider, storageBucket, storagePublicBucket } =
@@ -91,7 +98,9 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 			SIGNED_URL_TTL_S,
 		);
 
-		return redirect(signedUrl);
+		return redirect(signedUrl, {
+			headers: { "Cache-Control": REDIRECT_CACHE_CONTROL },
+		});
 	} catch (error) {
 		// Un redirect lanzado por requireAuth es un Response: re-lanzarlo tal cual.
 		if (error instanceof Response) throw error;

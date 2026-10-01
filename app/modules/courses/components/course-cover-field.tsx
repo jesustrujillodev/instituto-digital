@@ -1,8 +1,9 @@
-import { ImageIcon, Loader2, X } from "lucide-react";
+import { ImageIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Dropzone } from "@/shared/components/ui/dropzone";
 import { Label } from "@/shared/components/ui/label";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { validateUploadInput } from "@/shared/storage/upload-validation";
 import { COURSE_COVER, COURSE_COVER_HINT } from "../domain/course.config";
 import { resizeCoverImage } from "../utils/resize-cover-image";
@@ -126,7 +127,7 @@ export function CourseCoverField({
 			>
 				<span className="relative flex aspect-video w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground sm:w-40">
 					{isProcessing ? (
-						<Loader2 className="size-5 animate-spin" aria-hidden="true" />
+						<Spinner className="size-5" />
 					) : shownUrl ? (
 						<img
 							src={shownUrl}

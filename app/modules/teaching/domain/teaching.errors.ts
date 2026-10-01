@@ -6,16 +6,13 @@ export const TEACHING_ERROR_CODES = {
 	SESSION_NOT_FOUND: "TEACHING_SESSION_NOT_FOUND",
 	SESSION_NOT_STARTED: "TEACHING_SESSION_NOT_STARTED",
 	UNKNOWN_PARTICIPANT: "TEACHING_UNKNOWN_PARTICIPANT",
-	EVALUATION_NOT_REQUIRED: "TEACHING_EVALUATION_NOT_REQUIRED",
 	CORRECTION_FORBIDDEN: "TEACHING_CORRECTION_FORBIDDEN",
 	NOT_PUBLISHED: "TEACHING_NOT_PUBLISHED",
 	WITHOUT_SESSIONS: "TEACHING_WITHOUT_SESSIONS",
 	FINISH_TOO_EARLY: "TEACHING_FINISH_TOO_EARLY",
-	PENDING_RESULTS: "TEACHING_PENDING_RESULTS",
 	STATE_CHANGED: "TEACHING_STATE_CHANGED",
 	SELF_PACED_NOT_FINISHABLE: "TEACHING_SELF_PACED_NOT_FINISHABLE",
 	NOT_SELF_PACED: "TEACHING_NOT_SELF_PACED",
-	RESULTS_BY_QUIZ: "TEACHING_RESULTS_BY_QUIZ",
 	CERTIFICATES_NOT_ISSUABLE: "TEACHING_CERTIFICATES_NOT_ISSUABLE",
 } as const;
 
@@ -61,13 +58,6 @@ export class TeachingUnknownParticipantError extends TeachingError {
 	}
 }
 
-export class TeachingEvaluationNotRequiredError extends TeachingError {
-	readonly code = TEACHING_ERROR_CODES.EVALUATION_NOT_REQUIRED;
-	constructor() {
-		super("This course does not require evaluation");
-	}
-}
-
 /** Un curso finalizado solo lo corrigen el titular, un auxiliar o el superadministrador (§3). */
 export class TeachingCorrectionForbiddenError extends TeachingError {
 	readonly code = TEACHING_ERROR_CODES.CORRECTION_FORBIDDEN;
@@ -99,15 +89,6 @@ export class TeachingFinishTooEarlyError extends TeachingError {
 	}
 }
 
-export class TeachingPendingResultsError extends TeachingError {
-	readonly code = TEACHING_ERROR_CODES.PENDING_RESULTS;
-	readonly details: { pending: number };
-	constructor(pending: number) {
-		super("Some participants still have a pending result");
-		this.details = { pending };
-	}
-}
-
 /** Un autogestivo no se cierra: cada quien lo completa (docs/adr/0014). */
 export class TeachingSelfPacedNotFinishableError extends TeachingError {
 	readonly code = TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE;
@@ -121,14 +102,6 @@ export class TeachingNotSelfPacedError extends TeachingError {
 	readonly code = TEACHING_ERROR_CODES.NOT_SELF_PACED;
 	constructor() {
 		super("Only a self-paced course opens and closes its enrollment by hand");
-	}
-}
-
-/** Con examen en línea, el resultado lo escribe el examen (docs/adr/0015). */
-export class TeachingResultsByQuizError extends TeachingError {
-	readonly code = TEACHING_ERROR_CODES.RESULTS_BY_QUIZ;
-	constructor() {
-		super("Results of a course evaluated by quiz come from the quiz");
 	}
 }
 

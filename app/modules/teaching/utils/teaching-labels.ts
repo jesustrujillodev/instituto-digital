@@ -3,7 +3,7 @@ import type { FinishBlocker } from "../domain/teaching.config";
 
 export const finishBlockerMessage = (
 	blocker: FinishBlocker,
-	context: { opensAt: Date | null; pendingResults: number },
+	context: { opensAt: Date | null },
 ): string => {
 	switch (blocker) {
 		case "NOT_PUBLISHED":
@@ -16,8 +16,6 @@ export const finishBlockerMessage = (
 			return context.opensAt
 				? `Se podrá finalizar a partir del ${formatZonedDate(context.opensAt)}.`
 				: "Todavía no se puede finalizar.";
-		case "PENDING_RESULTS":
-			return `Falta capturar el resultado de ${context.pendingResults} persona(s).`;
 		default: {
 			const exhaustive: never = blocker;
 			return exhaustive;

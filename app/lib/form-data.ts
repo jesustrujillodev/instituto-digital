@@ -38,3 +38,16 @@ export function toFormData(obj: Record<string, unknown>): FormData {
 
 	return formData;
 }
+
+/**
+ * La intención que un fetcher tiene en vuelo, o `null` si está libre. Con varias
+ * acciones en un mismo fetcher, es lo que dice cuál de los botones trabaja.
+ */
+export const pendingIntentOf = (
+	fetcher: { state: string; formData?: FormData },
+	field = "intent",
+): string | null => {
+	if (fetcher.state === "idle") return null;
+	const intent = fetcher.formData?.get(field);
+	return typeof intent === "string" ? intent : null;
+};

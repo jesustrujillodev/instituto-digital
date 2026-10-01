@@ -13,7 +13,6 @@ import type { CourseDetail } from "../domain/course.types";
 import {
 	COMPLETION_RULE_LABELS,
 	courseHoursLabel,
-	EVALUATION_METHOD_LABELS,
 } from "../utils/course-labels";
 import {
 	type PublishChecklist,
@@ -43,17 +42,14 @@ interface CourseReviewStepProps {
 	checklist: PublishChecklist;
 	/** El temario, solo cuando el curso lo pide. */
 	content: ContentSummary | null;
-	evaluationTitles: readonly string[];
+	followUpTitles: readonly string[];
 	/** Preguntas del examen guardado; solo cuenta si se evalúa con examen. */
 	quizQuestionCount: number;
 }
 
 const evaluationLabel = (course: CourseDetail, quizQuestionCount: number) => {
 	if (!course.requiresEvaluation) return "Sin evaluación";
-	if (course.evaluationMethod === "MANUAL") {
-		return EVALUATION_METHOD_LABELS.MANUAL;
-	}
-	return `${EVALUATION_METHOD_LABELS.QUIZ} · ${
+	return `Examen en línea · ${
 		quizQuestionCount === 1 ? "1 pregunta" : `${quizQuestionCount} preguntas`
 	}`;
 };
@@ -63,7 +59,7 @@ export function CourseReviewStep({
 	course,
 	checklist,
 	content,
-	evaluationTitles,
+	followUpTitles,
 	quizQuestionCount,
 }: CourseReviewStepProps) {
 	const { documentId } = course;
@@ -196,11 +192,11 @@ export function CourseReviewStep({
 										},
 									]
 								: []),
-							...(course.requiresEvaluation && evaluationTitles.length > 0
+							...(followUpTitles.length > 0
 								? [
 										{
 											term: "Evaluaciones de seguimiento",
-											value: evaluationTitles.join(", "),
+											value: followUpTitles.join(", "),
 										},
 									]
 								: []),

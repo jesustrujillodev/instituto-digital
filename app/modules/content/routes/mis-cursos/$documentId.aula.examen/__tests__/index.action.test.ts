@@ -75,6 +75,7 @@ describe("aula: presentar el examen", () => {
 			{
 				lessonDocumentId: null,
 				moduleDocumentId: null,
+				followUpDocumentId: null,
 				answers: [{ questionDocumentId: Q1, optionDocumentId: OPTION }],
 			},
 		]);

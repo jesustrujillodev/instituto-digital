@@ -1,7 +1,7 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { CloudOff, Loader2, SearchCheck } from "lucide-react";
+import { CloudOff, SearchCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type ShouldRevalidateFunctionArgs,
@@ -301,14 +301,8 @@ function CloudBrowser({ listing }: { listing: CloudListing }) {
 						type="button"
 						variant="outline"
 						onClick={loadMore}
-						disabled={more.state !== "idle"}
+						pending={more.state !== "idle"}
 					>
-						{more.state !== "idle" && (
-							<Loader2
-								className="animate-spin motion-reduce:animate-none"
-								aria-hidden="true"
-							/>
-						)}
 						Cargar más
 					</Button>
 				</div>

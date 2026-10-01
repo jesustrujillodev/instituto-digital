@@ -61,7 +61,6 @@ describe("toTeachingDetail", () => {
 		});
 		expect(detail.can).toEqual({
 			recordAttendance: true,
-			recordResults: false,
 			finish: true,
 			correct: false,
 			toggleEnrollment: false,
@@ -192,7 +191,6 @@ describe("toTeachingCourse", () => {
 			status: "PUBLISHED",
 			minAttendance: 80,
 			requiresEvaluation: false,
-			evaluationMethod: "MANUAL",
 			minPassingGrade: 70,
 			finishedAt: null,
 			enrollmentClosedAt: null,

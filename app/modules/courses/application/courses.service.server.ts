@@ -46,6 +46,7 @@ import {
 	CourseNotFoundError,
 	CourseOrganizerRequiredError,
 	CoursePlanLineNotFoundError,
+	CourseSessionHasAttemptsError,
 	CourseUnknownAudienceError,
 	CourseUnknownTrainerError,
 } from "../domain/course.errors";
@@ -60,22 +61,19 @@ import {
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
-	type CourseCompletionRule,
 	type CourseContentFacts,
-	type CourseFormat,
 	canCancel,
 	canEdit,
-	type EvaluationMethod,
 	evaluatesByQuiz,
 	hasScheduleChanges,
 	requiresContent,
 	requiresSessions,
 	requiresTrainer,
-	resolveEvaluationMethod,
 	resolveModality,
 } from "../domain/course.rules";
 import type { ICourseService } from "../domain/course.service";
 import type {
+	CourseContentFactsInput,
 	CourseDetail,
 	CoursePlanOption,
 	CourseSessionData,
@@ -141,26 +139,30 @@ export const createCourseService = ({
 	 * Lo que el temario y el examen aportan a la publicación.
 	 *
 	 * Cada conteo se consulta solo cuando el curso lo exige: uno que se completa
-	 * por asistencia no mira sus lecciones, y uno de captura manual no mira su
-	 * examen.
+	 * por asistencia no mira sus lecciones, y uno sin evaluación final no mira su
+	 * examen. El seguimiento solo existe con sesiones.
 	 */
-	const contentFactsOf = async (course: {
-		id: number;
-		format: CourseFormat;
-		completionRule: CourseCompletionRule;
-		requiresEvaluation: boolean;
-		evaluationMethod: EvaluationMethod;
-	}): Promise<CourseContentFacts> => {
-		const [lessonCount, finalQuizQuestionCount] = await Promise.all([
+	const contentFactsOf = async (
+		course: CourseContentFactsInput,
+	): Promise<CourseContentFacts> => {
+		const [lessonCount, finalQuizQuestionCount, followUps] = await Promise.all([
 			requiresContent(course)
 				? contentRepository.countActiveLessons(course.id)
 				: 0,
 			evaluatesByQuiz(course)
 				? contentRepository.countFinalQuizQuestions(course.id)
 				: 0,
+			requiresSessions(course.format)
+				? contentRepository.countFollowUps(course.id)
+				: { withoutQuestions: 0, counted: 0 },
 		]);
 
-		return { lessonCount, finalQuizQuestionCount };
+		return {
+			lessonCount,
+			finalQuizQuestionCount,
+			followUpsWithoutQuestions: followUps.withoutQuestions,
+			countedFollowUps: followUps.counted,
+		};
 	};
 
 	/** El curso, ya comprobado contra el alcance de quien lo pide. */
@@ -235,20 +237,27 @@ export const createCourseService = ({
 	 * organizadora del curso; en el alta del superadministrador, los de todas,
 	 * y la pantalla filtra por la que elija.
 	 */
-	const planOptionsOf = async (
+	/** Los planes vigentes que el formulario puede ofrecer, sin mapear. */
+	const findOfferablePlans = async (
 		scope: CourseScope,
-		dependencies: readonly { id: number; documentId: string }[],
-		course?: Pick<CourseDetail, "documentId" | "dependencyId">,
-	): Promise<CoursePlanOption[]> => {
+		course?: Pick<CourseDetail, "dependencyId">,
+	) => {
 		if (scope.kind === "none") return [];
 
 		const dependencyId =
 			course?.dependencyId ??
 			(scope.kind === "global" ? undefined : scope.dependencyId);
-		const plans = await annualPlanRepository.findPlans(
+		return annualPlanRepository.findPlans(
 			dependencyId === undefined ? {} : { dependencyId },
 			{ fromYear: currentFiscalYear(clock.now()) },
 		);
+	};
+
+	const toPlanOptions = (
+		plans: Awaited<ReturnType<typeof findOfferablePlans>>,
+		dependencies: readonly { id: number; documentId: string }[],
+		course?: Pick<CourseDetail, "documentId">,
+	): CoursePlanOption[] => {
 		const documentIdOf = new Map(
 			dependencies.map((dependency) => [dependency.id, dependency.documentId]),
 		);
@@ -285,15 +294,6 @@ export const createCourseService = ({
 	 * los lotes incompletos, como hace el alta de miembros de un grupo: asignar
 	 * solo lo válido dejaría un curso silenciosamente distinto del que se pidió.
 	 */
-	/** El método que se escribirá, con los mismos defaults que `buildWriteData`. */
-	const evaluationMethodOf = (dto: CreateCourseDto | UpdateCourseDto) =>
-		resolveEvaluationMethod({
-			format: dto.format ?? COURSE_DEFAULTS.format,
-			requiresEvaluation: dto.requiresEvaluation ?? false,
-			evaluationMethod:
-				dto.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod,
-		});
-
 	const buildWriteData = async (
 		dto: CreateCourseDto | UpdateCourseDto,
 		scope: CourseScope,
@@ -303,7 +303,6 @@ export const createCourseService = ({
 		const requiresEvaluation = dto.requiresEvaluation ?? false;
 
 		assertCompletionRuleCoherent({ format, completionRule });
-		const evaluationMethod = evaluationMethodOf(dto);
 
 		// Un autogestivo en línea no se reúne: las sesiones que el formulario
 		// haya dejado atrás se descartan aquí.
@@ -382,7 +381,6 @@ export const createCourseService = ({
 			enrollmentDeadline,
 			minAttendance: dto.minAttendance ?? COURSE_DEFAULTS.minAttendance,
 			requiresEvaluation,
-			evaluationMethod,
 			minPassingGrade: dto.minPassingGrade ?? COURSE_DEFAULTS.minPassingGrade,
 			qrOpensBeforeMinutes:
 				dto.qrOpensBeforeMinutes ?? COURSE_DEFAULTS.qrOpensBeforeMinutes,
@@ -519,12 +517,13 @@ export const createCourseService = ({
 			return run("listFormOptions", async () => {
 				const choosesOrganizer = canChooseOrganizer(scope);
 
-				const [trainers, dependencies, groups] = await Promise.all([
+				const [trainers, dependencies, groups, plans] = await Promise.all([
 					// El catálogo de capacitadores es global (§4): cualquier organizador
 					// puede asignar a cualquiera que esté activo.
 					trainerRepository.findActive(),
 					dependencyRepository.findActive(),
 					groupRepository.findActive(toAudienceScope(scope)),
+					findOfferablePlans(scope, course),
 				]);
 
 				return ok({
@@ -550,9 +549,14 @@ export const createCourseService = ({
 						}),
 					),
 					canChooseOrganizer: choosesOrganizer,
-					plans: await planOptionsOf(scope, dependencies, course),
+					plans: toPlanOptions(plans, dependencies, course),
 				});
 			});
+		},
+		async findContentFacts(course: CourseContentFactsInput) {
+			return run("findContentFacts", async () =>
+				ok(await contentFactsOf(course)),
+			);
 		},
 		async create(
 			dto: CreateCourseDto,
@@ -612,7 +616,6 @@ export const createCourseService = ({
 				assertCompletionSettingsEditable(course, {
 					completionRule: dto.completionRule ?? COURSE_DEFAULTS.completionRule,
 					requiresEvaluation: dto.requiresEvaluation ?? false,
-					evaluationMethod: evaluationMethodOf(dto),
 					minPassingGrade:
 						dto.minPassingGrade ?? COURSE_DEFAULTS.minPassingGrade,
 				});
@@ -637,6 +640,17 @@ export const createCourseService = ({
 				const removedSessions = course.sessions
 					.map((session) => session.documentId)
 					.filter((sessionDocumentId) => !keptSessions.has(sessionDocumentId));
+				// Su seguimiento caería con ella, y sus intentos son notas que ya
+				// cuentan (docs/adr/0027).
+				const withAttempts =
+					removedSessions.length > 0
+						? await contentRepository.findSessionsWithFollowUpAttempts(
+								removedSessions,
+							)
+						: [];
+				if (withAttempts.length > 0) {
+					throw new CourseSessionHasAttemptsError(withAttempts);
+				}
 				const orphanedMaterials =
 					removedSessions.length > 0
 						? await courseRepository.findSessionMaterialRefs(removedSessions)

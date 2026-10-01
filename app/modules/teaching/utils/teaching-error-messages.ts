@@ -28,10 +28,6 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "Alguna de las personas ya no está inscrita. Recarga la página.",
 		status: HTTP_STATUS.CONFLICT,
 	},
-	[TEACHING_ERROR_CODES.EVALUATION_NOT_REQUIRED]: {
-		message: "Esta capacitación no requiere evaluación.",
-		status: HTTP_STATUS.CONFLICT,
-	},
 	[TEACHING_ERROR_CODES.CORRECTION_FORBIDDEN]: {
 		message:
 			"La capacitación ya se finalizó: solo el titular o un auxiliar de la dependencia pueden corregirla.",
@@ -48,11 +44,6 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 	[TEACHING_ERROR_CODES.FINISH_TOO_EARLY]: {
 		message:
 			"La capacitación se puede finalizar a partir del día de su última sesión.",
-		status: HTTP_STATUS.CONFLICT,
-	},
-	[TEACHING_ERROR_CODES.PENDING_RESULTS]: {
-		message: (error) =>
-			`Falta capturar el resultado de ${String(error.details?.pending ?? "algunas")} persona(s).`,
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.STATE_CHANGED]: {
@@ -72,11 +63,6 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 	[TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE]: {
 		message:
 			"Los certificados se emiten al finalizar la capacitación: todavía no se sabe quién la completó.",
-		status: HTTP_STATUS.CONFLICT,
-	},
-	[TEACHING_ERROR_CODES.RESULTS_BY_QUIZ]: {
-		message:
-			"Esta capacitación se evalúa con examen en línea: el resultado lo escribe el examen, no se captura a mano.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

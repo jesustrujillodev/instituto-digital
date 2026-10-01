@@ -1,8 +1,10 @@
 import { redirect } from "react-router";
-import { toContentSummary } from "@/modules/content/domain/content.mapper";
-import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
+import {
+	FINAL_QUIZ_OWNER,
+	followUpOwnerOf,
+} from "@/modules/content/domain/quiz.rules";
+import type { QuizBank } from "@/modules/content/domain/quiz.types";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
-import { EVALUATION_ERROR_MESSAGES } from "@/modules/evaluations/utils/evaluation-error-messages";
 import type { ICradle } from "@/shared/di/container.types";
 import { toRouteError } from "@/shared/http/route-error";
 import { fail, ok, parseInput } from "@/shared/response/response.helpers";
@@ -10,9 +12,9 @@ import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
 	canEdit,
-	evaluatesByQuiz,
 	publishChecklist,
 	requiresContent,
+	requiresSessions,
 } from "../domain/course.rules";
 import {
 	validateFindCourse,
@@ -66,14 +68,6 @@ export const loadCourseWizard = async (
 	const course = await context.courseService.findById(documentId, scope);
 	if (!course.success) throw toRouteError(course.error, COURSE_ERROR_MESSAGES);
 
-	// Después del curso: los planes que se ofrecen son los de su organizadora.
-	const options = await context.courseService.listFormOptions(
-		scope,
-		course.data,
-	);
-	if (!options.success)
-		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
-
 	const { status } = course.data;
 	if (!canEdit(status))
 		throw redirect(`/dashboard/capacitaciones/${documentId}`);
@@ -83,30 +77,63 @@ export const loadCourseWizard = async (
 		throw redirect(`${stepPath(documentId, 1, expected)}${search}`);
 	}
 
-	// El temario se lee una sola vez: alimenta el paso Contenido y el pendiente
-	// de publicación que la revisión enseña.
-	const tree = requiresContent(course.data)
-		? await context.contentService.findTree(documentId, auth)
-		: null;
+	// El temario completo solo lo pintan Contenido, Evaluación y Revisión; el
+	// banco, solo Evaluación; el seguimiento, Evaluación y Revisión. Los conteos
+	// del pendiente de publicación se leen siempre: son unos cuantos `count`.
+	const readsTree =
+		requiresContent(course.data) &&
+		(step.key === "content" || step.key === "rules" || step.key === "review");
+	const readsBank = step.key === "rules";
+	const readsFollowUps =
+		requiresSessions(course.data.format) &&
+		(step.key === "rules" || step.key === "review");
+
+	// Todo depende solo del curso: va en paralelo. Los planes que se ofrecen son
+	// los de su organizadora.
+	const [options, tree, quiz, facts, followUps] = await Promise.all([
+		context.courseService.listFormOptions(scope, course.data),
+		readsTree ? context.contentService.findTree(documentId, auth) : null,
+		readsBank
+			? context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
+			: null,
+		context.courseService.findContentFacts(course.data),
+		readsFollowUps ? context.quizService.findFollowUps(documentId, auth) : null,
+	]);
+
+	if (!options.success)
+		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 	if (tree && !tree.success)
 		throw toRouteError(tree.error, CONTENT_ERROR_MESSAGES);
-
-	const content = tree?.data ?? null;
-
-	// El examen se arma en el paso de Evaluación y su conteo alimenta el
-	// pendiente de publicación, así que se lee en los dos casos.
-	const quiz =
-		step.key === "rules" || evaluatesByQuiz(course.data)
-			? await context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
-			: null;
 	if (quiz && !quiz.success)
 		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);
-	const bank = quiz?.success ? quiz.data : null;
+	if (!facts.success) throw toRouteError(facts.error, COURSE_ERROR_MESSAGES);
+	if (followUps && !followUps.success) {
+		throw toRouteError(followUps.error, CONTENT_ERROR_MESSAGES);
+	}
 
-	const checklist = publishChecklist(course.data, {
-		lessonCount: content ? toContentSummary(content).lessonCount : 0,
-		finalQuizQuestionCount: bank?.questions.length ?? 0,
-	});
+	// Las preguntas del seguimiento se editan en el paso, como las del examen.
+	const followUpBanks: Record<string, QuizBank | null> = {};
+	if (readsBank && followUps?.success) {
+		const banks = await Promise.all(
+			followUps.data.map((followUp) =>
+				context.quizService.findBank(
+					documentId,
+					followUpOwnerOf(followUp.documentId),
+					auth,
+				),
+			),
+		);
+		for (const [index, bank] of banks.entries()) {
+			if (!bank.success) throw toRouteError(bank.error, CONTENT_ERROR_MESSAGES);
+			const followUp = followUps.data[index];
+			if (followUp) followUpBanks[followUp.documentId] = bank.data;
+		}
+	}
+
+	const content = tree?.data ?? null;
+	const bank = quiz?.data ?? null;
+	const quizQuestionCount = facts.data.finalQuizQuestionCount;
+	const checklist = publishChecklist(course.data, facts.data);
 
 	// Un paso que este curso no recorre no tiene pantalla: el alta manda a lo
 	// que de verdad falta y la edición, al principio.
@@ -116,22 +143,16 @@ export const loadCourseWizard = async (
 		throw redirect(`${stepPath(documentId, target, mode)}${search}`);
 	}
 
-	const evaluations =
-		step.key === "rules" || step.key === "review"
-			? await context.evaluationService.findDefinitions(documentId, auth)
-			: null;
-	if (evaluations && !evaluations.success) {
-		throw toRouteError(evaluations.error, EVALUATION_ERROR_MESSAGES);
-	}
-
 	return ok({
 		course: course.data,
 		options: options.data,
 		stepNumber: step.number,
 		checklist: mode === "create" ? checklist : null,
 		content,
-		evaluations: evaluations?.success ? evaluations.data : [],
+		followUps: followUps?.data ?? [],
+		followUpBanks,
 		quiz: bank,
+		quizQuestionCount,
 	});
 };
 

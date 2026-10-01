@@ -43,18 +43,14 @@ Decisiones que el schema no dice por sí solo:
   `SELF_PACED` con una regla que cuente asistencia se rechaza en el alta con
   `COURSE_INCOMPATIBLE_COMPLETION_RULE`
   ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)).
-- **`evaluation_method` dice con qué se evalúa**: captura manual o examen en
-  línea ([ADR 0015](../adr/0015-cuestionarios-autocalificados.md)). Solo aplica con
-  `requires_evaluation`, se congela al publicar en cualquier formato, y un curso
-  que evalúa por examen no se publica sin examen con preguntas
-  (`COURSE_WITHOUT_QUIZ`).
-- **Un autogestivo solo se evalúa con examen.** No tiene capacitador, así que
-  nadie capturaría su resultado a mano y quien terminó todo se quedaría sin
-  crédito. `resolveEvaluationMethod` rechaza `requires_evaluation` con `MANUAL`
-  (`COURSE_INCOMPATIBLE_EVALUATION_METHOD`) y, sin evaluación, guarda el método
-  como `QUIZ` para que el formulario —que en un autogestivo solo ofrece esa vía—
-  y lo guardado coincidan. Al elegir Autogestivo en Programa, el formulario pasa
-  el método a examen igual que pasa la regla a `CONTENT`.
+- **`requires_evaluation` es el examen final en línea.** No hay captura manual
+  ([ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)): se
+  congela al publicar en cualquier formato, y un curso con evaluación final no se
+  publica sin examen con preguntas (`COURSE_WITHOUT_QUIZ`).
+- **El seguimiento también bloquea la publicación.** Cada evaluación de
+  seguimiento necesita preguntas (`COURSE_FOLLOW_UP_WITHOUT_QUESTIONS`, pendiente
+  `followUps`), y quitar en la edición una sesión cuyo seguimiento ya presentó
+  alguien se rechaza (`COURSE_SESSION_HAS_ATTEMPTS`).
 - **El examen se guarda al continuar.** En el paso Evaluación el editor no tiene
   botón propio: el wizard lo guarda antes que los campos del paso y, si le falta
   algo, no avanza y dice qué (`quizProblemsOf`, las mismas reglas que
@@ -308,7 +304,7 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 | 1 | General | Dependencia (solo superadmin), título, descripción, horas, portada |
 | 2 | Programa | Formato, modalidad, capacitadores, sesiones |
 | 3 | Contenido | Módulos y lecciones; solo si `requiresContent` |
-| 4 | Evaluación | "Para completar el curso hay que…": asistir (con la asistencia mínima), terminar las lecciones obligatorias (cuenta también las evaluaciones de módulo, que se editan en Contenido) y aprobar una evaluación final; son `completionRule` y `requiresEvaluation`. Luego la ventana del QR, la evaluación final con su examen y las evaluaciones de seguimiento (solo calendarizados) |
+| 4 | Evaluación | «Así se acredita», un resumen de las reglas. La calificación mínima de la capacitación, cuando la nota se calcula sola, con lo que entra al promedio. Después, «Requisitos»: asistir (con la asistencia mínima), terminar las lecciones obligatorias (cuenta también las evaluaciones de módulo, que se editan en Contenido) y aprobar una evaluación final, que despliega su examen; son `completionRule` y `requiresEvaluation`. Al final, con su propio interruptor, las evaluaciones de seguimiento (solo calendarizados, [ADR 0027](../adr/0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md)) |
 | 5 | Inscripción | Acceso, audiencia, cupo, fecha límite |
 | 6 | Revisión | Pendientes y publicar; solo en el alta |
 
@@ -325,10 +321,14 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 - **A dónde se vuelve.** `?volver=imparticion` hace que salir o terminar la
   edición regrese a la ficha de impartición; cualquier otro valor lleva a la
   ficha del curso (`editReturnPath`), nunca a una dirección arbitraria.
-- **Las evaluaciones de seguimiento se guardan solas**, por su propio `fetcher`
-  contra el módulo de evaluaciones. Su recarga trae el mismo curso, así que el
-  wizard solo reinicia el formulario cuando cambian los valores, no el objeto:
-  lo capturado sin guardar en el paso no se pierde.
+- **Las evaluaciones de seguimiento se arman en el mismo paso.** Su configuración
+  (nombre, sesión, si cuenta, ventana, mínima, intentos y orden) se edita en un
+  modal y se guarda al aceptar (`save-follow-up`); sus preguntas se editan en su
+  tarjeta, dentro del paso, y se guardan al continuar con las del examen final
+  (`save-follow-up-questions`). `remove-follow-up` la quita. La recarga tras
+  guardar el modal trae el mismo curso, así que el wizard solo reinicia el
+  formulario cuando cambian los valores, no el objeto: lo capturado sin guardar
+  en el paso no se pierde.
 
 - **Un solo contrato.** `utils/build-course-payload.ts` traduce los valores del
   formulario (todo texto) a la entrada de la regla de dominio, y

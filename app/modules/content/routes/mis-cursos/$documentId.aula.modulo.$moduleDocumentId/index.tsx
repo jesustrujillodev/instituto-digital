@@ -49,7 +49,11 @@ export default function AulaModuleQuizPage({
 						{quiz.outcome && <QuizRetryNotice outcome={quiz.outcome} />}
 						<QuizTaker
 							sheet={quiz.sheet}
-							owner={{ lessonDocumentId: null, moduleDocumentId }}
+							owner={{
+								lessonDocumentId: null,
+								moduleDocumentId,
+								followUpDocumentId: null,
+							}}
 						/>
 					</>
 				) : quiz.outcome ? (

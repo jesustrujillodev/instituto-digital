@@ -2,6 +2,7 @@ import * as v from "valibot";
 import type { AppResponse } from "@/shared/response/response.types";
 import { createResponseSchema } from "@/shared/rules/response.rules";
 import type {
+	CourseContentFacts,
 	courseSessionInputRule,
 	createCourseRule,
 	findCourseRule,
@@ -19,7 +20,6 @@ import {
 	courseSessionSchema,
 	courseSummarySchema,
 	courseTrainerSchema,
-	type EvaluationMethod,
 } from "./course.rules";
 
 export type CourseSummary = v.InferOutput<typeof courseSummarySchema>;
@@ -27,6 +27,12 @@ export type CourseDetail = v.InferOutput<typeof courseDetailSchema>;
 export type CourseSession = v.InferOutput<typeof courseSessionSchema>;
 export type CourseTrainerEntry = v.InferOutput<typeof courseTrainerSchema>;
 export type CourseAudience = v.InferOutput<typeof courseAudienceSchema>;
+
+/** Lo que decide qué conteos de contenido pide la publicación de un curso. */
+export type CourseContentFactsInput = Pick<
+	CourseDetail,
+	"id" | "format" | "completionRule" | "requiresEvaluation"
+>;
 
 export type CreateCourseDto = v.InferInput<typeof createCourseRule>;
 export type UpdateCourseDto = v.InferInput<typeof updateCourseRule>;
@@ -68,7 +74,6 @@ export interface CourseWriteData {
 	enrollmentDeadline: Date | null;
 	minAttendance: number;
 	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
 	minPassingGrade: number;
 	qrOpensBeforeMinutes: number;
 	qrClosesAfterMinutes: number;
@@ -211,6 +216,7 @@ export interface EnrollmentQrState {
 export type CourseResponse = AppResponse<CourseDetail>;
 export type CourseListResponse = AppResponse<CourseSummary[]>;
 export type CourseFormOptionsResponse = AppResponse<CourseFormOptions>;
+export type CourseContentFactsResponse = AppResponse<CourseContentFacts>;
 
 export const courseResponseSchema = createResponseSchema(courseDetailSchema);
 export const courseListResponseSchema = createResponseSchema(

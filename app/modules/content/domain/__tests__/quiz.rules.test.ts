@@ -9,14 +9,22 @@ import {
 	canGrantRetakeOn,
 	courseGradeOf,
 	courseResultOf,
+	courseScoresOf,
 	FINAL_QUIZ_OWNER,
+	followUpAvailabilityOf,
+	followUpOwnerOf,
+	followUpStateOf,
+	followUpWindowOf,
 	gradeAttempt,
 	isAccredited,
 	nextAttemptNumberOf,
 	pointsToPass,
 	quizAvailabilityOf,
 	quizKindOf,
+	saveFollowUpQuestionsRule,
+	saveFollowUpRule,
 	saveQuizRule,
+	toFollowUpSettingsWrite,
 	toQuizBankWrite,
 	toQuizOutcome,
 	toQuizSheet,
@@ -405,12 +413,21 @@ describe("el dueño del cuestionario", () => {
 
 	test("de qué cuelga decide qué es", () => {
 		expect(quizKindOf(FINAL_QUIZ_OWNER)).toBe("FINAL");
-		expect(quizKindOf({ lessonDocumentId: Q1, moduleDocumentId: null })).toBe(
-			"PRACTICE",
-		);
 		expect(
-			quizKindOf({ lessonDocumentId: null, moduleDocumentId: MODULE }),
+			quizKindOf({
+				lessonDocumentId: Q1,
+				moduleDocumentId: null,
+				followUpDocumentId: null,
+			}),
+		).toBe("PRACTICE");
+		expect(
+			quizKindOf({
+				lessonDocumentId: null,
+				moduleDocumentId: MODULE,
+				followUpDocumentId: null,
+			}),
 		).toBe("MODULE");
+		expect(quizKindOf(followUpOwnerOf(MODULE))).toBe("FOLLOW_UP");
 	});
 
 	test("sin módulo en el cuerpo, el módulo es nulo", () => {
@@ -546,5 +563,264 @@ describe("el banco", () => {
 		expect(codeOf(() => assertBankEditable(1))).toBe(
 			CONTENT_ERROR_CODES.QUIZ_LOCKED,
 		);
+	});
+});
+
+// ── Evaluaciones de seguimiento (docs/adr/0027) ──────────────────────────────
+
+describe("ventana de una evaluación de seguimiento", () => {
+	const session = {
+		startsAt: new Date("2027-03-10T16:00:00.000Z"),
+		endsAt: new Date("2027-03-10T18:00:00.000Z"),
+	};
+	const settings = {
+		opensBeforeMinutes: null,
+		closesAfterMinutes: null,
+		openedAt: null,
+		closedAt: null,
+	};
+
+	test("al iniciar: abierta mientras dura la sesión", () => {
+		expect(
+			followUpWindowOf({ ...settings, availability: "SESSION_START" }, session),
+		).toEqual({ opensAt: session.startsAt, closesAt: session.endsAt });
+	});
+
+	test("al terminar: abre al fin y cierra los minutos indicados después", () => {
+		expect(
+			followUpWindowOf(
+				{ ...settings, availability: "SESSION_END", closesAfterMinutes: 30 },
+				session,
+			),
+		).toEqual({
+			opensAt: session.endsAt,
+			closesAt: new Date("2027-03-10T18:30:00.000Z"),
+		});
+	});
+
+	test("rango: minutos antes del inicio y después del fin", () => {
+		expect(
+			followUpWindowOf(
+				{
+					...settings,
+					availability: "RANGE",
+					opensBeforeMinutes: 15,
+					closesAfterMinutes: 10,
+				},
+				session,
+			),
+		).toEqual({
+			opensAt: new Date("2027-03-10T15:45:00.000Z"),
+			closesAt: new Date("2027-03-10T18:10:00.000Z"),
+		});
+	});
+
+	test("manual: la abren y cierran a mano", () => {
+		const openedAt = new Date("2027-03-10T17:00:00.000Z");
+		expect(
+			followUpWindowOf(
+				{ ...settings, availability: "MANUAL", openedAt },
+				session,
+			),
+		).toEqual({ opensAt: openedAt, closesAt: null });
+	});
+
+	test.each([
+		["antes de abrir", "2027-03-10T15:59:59.000Z", "SCHEDULED"],
+		["al abrir", "2027-03-10T16:00:00.000Z", "OPEN"],
+		["justo al cerrar", "2027-03-10T18:00:00.000Z", "CLOSED"],
+	] as const)("%s está %s", (_label, now, state) => {
+		expect(
+			followUpStateOf(
+				{ opensAt: session.startsAt, closesAt: session.endsAt },
+				"PUBLISHED",
+				new Date(now),
+			),
+		).toBe(state);
+	});
+
+	test("sin fecha de apertura sigue programada; un curso finalizado la cierra", () => {
+		const now = new Date("2027-03-10T17:00:00.000Z");
+		expect(
+			followUpStateOf({ opensAt: null, closesAt: null }, "PUBLISHED", now),
+		).toBe("SCHEDULED");
+		expect(
+			followUpStateOf(
+				{ opensAt: session.startsAt, closesAt: null },
+				"FINISHED",
+				now,
+			),
+		).toBe("CLOSED");
+	});
+});
+
+describe("disponibilidad de una evaluación de seguimiento", () => {
+	const enrollment = { result: "PENDING" as const, completed: false };
+	const failed = { number: 1, passed: false, retakeGrantedAt: null };
+
+	test("abierta y con asistencia, se presenta", () => {
+		expect(followUpAvailabilityOf("OPEN", true, enrollment, null, 1)).toBe(
+			"AVAILABLE",
+		);
+	});
+
+	test("sin asistencia en la sesión no se presenta", () => {
+		expect(followUpAvailabilityOf("OPEN", false, enrollment, null, 1)).toBe(
+			"NOT_ATTENDED",
+		);
+	});
+
+	test("fuera de su ventana: todavía no, o ya cerró", () => {
+		expect(followUpAvailabilityOf("SCHEDULED", true, enrollment, null, 1)).toBe(
+			"NOT_YET",
+		);
+		expect(followUpAvailabilityOf("CLOSED", true, enrollment, null, 1)).toBe(
+			"CLOSED",
+		);
+	});
+
+	test("los intentos siguen las reglas de los demás cuestionarios", () => {
+		expect(followUpAvailabilityOf("OPEN", true, enrollment, failed, 1)).toBe(
+			"TAKEN",
+		);
+		expect(followUpAvailabilityOf("OPEN", true, enrollment, failed, 2)).toBe(
+			"AVAILABLE",
+		);
+	});
+
+	test("cada estado propio frena el envío con su error", () => {
+		expect(() => assertCanSubmit("NOT_YET")).toThrowError(
+			expect.objectContaining({ code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_OPEN }),
+		);
+		expect(() => assertCanSubmit("CLOSED")).toThrowError(
+			expect.objectContaining({ code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_OPEN }),
+		);
+		expect(() => assertCanSubmit("NOT_ATTENDED")).toThrowError(
+			expect.objectContaining({
+				code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_ATTENDED,
+			}),
+		);
+	});
+});
+
+describe("courseScoresOf", () => {
+	test("junta el temario, el examen final y el seguimiento que cuenta", () => {
+		expect(
+			courseScoresOf({
+				content: [90],
+				finalBest: 70,
+				followUps: [
+					{ countsTowardGrade: true, closed: false, best: 80 },
+					{ countsTowardGrade: false, closed: true, best: 10 },
+				],
+			}),
+		).toEqual([90, 70, 80]);
+	});
+
+	test("un seguimiento que cuenta vale 0 solo cuando ya cerró sin intento", () => {
+		expect(
+			courseScoresOf({
+				content: [],
+				finalBest: null,
+				followUps: [
+					{ countsTowardGrade: true, closed: true, best: null },
+					{ countsTowardGrade: true, closed: false, best: null },
+				],
+			}),
+		).toEqual([0]);
+	});
+});
+
+describe("contratos del seguimiento", () => {
+	const questions = [
+		{
+			statement: "¿Cuál?",
+			type: "SINGLE_CHOICE",
+			points: 1,
+			options: [
+				{ text: "Esta", isCorrect: true },
+				{ text: "Aquella", isCorrect: false },
+			],
+		},
+	];
+	const base = {
+		title: "Práctica de campo",
+		passingScore: 60,
+		maxAttempts: 1,
+		shuffleQuestions: false,
+		sessionDocumentId: "33333333-3333-4333-8333-333333333333",
+		countsTowardGrade: true,
+		opensBeforeMinutes: null,
+		closesAfterMinutes: null,
+	};
+
+	test("el rango pide las dos tolerancias", () => {
+		expect(
+			v.safeParse(saveFollowUpRule, { ...base, availability: "RANGE" }).success,
+		).toBe(false);
+		expect(
+			v.safeParse(saveFollowUpRule, {
+				...base,
+				availability: "RANGE",
+				opensBeforeMinutes: 10,
+				closesAfterMinutes: 10,
+			}).success,
+		).toBe(true);
+	});
+
+	test("al terminar pide cuánto queda abierta", () => {
+		expect(
+			v.safeParse(saveFollowUpRule, { ...base, availability: "SESSION_END" })
+				.success,
+		).toBe(false);
+	});
+
+	test("la configuración pide nombre", () => {
+		expect(
+			v.safeParse(saveFollowUpRule, {
+				...base,
+				availability: "MANUAL",
+				title: " ",
+			}).success,
+		).toBe(false);
+	});
+
+	// Las preguntas viajan aparte, con el paso, como las del examen final.
+	test("las preguntas piden al menos una", () => {
+		const followUpDocumentId = "44444444-4444-4444-8444-444444444444";
+		expect(
+			v.safeParse(saveFollowUpQuestionsRule, { followUpDocumentId, questions })
+				.success,
+		).toBe(true);
+		expect(
+			v.safeParse(saveFollowUpQuestionsRule, {
+				followUpDocumentId,
+				questions: [],
+			}).success,
+		).toBe(false);
+	});
+
+	test("sin identificador, se crea", () => {
+		const parsed = v.parse(saveFollowUpRule, {
+			...base,
+			availability: "MANUAL",
+		});
+		expect(parsed.followUpDocumentId).toBeNull();
+	});
+
+	test("solo se guardan los minutos que usa el modo", () => {
+		expect(
+			toFollowUpSettingsWrite({
+				countsTowardGrade: true,
+				availability: "SESSION_START",
+				opensBeforeMinutes: 10,
+				closesAfterMinutes: 20,
+			}),
+		).toEqual({
+			countsTowardGrade: true,
+			availability: "SESSION_START",
+			opensBeforeMinutes: null,
+			closesAfterMinutes: null,
+		});
 	});
 });

@@ -17,7 +17,9 @@ import {
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import { formatSessionRange, formatZonedDate } from "@/lib/date-utils";
+import { pendingIntentOf } from "@/lib/form-data";
 import { MyCertificateMenu } from "@/modules/certificates/components/my-certificate-menu";
+import { ParticipantFollowUps } from "@/modules/content/components/participant-follow-ups";
 import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
 import {
 	countsContent,
@@ -28,6 +30,7 @@ import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialo
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import {
@@ -188,6 +191,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 
 	const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
 	const isSubmitting = fetcher.state !== "idle";
+	const pendingIntent = pendingIntentOf(fetcher, INTENT_FIELD);
 
 	const submit = (intent: string) =>
 		fetcher.submit({ [INTENT_FIELD]: intent }, { method: "post" });
@@ -216,6 +220,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 				<Button
 					variant="outline"
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.decline}
 					onClick={() => submit(ENROLLMENT_INTENTS.decline)}
 				>
 					<X className="h-4 w-4" />
@@ -225,6 +230,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 			{can.accept && (
 				<Button
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.accept}
 					onClick={() => submit(ENROLLMENT_INTENTS.accept)}
 				>
 					<Check className="h-4 w-4" />
@@ -235,6 +241,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 				<Button
 					variant="outline"
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.withdraw}
 					onClick={() => setConfirmingWithdraw(true)}
 				>
 					<LogOut className="h-4 w-4" />
@@ -244,6 +251,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 			{can.enroll && (
 				<Button
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.enroll}
 					onClick={() => submit(ENROLLMENT_INTENTS.enroll)}
 				>
 					<RotateCcw className="h-4 w-4" />
@@ -292,6 +300,21 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 				course={course}
 				sessionMaterials={entry.sessionMaterials}
 			/>
+
+			{entry.followUps.length > 0 && (
+				<Card>
+					<CardContent className="flex flex-col gap-3">
+						<h2 className="font-medium text-base">
+							Evaluaciones de seguimiento
+						</h2>
+						<ParticipantFollowUps
+							courseDocumentId={course.documentId}
+							followUps={entry.followUps}
+							sessions={course.sessions}
+						/>
+					</CardContent>
+				</Card>
+			)}
 
 			<ConfirmDialog
 				open={confirmingWithdraw}

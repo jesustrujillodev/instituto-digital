@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router";
+import { FollowUpList } from "@/modules/content/components/follow-up-list";
 import { QuizEditor } from "@/modules/content/components/quiz-editor";
-import { EvaluationDefinitions } from "@/modules/evaluations/components/evaluation-definitions";
 import { useCourseFormIds } from "../hooks/use-course-form-ids";
 import type { loadCourseWizard } from "../routes/course-wizard.server";
 import {
@@ -24,8 +24,17 @@ export function CourseWizardScreen({
 	mode: CourseWizardMode;
 	data: WizardData;
 }) {
-	const { course, options, stepNumber, checklist, content, evaluations, quiz } =
-		data;
+	const {
+		course,
+		options,
+		stepNumber,
+		checklist,
+		content,
+		followUps,
+		followUpBanks,
+		quiz,
+		quizQuestionCount,
+	} = data;
 	const ids = useCourseFormIds();
 	const [searchParams] = useSearchParams();
 
@@ -55,8 +64,11 @@ export function CourseWizardScreen({
 			search={
 				returnTo ? `?${RETURN_PARAM}=${encodeURIComponent(returnTo)}` : ""
 			}
-			evaluationTitles={evaluations.map((evaluation) => evaluation.title)}
-			quizQuestionCount={quiz?.questions.length ?? 0}
+			followUpTitles={followUps.map((followUp) => followUp.title)}
+			countedFollowUpTitles={followUps
+				.filter((followUp) => followUp.countsTowardGrade)
+				.map((followUp) => followUp.title)}
+			quizQuestionCount={quizQuestionCount}
 			quiz={(bindings) => (
 				<QuizEditor
 					courseDocumentId={course.documentId}
@@ -65,13 +77,15 @@ export function CourseWizardScreen({
 					{...bindings}
 				/>
 			)}
-			evaluations={
-				<EvaluationDefinitions
+			followUps={(bindings) => (
+				<FollowUpList
 					courseDocumentId={course.documentId}
-					evaluations={evaluations}
+					followUps={followUps}
+					banks={followUpBanks}
 					sessions={course.sessions}
+					{...bindings}
 				/>
-			}
+			)}
 		/>
 	);
 }

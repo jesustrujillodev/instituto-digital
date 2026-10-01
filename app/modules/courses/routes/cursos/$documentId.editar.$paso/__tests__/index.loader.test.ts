@@ -15,10 +15,17 @@ const createHarness = (
 ) => {
 	const context = {
 		authPayload: authPayloadOf(options),
-		evaluationService: {
-			findDefinitions: async () => okReply([]),
+		quizService: {
+			findFollowUps: async () => okReply([]),
 		},
 		courseService: {
+			findContentFacts: async () =>
+				okReply({
+					lessonCount: 0,
+					finalQuizQuestionCount: 0,
+					followUpsWithoutQuestions: 0,
+					countedFollowUps: 0,
+				}),
 			findById: async () =>
 				options.findFails
 					? failReply(options.findFails)

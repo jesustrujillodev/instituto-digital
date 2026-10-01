@@ -1,10 +1,10 @@
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import {
 	evaluatesByQuiz,
+	gradesAutomatically,
 	requiresContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
-import { EVALUATION_ERROR_MESSAGES } from "@/modules/evaluations/utils/evaluation-error-messages";
 import { RATING_ERROR_MESSAGES } from "@/modules/ratings/utils/rating-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok, parseInput } from "@/shared/response/response.helpers";
@@ -32,32 +32,34 @@ export const loader = async ({
 	if (!detail.success)
 		throw toRouteError(detail.error, TEACHING_ERROR_MESSAGES);
 
-	// Las valoraciones se abren al finalizar (§6.10): antes no hay nada que leer.
-	// Un autogestivo no se finaliza, y cada quien valora al completarlo.
 	const { course } = detail.data;
-	const ratings =
+
+	// Todo depende solo del curso: va en paralelo.
+	const [ratings, followUps, quizBoard] = await Promise.all([
+		// Las valoraciones se abren al finalizar (§6.10): antes no hay nada que
+		// leer. Un autogestivo no se finaliza, y cada quien valora al completarlo.
 		course.status === "FINISHED" || !requiresSessions(course.format)
-			? await context.ratingService.findCourseSummary(documentId, auth)
-			: null;
+			? context.ratingService.findCourseSummary(documentId, auth)
+			: null,
+		// El seguimiento cuelga de las sesiones: un autogestivo no lo tiene.
+		requiresSessions(course.format)
+			? context.quizService.findFollowUpBoard(documentId, auth)
+			: null,
+		// Los cuestionarios cuentan donde cuenta el temario, se evalúa con examen
+		// o hay seguimiento.
+		requiresContent(course) ||
+		evaluatesByQuiz(course) ||
+		requiresSessions(course.format)
+			? context.quizService.findQuizBoard(documentId, auth)
+			: null,
+	]);
+
 	if (ratings && !ratings.success) {
 		throw toRouteError(ratings.error, RATING_ERROR_MESSAGES);
 	}
-
-	// Las de seguimiento solo existen si el curso evalúa y tiene quién las
-	// capture: un autogestivo no tiene capacitador.
-	const evaluations =
-		course.requiresEvaluation && requiresSessions(course.format)
-			? await context.evaluationService.findCourseBoard(documentId, auth)
-			: null;
-	if (evaluations && !evaluations.success) {
-		throw toRouteError(evaluations.error, EVALUATION_ERROR_MESSAGES);
+	if (followUps && !followUps.success) {
+		throw toRouteError(followUps.error, CONTENT_ERROR_MESSAGES);
 	}
-
-	// Los cuestionarios cuentan donde cuenta el temario o se evalúa con examen.
-	const quizBoard =
-		requiresContent(course) || evaluatesByQuiz(course)
-			? await context.quizService.findQuizBoard(documentId, auth)
-			: null;
 	if (quizBoard && !quizBoard.success) {
 		throw toRouteError(quizBoard.error, CONTENT_ERROR_MESSAGES);
 	}
@@ -65,7 +67,19 @@ export const loader = async ({
 	return ok({
 		...detail.data,
 		ratings: ratings?.success ? ratings.data : null,
-		evaluations: evaluations?.success ? evaluations.data : null,
+		followUps:
+			followUps?.success && followUps.data.followUps.length > 0
+				? followUps.data
+				: null,
+		// La pestaña Resultados existe donde la nota se calcula sola.
+		gradesAutomatically: gradesAutomatically(
+			course,
+			followUps?.success
+				? followUps.data.followUps.filter(
+						(followUp) => followUp.countsTowardGrade,
+					).length
+				: 0,
+		),
 		quizBoard:
 			quizBoard?.success && quizBoard.data.quizzes.length > 0
 				? quizBoard.data

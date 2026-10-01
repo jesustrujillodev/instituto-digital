@@ -23,7 +23,11 @@ const createHarness = (
 		enrollmentQrFails?: string;
 	} = {},
 ) => {
-	const calls = { summaries: 0, certificateLookups: 0, enrollmentQrLookups: 0 };
+	const calls = {
+		contentFacts: 0,
+		certificateLookups: 0,
+		enrollmentQrLookups: 0,
+	};
 
 	const context = {
 		authPayload: authPayloadOf(options),
@@ -43,17 +47,16 @@ const createHarness = (
 					: okReply({ state: options.certificateState ?? "never-published" });
 			},
 		},
-		contentService: {
-			summarize: async () => {
-				calls.summaries += 1;
+		courseService: {
+			// Como el servicio real: solo un autogestivo cuenta sus lecciones.
+			findContentFacts: async (course: { format: string }) => {
+				calls.contentFacts += 1;
 				return okReply({
-					moduleCount: 1,
-					lessonCount: options.lessonCount ?? 2,
-					requiredLessonCount: options.lessonCount ?? 2,
+					lessonCount:
+						course.format === "SELF_PACED" ? (options.lessonCount ?? 2) : 0,
+					finalQuizQuestionCount: 0,
 				});
 			},
-		},
-		courseService: {
 			findById: async () =>
 				options.findFails
 					? failReply(options.findFails)
@@ -119,12 +122,12 @@ describe("capacitaciones/:documentId loader", () => {
 		]);
 	});
 
-	test("un curso con sesiones no pregunta por el temario", async () => {
-		const { context, calls } = createHarness();
+	test("un publicado no pide conteos: ya no tiene pendiente de publicar", async () => {
+		const { context, calls } = createHarness({ status: "PUBLISHED" });
 
 		await run(context);
 
-		expect(calls.summaries).toBe(0);
+		expect(calls.contentFacts).toBe(0);
 	});
 
 	test("un autogestivo trae el pendiente de contenido resuelto", async () => {
@@ -132,7 +135,7 @@ describe("capacitaciones/:documentId loader", () => {
 
 		const { data } = await run(context);
 
-		expect(calls.summaries).toBe(1);
+		expect(calls.contentFacts).toBe(1);
 		expect(data.publishChecklist).toContainEqual({
 			check: "content",
 			done: true,

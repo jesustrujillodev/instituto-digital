@@ -5,7 +5,6 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	ChevronUp,
-	Loader2,
 	MoreHorizontal,
 } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
@@ -18,6 +17,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { Spinner } from "@/shared/components/ui/spinner";
 
 /** Lo que el editor le pide a cada panel antes de cambiar de elemento o de paso. */
 export interface PaneHandle {
@@ -45,7 +45,7 @@ export function PaneHeader({
 				<span className="truncate">{trail}</span>
 				{save?.saving ? (
 					<span className="flex shrink-0 items-center gap-1">
-						<Loader2 className="size-3 animate-spin" aria-hidden="true" />
+						<Spinner className="size-3" />
 						Guardando…
 					</span>
 				) : save?.dirty ? (

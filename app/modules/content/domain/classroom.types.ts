@@ -3,7 +3,6 @@ import type {
 	CourseCompletionRule,
 	CourseFormat,
 	CourseStatus,
-	EvaluationMethod,
 } from "@/modules/courses/domain/course.rules";
 import type {
 	EnrollmentResult,
@@ -30,7 +29,6 @@ export interface ClassroomCourse {
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;
 	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
 	minPassingGrade: number;
 	enrollment: {
 		status: EnrollmentStatus;

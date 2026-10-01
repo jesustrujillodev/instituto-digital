@@ -72,7 +72,12 @@ describe("aula: presentar la evaluación del módulo", () => {
 		});
 		expect(calls[0]?.slice(0, 2)).toEqual([
 			COURSE_DOC,
-			{ lessonDocumentId: null, moduleDocumentId: MODULE_A, answers },
+			{
+				lessonDocumentId: null,
+				moduleDocumentId: MODULE_A,
+				followUpDocumentId: null,
+				answers,
+			},
 		]);
 	});
 

@@ -86,7 +86,7 @@ export function EnrollmentQrPanel({ title, qr }: EnrollmentQrPanelProps) {
 							type="button"
 							variant={qr.token ? "ghost" : "default"}
 							className="w-full"
-							disabled={rotating}
+							pending={rotating}
 						>
 							<RefreshCw className="size-4" aria-hidden />
 							{qr.token ? "Regenerar código QR" : "Generar código QR"}

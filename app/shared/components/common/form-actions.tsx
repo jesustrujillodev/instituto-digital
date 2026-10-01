@@ -34,7 +34,7 @@ export function FormActions({
 			</Button>
 			{/* form={formId} conecta este botón con el <form> pese a vivir fuera
 			    de él: por eso los ids son estables y únicos. */}
-			<Button type="submit" form={formId} disabled={isSubmitting}>
+			<Button type="submit" form={formId} pending={isSubmitting}>
 				{isSubmitting ? submittingLabel : submitLabel}
 			</Button>
 		</>

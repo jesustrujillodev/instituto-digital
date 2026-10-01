@@ -37,6 +37,7 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { ROLES } from "@/shared/rules/atoms.rules";
 import {
@@ -100,6 +101,7 @@ export function meta() {
 }
 
 export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
+	const isReloading = useRouteReloading();
 	// Envelope estándar: el dato de la pantalla en `data`, la paginación en su
 	// propia clave — la misma forma que devuelve cualquier otro loader.
 	const {
@@ -459,6 +461,7 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 
 			<div className="overflow-hidden rounded-lg border border-border bg-card">
 				<DataTable
+					isLoading={isReloading}
 					data={rows}
 					columns={columns}
 					actions={actions}

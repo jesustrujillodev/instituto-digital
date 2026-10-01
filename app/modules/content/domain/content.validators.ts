@@ -46,6 +46,12 @@ export const validateArchiveModuleQuiz = (data: unknown) =>
 	v.parse(quizRules.archiveModuleQuiz, data);
 export const validateGrantRetake = (data: unknown) =>
 	v.parse(quizRules.grantRetake, data);
+export const validateSaveFollowUp = (data: unknown) =>
+	v.parse(quizRules.saveFollowUp, data);
+export const validateSaveFollowUpQuestions = (data: unknown) =>
+	v.parse(quizRules.saveFollowUpQuestions, data);
+export const validateFollowUp = (data: unknown) =>
+	v.parse(quizRules.followUp, data);
 export const validateFindSessionMaterials = (data: unknown) =>
 	v.parse(sessionMaterialRules.find, data);
 export const validateSessionUploadUrl = (data: unknown) =>

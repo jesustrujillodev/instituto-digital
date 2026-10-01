@@ -20,7 +20,9 @@ export { loader } from "./index.loader";
 export default function IniciarSesionPage() {
 	const { data } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
-	const submitting = useNavigation().state === "submitting";
+	// `formData` sigue presente mientras carga el destino del redirect: el botón
+	// no vuelve a «Entrar» entre el envío y la llegada al panel.
+	const submitting = useNavigation().formData !== undefined;
 	const [passwordVisible, setPasswordVisible] = useState(false);
 
 	return (
@@ -98,7 +100,7 @@ export default function IniciarSesionPage() {
 							</div>
 						</div>
 
-						<Button type="submit" className="w-full" disabled={submitting}>
+						<Button type="submit" className="w-full" pending={submitting}>
 							{submitting ? "Entrando…" : "Entrar"}
 						</Button>
 					</Form>

@@ -6,7 +6,6 @@ import type {
 	CourseCompletionRule,
 	CourseFormat,
 	CourseModality,
-	EvaluationMethod,
 } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
 
@@ -51,7 +50,6 @@ export interface CourseFormValues {
 	qrOpensBeforeMinutes: string;
 	qrClosesAfterMinutes: string;
 	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
 	minPassingGrade: string;
 	trainers: string[];
 	audienceDependencies: string[];
@@ -147,8 +145,6 @@ export function buildCourseFormDefaults(
 			course?.minAttendance ?? COURSE_DEFAULTS.minAttendance,
 		),
 		requiresEvaluation: course?.requiresEvaluation ?? false,
-		evaluationMethod:
-			course?.evaluationMethod ?? COURSE_DEFAULTS.evaluationMethod,
 		minPassingGrade: String(
 			course?.minPassingGrade ?? COURSE_DEFAULTS.minPassingGrade,
 		),

@@ -31,6 +31,14 @@ export const CONTENT_ERROR_CODES = {
 	SESSION_MATERIAL_NOT_FOUND: "CONTENT_SESSION_MATERIAL_NOT_FOUND",
 	TOO_MANY_SESSION_MATERIALS: "CONTENT_TOO_MANY_SESSION_MATERIALS",
 	SESSION_MATERIALS_LOCKED: "CONTENT_SESSION_MATERIALS_LOCKED",
+	FOLLOW_UP_NOT_FOUND: "CONTENT_FOLLOW_UP_NOT_FOUND",
+	FOLLOW_UP_SELF_PACED: "CONTENT_FOLLOW_UP_SELF_PACED",
+	TOO_MANY_FOLLOW_UPS: "CONTENT_TOO_MANY_FOLLOW_UPS",
+	FOLLOW_UP_HAS_ATTEMPTS: "CONTENT_FOLLOW_UP_HAS_ATTEMPTS",
+	FOLLOW_UP_NOT_OPEN: "CONTENT_FOLLOW_UP_NOT_OPEN",
+	FOLLOW_UP_NOT_ATTENDED: "CONTENT_FOLLOW_UP_NOT_ATTENDED",
+	FOLLOW_UP_NOT_MANUAL: "CONTENT_FOLLOW_UP_NOT_MANUAL",
+	FOLLOW_UP_CLOSED: "CONTENT_FOLLOW_UP_CLOSED",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -285,5 +293,70 @@ export class ContentSessionMaterialsLockedError extends ContentError {
 	constructor(status: CourseStatus) {
 		super("Session materials are no longer editable");
 		this.details = { status };
+	}
+}
+
+/** No existe, o no es de este curso. */
+export class ContentFollowUpNotFoundError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_NOT_FOUND;
+	constructor() {
+		super("Follow-up evaluation not found in this course");
+	}
+}
+
+/** El seguimiento depende del pase de lista, y un autogestivo no lo tiene. */
+export class ContentFollowUpSelfPacedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_SELF_PACED;
+	constructor() {
+		super("Only a scheduled course has follow-up evaluations");
+	}
+}
+
+export class ContentTooManyFollowUpsError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.TOO_MANY_FOLLOW_UPS;
+	readonly details: { limit: number };
+	constructor(limit: number) {
+		super(`A course has at most ${limit} follow-up evaluations`);
+		this.details = { limit };
+	}
+}
+
+/** Sus intentos son notas que ya cuentan: borrarlo las perdería. */
+export class ContentFollowUpHasAttemptsError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_HAS_ATTEMPTS;
+	constructor() {
+		super("Follow-up evaluation already has attempts");
+	}
+}
+
+/** Fuera de su ventana: todavía no abre o ya cerró. */
+export class ContentFollowUpNotOpenError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_NOT_OPEN;
+	constructor() {
+		super("Follow-up evaluation is not open");
+	}
+}
+
+/** Solo lo presenta quien registró asistencia en su sesión. */
+export class ContentFollowUpNotAttendedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_NOT_ATTENDED;
+	constructor() {
+		super("Attendance to the session is required");
+	}
+}
+
+/** Abrir y cerrar a mano solo aplica al modo manual. */
+export class ContentFollowUpNotManualError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_NOT_MANUAL;
+	constructor() {
+		super("Follow-up evaluation does not open by hand");
+	}
+}
+
+/** Cerrar es definitivo: quien no lo presentó ya tiene su cero. */
+export class ContentFollowUpClosedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_CLOSED;
+	constructor() {
+		super("Follow-up evaluation is already closed");
 	}
 }

@@ -74,24 +74,144 @@ const TYPE_LABELS: Record<QuizQuestionType, string> = {
 };
 
 /** Cómo se llama cada uso en la pantalla. */
-const NOUNS: Record<QuizKind, { name: string; save: string; failed: string }> =
-	{
-		FINAL: {
-			name: "Nombre del examen",
-			save: "Guardar examen",
-			failed: "Revisa el examen",
-		},
-		PRACTICE: {
-			name: "Nombre del cuestionario",
-			save: "Guardar cuestionario",
-			failed: "Revisa el cuestionario",
-		},
-		MODULE: {
-			name: "Nombre de la evaluación",
-			save: "Guardar evaluación",
-			failed: "Revisa la evaluación",
-		},
+interface Nouns {
+	name: string;
+	passing: string;
+	save: string;
+	failed: string;
+	/** Lo que pide la publicación, cuando sin preguntas no se publica. */
+	publishHint: string | null;
+}
+
+const NOUNS: Record<QuizKind, Nouns> = {
+	FINAL: {
+		name: "Nombre del examen",
+		passing: "El examen se aprueba con",
+		save: "Guardar examen",
+		failed: "Revisa el examen",
+		publishHint: "Hace falta al menos una para publicar",
+	},
+	PRACTICE: {
+		name: "Nombre del cuestionario",
+		passing: "Se aprueba con",
+		save: "Guardar cuestionario",
+		failed: "Revisa el cuestionario",
+		publishHint: null,
+	},
+	MODULE: {
+		name: "Nombre de la evaluación",
+		passing: "Se aprueba con",
+		save: "Guardar evaluación",
+		failed: "Revisa la evaluación",
+		publishHint: null,
+	},
+	FOLLOW_UP: {
+		name: "Nombre de la evaluación",
+		passing: "Se aprueba con",
+		save: "Guardar evaluación",
+		failed: "Revisa la evaluación",
+		publishHint: "Hace falta al menos una para publicar",
+	},
+};
+
+const PRESET_ATTEMPTS = [1, 2, 3] as const;
+
+/**
+ * Los intentos como opciones: 1, 2, 3, sin límite u otro tope hasta el máximo.
+ * «Otro» recuerda el último número escrito.
+ */
+export function AttemptsPicker({
+	id,
+	value,
+	disabled,
+	onChange,
+}: {
+	id: string;
+	value: number | null;
+	disabled: boolean;
+	onChange: (value: number | null) => void;
+}) {
+	const isPreset = (candidate: number | null) =>
+		candidate === null ||
+		(PRESET_ATTEMPTS as readonly number[]).includes(candidate);
+	const [custom, setCustom] = useState(() => !isPreset(value));
+	const lastCustom = useRef(
+		value !== null && !isPreset(value) ? value : PRESET_ATTEMPTS.length + 1,
+	);
+
+	const UNLIMITED = "unlimited";
+	const OTHER = "other";
+	const selected = custom ? OTHER : value === null ? UNLIMITED : String(value);
+
+	const select = (next: string) => {
+		if (!next) return;
+		if (next === OTHER) {
+			setCustom(true);
+			onChange(lastCustom.current);
+			return;
+		}
+		setCustom(false);
+		onChange(next === UNLIMITED ? null : Number(next));
 	};
+
+	const options = [
+		...PRESET_ATTEMPTS.map((count) => ({
+			value: String(count),
+			label: String(count),
+		})),
+		{ value: UNLIMITED, label: "Sin límite" },
+		{ value: OTHER, label: "Otro" },
+	];
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			<span id={`${id}-label`} className="font-medium text-sm">
+				Intentos
+			</span>
+			<div className="flex flex-wrap items-center gap-3">
+				<ToggleGroup.Root
+					type="single"
+					aria-labelledby={`${id}-label`}
+					value={selected}
+					disabled={disabled}
+					onValueChange={select}
+					className="flex flex-wrap gap-0.5 rounded-xl border border-border bg-muted/40 p-1"
+				>
+					{options.map((option) => (
+						<ToggleGroup.Item
+							key={option.value}
+							value={option.value}
+							className="h-8 min-w-10 rounded-lg px-3 font-medium text-muted-foreground text-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+						>
+							{option.label}
+						</ToggleGroup.Item>
+					))}
+				</ToggleGroup.Root>
+				{custom && (
+					<Input
+						id={id}
+						type="number"
+						inputMode="numeric"
+						min={PRESET_ATTEMPTS.length + 1}
+						max={QUIZ_ATTEMPTS_RANGE.max}
+						aria-label="Número de intentos"
+						value={value === null || Number.isNaN(value) ? "" : value}
+						disabled={disabled}
+						className="w-20 tabular-nums"
+						onChange={(event) => {
+							const next = numberOrNaN(event.target.value);
+							if (Number.isInteger(next)) lastCustom.current = next;
+							onChange(next);
+						}}
+					/>
+				)}
+				<span className="text-muted-foreground text-xs">
+					Con más de un intento, se toma la mejor calificación.
+				</span>
+			</div>
+		</div>
+	);
+}
 
 const POINTS_PROBLEM = `Vale de ${QUIZ_POINTS_RANGE.min} a ${QUIZ_POINTS_RANGE.max} puntos`;
 
@@ -121,6 +241,7 @@ export function QuizEditor({
 	saveRef,
 	onDirtyChange,
 	onSummaryChange,
+	questionsOnly = false,
 }: {
 	courseDocumentId: string;
 	owner?: QuizOwnerRef;
@@ -131,6 +252,11 @@ export function QuizEditor({
 	onDirtyChange?: (dirty: boolean) => void;
 	/** "5 preguntas · 5 puntos · se aprueba con 4", para el encabezado de afuera. */
 	onSummaryChange?: (summary: string | null) => void;
+	/**
+	 * Solo las preguntas: el nombre, la mínima, los intentos y el orden los
+	 * configura otro lado. Lo usa la evaluación de seguimiento (docs/adr/0027).
+	 */
+	questionsOnly?: boolean;
 }) {
 	const id = useId();
 	const kind = quizKindOf(owner);
@@ -138,8 +264,6 @@ export function QuizEditor({
 	const [draft, setDraft] = useState<QuizDraft>(() =>
 		toQuizDraft(bank, defaultTitle, kind),
 	);
-	// Quitar «sin límite» devuelve el último tope escrito, no uno inventado.
-	const lastLimit = useRef(draft.maxAttempts ?? QUIZ_ATTEMPTS_RANGE.min);
 	const [baseline, setBaseline] = useState<QuizDraft>(draft);
 	// Abre la primera que falte completar: es a donde hay que ir.
 	const [openKey, setOpenKey] = useState<string | null>(
@@ -182,6 +306,7 @@ export function QuizEditor({
 	/** Guarda lo pendiente. `false` si no se pudo: quien llama no debe seguir. */
 	const flush = async () => {
 		if (!dirty) return true;
+		if (locked && questionsOnly) return true;
 		if (locked) {
 			return submit(
 				CONTENT_INTENTS.renameQuiz,
@@ -198,7 +323,17 @@ export function QuizEditor({
 			);
 			return false;
 		}
-		return submit(CONTENT_INTENTS.saveQuiz, quizPayloadOf(draft, owner), draft);
+		const payload = quizPayloadOf(draft, owner);
+		return questionsOnly
+			? submit(
+					CONTENT_INTENTS.saveFollowUpQuestions,
+					{
+						followUpDocumentId: owner.followUpDocumentId,
+						questions: payload.questions,
+					},
+					draft,
+				)
+			: submit(CONTENT_INTENTS.saveQuiz, payload, draft);
 	};
 
 	// Sin dependencias a propósito: quien guarda siempre usa el borrador actual.
@@ -259,37 +394,42 @@ export function QuizEditor({
 							? "1 intento"
 							: `${bank?.attemptCount} intentos`}{" "}
 						enviados: las preguntas, el porcentaje para aprobar y los intentos
-						quedaron fijos para que todas las notas se midan igual. Solo puedes
-						cambiar el nombre.
+						quedaron fijos para que todas las notas se midan igual.
+						{!questionsOnly && " Solo puedes cambiar el nombre."}
 					</AlertDescription>
 				</Alert>
-				<div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-					<div className="flex flex-1 flex-col gap-1.5">
-						<Label htmlFor={`${id}-title`}>{nouns.name}</Label>
-						<Input
-							id={`${id}-title`}
-							value={draft.title}
-							disabled={disabled || busy}
-							onChange={(event) =>
-								setDraft({ ...draft, title: event.target.value })
-							}
-						/>
+				{!questionsOnly && (
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+						<div className="flex flex-1 flex-col gap-1.5">
+							<Label htmlFor={`${id}-title`}>{nouns.name}</Label>
+							<Input
+								id={`${id}-title`}
+								value={draft.title}
+								disabled={disabled || busy}
+								onChange={(event) =>
+									setDraft({ ...draft, title: event.target.value })
+								}
+							/>
+						</div>
+						{!saveRef && (
+							<Button
+								type="button"
+								disabled={disabled || !dirty}
+								pending={busy}
+								onClick={() => void flush()}
+							>
+								<Save aria-hidden="true" />
+								Guardar nombre
+							</Button>
+						)}
 					</div>
-					{!saveRef && (
-						<Button
-							type="button"
-							disabled={disabled || busy || !dirty}
-							onClick={() => void flush()}
-						>
-							<Save aria-hidden="true" />
-							Guardar nombre
-						</Button>
-					)}
-				</div>
-				<p className="text-muted-foreground text-sm">
-					Se aprueba con {draft.passingScore} % ·{" "}
-					{attemptsLabel(draft.maxAttempts)}
-				</p>
+				)}
+				{!questionsOnly && (
+					<p className="text-muted-foreground text-sm">
+						Se aprueba con {draft.passingScore} % ·{" "}
+						{attemptsLabel(draft.maxAttempts)}
+					</p>
+				)}
 				<ol className="flex list-decimal flex-col gap-1 pl-5 text-sm">
 					{draft.questions.map((question) => (
 						<li key={question.key}>
@@ -306,112 +446,86 @@ export function QuizEditor({
 
 	return (
 		<div className="flex flex-col gap-5">
-			<div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]">
-				<div className="flex flex-col gap-1.5">
-					<Label htmlFor={`${id}-title`}>{nouns.name}</Label>
-					<Input
-						id={`${id}-title`}
-						value={draft.title}
-						disabled={disabled}
-						aria-invalid={draft.title.trim() === ""}
-						onChange={(event) =>
-							setDraft({ ...draft, title: event.target.value })
-						}
-					/>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					<Label htmlFor={`${id}-passing`}>Para aprobar</Label>
-					<div className="relative">
+			{!questionsOnly && (
+				<div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor={`${id}-title`}>{nouns.name}</Label>
 						<Input
-							id={`${id}-passing`}
-							type="number"
-							inputMode="numeric"
-							min={0}
-							max={100}
-							value={Number.isNaN(draft.passingScore) ? "" : draft.passingScore}
+							id={`${id}-title`}
+							value={draft.title}
 							disabled={disabled}
-							className="pr-8 tabular-nums"
+							aria-invalid={draft.title.trim() === ""}
 							onChange={(event) =>
-								setDraft({
-									...draft,
-									passingScore: numberOrNaN(event.target.value),
-								})
+								setDraft({ ...draft, title: event.target.value })
 							}
 						/>
-						<span
-							aria-hidden="true"
-							className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-sm"
-						>
-							%
-						</span>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor={`${id}-passing`}>{nouns.passing}</Label>
+						<div className="relative">
+							<Input
+								id={`${id}-passing`}
+								type="number"
+								inputMode="numeric"
+								min={0}
+								max={100}
+								value={
+									Number.isNaN(draft.passingScore) ? "" : draft.passingScore
+								}
+								disabled={disabled}
+								className="pr-8 tabular-nums"
+								onChange={(event) =>
+									setDraft({
+										...draft,
+										passingScore: numberOrNaN(event.target.value),
+									})
+								}
+							/>
+							<span
+								aria-hidden="true"
+								className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-sm"
+							>
+								%
+							</span>
+						</div>
 					</div>
 				</div>
-				<div className="flex flex-col gap-1.5">
-					<Label htmlFor={`${id}-attempts`}>Intentos</Label>
-					<Input
+			)}
+
+			{!questionsOnly && (
+				<>
+					<AttemptsPicker
 						id={`${id}-attempts`}
-						type="number"
-						inputMode="numeric"
-						min={QUIZ_ATTEMPTS_RANGE.min}
-						max={QUIZ_ATTEMPTS_RANGE.max}
-						placeholder="Sin límite"
-						value={
-							draft.maxAttempts === null || Number.isNaN(draft.maxAttempts)
-								? ""
-								: draft.maxAttempts
-						}
-						disabled={disabled || draft.maxAttempts === null}
-						className="tabular-nums"
-						onChange={(event) => {
-							const maxAttempts = numberOrNaN(event.target.value);
-							if (Number.isInteger(maxAttempts))
-								lastLimit.current = maxAttempts;
-							setDraft({ ...draft, maxAttempts });
-						}}
+						value={draft.maxAttempts}
+						disabled={disabled}
+						onChange={(maxAttempts) => setDraft({ ...draft, maxAttempts })}
 					/>
-				</div>
-			</div>
 
-			<div className="flex items-center gap-3">
-				<Switch
-					id={`${id}-unlimited`}
-					checked={draft.maxAttempts === null}
-					disabled={disabled}
-					onCheckedChange={(checked) =>
-						setDraft({
-							...draft,
-							maxAttempts: checked ? null : lastLimit.current,
-						})
-					}
-				/>
-				<Label htmlFor={`${id}-unlimited`} className="font-normal">
-					Intentos sin límite
-				</Label>
-			</div>
-
-			<div className="flex items-center gap-3">
-				<Switch
-					id={`${id}-shuffle`}
-					checked={draft.shuffleQuestions}
-					disabled={disabled}
-					onCheckedChange={(checked) =>
-						setDraft({ ...draft, shuffleQuestions: checked })
-					}
-				/>
-				<Label htmlFor={`${id}-shuffle`} className="font-normal">
-					Mostrar las preguntas en distinto orden a cada participante
-				</Label>
-			</div>
+					<div className="flex items-center gap-3">
+						<Switch
+							id={`${id}-shuffle`}
+							checked={draft.shuffleQuestions}
+							disabled={disabled}
+							onCheckedChange={(checked) =>
+								setDraft({ ...draft, shuffleQuestions: checked })
+							}
+						/>
+						<Label htmlFor={`${id}-shuffle`} className="font-normal">
+							Mostrar las preguntas en distinto orden a cada participante
+						</Label>
+					</div>
+				</>
+			)}
 
 			<section
 				className="flex flex-col gap-2"
 				aria-labelledby={`${id}-questions`}
 			>
-				<div className="flex items-center justify-between gap-3">
+				<div className="flex flex-wrap items-center justify-between gap-3">
 					<h4 id={`${id}-questions`} className="font-medium text-sm">
 						Preguntas
 					</h4>
-					{incomplete > 0 && (
+					{incomplete > 0 ? (
 						<span className="flex items-center gap-1.5 text-warning-foreground text-xs">
 							<span
 								className="size-2 rounded-full bg-warning-foreground"
@@ -421,48 +535,69 @@ export function QuizEditor({
 								? "1 pregunta incompleta"
 								: `${incomplete} preguntas incompletas`}
 						</span>
+					) : (
+						draft.questions.length === 0 &&
+						nouns.publishHint && (
+							<span className="text-muted-foreground text-xs">
+								{nouns.publishHint}
+							</span>
+						)
 					)}
 				</div>
 
 				{draft.questions.length === 0 ? (
-					<p className="rounded-xl border border-border border-dashed px-4 py-5 text-center text-muted-foreground text-sm">
-						Todavía sin preguntas.
-					</p>
+					<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border border-dashed px-4 py-4">
+						<p className="text-muted-foreground text-sm">
+							Todavía sin preguntas.
+						</p>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={disabled}
+							onClick={addQuestion}
+						>
+							<Plus aria-hidden="true" />
+							Agregar la primera pregunta
+						</Button>
+					</div>
 				) : (
-					<ol className="flex flex-col gap-2">
-						{draft.questions.map((question, index) => (
-							<QuestionCard
-								key={question.key}
-								question={question}
-								index={index}
-								total={draft.questions.length}
-								open={openKey === question.key}
-								disabled={disabled}
-								onToggle={() =>
-									setOpenKey((current) =>
-										current === question.key ? null : question.key,
-									)
-								}
-								onChange={(change) => updateQuestion(question.key, change)}
-								onMove={(offset) => moveQuestion(index, offset)}
-								onRemove={() => removeQuestion(question.key)}
-							/>
-						))}
-					</ol>
+					<>
+						<ol className="flex flex-col gap-2">
+							{draft.questions.map((question, index) => (
+								<QuestionCard
+									key={question.key}
+									question={question}
+									index={index}
+									total={draft.questions.length}
+									open={openKey === question.key}
+									disabled={disabled}
+									onToggle={() =>
+										setOpenKey((current) =>
+											current === question.key ? null : question.key,
+										)
+									}
+									onChange={(change) => updateQuestion(question.key, change)}
+									onMove={(offset) => moveQuestion(index, offset)}
+									onRemove={() => removeQuestion(question.key)}
+								/>
+							))}
+						</ol>
+						<Button
+							type="button"
+							variant="outline"
+							className="h-11 w-full rounded-xl border-dashed"
+							disabled={
+								disabled || draft.questions.length >= QUIZ_MAX_QUESTIONS
+							}
+							onClick={addQuestion}
+						>
+							<Plus aria-hidden="true" />
+							{draft.questions.length >= QUIZ_MAX_QUESTIONS
+								? `Máximo ${QUIZ_MAX_QUESTIONS} preguntas`
+								: "Agregar pregunta"}
+						</Button>
+					</>
 				)}
-
-				<Button
-					type="button"
-					variant="outline"
-					className="h-11 w-full rounded-xl"
-					disabled={disabled || draft.questions.length >= QUIZ_MAX_QUESTIONS}
-					onClick={addQuestion}
-				>
-					<Plus aria-hidden="true" />
-					{draft.questions.length >= QUIZ_MAX_QUESTIONS
-						? `Máximo ${QUIZ_MAX_QUESTIONS} preguntas`
-						: "Agregar pregunta"}
-				</Button>
 			</section>
 
 			{!saveRef && (
@@ -475,7 +610,8 @@ export function QuizEditor({
 					)}
 					<Button
 						type="button"
-						disabled={disabled || busy || !dirty || problems.length > 0}
+						disabled={disabled || !dirty || problems.length > 0}
+						pending={busy}
 						onClick={() => void flush()}
 					>
 						<Save aria-hidden="true" />

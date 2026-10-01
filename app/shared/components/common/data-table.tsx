@@ -13,6 +13,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { placeholderCountOf } from "@/lib/placeholders";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Card,
@@ -60,6 +61,9 @@ export type SortDirection = "asc" | "desc";
  * a la vez, sin deslizamiento.
  */
 const ROW_ENTER = "animate-in fade-in duration-300 fill-mode-both";
+
+/** Anchos alternos: una fila de barras iguales no se lee como una tabla. */
+const SKELETON_CELL_WIDTHS = ["w-32", "w-48", "w-24"] as const;
 const ROW_STAGGER_MS = 30;
 const ROW_STAGGER_LIMIT = 5;
 
@@ -202,33 +206,15 @@ export function DataTable<T extends { id: string }>({
 		});
 	}, [data, sortField, sortDirection, onSort, isLoading]);
 
-	// Loading State
-	if (isLoading) {
-		return (
-			<div className="w-full space-y-4 px-4 sm:px-6 py-6">
-				<div className="hidden xl:block">
-					<div className="space-y-4">
-						<div className="flex gap-4">
-							{[...Array(columns.length)].map((_, i) => (
-								<Skeleton key={columns[i].key} className="h-8 w-full" />
-							))}
-						</div>
-						{[...Array(5)].map((_, i) => (
-							<Skeleton key={columns[i].key} className="h-16 w-full" />
-						))}
-					</div>
-				</div>
-				<div className="xl:hidden space-y-4">
-					{[...Array(3)].map((_, i) => (
-						<Skeleton key={columns[i].key} className="h-40 w-full rounded-xl" />
-					))}
-				</div>
-			</div>
-		);
-	}
+	// Mientras se recarga se conservan encabezados y paginación, y las filas
+	// ocupan lo mismo que las que se van: la tabla no salta ni pierde contexto.
+	const skeletonRows = isLoading
+		? placeholderCountOf(processedData.length, pagination?.pageSize ?? 10)
+		: 0;
+	const rows = isLoading ? [] : processedData;
 
 	// Empty State
-	if (processedData.length === 0) {
+	if (!isLoading && processedData.length === 0) {
 		const EmptyIcon = emptyState?.icon || FolderOpen;
 		return (
 			<div className="px-4 py-12 text-center sm:px-6">
@@ -334,7 +320,32 @@ export function DataTable<T extends { id: string }>({
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border bg-card">
-							{processedData.map((item, index) => {
+							{Array.from({ length: skeletonRows }, (_, row) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: filas de relleno sin identidad propia.
+								<tr key={row}>
+									{showCheckbox && (
+										<td className="w-[1%] px-6 py-4">
+											<Skeleton className="size-4 rounded-sm" />
+										</td>
+									)}
+									{columns.map((column, index) => (
+										<td
+											key={column.key}
+											className="px-4 py-4 first:pl-6 last:pr-6"
+										>
+											<Skeleton
+												className={`h-4 rounded-md ${SKELETON_CELL_WIDTHS[index % SKELETON_CELL_WIDTHS.length]}`}
+											/>
+										</td>
+									))}
+									{actions && actions.length > 0 && (
+										<td className="px-4 py-4 first:pl-6 last:pr-6">
+											<Skeleton className="ml-auto size-8 rounded-lg" />
+										</td>
+									)}
+								</tr>
+							))}
+							{rows.map((item, index) => {
 								const isSelected = selectedRowIds.includes(item.id);
 								return (
 									<tr
@@ -442,7 +453,21 @@ export function DataTable<T extends { id: string }>({
 			{/* Mobile Card View - Kept consistent with improvements */}
 			{mobileCard && (
 				<div className="xl:hidden p-4 space-y-4">
-					{processedData.map((item, index) => {
+					{Array.from({ length: skeletonRows }, (_, row) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: tarjetas de relleno sin identidad propia.
+						<Card key={row}>
+							<CardHeader className="pb-3">
+								<Skeleton className="h-5 w-2/3 rounded-md" />
+								<Skeleton className="mt-1 h-3 w-1/3 rounded-md" />
+							</CardHeader>
+							{mobileCard.content && (
+								<CardContent className="pt-0">
+									<Skeleton className="h-4 w-full rounded-md" />
+								</CardContent>
+							)}
+						</Card>
+					))}
+					{rows.map((item, index) => {
 						const isSelected = selectedRowIds.includes(item.id);
 						return (
 							<Card

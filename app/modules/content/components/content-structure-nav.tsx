@@ -2,6 +2,7 @@ import { ChevronRight, CircleCheck, ClipboardCheck, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/ui/button";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
 	CONTENT_MAX_LESSONS_PER_MODULE,
 	CONTENT_MAX_MODULES_PER_COURSE,
@@ -13,6 +14,7 @@ import {
 	minutesOf,
 	type OutlineSelection,
 	outlineStats,
+	type PendingCreation,
 } from "../utils/content-outline";
 import { LessonTypeIcon } from "./lesson-type-icon";
 
@@ -21,6 +23,16 @@ const plural = (count: number, one: string, many: string) =>
 
 const ROW =
 	"flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
+
+/** El sitio de lo que se está creando, hasta que el servidor le da identidad. */
+function CreatingRow() {
+	return (
+		<li aria-hidden="true" className={ROW}>
+			<Skeleton className="size-4 shrink-0 rounded-md" />
+			<Skeleton className="h-3.5 flex-1 rounded-md" />
+		</li>
+	);
+}
 
 /**
  * La estructura del temario: módulos plegables con sus lecciones y su
@@ -34,6 +46,7 @@ export function ContentStructureNav({
 	onAddLesson,
 	canWrite,
 	busy,
+	creating,
 	liveTitle,
 }: {
 	tree: CourseContentTree;
@@ -43,6 +56,7 @@ export function ContentStructureNav({
 	onAddLesson: (moduleDocumentId: string) => void;
 	canWrite: boolean;
 	busy: boolean;
+	creating: PendingCreation | null;
 	/** El título que se está escribiendo a la derecha, antes de guardarse. */
 	liveTitle: string | null;
 }) {
@@ -225,6 +239,11 @@ export function ContentStructureNav({
 										);
 									})}
 
+									{creating?.kind === "lesson" &&
+										creating.moduleDocumentId === module.documentId && (
+											<CreatingRow />
+										)}
+
 									{(module.quiz || isSameSelection(quizTarget, selection)) && (
 										<li>
 											<button
@@ -278,6 +297,7 @@ export function ContentStructureNav({
 						</li>
 					);
 				})}
+				{creating?.kind === "module" && <CreatingRow />}
 			</ol>
 
 			{stats.lessons > 0 && (

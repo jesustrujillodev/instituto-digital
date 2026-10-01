@@ -7,7 +7,5 @@ export const validateListTeachingCourses = (data: unknown) =>
 	v.parse(teachingRules.list, data);
 export const validateSaveAttendance = (data: unknown) =>
 	v.parse(teachingRules.attendance, data);
-export const validateSaveResults = (data: unknown) =>
-	v.parse(teachingRules.results, data);
 export const validateSetEnrollmentOpen = (data: unknown) =>
 	v.parse(teachingRules.enrollmentWindow, data);

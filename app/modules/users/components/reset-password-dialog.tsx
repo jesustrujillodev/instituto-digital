@@ -153,7 +153,7 @@ function ResetPasswordBody({ user }: { user: ResetPasswordTarget }) {
 						Cancelar
 					</Button>
 				</DialogClose>
-				<Button type="submit" disabled={isSubmitting}>
+				<Button type="submit" pending={isSubmitting}>
 					{isSubmitting ? "Restableciendo…" : "Restablecer contraseña"}
 				</Button>
 			</DialogFooter>

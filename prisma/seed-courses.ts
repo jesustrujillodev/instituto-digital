@@ -211,8 +211,6 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 			modality: "ONLINE",
 			format: "SELF_PACED",
 			completionRule: "CONTENT",
-			// Sin capacitador: nadie capturaría su resultado a mano.
-			evaluationMethod: "QUIZ",
 			access: "PUBLIC",
 			status: "PUBLISHED",
 			publishedAt: new Date(),
@@ -301,7 +299,6 @@ export async function seedCourses(prisma: PrismaClient): Promise<Seeded> {
 			status: "PUBLISHED",
 			publishedAt: new Date(),
 			requiresEvaluation: true,
-			evaluationMethod: "QUIZ",
 			sessions: {
 				create: [session("2026-10-27", "09:00", "13:00", { venue })],
 			},

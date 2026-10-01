@@ -5,7 +5,6 @@ export const PAYLOAD_FIELD = "payload";
 
 export const TEACHING_INTENTS = {
 	attendance: "attendance",
-	results: "results",
 	finish: "finish",
 	enrollmentWindow: "enrollment-window",
 	rotateQr: "rotate-qr",

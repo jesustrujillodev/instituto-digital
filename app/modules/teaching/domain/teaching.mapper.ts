@@ -4,8 +4,6 @@ import {
 	type CourseModality,
 	type CourseStatus,
 	canEdit,
-	type EvaluationMethod,
-	evaluatesByQuiz,
 } from "@/modules/courses/domain/course.rules";
 import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.config";
 import { removalBlockerOf } from "@/modules/enrollments/domain/enrollment.rules";
@@ -20,7 +18,6 @@ import {
 	isCompleted,
 	isSessionOpen,
 	pendingCertificatesOf,
-	pendingResultsOf,
 } from "./teaching.rules";
 import type {
 	TeachingCourse,
@@ -45,7 +42,6 @@ export interface TeachingCourseRaw {
 	status: CourseStatus;
 	minAttendance: number;
 	requiresEvaluation: boolean;
-	evaluationMethod: EvaluationMethod;
 	minPassingGrade: number;
 	finishedAt: Date | null;
 	enrollmentClosedAt: Date | null;
@@ -118,7 +114,6 @@ export const toTeachingCourse = (raw: TeachingCourseRaw): TeachingCourse => ({
 	status: raw.status,
 	minAttendance: raw.minAttendance,
 	requiresEvaluation: raw.requiresEvaluation,
-	evaluationMethod: raw.evaluationMethod,
 	minPassingGrade: raw.minPassingGrade,
 	finishedAt: raw.finishedAt,
 	enrollmentClosedAt: raw.enrollmentClosedAt,
@@ -207,7 +202,6 @@ export const toTeachingDetail = (
 			status: course.status,
 			minAttendance: course.minAttendance,
 			requiresEvaluation: course.requiresEvaluation,
-			evaluationMethod: course.evaluationMethod,
 			minPassingGrade: course.minPassingGrade,
 			finishedAt: course.finishedAt,
 			finishOpensAt: finishOpensAt(course),
@@ -261,14 +255,10 @@ export const toTeachingDetail = (
 					removalBlockerOf(course, participant.completed) === null,
 			};
 		}),
-		pendingResults: pendingResultsOf(course),
 		pendingCertificates,
 		finishBlocker,
 		can: {
 			recordAttendance: writable,
-			// Con examen, el resultado lo escribe el examen: no hay captura manual.
-			recordResults:
-				writable && course.requiresEvaluation && !evaluatesByQuiz(course),
 			finish: finishBlocker === null,
 			correct: course.status === "FINISHED" && writable,
 			toggleEnrollment: canToggleEnrollment(course),

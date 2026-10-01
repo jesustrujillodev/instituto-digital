@@ -42,14 +42,21 @@ const FINAL_QUIZ = {
 	maxAttempts: 3,
 };
 
+const FOLLOW_UP = {
+	documentId: "55555555-5555-4555-8555-555555555555",
+	title: "Práctica de la sesión 2",
+	sessionDocumentId: "33333333-3333-4333-8333-333333333333",
+	countsTowardGrade: true,
+};
+
 const createHarness = (
 	status: string,
 	requiresEvaluation = false,
 	format = "SCHEDULED",
 	quizzes: unknown[] = [],
-	evaluationMethod = "MANUAL",
+	followUps: unknown[] = [],
 ) => {
-	const calls = { ratings: 0, evaluations: 0, quizBoard: 0 };
+	const calls = { ratings: 0, followUps: 0, quizBoard: 0 };
 	const context = {
 		authPayload,
 		teachingService: {
@@ -58,7 +65,6 @@ const createHarness = (
 					course: {
 						status,
 						requiresEvaluation,
-						evaluationMethod,
 						format,
 						completionRule: format === "SELF_PACED" ? "CONTENT" : "ATTENDANCE",
 					},
@@ -71,13 +77,11 @@ const createHarness = (
 				return okReply({ average: 4.5, count: 2, comments: [] });
 			},
 		},
-		evaluationService: {
-			findCourseBoard: async () => {
-				calls.evaluations += 1;
-				return okReply({ canWrite: true, evaluations: [] });
-			},
-		},
 		quizService: {
+			findFollowUpBoard: async () => {
+				calls.followUps += 1;
+				return okReply({ canToggle: true, followUps, scores: [] });
+			},
 			findQuizBoard: async () => {
 				calls.quizBoard += 1;
 				return okReply({ canGrantRetake: true, quizzes, attempts: [] });
@@ -128,34 +132,57 @@ describe("ficha de impartición loader", () => {
 		});
 	});
 
-	test("un curso sin evaluación no consulta el tablero", async () => {
-		const { context, calls } = createHarness("PUBLISHED");
-
-		const result = await run(context);
-
-		expect(result.data.evaluations).toBeNull();
-		expect(calls.evaluations).toBe(0);
-	});
-
-	test("un curso con evaluación trae su tablero", async () => {
+	test("sin evaluaciones de seguimiento el tablero no viaja", async () => {
 		const { context, calls } = createHarness("PUBLISHED", true);
 
 		const result = await run(context);
 
-		expect(result.data.evaluations).toEqual({
-			canWrite: true,
-			evaluations: [],
-		});
-		expect(calls.evaluations).toBe(1);
+		expect(result.data.followUps).toBeNull();
+		expect(calls.followUps).toBe(1);
 	});
 
-	test("un autogestivo evaluado no trae evaluaciones de seguimiento", async () => {
+	test("las de seguimiento no dependen de la evaluación final", async () => {
+		const { context } = createHarness(
+			"PUBLISHED",
+			false,
+			"SCHEDULED",
+			[],
+			[FOLLOW_UP],
+		);
+
+		const result = await run(context);
+
+		expect(result.data.followUps).toEqual({
+			canToggle: true,
+			followUps: [FOLLOW_UP],
+			scores: [],
+		});
+	});
+
+	// docs/adr/0027: el seguimiento que cuenta califica la capacitación.
+	test("con seguimiento que cuenta, la pestaña Resultados aparece", async () => {
+		const withFollowUp = createHarness(
+			"PUBLISHED",
+			false,
+			"SCHEDULED",
+			[],
+			[FOLLOW_UP],
+		);
+		const plain = createHarness("PUBLISHED");
+
+		expect((await run(withFollowUp.context)).data.gradesAutomatically).toBe(
+			true,
+		);
+		expect((await run(plain.context)).data.gradesAutomatically).toBe(false);
+	});
+
+	test("un autogestivo no consulta evaluaciones de seguimiento", async () => {
 		const { context, calls } = createHarness("PUBLISHED", true, "SELF_PACED");
 
 		const result = await run(context);
 
-		expect(result.data.evaluations).toBeNull();
-		expect(calls.evaluations).toBe(0);
+		expect(result.data.followUps).toBeNull();
+		expect(calls.followUps).toBe(0);
 	});
 
 	// docs/adr/0016: las evaluaciones de módulo viven donde cuenta el temario.
@@ -182,23 +209,20 @@ describe("ficha de impartición loader", () => {
 
 	// docs/adr/0024: al examen final también se le habilita otro intento.
 	test("un curso por asistencia con examen en línea trae el tablero", async () => {
-		const { context, calls } = createHarness(
-			"PUBLISHED",
-			true,
-			"SCHEDULED",
-			[FINAL_QUIZ],
-			"QUIZ",
-		);
+		const { context, calls } = createHarness("PUBLISHED", true, "SCHEDULED", [
+			FINAL_QUIZ,
+		]);
 
 		expect((await run(context)).data.quizBoard?.quizzes).toEqual([FINAL_QUIZ]);
 		expect(calls.quizBoard).toBe(1);
 	});
 
-	test("un curso por asistencia sin examen no consulta cuestionarios", async () => {
+	// docs/adr/0027: con sesiones puede haber seguimiento al que dar otro intento.
+	test("un calendarizado sin cuestionarios consulta el tablero pero no lo envía", async () => {
 		const { context, calls } = createHarness("PUBLISHED");
 
 		expect((await run(context)).data.quizBoard).toBeNull();
-		expect(calls.quizBoard).toBe(0);
+		expect(calls.quizBoard).toBe(1);
 	});
 
 	test("un documentId mal formado responde 400", async () => {

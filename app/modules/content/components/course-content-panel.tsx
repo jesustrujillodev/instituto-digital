@@ -1,4 +1,4 @@
-import { Columns2, List, Loader2, Save } from "lucide-react";
+import { Columns2, List, Save } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -185,14 +185,11 @@ export function CourseContentPanel({
 						)}
 						<Button
 							type="button"
-							disabled={!ownDirty || saving}
+							disabled={!ownDirty}
+							pending={saving}
 							onClick={() => void saveOwn()}
 						>
-							{saving ? (
-								<Loader2 className="animate-spin" aria-hidden="true" />
-							) : (
-								<Save aria-hidden="true" />
-							)}
+							<Save aria-hidden="true" />
 							{saving ? "Guardando…" : "Guardar cambios"}
 						</Button>
 					</div>

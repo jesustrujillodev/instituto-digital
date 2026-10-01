@@ -69,6 +69,7 @@ const createHarness = (
 		}[],
 		finishes: 0,
 		markedFailed: 0,
+		recalculated: [] as { closing?: boolean }[],
 		enrollmentClosed: [] as (Date | null)[],
 		issued: [] as number[][],
 	};
@@ -201,6 +202,18 @@ const createHarness = (
 		courseRepository,
 		enrollmentRepository,
 		completionSync,
+		progressSync: {
+			recalculate: async (
+				_course: unknown,
+				_actorId: number,
+				_at: Date,
+				_userIds: unknown,
+				recalculation: { closing?: boolean } = {},
+			) => {
+				log.recalculated.push(recalculation);
+				return [];
+			},
+		} as unknown as ICradle["progressSync"],
 		runInTransaction,
 		clock: { now: () => options.now ?? LAST_DAY },
 		logger: silentLogger,
@@ -301,43 +314,6 @@ describe("teachingService.saveAttendance", () => {
 	});
 });
 
-describe("teachingService.saveResults", () => {
-	const evaluated = courseOf({ requiresEvaluation: true });
-
-	test("guarda solo lo que cambia", async () => {
-		const { service, log } = createHarness(evaluated);
-
-		const result = await service.saveResults(
-			COURSE_DOC,
-			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: 92 }] },
-			actorOf(),
-		);
-
-		expect(result).toMatchObject({ success: true, data: { affected: 1 } });
-		expect(log.results).toEqual([
-			[{ userId: 50, result: "PASSED", grade: 92 }],
-		]);
-	});
-
-	test("rechaza el envío si alguien no está inscrito", async () => {
-		const { service, log } = createHarness(evaluated);
-
-		const result = await service.saveResults(
-			COURSE_DOC,
-			{
-				entries: [{ userDocumentId: LUIS_DOC, result: "PASSED", grade: null }],
-			},
-			actorOf(),
-		);
-
-		expect(result).toMatchObject({
-			success: false,
-			error: { code: TEACHING_ERROR_CODES.UNKNOWN_PARTICIPANT },
-		});
-		expect(log.results).toEqual([]);
-	});
-});
-
 describe("teachingService.finish", () => {
 	const completedCourse = () => {
 		const base = courseOf();
@@ -378,6 +354,27 @@ describe("teachingService.finish", () => {
 		]);
 	});
 
+	// docs/adr/0027: al cerrar, el seguimiento que cuenta y no se presentó vale 0.
+	test("antes de calcular quién completó, recalcula la nota con todo cerrado", async () => {
+		const { service, log } = createHarness(completedCourse());
+
+		await service.finish(COURSE_DOC, actorOf());
+
+		expect(log.recalculated).toEqual([{ closing: true }]);
+	});
+
+	// docs/adr/0027: sin captura manual, nada pendiente bloquea el cierre.
+	test("un resultado pendiente ya no bloquea el cierre", async () => {
+		const { service, log } = createHarness(
+			courseOf({ requiresEvaluation: true }),
+		);
+
+		const result = await service.finish(COURSE_DOC, actorOf());
+
+		expect(result.success).toBe(true);
+		expect(log.finishes).toBe(1);
+	});
+
 	// docs/adr/0014: cada participante lo completa; el curso no se cierra.
 	test("un autogestivo no se finaliza", async () => {
 		const { service, log } = createHarness(SELF_PACED_COURSE());
@@ -389,24 +386,6 @@ describe("teachingService.finish", () => {
 			error: { code: TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE },
 		});
 		expect(log.finishes).toBe(0);
-	});
-
-	test("con resultados pendientes no finaliza ni otorga nada", async () => {
-		const { service, log } = createHarness(
-			courseOf({ requiresEvaluation: true }),
-		);
-
-		const result = await service.finish(COURSE_DOC, actorOf());
-
-		expect(result).toMatchObject({
-			success: false,
-			error: {
-				code: TEACHING_ERROR_CODES.PENDING_RESULTS,
-				details: { pending: 1 },
-			},
-		});
-		expect(log.finishes).toBe(0);
-		expect(log.grants).toEqual([]);
 	});
 
 	test("antes del día de la última sesión no se puede finalizar", async () => {
@@ -489,33 +468,6 @@ describe("corrección de un curso finalizado", () => {
 		});
 		expect(harness.credits()[0].revokedAt).toBeNull();
 	});
-
-	test("corregir un resultado a no aprobado retira el crédito", async () => {
-		const base = courseOf();
-		const harness = createHarness(
-			courseOf({
-				status: "FINISHED",
-				requiresEvaluation: true,
-				participants: [
-					participantOf({
-						result: "PASSED",
-						completed: true,
-						attendance: attendanceOf(base, [0, 1, 2]),
-					}),
-				],
-			}),
-			{ credits: [{ userId: 50, dependencyId: 3, revokedAt: null }] },
-		);
-
-		const result = await harness.service.saveResults(
-			COURSE_DOC,
-			{ entries: [{ userDocumentId: ANA_DOC, result: "FAILED", grade: 40 }] },
-			HEAD,
-		);
-
-		expect(result.success).toBe(true);
-		expect(harness.credits()[0].revokedAt).toEqual(LAST_DAY);
-	});
 });
 
 describe("teachingService.issueCertificates", () => {
@@ -583,67 +535,6 @@ describe("teachingService.findById", () => {
 	});
 });
 
-describe("autogestivo: completado en vivo", () => {
-	const DONE = zonedInputToUtc("2027-03-10", "12:00");
-
-	// Sin cierre, el último dato que falte es el que otorga el crédito: aquí el
-	// resultado llega después del contenido.
-	test("capturar el resultado otorga el crédito en ese momento", async () => {
-		const { service, log, course, credits } = createHarness(
-			SELF_PACED_COURSE({
-				requiresEvaluation: true,
-				participants: [participantOf({ contentCompletedAt: DONE })],
-			}),
-			{ now: zonedInputToUtc("2027-03-18", "10:00") },
-		);
-
-		const result = await service.saveResults(
-			COURSE_DOC,
-			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: 90 }] },
-			actorOf(),
-		);
-
-		expect(result).toMatchObject({ success: true, data: { affected: 1 } });
-		expect(course().status).toBe("PUBLISHED");
-		expect(course().participants[0]?.completed).toBe(true);
-		expect(log.grants[0]?.context).toMatchObject({ fiscalYear: 2027 });
-		expect(credits()).toEqual([
-			{ userId: 50, dependencyId: 3, revokedAt: null },
-		]);
-	});
-
-	test("aprobar sin haber terminado el contenido no otorga nada", async () => {
-		const { service, log } = createHarness(
-			SELF_PACED_COURSE({
-				requiresEvaluation: true,
-				participants: [participantOf()],
-			}),
-		);
-
-		await service.saveResults(
-			COURSE_DOC,
-			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: null }] },
-			actorOf(),
-		);
-
-		expect(log.grants).toEqual([]);
-	});
-
-	test("un calendarizado publicado no recalcula al capturar", async () => {
-		const { service, log } = createHarness(
-			courseOf({ requiresEvaluation: true }),
-		);
-
-		await service.saveResults(
-			COURSE_DOC,
-			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: null }] },
-			actorOf(),
-		);
-
-		expect(log.completion).toEqual([]);
-	});
-});
-
 describe("teachingService.setEnrollmentOpen", () => {
 	test("cierra y reabre las inscripciones de un autogestivo", async () => {
 		const { service, log, course } = createHarness(SELF_PACED_COURSE());
@@ -700,24 +591,7 @@ describe("teachingService.setEnrollmentOpen", () => {
 
 // docs/adr/0015: con examen en línea el resultado lo escribe el examen.
 describe("curso evaluado con examen en línea", () => {
-	const quizCourse = () =>
-		courseOf({ requiresEvaluation: true, evaluationMethod: "QUIZ" });
-
-	test("no admite captura manual de resultados", async () => {
-		const { service, log } = createHarness(quizCourse());
-
-		const result = await service.saveResults(
-			COURSE_DOC,
-			{ entries: [{ userDocumentId: ANA_DOC, result: "PASSED", grade: 90 }] },
-			actorOf(),
-		);
-
-		expect(result).toMatchObject({
-			success: false,
-			error: { code: TEACHING_ERROR_CODES.RESULTS_BY_QUIZ },
-		});
-		expect(log.results).toEqual([]);
-	});
+	const quizCourse = () => courseOf({ requiresEvaluation: true });
 
 	test("un pendiente no bloquea el cierre y queda como «No presentó»", async () => {
 		const { service, log, course } = createHarness(quizCourse());
@@ -727,19 +601,5 @@ describe("curso evaluado con examen en línea", () => {
 		expect(result.success).toBe(true);
 		expect(log.markedFailed).toBe(1);
 		expect(course().participants[0]?.result).toBe("FAILED");
-	});
-
-	test("con captura manual, el pendiente sigue bloqueando como siempre", async () => {
-		const { service, log } = createHarness(
-			courseOf({ requiresEvaluation: true }),
-		);
-
-		const result = await service.finish(COURSE_DOC, actorOf());
-
-		expect(result).toMatchObject({
-			success: false,
-			error: { code: TEACHING_ERROR_CODES.PENDING_RESULTS },
-		});
-		expect(log.markedFailed).toBe(0);
 	});
 });

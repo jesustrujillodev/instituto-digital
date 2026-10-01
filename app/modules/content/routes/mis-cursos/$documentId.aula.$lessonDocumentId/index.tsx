@@ -1,6 +1,10 @@
 import { CheckCircle2 } from "lucide-react";
 import { useEffect } from "react";
-import { useFetcher, useParams } from "react-router";
+import {
+	type ShouldRevalidateFunction,
+	useFetcher,
+	useParams,
+} from "react-router";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -15,11 +19,15 @@ import {
 	QuizTaker,
 } from "../../../components/quiz-taker";
 import type { ProgressResult } from "../../../domain/classroom.types";
+import { shouldRevalidateLesson } from "../../../utils/classroom-revalidation";
 import { LESSON_TYPE_LABELS } from "../../../utils/content-labels";
 import type { Route } from "./+types/index";
 
 export { action } from "./index.action";
 export { loader } from "./index.loader";
+
+export const shouldRevalidate: ShouldRevalidateFunction =
+	shouldRevalidateLesson;
 
 export function meta({ data }: Route.MetaArgs) {
 	return [{ title: data ? data.data.lesson.title : "Lección" }];
@@ -84,6 +92,7 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 								owner={{
 									lessonDocumentId: lesson.documentId,
 									moduleDocumentId: null,
+									followUpDocumentId: null,
 								}}
 							/>
 						</>
@@ -109,7 +118,7 @@ export default function AulaLessonPage({ loaderData }: Route.ComponentProps) {
 					/>
 
 					{!readOnly && !completed && !byVideo && !byQuiz && (
-						<Button type="button" disabled={completing} onClick={complete}>
+						<Button type="button" pending={completing} onClick={complete}>
 							<CheckCircle2 />
 							Marcar como completada
 						</Button>

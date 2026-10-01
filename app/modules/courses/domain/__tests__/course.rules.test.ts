@@ -28,14 +28,12 @@ import {
 	countsContent,
 	courseHoursOf,
 	createCourseRule,
-	type EvaluationMethod,
 	evaluatesByQuiz,
 	gradesAutomatically,
 	publishChecklist,
 	requiresContent,
 	requiresSessions,
 	requiresTrainer,
-	resolveEvaluationMethod,
 	resolveModality,
 } from "../course.rules";
 
@@ -57,7 +55,6 @@ const courseOf = (
 	format: "SCHEDULED",
 	completionRule: "ATTENDANCE",
 	requiresEvaluation: false,
-	evaluationMethod: "MANUAL",
 	access: "PUBLIC",
 	sessions: [sessionOf()],
 	trainers: [{ isActive: true }],
@@ -225,10 +222,14 @@ describe("assertDeadlineBeforeStart", () => {
 const CONTENT: CourseContentFacts = {
 	lessonCount: 2,
 	finalQuizQuestionCount: 0,
+	followUpsWithoutQuestions: 0,
+	countedFollowUps: 0,
 };
 const NO_CONTENT: CourseContentFacts = {
 	lessonCount: 0,
 	finalQuizQuestionCount: 0,
+	followUpsWithoutQuestions: 0,
+	countedFollowUps: 0,
 };
 
 describe("assertPublishable", () => {
@@ -277,11 +278,8 @@ describe("assertPublishable", () => {
 
 	// docs/adr/0015: evaluar por examen sin examen dejaría a todo inscrito
 	// en pendiente.
-	test("un curso evaluado por examen pide un examen con preguntas", () => {
-		const byQuiz = courseOf({
-			requiresEvaluation: true,
-			evaluationMethod: "QUIZ",
-		});
+	test("un curso con evaluación final pide un examen con preguntas", () => {
+		const byQuiz = courseOf({ requiresEvaluation: true });
 
 		expect(() => assertPublishable(byQuiz, CONTENT)).toThrowError(
 			codeOf(COURSE_ERROR_CODES.WITHOUT_QUIZ),
@@ -295,16 +293,30 @@ describe("assertPublishable", () => {
 		).not.toThrow();
 	});
 
-	test("con captura manual no se enseña el pendiente del examen", () => {
-		const manual = courseOf({ requiresEvaluation: true });
+	test("sin evaluación final no se enseña el pendiente del examen", () => {
+		const plain = courseOf();
 
 		expect(
-			publishChecklist(manual, CONTENT).map((entry) => entry.check),
+			publishChecklist(plain, CONTENT).map((entry) => entry.check),
 		).not.toContain("quiz");
-		expect(evaluatesByQuiz(manual)).toBe(false);
+		expect(evaluatesByQuiz(plain)).toBe(false);
+		expect(evaluatesByQuiz({ requiresEvaluation: true })).toBe(true);
+	});
+
+	// docs/adr/0027: un seguimiento sin preguntas no se podría presentar.
+	test("cada evaluación de seguimiento pide preguntas", () => {
+		const facts = { ...NO_CONTENT, followUpsWithoutQuestions: 1 };
+
+		expect(() => assertPublishable(courseOf(), facts)).toThrowError(
+			codeOf(COURSE_ERROR_CODES.FOLLOW_UP_WITHOUT_QUESTIONS),
+		);
+		expect(publishChecklist(courseOf(), facts)).toContainEqual({
+			check: "followUps",
+			done: false,
+		});
 		expect(
-			evaluatesByQuiz({ requiresEvaluation: false, evaluationMethod: "QUIZ" }),
-		).toBe(false);
+			publishChecklist(courseOf(), NO_CONTENT).map((entry) => entry.check),
+		).not.toContain("followUps");
 	});
 
 	test("un calendarizado que también se completa por contenido pide lecciones", () => {
@@ -639,51 +651,6 @@ describe("formato y regla de completado", () => {
 		).not.toThrow();
 	});
 
-	test("un autogestivo no se evalúa con captura manual: no tiene capacitador", () => {
-		expect(() =>
-			resolveEvaluationMethod({
-				format: "SELF_PACED",
-				requiresEvaluation: true,
-				evaluationMethod: "MANUAL",
-			}),
-		).toThrowError(codeOf(COURSE_ERROR_CODES.INCOMPATIBLE_EVALUATION_METHOD));
-	});
-
-	test("un autogestivo evaluado se evalúa con examen", () => {
-		expect(
-			resolveEvaluationMethod({
-				format: "SELF_PACED",
-				requiresEvaluation: true,
-				evaluationMethod: "QUIZ",
-			}),
-		).toBe("QUIZ");
-	});
-
-	// Sin evaluación el método no se usa: se guarda como examen para que el
-	// formulario, que solo ofrece esa vía, y lo guardado coincidan.
-	test("un autogestivo sin evaluación guarda el método como examen", () => {
-		expect(
-			resolveEvaluationMethod({
-				format: "SELF_PACED",
-				requiresEvaluation: false,
-				evaluationMethod: "MANUAL",
-			}),
-		).toBe("QUIZ");
-	});
-
-	test.each<EvaluationMethod>(["MANUAL", "QUIZ"])(
-		"un calendarizado conserva su método: %s",
-		(evaluationMethod) => {
-			expect(
-				resolveEvaluationMethod({
-					format: "SCHEDULED",
-					requiresEvaluation: true,
-					evaluationMethod,
-				}),
-			).toBe(evaluationMethod);
-		},
-	);
-
 	test("qué cuenta cada regla", () => {
 		expect(COURSE_COMPLETION_RULES.filter(countsAttendance)).toEqual([
 			"ATTENDANCE",
@@ -716,13 +683,11 @@ describe("formato y regla de completado", () => {
 			format: "SELF_PACED" as CourseFormat,
 			completionRule: "CONTENT" as CourseCompletionRule,
 			requiresEvaluation: false,
-			evaluationMethod: "MANUAL" as EvaluationMethod,
 			minPassingGrade: 70,
 		};
 		const unchanged = {
 			completionRule: "CONTENT" as CourseCompletionRule,
 			requiresEvaluation: false,
-			evaluationMethod: "MANUAL" as EvaluationMethod,
 			minPassingGrade: 70,
 		};
 
@@ -745,7 +710,7 @@ describe("formato y regla de completado", () => {
 			expect(() =>
 				assertCompletionSettingsEditable(
 					{ ...selfPaced, status: "DRAFT" },
-					{ ...unchanged, requiresEvaluation: true, evaluationMethod: "QUIZ" },
+					{ ...unchanged, requiresEvaluation: true },
 				),
 			).not.toThrow();
 		});
@@ -756,21 +721,20 @@ describe("formato y regla de completado", () => {
 			expect(() =>
 				assertCompletionSettingsEditable(
 					{ ...selfPaced, format: "SCHEDULED", completionRule: "ATTENDANCE" },
-					{ ...unchanged, completionRule: "BOTH", requiresEvaluation: true },
+					{ ...unchanged, completionRule: "BOTH" },
 				),
 			).not.toThrow();
 		});
 
-		// docs/adr/0015: pasar de captura a examen a mitad dejaría resultados
+		// docs/adr/0027: agregar el examen final a mitad dejaría resultados
 		// medidos de dos formas, en cualquier formato.
-		test("el método de evaluación se congela al publicar, también con sesiones", () => {
+		test("la evaluación final se congela al publicar, también con sesiones", () => {
 			expect(() =>
 				assertCompletionSettingsEditable(
 					{ ...selfPaced, format: "SCHEDULED", completionRule: "ATTENDANCE" },
 					{
 						completionRule: "ATTENDANCE",
-						requiresEvaluation: false,
-						evaluationMethod: "QUIZ",
+						requiresEvaluation: true,
 						minPassingGrade: 70,
 					},
 				),
@@ -796,41 +760,38 @@ describe("formato y regla de completado", () => {
 	});
 
 	describe("gradesAutomatically", () => {
-		test("con examen en línea la nota se calcula sola", () => {
+		test("con examen final la nota se calcula sola", () => {
 			expect(
 				gradesAutomatically({
 					requiresEvaluation: true,
-					evaluationMethod: "QUIZ",
 					completionRule: "ATTENDANCE",
 				}),
 			).toBe(true);
 		});
 
-		test("sin evaluación, solo si el temario cuenta", () => {
+		test("sin examen final, si el temario cuenta", () => {
 			expect(
 				gradesAutomatically({
 					requiresEvaluation: false,
-					evaluationMethod: "MANUAL",
 					completionRule: "CONTENT",
 				}),
 			).toBe(true);
 			expect(
 				gradesAutomatically({
 					requiresEvaluation: false,
-					evaluationMethod: "MANUAL",
 					completionRule: "ATTENDANCE",
 				}),
 			).toBe(false);
 		});
 
-		test("con captura manual decide quien imparte", () => {
+		// docs/adr/0027: el seguimiento que cuenta también califica.
+		test("solo por asistencia, si hay seguimiento que cuenta", () => {
 			expect(
-				gradesAutomatically({
-					requiresEvaluation: true,
-					evaluationMethod: "MANUAL",
-					completionRule: "BOTH",
-				}),
-			).toBe(false);
+				gradesAutomatically(
+					{ requiresEvaluation: false, completionRule: "ATTENDANCE" },
+					1,
+				),
+			).toBe(true);
 		});
 	});
 

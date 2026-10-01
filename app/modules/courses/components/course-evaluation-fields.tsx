@@ -1,42 +1,66 @@
+import { Award, ClipboardCheck, Info } from "lucide-react";
 import { memo, type ReactNode } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { TextInput } from "@/shared/components/common/text-input";
-import { gradesAutomatically, requiresSessions } from "../domain/course.rules";
+import { Input } from "@/shared/components/ui/input";
+import {
+	countsContent,
+	gradesAutomatically,
+	requiresSessions,
+} from "../domain/course.rules";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
+import { accreditationStepsOf } from "../utils/accreditation";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
-import { EVALUATION_METHOD_LABELS } from "../utils/course-labels";
-import { type ChoiceOption, CourseChoiceField } from "./course-choice-field";
 import {
 	type CompletionContentFacts,
 	CourseCompletionChecklist,
 } from "./course-completion-checklist";
 
-const methodOptions = (scheduled: boolean): ChoiceOption[] => [
-	{
-		value: "QUIZ",
-		label: EVALUATION_METHOD_LABELS.QUIZ,
-		description:
-			"La calificación se asigna sola. Los intentos se definen en el examen.",
-	},
-	{
-		value: "MANUAL",
-		label: EVALUATION_METHOD_LABELS.MANUAL,
-		description: scheduled
-			? "Quien imparte captura aprobado o no aprobado de cada participante."
-			: "Una autogestiva no tiene capacitador que capture resultados.",
-		disabled: !scheduled,
-	},
-];
+const numberOr = (value: string, fallback: number) => {
+	const parsed = Number(value);
+	return value.trim() === "" || Number.isNaN(parsed) ? fallback : parsed;
+};
+
+/** «Así se acredita»: los requisitos de abajo dichos en frases. */
+function AccreditationSummary({ steps }: { steps: readonly string[] }) {
+	return (
+		<section className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-4">
+			<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success text-success-foreground">
+				<Award className="size-4" aria-hidden="true" />
+			</span>
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<h3 className="font-semibold text-sm">Así se acredita</h3>
+				<ol className="flex list-decimal flex-col gap-1 pl-5 text-sm">
+					{steps.map((step) => (
+						<li key={step}>{step}</li>
+					))}
+				</ol>
+			</div>
+		</section>
+	);
+}
+
+function GradeChip({ children }: { children: ReactNode }) {
+	return (
+		<span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 font-medium text-sm">
+			<ClipboardCheck
+				className="size-4 text-muted-foreground"
+				aria-hidden="true"
+			/>
+			{children}
+		</span>
+	);
+}
 
 /**
  * Lo que decide si alguien completa el curso y obtiene su crédito, y cómo se le
  * evalúa. El examen y las evaluaciones de seguimiento se guardan por su cuenta
- * y llegan ya pintados desde su módulo.
+ * y llegan ya pintados desde el módulo de contenido.
  */
 export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 	ids,
 	isPublished = false,
-	evaluations,
+	followUps,
+	countedFollowUpTitles = [],
 	quiz,
 	quizSummary,
 	content,
@@ -44,7 +68,9 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 }: {
 	ids: CourseFormIds;
 	isPublished?: boolean;
-	evaluations?: ReactNode;
+	followUps?: ReactNode;
+	/** Las de seguimiento que entran al promedio. */
+	countedFollowUpTitles?: readonly string[];
 	/** El editor del examen: se guarda al continuar, fuera del formulario. */
 	quiz?: ReactNode;
 	/** "5 preguntas · 5 puntos · se aprueba con 4". */
@@ -57,110 +83,147 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 		register,
 		formState: { errors },
 	} = useFormContext<CourseFormValues>();
-	const format = useWatch<CourseFormValues, "format">({ name: "format" });
-	const requiresEvaluation = useWatch<CourseFormValues, "requiresEvaluation">({
-		name: "requiresEvaluation",
-	});
-	const evaluationMethod = useWatch<CourseFormValues, "evaluationMethod">({
-		name: "evaluationMethod",
-	});
-	const completionRule = useWatch<CourseFormValues, "completionRule">({
-		name: "completionRule",
+	const [
+		format,
+		requiresEvaluation,
+		completionRule,
+		minAttendance,
+		minPassing,
+	] = useWatch<
+		CourseFormValues,
+		[
+			"format",
+			"requiresEvaluation",
+			"completionRule",
+			"minAttendance",
+			"minPassingGrade",
+		]
+	>({
+		name: [
+			"format",
+			"requiresEvaluation",
+			"completionRule",
+			"minAttendance",
+			"minPassingGrade",
+		],
 	});
 
 	const scheduled = requiresSessions(format);
 	// Un autogestivo publicado ya otorga créditos: cambiar cómo se completa
 	// mediría a unos con un criterio y a otros con otro (docs/adr/0014).
 	const locked = isPublished && !scheduled;
-	const byQuiz = evaluationMethod === "QUIZ";
-	const automatic = gradesAutomatically({
-		requiresEvaluation,
-		evaluationMethod,
+	const countedFollowUps = scheduled ? countedFollowUpTitles.length : 0;
+	const automatic = gradesAutomatically(
+		{ requiresEvaluation, completionRule },
+		countedFollowUps,
+	);
+
+	const steps = accreditationStepsOf({
+		scheduled,
 		completionRule,
+		minAttendance: numberOr(minAttendance, 0),
+		requiresEvaluation,
+		minPassingGrade: numberOr(minPassing, 0),
+		requiredLessons: content?.requiredLessons ?? null,
+		moduleEvaluations: content?.moduleEvaluations ?? 0,
+		countedFollowUps,
 	});
 
+	const chips = [
+		...(requiresEvaluation ? ["Examen final"] : []),
+		...(countsContent(completionRule) ? ["Evaluaciones del temario"] : []),
+		...(scheduled ? countedFollowUpTitles : []),
+	];
+
 	return (
-		<>
+		<div className="flex flex-col gap-8">
+			<AccreditationSummary steps={steps} />
+
+			{automatic && (
+				<section
+					className="flex flex-col gap-4 rounded-xl border border-border bg-card px-5 py-5"
+					aria-labelledby={`${ids.minPassingGrade}-title`}
+				>
+					<div className="flex flex-col gap-1">
+						<h3
+							id={`${ids.minPassingGrade}-title`}
+							className="font-bold text-lg"
+						>
+							Calificación mínima de la capacitación{" "}
+							<span className="text-destructive" aria-hidden="true">
+								*
+							</span>
+						</h3>
+						<p className="text-muted-foreground text-sm">
+							La plataforma promedia las calificaciones de cada participante y
+							decide sola si acredita.
+						</p>
+					</div>
+
+					<div className="flex flex-wrap items-center gap-2 text-sm">
+						{chips.map((chip, index) => (
+							<span key={chip} className="flex items-center gap-2">
+								{index > 0 && (
+									<span className="text-muted-foreground" aria-hidden="true">
+										+
+									</span>
+								)}
+								<GradeChip>{chip}</GradeChip>
+							</span>
+						))}
+						<span className="text-muted-foreground">
+							→ promedio de las mejores calificaciones, igual o mayor a
+						</span>
+						<span className="relative">
+							<Input
+								id={ids.minPassingGrade}
+								type="number"
+								inputMode="numeric"
+								min={0}
+								max={100}
+								readOnly={isPublished}
+								aria-label="Calificación mínima aprobatoria (%)"
+								aria-invalid={Boolean(errors.minPassingGrade)}
+								className="h-10 w-24 pr-8 font-semibold tabular-nums"
+								{...register("minPassingGrade")}
+							/>
+							<span
+								aria-hidden="true"
+								className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-sm"
+							>
+								%
+							</span>
+						</span>
+					</div>
+
+					{errors.minPassingGrade?.message && (
+						<span role="alert" className="text-destructive text-sm">
+							{errors.minPassingGrade.message}
+						</span>
+					)}
+					<p className="flex items-start gap-2 text-muted-foreground text-xs">
+						<Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+						{isPublished
+							? "La capacitación ya está publicada: la calificación mínima no se puede cambiar."
+							: "Se acredita aunque alguna evaluación quede reprobada, siempre que el promedio llegue al mínimo y se cumplan los requisitos."}
+					</p>
+				</section>
+			)}
+
 			<CourseCompletionChecklist
 				ids={ids}
 				scheduled={scheduled}
 				locked={locked}
+				isPublished={isPublished}
 				content={content}
 				contentHref={contentHref}
+				finalExam={quiz}
+				finalExamSummary={quizSummary}
 			/>
 
-			{requiresEvaluation && (
-				<section
-					className="flex flex-col gap-5"
-					aria-labelledby={`${ids.evaluationMethod}-title`}
-				>
-					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<h3
-							id={`${ids.evaluationMethod}-title`}
-							className="font-bold text-lg"
-						>
-							Evaluación final
-						</h3>
-						{byQuiz && quizSummary && (
-							<span className="text-muted-foreground text-xs tabular-nums">
-								{quizSummary}
-							</span>
-						)}
-					</div>
-
-					<CourseChoiceField
-						id={ids.evaluationMethod}
-						name="evaluationMethod"
-						legend="Se evalúa con"
-						required
-						options={methodOptions(scheduled)}
-						disabled={isPublished}
-						helperText={
-							isPublished
-								? "La capacitación ya está publicada: la vía de evaluación no se puede cambiar."
-								: undefined
-						}
-					/>
-
-					{byQuiz && quiz}
-				</section>
-			)}
-
-			{automatic && (
-				<fieldset className="flex flex-col gap-3">
-					<legend className="mb-1 font-medium text-sm">
-						Calificación de la capacitación
-					</legend>
-					<p className="text-muted-foreground text-sm">
-						La calificación de la capacitación es el promedio de la mejor nota
-						de cada evaluación
-						{requiresEvaluation ? ", examen final incluido" : " del temario"}.
-						Se acredita si el promedio alcanza este mínimo, aunque alguna
-						evaluación quede reprobada.
-					</p>
-					<div className="grid items-start gap-4 sm:grid-cols-2">
-						<TextInput
-							id={ids.minPassingGrade}
-							label="Calificación mínima aprobatoria (%)"
-							type="number"
-							min={0}
-							max={100}
-							readOnly={isPublished}
-							helperText={
-								isPublished
-									? "La capacitación ya está publicada: la calificación mínima no se puede cambiar."
-									: undefined
-							}
-							error={errors.minPassingGrade?.message}
-							{...register("minPassingGrade")}
-						/>
-					</div>
-				</fieldset>
-			)}
-
-			{/* Las de seguimiento las captura quien imparte, y un autogestivo no
-			    tiene capacitador. */}
-			{requiresEvaluation && scheduled && evaluations}
-		</>
+			{/* El seguimiento cuelga del pase de lista de cada sesión: un
+			    autogestivo no lo tiene. No depende de la evaluación final. */}
+			{scheduled && followUps}
+		</div>
 	);
 });

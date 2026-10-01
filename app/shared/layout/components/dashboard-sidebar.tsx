@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigation } from "react-router";
 import type { SessionUser } from "@/shared/auth/session-user";
 import {
 	Collapsible,
@@ -221,7 +221,15 @@ function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
 }
 
 export function DashboardSidebar({ user }: { user: SessionUser }) {
-	const { pathname } = useLocation();
+	const location = useLocation();
+	const navigation = useNavigation();
+	// La selección pasa al destino en cuanto se elige, no cuando termina de
+	// cargar: el clic se reconoce al instante y la barra superior dice que la
+	// página viene en camino.
+	const pathname =
+		navigation.state === "loading"
+			? navigation.location.pathname
+			: location.pathname;
 
 	// Filtrado por rol = SOLO UX. La autorización real la impone requireRole en
 	// el loader: navegar directo a una URL oculta sigue devolviendo 403.

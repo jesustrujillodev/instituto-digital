@@ -45,6 +45,7 @@ export function CertificateExportPanel({
 							variant="outline"
 							size="sm"
 							disabled={pending !== null || (version === "draft" && isDirty)}
+							pending={pending === url}
 							onClick={() => download(url, `certificado-muestra.${format}`)}
 						>
 							<Download aria-hidden="true" />

@@ -34,6 +34,7 @@ Para cada cambio, el agente debe validar y respetar:
 5. Regla de comentarios del estandar (secciones, JSDoc util, sin ruido).
 6. Pruebas minimas por modulo (service/repository/inbound-adapter) segun el estandar, ubicadas en `__tests__/` por capa y cubriendo toda operacion que mute la base (ver secciones de pruebas mas abajo).
 7. Contrato estandar de respuestas (ver seccion siguiente y docs/reglas.md §25).
+8. Loaders sin cascadas, sin N+1 y leyendo solo lo que la vista pinta (ver "Rendimiento de loaders" y docs/reglas.md §26).
 
 ## Contrato estandar de respuestas (obligatorio)
 
@@ -70,6 +71,56 @@ Todo servicio de `application/` devuelve el envelope `AppResponse<T>`, y todo lo
 - Duplicar defaults de paginacion entre loader y repositorio: viven en `domain/<modulo>.config.ts`.
 
 Referencia canonica de implementacion: modulo `users` (`app/modules/users/`).
+
+## Rendimiento de loaders (obligatorio)
+
+Todo loader o adaptador de entrada que lee datos cumple docs/reglas.md §26. Con la base remota,
+lo que cuesta es **cuantos viajes a la base van en fila**, no el volumen de datos: cada viaje
+paga la latencia de red completa.
+
+### Piezas del proyecto
+
+| Pieza | Para que |
+| --- | --- |
+| `DEBUG_QUERY_COUNT=true` + `measureQueries` (`app/core/db.server.ts`) | Escribe en el log `ruta · consultas · ms` por peticion. Solo desarrollo; apagado no cuesta nada. |
+| `previewFeatures = ["relationJoins"]` (`prisma/schema.prisma`) | Las relaciones anidadas de un `select`/`include` viajan en una sola consulta. No se quita sin medir. |
+| `Promise.all` en el loader | Una sola fase para las llamadas que no dependen entre si. |
+| Metodos de conteo en el servicio (ej. `courseService.findContentFacts`) | Lo que una vista solo cuenta no se lee completo. |
+| `shouldRevalidate` con un predicado puro en `utils/` | Una mutacion no vuelve a ejecutar loaders cuyo resultado no cambia. |
+
+### Reglas
+
+1. **Medir antes y despues.** Linea base con `DEBUG_QUERY_COUNT=true` y la tabla antes/despues
+   en el PR. Se mide con el servidor recien arrancado: tras muchas recargas HMR el contador
+   marca 0 y aparecen errores de transaccion falsos.
+2. **Sin cascadas.** Va en serie solo lo que necesita el resultado de otra llamada (el registro
+   antes que lo que depende de el). Lo demas va en un solo `Promise.all`, y los errores se
+   comprueban despues en el mismo orden de antes. Referencia:
+   `app/modules/courses/routes/course-wizard.server.ts`.
+3. **Sin N+1.** Prohibido consultar dentro de un `map` o un bucle por cada fila: se agrupa con
+   `IN` en el repositorio y se arma en memoria.
+4. **Decidir antes de leer.** Redirecciones, autorizacion y validaciones que dependen solo del
+   registro principal van antes de la fase paralela.
+5. **Leer solo lo que la vista pinta.** Si solo cuenta, un metodo de conteo; si solo usa algunos
+   campos, un `select`. Los arboles completos (temario, banco de preguntas) solo en la vista que
+   los muestra.
+6. **No releer.** Si el loader ya tiene el registro leido con su alcance, lo pasa al servicio
+   como argumento en vez de que el servicio lo vuelva a buscar.
+7. **Revalidar solo lo que cambia.** `shouldRevalidate` delega en una funcion pura de `utils/`
+   con prueba (ej. `shouldRevalidateAfterPublish`, `shouldRevalidateLesson`).
+8. **Cache segura.** Respuestas que dependen de quien las pide: `Cache-Control: private`. Lo
+   firmado se cachea menos tiempo del que vive la firma.
+
+### Mismo funcionamiento, comprobado
+
+- Cada optimizacion conserva las mismas redirecciones, los mismos errores (mismo diccionario),
+  los mismos permisos y la misma forma de `loaderData`. Si una lectura pasa por otro servicio,
+  se comprueba que ambos aplican el mismo alcance.
+- La equivalencia se comprueba comparando las respuestas `.data` de las rutas afectadas antes y
+  despues (decodificadas, ignorando marcas de tiempo y firmas). Las diferencias previstas se
+  documentan en el PR.
+- Si la ganancia medida es pequena y el cambio arriesga alterar resultados, se descarta y se
+  anota en el PR con su medicion.
 
 ## Restricciones de acoplamiento
 
@@ -212,6 +263,7 @@ Antes de terminar una tarea, el agente debe confirmar:
 6. Que se agregaron o actualizaron las pruebas necesarias, que viven en `__tests__/` de su capa, y que toda operacion mutadora nueva o modificada tiene la suya.
 7. Que la documentacion tecnica fue actualizada si hubo cambios estructurales.
 8. Que todo servicio nuevo o modificado devuelve `AppResponse<T>` y sus loaders/actions lo consumen sin `instanceof` ni literales `{ success: ... }`.
+9. Que todo loader nuevo o modificado no encadena llamadas independientes, no consulta por fila y no lee colecciones completas para contarlas; y que toda optimizacion se midio antes y despues y conserva redirecciones, errores, permisos y forma de la respuesta.
 
 ## Regla de decision
 

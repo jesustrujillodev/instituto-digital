@@ -40,6 +40,14 @@ export interface IContentRepository {
 	countActiveLessons(courseId: number): Promise<number>;
 	/** Preguntas del examen final: el pendiente `quiz` de la publicación. */
 	countFinalQuizQuestions(courseId: number): Promise<number>;
+	/** Seguimiento sin preguntas (pendiente `followUps`) y el que cuenta para la nota. */
+	countFollowUps(
+		courseId: number,
+	): Promise<{ withoutQuestions: number; counted: number }>;
+	/** De estas sesiones, las que tienen una evaluación de seguimiento ya presentada. */
+	findSessionsWithFollowUpAttempts(
+		sessionDocumentIds: readonly string[],
+	): Promise<string[]>;
 
 	/** Hermanos activos ordenados: de ahí salen el tope, la posición y el hueco. */
 	findModuleSiblings(courseId: number): Promise<OrderedRow[]>;

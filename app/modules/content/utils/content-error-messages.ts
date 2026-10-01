@@ -178,5 +178,41 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "Esa persona ya no está inscrita en la capacitación.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_NOT_FOUND]: {
+		message: "Esa evaluación de seguimiento ya no existe.",
+		status: HTTP_STATUS.NOT_FOUND,
+	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_SELF_PACED]: {
+		message:
+			"Una capacitación autogestiva no tiene evaluaciones de seguimiento: dependen del pase de lista de cada sesión.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.TOO_MANY_FOLLOW_UPS]: {
+		message: (error) =>
+			`Una capacitación tiene como máximo ${String(error.details?.limit ?? "")} evaluaciones de seguimiento.`,
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_HAS_ATTEMPTS]: {
+		message:
+			"Alguien ya presentó esta evaluación: sus notas cuentan y no se puede eliminar.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_NOT_OPEN]: {
+		message: "Esta evaluación no está abierta en este momento.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_NOT_ATTENDED]: {
+		message:
+			"Para presentar esta evaluación tienes que registrar tu asistencia a la sesión.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_NOT_MANUAL]: {
+		message: "Esta evaluación se abre sola según su sesión, no a mano.",
+		status: HTTP_STATUS.CONFLICT,
+	},
+	[CONTENT_ERROR_CODES.FOLLOW_UP_CLOSED]: {
+		message: "Esta evaluación ya se cerró.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

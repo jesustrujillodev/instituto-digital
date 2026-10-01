@@ -50,7 +50,6 @@ const courseOf = (
 	format: "SELF_PACED",
 	completionRule: "CONTENT",
 	requiresEvaluation: false,
-	evaluationMethod: "MANUAL",
 	minPassingGrade: 70,
 	enrollment: {
 		status: "ENROLLED",

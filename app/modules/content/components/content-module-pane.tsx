@@ -286,7 +286,11 @@ export function ContentModuleQuizPane({
 
 			<QuizBankPanel
 				courseDocumentId={courseDocumentId}
-				owner={{ lessonDocumentId: null, moduleDocumentId: module.documentId }}
+				owner={{
+					lessonDocumentId: null,
+					moduleDocumentId: module.documentId,
+					followUpDocumentId: null,
+				}}
 				defaultTitle={`Evaluación · ${module.title}`}
 				canWrite={canWrite}
 			/>

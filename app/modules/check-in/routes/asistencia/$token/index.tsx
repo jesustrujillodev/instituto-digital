@@ -12,6 +12,7 @@ import {
 	formatZonedTime,
 	INSTITUTE_TIME_ZONE_LABEL,
 } from "@/lib/date-utils";
+import { ParticipantFollowUps } from "@/modules/content/components/participant-follow-ups";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import { InstitutionalLogo } from "@/shared/components/common/institutional-logo";
 import { Button } from "@/shared/components/ui/button";
@@ -108,6 +109,24 @@ export default function AsistenciaPage() {
 					</p>
 				)}
 			</div>
+
+			{!pending && result?.success && data.followUps.length > 0 && (
+				<section className="mt-6 flex flex-col gap-2">
+					<h2 className="text-sm font-medium">Evaluaciones de esta sesión</h2>
+					<ParticipantFollowUps
+						courseDocumentId={data.course.documentId}
+						followUps={data.followUps}
+					/>
+					{data.followUps.some(
+						(followUp) => followUp.availability === "NOT_YET",
+					) && (
+						<p className="text-xs text-muted-foreground">
+							Si una todavía no se abre, recarga esta página cuando te lo
+							indiquen.
+						</p>
+					)}
+				</section>
+			)}
 
 			{/* Reserva sin JS: el auto-envío no llega y el botón queda a mano. */}
 			{!result && (

@@ -6,11 +6,15 @@ import {
 	validateFindQuiz,
 } from "../../../domain/content.validators";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
-import { LESSON_PARAM, MODULE_PARAM } from "../../../utils/content-form";
+import {
+	FOLLOW_UP_PARAM,
+	LESSON_PARAM,
+	MODULE_PARAM,
+} from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/capacitaciones/:documentId/cuestionario[?leccion=…|?modulo=…]
+ * GET /dashboard/capacitaciones/:documentId/cuestionario[?leccion=…|?modulo=…|?seguimiento=…]
  *
  * El banco con sus respuestas correctas: solo para quien administra el curso.
  */
@@ -28,6 +32,7 @@ export const loader = async ({
 	const owner = validateFindQuiz({
 		lessonDocumentId: searchParams.get(LESSON_PARAM),
 		moduleDocumentId: searchParams.get(MODULE_PARAM),
+		followUpDocumentId: searchParams.get(FOLLOW_UP_PARAM),
 	});
 
 	const bank = await context.quizService.findBank(documentId, owner, auth);

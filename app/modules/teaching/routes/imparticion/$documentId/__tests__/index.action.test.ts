@@ -88,7 +88,10 @@ describe("impartición action", () => {
 	test("un JSON roto responde error de validación sin llamar al servicio", async () => {
 		const { context, calls } = createHarness();
 
-		const result = await run(context, { intent: "results", payload: "{roto" });
+		const result = await run(context, {
+			intent: "attendance",
+			payload: "{roto",
+		});
 
 		expect(result).toMatchObject({
 			success: false,
@@ -101,9 +104,9 @@ describe("impartición action", () => {
 		const { context } = createHarness({
 			success: false,
 			error: {
-				code: "TEACHING_PENDING_RESULTS",
+				code: "TEACHING_FINISH_TOO_EARLY",
 				message: "técnico",
-				details: { pending: 2 },
+				details: { opensAt: "2026-09-03T07:00:00.000Z" },
 			},
 			timestamp: new Date().toISOString(),
 		});
@@ -113,8 +116,9 @@ describe("impartición action", () => {
 		expect(result).toMatchObject({
 			success: false,
 			error: {
-				code: "TEACHING_PENDING_RESULTS",
-				message: "Falta capturar el resultado de 2 persona(s).",
+				code: "TEACHING_FINISH_TOO_EARLY",
+				message:
+					"La capacitación se puede finalizar a partir del día de su última sesión.",
 			},
 		});
 	});

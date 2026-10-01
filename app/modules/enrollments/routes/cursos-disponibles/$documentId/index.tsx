@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { pendingIntentOf } from "@/lib/form-data";
 import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
 import { requiresSessions } from "@/modules/courses/domain/course.rules";
 import {
@@ -124,6 +125,7 @@ export default function CursoDisponiblePage({
 
 	const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
 	const isSubmitting = fetcher.state !== "idle";
+	const pendingIntent = pendingIntentOf(fetcher, INTENT_FIELD);
 
 	const submit = (intent: string) =>
 		fetcher.submit({ [INTENT_FIELD]: intent }, { method: "post" });
@@ -164,6 +166,7 @@ export default function CursoDisponiblePage({
 				<Button
 					variant="outline"
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.decline}
 					onClick={() => submit(ENROLLMENT_INTENTS.decline)}
 				>
 					<X className="h-4 w-4" />
@@ -173,6 +176,7 @@ export default function CursoDisponiblePage({
 			{can.accept && (
 				<Button
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.accept}
 					onClick={() => submit(ENROLLMENT_INTENTS.accept)}
 				>
 					<Check className="h-4 w-4" />
@@ -183,6 +187,7 @@ export default function CursoDisponiblePage({
 				<Button
 					variant="outline"
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.withdraw}
 					onClick={() => setConfirmingWithdraw(true)}
 				>
 					<LogOut className="h-4 w-4" />
@@ -200,6 +205,7 @@ export default function CursoDisponiblePage({
 			{can.enroll && (
 				<Button
 					disabled={isSubmitting}
+					pending={pendingIntent === ENROLLMENT_INTENTS.enroll}
 					onClick={() => submit(ENROLLMENT_INTENTS.enroll)}
 				>
 					<Check className="h-4 w-4" />

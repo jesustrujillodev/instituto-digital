@@ -1,7 +1,7 @@
 # Reglas Base para Proyectos Agnosticos de Framework
 
-Fecha: 2026-07-25
-Version: 1.1
+Fecha: 2026-10-01
+Version: 1.2
 Objetivo: Definir reglas obligatorias para iniciar proyectos nuevos con logica de negocio portable, escalable y facil de mantener a largo plazo.
 
 Base de referencia: este estandar define una taxonomia modular y reglas de comentarios para proyectos agnosticos.
@@ -210,6 +210,7 @@ Una historia se considera terminada solo si:
 4. Incluye ADR si hubo decision de arquitectura.
 5. Pasa gates de CI de agnosticidad.
 6. Si el cambio incluye escritura compuesta, define y prueba su estrategia transaccional (ACID o compensacion).
+7. Si el cambio agrega o modifica un adaptador de entrada que lee datos (loader, controller, resolver), cumple la seccion 26: sin cascadas de llamadas independientes, sin N+1 y sin leer colecciones completas para contarlas.
 
 ## 16. Gates de CI obligatorios
 
@@ -236,6 +237,10 @@ Regla de bloqueo:
 6. Casos de uso que devuelven formas ad-hoc en vez del envelope estandar (seccion 25).
 7. Escaleras de `instanceof` por error de dominio repetidas en cada adaptador de entrada.
 8. Mensajes de error sin tipar propagados al cliente (pueden filtrar SQL, rutas o secretos).
+9. Cascadas de `await` sobre llamadas que no dependen entre si en un adaptador de entrada (seccion 26).
+10. Consultas dentro de un bucle o un `map` por cada fila (N+1).
+11. Leer una coleccion o un arbol completo solo para contar sus elementos.
+12. Optimizar sin una medicion antes y despues.
 
 ## 18. Checklist de arranque para proyectos nuevos
 
@@ -523,3 +528,55 @@ Un modulo cumple esta seccion cuando:
 3. Tiene diccionario de copia con entrada de reserva.
 4. Ningun loader/action del modulo contiene `instanceof` de errores de dominio ni construye literales `{ success: ... }` a mano.
 5. Sus defaults de paginacion viven en un unico sitio y son los mismos que usa el repositorio para el `skip`/`take`.
+
+## 26. Rendimiento de lectura en adaptadores de entrada (obligatorio)
+
+Objetivo: que una pantalla cargue en el menor numero de viajes a la base sin cambiar lo que muestra ni quien puede verlo.
+
+### 26.1 Modelo de costo
+
+En una aplicacion con render en servidor y base de datos remota, el tiempo de un adaptador de entrada es aproximadamente:
+
+```
+tiempo ≈ viajes a la base en la ruta critica × latencia por viaje
+```
+
+La latencia por viaje (decenas de ms entre regiones, unos pocos dentro de la misma) domina sobre el CPU y sobre el tamano de los datos. Lo que se optimiza es **cuantos viajes van en fila**, no cuantos bytes viajan.
+
+### 26.2 Medir antes y despues
+
+1. Ninguna optimizacion sin medicion previa. El proyecto debe contar con un contador de consultas y de tiempo por peticion, activable solo en desarrollo por una bandera de entorno y sin costo cuando esta apagado.
+2. Se toma una linea base de las rutas afectadas y se repite la medicion al terminar. La tabla antes/despues va en la descripcion del PR.
+3. Se mide con el servidor recien arrancado: tras muchas recargas en caliente (HMR), los clientes de base de datos globales pueden quedar mezclados con modulos reevaluados y dar cifras o errores falsos.
+
+### 26.3 Reglas
+
+1. **Una lectura, un viaje.** Las relaciones anidadas de una lectura viajan en la misma consulta (joins del ORM), no en una consulta por relacion. Prohibido consultar dentro de un bucle por cada fila (N+1): se agrupa con `IN` y se arma en memoria.
+2. **Paralelizar lo independiente.** Se dibuja el grafo de dependencias de cada adaptador: va en serie solo lo que necesita el resultado de otra llamada. Lo demas va en una sola fase paralela (`Promise.all` o equivalente). Los errores se comprueban despues, en el mismo orden de antes, para que el error que gana siga siendo el mismo.
+3. **Decidir antes de leer.** Redirecciones, autorizacion y validaciones que dependen de poco van primero. No se lee nada que una redireccion vaya a descartar.
+4. **Leer solo lo que la vista pinta.** Si la vista solo cuenta, se pide un conteo; si solo usa algunos campos, una proyeccion. Las colecciones y arboles completos se leen solo en la vista que los muestra.
+5. **No releer lo que ya se tiene.** Si el adaptador ya tiene un registro leido y autorizado, lo pasa al caso de uso como argumento en lugar de que el caso de uso lo vuelva a buscar.
+6. **Revalidar solo lo que cambia.** Tras una mutacion, los adaptadores de lectura cuyo resultado no puede cambiar no se vuelven a ejecutar. La decision vive en una funcion pura y probada, nunca en una condicion suelta en el componente.
+7. **Cachear solo con semantica segura.** Una respuesta que depende de quien la pide se cachea como privada y nunca en una cache compartida. Un recurso firmado o con caducidad se cachea menos tiempo del que vive.
+
+### 26.4 Garantia de comportamiento identico
+
+1. Toda optimizacion conserva cuatro invariantes: las mismas redirecciones, los mismos errores (con el mismo diccionario de copia), los mismos permisos y la misma forma de la respuesta. Si una lectura cambia de puerta de acceso (por ejemplo, de un servicio a otro), se demuestra que ambas aplican el mismo alcance.
+2. La equivalencia se comprueba, no se supone: se capturan las respuestas de las rutas afectadas antes y despues, se decodifican y se comparan campo por campo, ignorando solo marcas de tiempo y firmas. Las unicas diferencias admitidas son las previstas, y se documentan en el PR.
+3. Un cambio de configuracion del ORM (por ejemplo, una funcion en preview) se valida igual. Si altera un solo resultado o rompe una prueba, se revierte entero.
+
+### 26.5 Costo contra riesgo
+
+1. Se optimiza lo que la medicion senala, empezando por lo que mas viajes ahorra con menos cambio.
+2. Si la ganancia medida es pequena y el cambio arriesga alterar resultados (reescribir filtros delicados, mover reglas de autorizacion), se descarta.
+3. Lo descartado se registra en el PR con su medicion y su motivo, para que nadie lo vuelva a evaluar desde cero.
+
+### 26.6 Checklist por adaptador de entrada
+
+1. ¿Cuantos viajes van en serie? Medido con el contador.
+2. ¿Que llamadas dependen de otras? Las independientes van en una sola fase paralela.
+3. ¿Hay consultas por fila? Se agrupan.
+4. ¿La vista usa todo lo que se lee? Si solo cuenta, conteo.
+5. ¿Hay decisiones que se pueden tomar antes de leer lo demas?
+6. ¿Que mutaciones lo revalidan sin necesidad?
+7. ¿Conserva redirecciones, errores, permisos y forma? Comprobado con la comparacion de respuestas.

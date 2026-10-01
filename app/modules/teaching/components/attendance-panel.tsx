@@ -201,7 +201,7 @@ export function AttendancePanel({
 
 				{editable && (
 					<div className="flex justify-end">
-						<Button onClick={save} disabled={fetcher.state !== "idle"}>
+						<Button onClick={save} pending={fetcher.state !== "idle"}>
 							<Save className="h-4 w-4" />
 							Guardar lista
 						</Button>

@@ -1,4 +1,5 @@
 import { redirect } from "react-router";
+import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { requireAuth } from "@/shared/auth/require-auth.server";
 import { getClientIp } from "@/shared/http/client-ip";
 import { toRouteError } from "@/shared/http/route-error";
@@ -20,7 +21,8 @@ import { CHECK_IN_ERROR_MESSAGES } from "../../../utils/check-in-error-messages"
 import type { Route } from "./+types/index";
 
 /**
- * GET /asistencia/:token — valida el escaneo sin escribir nada.
+ * GET /asistencia/:token — valida el escaneo sin escribir nada, y trae las
+ * evaluaciones de seguimiento de la sesión (docs/adr/0027).
  *
  * La escritura vive en el action: un GET lo dispara cualquier prefetch o vista
  * previa de enlace, y registraría asistencias que nadie pidió.
@@ -66,5 +68,15 @@ export const loader = async ({
 	if (!result.success)
 		throw toRouteError(result.error, CHECK_IN_ERROR_MESSAGES);
 
-	return ok(result.data);
+	// Tras registrar la asistencia el loader se vuelve a ejecutar: ahí ya se
+	// pueden presentar.
+	const followUps = await context.quizService.findParticipantFollowUps(
+		result.data.course.documentId,
+		auth,
+		result.data.session.documentId,
+	);
+	if (!followUps.success)
+		throw toRouteError(followUps.error, CONTENT_ERROR_MESSAGES);
+
+	return ok({ ...result.data, followUps: followUps.data });
 };

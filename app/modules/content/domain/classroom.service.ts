@@ -53,13 +53,17 @@ export interface ILessonMaterialReader {
 }
 
 /**
- * La única vía que escribe el caché del avance (docs/adr/0014).
+ * La única vía que escribe el caché del avance (docs/adr/0014) y la nota que
+ * se calcula sola (docs/adr/0024, 0027).
  *
  * Recalcula el porcentaje de las inscripciones activas, fija
  * `contentCompletedAt` a quien acaba de terminar, califica con el promedio a
- * quien terminó y todavía no acredita y, si el curso completa en vivo,
- * recalcula el completado y los créditos. Se llama dentro de la
+ * quien ya tiene con qué y todavía no completó y, si el curso completa en
+ * vivo, recalcula el completado y los créditos. Se llama dentro de la
  * transacción de quien escribe.
+ *
+ * Con `closing`, el curso se está finalizando: toda evaluación de seguimiento
+ * se da por cerrada y quien no la presentó, si cuenta, saca 0.
  */
 export interface IProgressSync {
 	recalculate(
@@ -67,5 +71,6 @@ export interface IProgressSync {
 		actorId: number,
 		at: Date,
 		userIds?: readonly number[],
+		options?: { closing?: boolean },
 	): Promise<ProgressState[]>;
 }

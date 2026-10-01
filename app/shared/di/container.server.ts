@@ -57,8 +57,6 @@ import { createDependencyRepository } from "@/modules/dependencies/infrastructur
 import { createEnrollmentQrService } from "@/modules/enrollment-qr/application/enrollment-qr.service.server";
 import { createEnrollmentService } from "@/modules/enrollments/application/enrollments.service.server";
 import { createEnrollmentRepository } from "@/modules/enrollments/infrastructure/enrollments.repository.server";
-import { createEvaluationService } from "@/modules/evaluations/application/evaluations.service.server";
-import { createEvaluationRepository } from "@/modules/evaluations/infrastructure/evaluations.repository.server";
 import { createGroupService } from "@/modules/groups/application/groups.service.server";
 import { createGroupRepository } from "@/modules/groups/infrastructure/groups.repository.server";
 import {
@@ -265,8 +263,6 @@ export const configureContainer = async (
 		enrollmentQrService: asSingleton(createEnrollmentQrService),
 		creditRepository: asSingleton(createCreditRepository),
 		creditService: asSingleton(createCreditService),
-		evaluationRepository: asSingleton(createEvaluationRepository),
-		evaluationService: asSingleton(createEvaluationService),
 		ratingRepository: asSingleton(createRatingRepository),
 		ratingService: asSingleton(createRatingService),
 		annualPlanRepository: asSingleton(createAnnualPlanRepository),

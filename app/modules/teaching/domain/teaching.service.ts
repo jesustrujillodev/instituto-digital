@@ -5,7 +5,6 @@ import type {
 	IssueCertificatesResponse,
 	ListTeachingCoursesDto,
 	SaveAttendanceDto,
-	SaveResultsDto,
 	SetEnrollmentOpenDto,
 	TeachingCourseListResponse,
 	TeachingDetailResponse,
@@ -32,11 +31,6 @@ export interface ITeachingService {
 	saveAttendance(
 		documentId: string,
 		dto: SaveAttendanceDto,
-		actor: AuthContext,
-	): Promise<TeachingWriteResponse>;
-	saveResults(
-		documentId: string,
-		dto: SaveResultsDto,
 		actor: AuthContext,
 	): Promise<TeachingWriteResponse>;
 	/** Marca `FINISHED`, calcula quién completó y otorga créditos y certificados. */

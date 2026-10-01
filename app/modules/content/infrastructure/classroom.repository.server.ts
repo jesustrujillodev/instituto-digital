@@ -27,7 +27,6 @@ export const createClassroomRepository = ({
 				format: true,
 				completionRule: true,
 				requiresEvaluation: true,
-				evaluationMethod: true,
 				minPassingGrade: true,
 				enrollments: {
 					where: { userId },
@@ -105,11 +104,11 @@ export const createClassroomRepository = ({
 					},
 					{
 						requiresEvaluation: true,
-						evaluationMethod: "QUIZ",
 						quizzes: {
 							some: {
 								lessonId: null,
 								moduleId: null,
+								sessionId: null,
 								...ACTIVE,
 								questions: { some: {} },
 							},

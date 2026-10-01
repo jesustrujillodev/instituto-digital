@@ -130,9 +130,46 @@ export const createContentRepository = ({
 		async countFinalQuizQuestions(courseId) {
 			return prisma.quizQuestion.count({
 				where: {
-					quiz: { courseId, lessonId: null, moduleId: null, ...ACTIVE },
+					quiz: {
+						courseId,
+						lessonId: null,
+						moduleId: null,
+						sessionId: null,
+						...ACTIVE,
+					},
 				},
 			});
+		},
+
+		async countFollowUps(courseId) {
+			const [withoutQuestions, counted] = await Promise.all([
+				prisma.quiz.count({
+					where: {
+						courseId,
+						sessionId: { not: null },
+						questions: { none: {} },
+					},
+				}),
+				prisma.quiz.count({
+					where: {
+						courseId,
+						sessionId: { not: null },
+						countsTowardGrade: true,
+					},
+				}),
+			]);
+			return { withoutQuestions, counted };
+		},
+
+		async findSessionsWithFollowUpAttempts(sessionDocumentIds) {
+			const rows = await prisma.courseSession.findMany({
+				where: {
+					documentId: { in: [...sessionDocumentIds] },
+					quizzes: { some: { attempts: { some: {} } } },
+				},
+				select: { documentId: true },
+			});
+			return rows.map((row) => row.documentId);
 		},
 
 		async countActiveLessons(courseId) {

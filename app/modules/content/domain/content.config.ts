@@ -89,5 +89,12 @@ export const QUIZ_DEFAULT_PASSING_SCORE = 70;
 /** Tope de intentos por persona; «sin límite» se guarda como nulo (docs/adr/0024). */
 export const QUIZ_ATTEMPTS_RANGE = { min: 1, max: 10 } as const;
 
+// ── Evaluaciones de seguimiento (docs/adr/0027) ──────────────────────────────
+
+export const FOLLOW_UPS_PER_COURSE_LIMIT = 20;
+
+/** Minutos antes del inicio o después del fin de la sesión: hasta un día. */
+export const FOLLOW_UP_MINUTES_RANGE = { min: 0, max: 24 * 60 } as const;
+
 /** El texto de las dos opciones de verdadero o falso lo pone el servidor. */
 export const TRUE_FALSE_LABELS = ["Verdadero", "Falso"] as const;

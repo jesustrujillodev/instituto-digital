@@ -1,4 +1,4 @@
-import { ImageUp, Loader2, X } from "lucide-react";
+import { ImageUp, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import { TextInput } from "@/shared/components/common/text-input";
@@ -6,6 +6,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Dropzone } from "@/shared/components/ui/dropzone";
 import { Label } from "@/shared/components/ui/label";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import { validateUploadInput } from "@/shared/storage/upload-validation";
 import {
@@ -158,10 +159,7 @@ function SignatoryCard({
 							) : (
 								<span className="flex flex-col items-center gap-1 text-muted-foreground text-xs">
 									{uploading ? (
-										<Loader2
-											className="size-5 animate-spin"
-											aria-hidden="true"
-										/>
+										<Spinner className="size-5" />
 									) : (
 										<ImageUp className="size-5" aria-hidden="true" />
 									)}

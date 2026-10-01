@@ -58,6 +58,5 @@ export const FINISH_BLOCKERS = [
 	"SELF_PACED",
 	"WITHOUT_SESSIONS",
 	"TOO_EARLY",
-	"PENDING_RESULTS",
 ] as const;
 export type FinishBlocker = (typeof FINISH_BLOCKERS)[number];

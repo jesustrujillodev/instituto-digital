@@ -50,4 +50,6 @@ export interface ITeachingRepository {
 	 * sobreescribe: quien llega tarde al pase de lista se registra él mismo.
 	 */
 	checkIn(sessionId: number, userId: number, at: Date): Promise<boolean>;
+	/** Las sesiones del curso en que la persona tiene asistencia (docs/adr/0027). */
+	findAttendedSessionIds(courseId: number, userId: number): Promise<number[]>;
 }

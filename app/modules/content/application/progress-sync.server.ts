@@ -1,4 +1,8 @@
-import { countsContent } from "@/modules/courses/domain/course.rules";
+import {
+	countsContent,
+	evaluatesByQuiz,
+	gradesAutomatically,
+} from "@/modules/courses/domain/course.rules";
 import { syncsOnWrite } from "@/modules/teaching/domain/teaching.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import {
@@ -8,7 +12,13 @@ import {
 } from "../domain/classroom.rules";
 import type { IProgressSync } from "../domain/classroom.service";
 import { toCourseContentTree } from "../domain/content.mapper";
-import { courseGradeOf, courseResultOf } from "../domain/quiz.rules";
+import {
+	courseGradeOf,
+	courseResultOf,
+	courseScoresOf,
+	followUpStateOf,
+	followUpWindowOf,
+} from "../domain/quiz.rules";
 
 type Dependencies = {
 	contentRepository: ICradle["contentRepository"];
@@ -25,16 +35,29 @@ export const createProgressSync = ({
 	enrollmentRepository,
 	completionSync,
 }: Dependencies): IProgressSync => ({
-	async recalculate(course, actorId, at, userIds) {
+	async recalculate(course, actorId, at, userIds, options) {
 		// El mismo `FOR UPDATE` que la impartición: dos avances simultáneos no
 		// pueden otorgar créditos calculados sobre datos viejos.
 		await enrollmentRepository.lockCourseSeats(course.id);
 
-		const [rows, states, completedRows, scoreRows] = await Promise.all([
+		const [
+			rows,
+			states,
+			completedRows,
+			scoreRows,
+			finalRows,
+			followUps,
+			followUpRows,
+		] = await Promise.all([
 			contentRepository.findTree(course.id),
 			enrollmentRepository.findProgressStates(course.id),
 			classroomRepository.findCompletedLessons(course.id, userIds),
 			quizRepository.findBestScores(course.id, userIds),
+			evaluatesByQuiz(course)
+				? quizRepository.findFinalBestScores(course.id, userIds)
+				: [],
+			quizRepository.findFollowUps(course.id),
+			quizRepository.findFollowUpBestScores(course.id, userIds),
 		]);
 		const tree = toCourseContentTree(rows);
 
@@ -83,33 +106,60 @@ export const createProgressSync = ({
 			await enrollmentRepository.saveProgress(course.id, writes);
 		}
 
-		// Sin examen ni captura, la nota del curso es el promedio del temario y
-		// se acredita con la mínima (docs/adr/0021, 0024). Reintentar puede
-		// subirla hasta acreditar; ya acreditado, queda fija, y quien completó
-		// con las reglas anteriores no pierde su crédito.
-		const graded =
-			!course.requiresEvaluation && countsContent(course.completionRule)
-				? results.flatMap(({ state, contentCompleted }) => {
-						if (
-							!contentCompleted ||
-							state.completed ||
-							state.result === "PASSED"
-						) {
-							return [];
-						}
-						const grade = courseGradeOf(
-							countedScoresOf(
-								tree,
-								scoreRows.filter((row) => row.userId === state.userId),
-							),
-						);
-						if (grade === null) return [];
-						const result = courseResultOf(grade, course.minPassingGrade);
-						return result === state.result && grade === state.grade
-							? []
-							: [{ userId: state.userId, result, grade }];
-					})
-				: [];
+		// La nota es el promedio de lo que cuenta y se acredita con la mínima
+		// (docs/adr/0024, 0027). Hace falta el examen final presentado y el
+		// temario terminado, si se piden. Con el crédito ya dado, queda fija.
+		const counted = followUps
+			.filter((followUp) => followUp.countsTowardGrade)
+			.map((followUp) => ({
+				id: followUp.id,
+				closed:
+					options?.closing === true ||
+					followUpStateOf(
+						followUpWindowOf(followUp, followUp.session),
+						course.status,
+						at,
+					) === "CLOSED",
+			}));
+		const finalBestOf = new Map(
+			finalRows.map((row) => [row.userId, row.score]),
+		);
+		const followUpBestOf = new Map(
+			followUpRows.map((row) => [`${row.quizId}:${row.userId}`, row.score]),
+		);
+		const byContent = countsContent(course.completionRule);
+
+		const graded = gradesAutomatically(course, counted.length)
+			? results.flatMap(({ state, contentCompleted }) => {
+					const finalBest = finalBestOf.get(state.userId) ?? null;
+					if (state.completed) return [];
+					if (evaluatesByQuiz(course) && finalBest === null) return [];
+					if (byContent && !contentCompleted) return [];
+
+					const grade = courseGradeOf(
+						courseScoresOf({
+							content: byContent
+								? countedScoresOf(
+										tree,
+										scoreRows.filter((row) => row.userId === state.userId),
+									)
+								: [],
+							finalBest,
+							followUps: counted.map((followUp) => ({
+								countsTowardGrade: true,
+								closed: followUp.closed,
+								best:
+									followUpBestOf.get(`${followUp.id}:${state.userId}`) ?? null,
+							})),
+						}),
+					);
+					if (grade === null) return [];
+					const result = courseResultOf(grade, course.minPassingGrade);
+					return result === state.result && grade === state.grade
+						? []
+						: [{ userId: state.userId, result, grade }];
+				})
+			: [];
 		if (graded.length > 0) {
 			await enrollmentRepository.saveResults(course.id, graded, actorId, at);
 		}

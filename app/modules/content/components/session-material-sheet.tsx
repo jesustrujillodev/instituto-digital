@@ -22,6 +22,7 @@ import {
 	SheetDescription,
 	SheetTitle,
 } from "@/shared/components/ui/sheet";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { SESSION_MATERIAL_MAX_PER_SESSION } from "../domain/content.config";
 import type { SessionMaterialType } from "../domain/session-material.rules";
 import type { SessionMaterial } from "../domain/session-material.types";
@@ -125,7 +126,17 @@ function SheetBody({ source }: { source: SessionMaterialSource }) {
 				)}
 
 				{materials === null ? (
-					<p className="text-muted-foreground text-sm">Cargando…</p>
+					<div aria-busy="true">
+						<span className="sr-only">Cargando el material…</span>
+						<ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+							{["first", "second"].map((key) => (
+								<li key={key} className="flex items-center gap-3 px-4 py-3">
+									<Skeleton className="size-8 shrink-0 rounded-lg" />
+									<Skeleton className="h-4 flex-1 rounded-md" />
+								</li>
+							))}
+						</ul>
+					</div>
 				) : materials.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
 						Esta sesión todavía no tiene material. Agrega la presentación, una

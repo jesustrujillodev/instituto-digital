@@ -4,6 +4,7 @@ export { loader } from "./index.loader";
 import { RotateCcw, Save, Send, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFetcher } from "react-router";
+import { pendingIntentOf } from "@/lib/form-data";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
@@ -79,6 +80,7 @@ export default function CursoCertificadoPage({
 	const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
 	const busy = fetcher.state !== "idle";
+	const pendingIntent = pendingIntentOf(fetcher, INTENT_FIELD);
 	const disabled = !canEdit || busy;
 
 	// Del diseño, solo el folio cambia los datos de muestra: depender del
@@ -114,6 +116,7 @@ export default function CursoCertificadoPage({
 			<Button
 				variant="outline"
 				disabled={!draft.isDirty || !draft.isValid || busy}
+				pending={pendingIntent === CERTIFICATE_INTENTS.saveDraft}
 				onClick={() => submitDesign(CERTIFICATE_INTENTS.saveDraft)}
 			>
 				<Save aria-hidden="true" />
@@ -123,6 +126,7 @@ export default function CursoCertificadoPage({
 				disabled={
 					!draft.isValid || busy || (state === "published" && !draft.isDirty)
 				}
+				pending={pendingIntent === CERTIFICATE_INTENTS.publish}
 				onClick={() => submitDesign(CERTIFICATE_INTENTS.publish)}
 			>
 				<Send aria-hidden="true" />

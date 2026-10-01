@@ -17,6 +17,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import type {
 	DependencyCreditRow,
@@ -39,6 +40,7 @@ export function meta() {
 }
 
 export default function CreditosPage({ loaderData }: Route.ComponentProps) {
+	const isReloading = useRouteReloading();
 	const {
 		data: { overview, currentYear, search },
 		pagination,
@@ -154,6 +156,7 @@ export default function CreditosPage({ loaderData }: Route.ComponentProps) {
 				<div className="mb-4 flex justify-end">{yearSelect}</div>
 				<div className="overflow-hidden rounded-lg border border-border bg-card">
 					<DataTable
+						isLoading={isReloading}
 						data={rows}
 						columns={dependencyColumns}
 						emptyState={{
@@ -218,6 +221,7 @@ export default function CreditosPage({ loaderData }: Route.ComponentProps) {
 
 			<div className="overflow-hidden rounded-lg border border-border bg-card">
 				<DataTable
+					isLoading={isReloading}
 					data={rows}
 					columns={staffColumns}
 					emptyState={{

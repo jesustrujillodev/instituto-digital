@@ -22,6 +22,11 @@ export const CONTENT_INTENTS = {
 	archiveModuleQuiz: "archive-module-quiz",
 	submitQuiz: "submit-quiz",
 	grantRetake: "grant-retake",
+	saveFollowUp: "save-follow-up",
+	saveFollowUpQuestions: "save-follow-up-questions",
+	removeFollowUp: "remove-follow-up",
+	openFollowUp: "open-follow-up",
+	closeFollowUp: "close-follow-up",
 	createSessionMaterial: "create-session-material",
 	updateSessionMaterial: "update-session-material",
 	removeSessionMaterial: "remove-session-material",
@@ -70,12 +75,14 @@ export const sessionMaterialsPath = (courseDocumentId: string) =>
 
 export const LESSON_PARAM = "leccion";
 export const MODULE_PARAM = "modulo";
+export const FOLLOW_UP_PARAM = "seguimiento";
 
 /**
  * El banco de un cuestionario, para quien lo arma: el examen del curso o, con
- * `?leccion=` o `?modulo=`, la práctica de esa lección o la evaluación de ese
- * módulo. Sin componente: lo leen y le escriben el paso de Evaluación y el
- * panel del temario.
+ * `?leccion=`, `?modulo=` o `?seguimiento=`, la práctica de esa lección, la
+ * evaluación de ese módulo o esa evaluación de seguimiento. Sin componente: lo
+ * leen y le escriben el paso de Evaluación y el panel del temario. Ahí mismo
+ * se crean, editan y quitan las evaluaciones de seguimiento.
  */
 export const quizPath = (
 	courseDocumentId: string,
@@ -88,8 +95,18 @@ export const quizPath = (
 	if (owner.moduleDocumentId) {
 		return `${base}?${MODULE_PARAM}=${owner.moduleDocumentId}`;
 	}
+	if (owner.followUpDocumentId) {
+		return `${base}?${FOLLOW_UP_PARAM}=${owner.followUpDocumentId}`;
+	}
 	return base;
 };
+
+/** Donde el participante presenta una evaluación de seguimiento (docs/adr/0027). */
+export const followUpPath = (
+	courseDocumentId: string,
+	followUpDocumentId: string,
+) =>
+	`/dashboard/mis-capacitaciones/${courseDocumentId}/seguimiento/${followUpDocumentId}`;
 
 export const classroomPath = (courseDocumentId: string) =>
 	`/dashboard/mis-capacitaciones/${courseDocumentId}/aula`;
@@ -103,7 +120,10 @@ export const stopPath = (courseDocumentId: string, stop: ClassroomStop) =>
 		? `${classroomPath(courseDocumentId)}/${stop.documentId}`
 		: `${classroomPath(courseDocumentId)}/modulo/${stop.documentId}`;
 
-/** Donde quien imparte habilita otro intento de una evaluación de módulo. */
+/**
+ * Donde quien imparte habilita otro intento y abre o cierra a mano una
+ * evaluación de seguimiento.
+ */
 export const retakePath = (courseDocumentId: string) =>
 	`/dashboard/imparticion/${courseDocumentId}/cuestionarios`;
 

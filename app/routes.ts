@@ -18,7 +18,6 @@ import { dashboardRoutes } from "./modules/dashboard/routes/routes.config";
 import { dependenciesRoutes } from "./modules/dependencies/routes/routes.config";
 import { enrollmentQrRoutes } from "./modules/enrollment-qr/routes/routes.config";
 import { enrollmentsRoutes } from "./modules/enrollments/routes/routes.config";
-import { evaluationsRoutes } from "./modules/evaluations/routes/routes.config";
 import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
 import { ratingsRoutes } from "./modules/ratings/routes/routes.config";
@@ -67,7 +66,6 @@ export default [
 					...enrollmentsRoutes, // /dashboard/catalogo-de-capacitaciones, /dashboard/mis-capacitaciones, /dashboard/capacitaciones/:id/inscripciones
 					...calendarRoutes, // /dashboard/calendario  (cualquier sesión: cada quien ve lo suyo)
 					...teachingRoutes, // /dashboard/imparticion  (quien imparte u organiza)
-					...evaluationsRoutes, // /dashboard/imparticion/:id/evaluaciones  (solo action)
 					...creditsRoutes, // /dashboard/mis-creditos, /dashboard/creditos  (alcance por dependencia)
 					...ratingsRoutes, // /dashboard/mis-capacitaciones/:id/valorar  (solo action)
 					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)

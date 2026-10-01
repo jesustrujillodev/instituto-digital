@@ -5,8 +5,6 @@ import {
 	TeachingCorrectionForbiddenError,
 	TeachingFinishTooEarlyError,
 	TeachingNotSelfPacedError,
-	TeachingPendingResultsError,
-	TeachingResultsByQuizError,
 	TeachingSelfPacedNotFinishableError,
 	TeachingSessionNotStartedError,
 	TeachingStateChangedError,
@@ -26,9 +24,6 @@ describe("errores de impartición", () => {
 		expect(new TeachingNotSelfPacedError().code).toBe(
 			TEACHING_ERROR_CODES.NOT_SELF_PACED,
 		);
-		expect(new TeachingResultsByQuizError().code).toBe(
-			TEACHING_ERROR_CODES.RESULTS_BY_QUIZ,
-		);
 		expect(new TeachingCertificatesNotIssuableError().code).toBe(
 			TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE,
 		);
@@ -37,7 +32,6 @@ describe("errores de impartición", () => {
 	test("los detalles viajan serializables para redactar el mensaje", () => {
 		const opensAt = new Date("2026-09-03T07:00:00.000Z");
 
-		expect(new TeachingPendingResultsError(2).details).toEqual({ pending: 2 });
 		expect(new TeachingFinishTooEarlyError(opensAt).details).toEqual({
 			opensAt: "2026-09-03T07:00:00.000Z",
 		});

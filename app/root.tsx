@@ -12,6 +12,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import "@/shared/rules/messages.rules";
 import { appendRefreshedCookies, themeModeCookie } from "@/core/cookies.server";
+import { measureQueries } from "@/core/db.server";
 import { themeHtmlClass } from "@/modules/theme/domain/theme.rules";
 import type { ThemeMode } from "@/modules/theme/domain/theme.types";
 import { RouteErrorView } from "@/shared/components/errors/route-error-view";
@@ -54,7 +55,17 @@ export const middleware: Route.MiddlewareFunction[] = [
 		}
 
 		// 4. Run the actual loader / action
-		const response = await next();
+		const startedAt = performance.now();
+		const { result: response, stats } = await measureQueries(next);
+		if (stats) {
+			cradle.logger.info("queries per request", {
+				method: request.method,
+				url: new URL(request.url).pathname,
+				queries: stats.count,
+				dbMs: Math.round(stats.dbMs),
+				totalMs: Math.round(performance.now() - startedAt),
+			});
+		}
 
 		// 5. Append new cookies if tokens were silently refreshed — unless the
 		// handler (login/logout) already decided the auth cookies itself.

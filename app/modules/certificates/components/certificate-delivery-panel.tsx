@@ -90,7 +90,8 @@ export function CertificateDeliveryPanel({
 				variant="outline"
 				size="sm"
 				className="self-start"
-				disabled={disabled || busy || !dirty}
+				disabled={disabled || !dirty}
+				pending={busy}
 				onClick={save}
 			>
 				<Save aria-hidden="true" />

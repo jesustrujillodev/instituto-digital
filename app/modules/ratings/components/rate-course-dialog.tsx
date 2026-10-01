@@ -123,7 +123,8 @@ export function RateCourseDialog({
 				<DialogFooter>
 					<Button
 						onClick={submit}
-						disabled={score === null || fetcher.state !== "idle"}
+						disabled={score === null}
+						pending={fetcher.state !== "idle"}
 					>
 						Enviar valoración
 					</Button>

@@ -3,6 +3,7 @@ import {
 	type RefObject,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -35,9 +36,12 @@ import {
 	isSameSelection,
 	neighborsOf,
 	type OutlineSelection,
+	pendingCreationOf,
+	pendingOutlineChangeOf,
 	selectionExists,
 	withLessonMoved,
 	withModuleMoved,
+	withPendingChange,
 } from "../utils/content-outline";
 import { ContentLessonPane } from "./content-lesson-pane";
 import {
@@ -61,7 +65,7 @@ export type ContentSaveRef = RefObject<(() => Promise<boolean>) | null>;
  */
 export function CourseContentWorkspace({
 	courseDocumentId,
-	tree,
+	tree: savedTree,
 	canWrite,
 	saveRef,
 	onDirtyChange,
@@ -74,6 +78,18 @@ export function CourseContentWorkspace({
 }) {
 	const mutation = useFetcherPromise<ContentActionData>();
 	useFetcherToast(mutation.fetcher);
+
+	// Reordenar y archivar se ven al instante: el árbol se pinta como quedará.
+	// Si el servidor lo rechaza, la recarga trae el real y el cambio se deshace.
+	const { state: mutationState, formData: mutationForm } = mutation.fetcher;
+	const tree = useMemo(
+		() =>
+			withPendingChange(
+				savedTree,
+				mutationState === "idle" ? null : pendingOutlineChangeOf(mutationForm),
+			),
+		[savedTree, mutationState, mutationForm],
+	);
 
 	const paneRef = useRef<PaneHandle>(null);
 	const [selection, setSelection] = useState<OutlineSelection | null>(() =>
@@ -159,9 +175,12 @@ export function CourseContentWorkspace({
 		then: OutlineSelection | null,
 		action?: string,
 	) => {
-		const result = await mutate(intent, payload, action);
-		if (!result?.success) return;
+		// La selección pasa al vecino antes de la respuesta, porque lo archivado
+		// ya no se pinta; si el servidor lo rechaza, se vuelve a lo que había.
+		const previous = selection;
 		if (then) open(then);
+		const result = await mutate(intent, payload, action);
+		if (!result?.success && previous) open(previous);
 	};
 
 	const renderPane = () => {
@@ -304,7 +323,7 @@ export function CourseContentWorkspace({
 					<Button
 						type="button"
 						variant="outline"
-						disabled={busy}
+						pending={busy}
 						onClick={() => void addModule()}
 					>
 						<Plus aria-hidden="true" />
@@ -335,6 +354,7 @@ export function CourseContentWorkspace({
 				onAddLesson={(moduleDocumentId) => void addLesson(moduleDocumentId)}
 				canWrite={canWrite}
 				busy={busy}
+				creating={busy ? pendingCreationOf(mutationForm) : null}
 				liveTitle={liveTitle}
 			/>
 			<section

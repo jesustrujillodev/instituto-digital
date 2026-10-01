@@ -34,7 +34,11 @@ export const loader = async ({
 		lesson.data.lesson.type === "QUIZ"
 			? await context.quizService.findView(
 					documentId,
-					{ lessonDocumentId, moduleDocumentId: null },
+					{
+						lessonDocumentId,
+						moduleDocumentId: null,
+						followUpDocumentId: null,
+					},
 					auth,
 				)
 			: null;

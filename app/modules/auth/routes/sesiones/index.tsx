@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFetcher, useSearchParams } from "react-router";
 import { formatZonedDateTime } from "@/lib/date-utils";
+import { pendingIntentOf } from "@/lib/form-data";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import {
 	DataTable,
@@ -30,6 +31,7 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
+import { useRouteReloading } from "@/shared/hooks/use-route-reloading";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import {
 	LockdownDialog,
@@ -117,6 +119,7 @@ export function meta() {
 }
 
 export default function SesionesPage({ loaderData }: Route.ComponentProps) {
+	const isReloading = useRouteReloading();
 	const {
 		data: {
 			auth,
@@ -140,6 +143,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 	const fetcher = useFetcher<SessionMonitorActionData>();
 	useFetcherToast(fetcher);
 	const isBusy = fetcher.state !== "idle";
+	const pendingIntent = pendingIntentOf(fetcher, INTENT_FIELD);
 
 	// ── Filtros en la URL ───────────────────────────────────────────────────────
 	const updateParams = useCallback(
@@ -307,6 +311,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 						<Button
 							variant="outline"
 							disabled={isBusy}
+							pending={pendingIntent === SESSION_INTENTS.revokeAll}
 							onClick={() => setPending({ kind: "all" })}
 						>
 							<ShieldX className="h-4 w-4" />
@@ -316,6 +321,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 							<Button
 								variant="destructive"
 								disabled={isBusy}
+								pending={pendingIntent === SESSION_INTENTS.lockdown}
 								onClick={() => setLockdownOpen(true)}
 							>
 								<ShieldAlert className="h-4 w-4" />
@@ -351,6 +357,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 						<Button
 							variant="outline"
 							disabled={isBusy}
+							pending={pendingIntent === SESSION_INTENTS.lift}
 							onClick={() => submit({ [INTENT_FIELD]: SESSION_INTENTS.lift })}
 						>
 							Levantar lockdown
@@ -376,6 +383,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 						<Button
 							variant="ghost"
 							disabled={isBusy}
+							pending={pendingIntent === SESSION_INTENTS.cleanupExpired}
 							onClick={() =>
 								submit({ [INTENT_FIELD]: SESSION_INTENTS.cleanupExpired })
 							}
@@ -408,6 +416,7 @@ export default function SesionesPage({ loaderData }: Route.ComponentProps) {
 
 			<div className="overflow-hidden rounded-lg border border-border bg-card">
 				<DataTable
+					isLoading={isReloading}
 					data={sessions}
 					columns={columns}
 					actions={actions}

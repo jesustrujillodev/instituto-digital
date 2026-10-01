@@ -5,7 +5,10 @@ import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
 	validateArchiveModuleQuiz,
 	validateFindContentCourse,
+	validateFollowUp,
 	validateRenameQuiz,
+	validateSaveFollowUp,
+	validateSaveFollowUpQuestions,
 	validateSaveQuiz,
 } from "../../../domain/content.validators";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
@@ -17,7 +20,8 @@ import type { Route } from "./+types/index";
 
 /**
  * POST /dashboard/capacitaciones/:documentId/cuestionario — guardar o renombrar el
- * banco, o archivar la evaluación de un módulo.
+ * banco, archivar la evaluación de un módulo, o guardar y quitar una
+ * evaluación de seguimiento.
  */
 export const action = async ({
 	request,
@@ -80,6 +84,59 @@ export const action = async ({
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
 			return ok(null, { message: "Cuestionario del módulo archivado." });
+		}
+
+		case CONTENT_INTENTS.saveFollowUp: {
+			const input = parseInput(() => ({
+				course: courseDocumentId(),
+				dto: validateSaveFollowUp(form.payload),
+			}));
+			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
+
+			const result = await context.quizService.saveFollowUp(
+				input.data.course,
+				input.data.dto,
+				auth,
+			);
+			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
+
+			return ok(result.data, {
+				message: "Evaluación de seguimiento guardada.",
+			});
+		}
+
+		case CONTENT_INTENTS.saveFollowUpQuestions: {
+			const input = parseInput(() => ({
+				course: courseDocumentId(),
+				dto: validateSaveFollowUpQuestions(form.payload),
+			}));
+			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
+
+			const result = await context.quizService.saveFollowUpQuestions(
+				input.data.course,
+				input.data.dto,
+				auth,
+			);
+			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
+
+			return ok(null, { message: "Preguntas guardadas." });
+		}
+
+		case CONTENT_INTENTS.removeFollowUp: {
+			const input = parseInput(() => ({
+				course: courseDocumentId(),
+				dto: validateFollowUp(form.payload),
+			}));
+			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
+
+			const result = await context.quizService.removeFollowUp(
+				input.data.course,
+				input.data.dto,
+				auth,
+			);
+			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
+
+			return ok(null, { message: "Evaluación de seguimiento eliminada." });
 		}
 
 		default:

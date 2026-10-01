@@ -23,10 +23,11 @@ export const loader = async ({
 		documentId: params.documentId,
 	});
 
-	const [detail, classrooms, sessionMaterials] = await Promise.all([
+	const [detail, classrooms, sessionMaterials, followUps] = await Promise.all([
 		context.enrollmentService.findMyCourse(documentId, auth),
 		context.classroomService.listMine(auth),
 		context.sessionMaterialService.findForParticipant(documentId, auth),
+		context.quizService.findParticipantFollowUps(documentId, auth),
 	]);
 	if (!detail.success) {
 		throw toRouteError(detail.error, ENROLLMENT_ERROR_MESSAGES);
@@ -37,6 +38,9 @@ export const loader = async ({
 	if (!sessionMaterials.success) {
 		throw toRouteError(sessionMaterials.error, CONTENT_ERROR_MESSAGES);
 	}
+	if (!followUps.success) {
+		throw toRouteError(followUps.error, CONTENT_ERROR_MESSAGES);
+	}
 	if (!detail.data) {
 		throw redirect(`/dashboard/catalogo-de-capacitaciones/${documentId}`);
 	}
@@ -45,5 +49,6 @@ export const loader = async ({
 		...detail.data,
 		hasClassroom: classrooms.data.includes(documentId),
 		sessionMaterials: sessionMaterials.data,
+		followUps: followUps.data,
 	});
 };

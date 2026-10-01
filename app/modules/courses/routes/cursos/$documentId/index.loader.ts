@@ -1,7 +1,5 @@
 import { canEditCertificate } from "@/modules/certificates/domain/certificate.rules";
 import { CERTIFICATE_ERROR_MESSAGES } from "@/modules/certificates/utils/certificate-error-messages";
-import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
-import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import { acceptsEnrollmentQr } from "@/modules/enrollment-qr/domain/enrollment-qr.rules";
 import { ENROLLMENT_QR_ERROR_MESSAGES } from "@/modules/enrollment-qr/utils/enrollment-qr-error-messages";
 import { ENROLLMENT_ERROR_MESSAGES } from "@/modules/enrollments/utils/enrollment-error-messages";
@@ -12,9 +10,7 @@ import {
 	canCancel,
 	canEdit,
 	canPublish,
-	evaluatesByQuiz,
 	publishChecklist,
-	requiresContent,
 } from "../../../domain/course.rules";
 import { validateFindCourse } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
@@ -48,40 +44,27 @@ export const loader = async ({
 
 	const { status } = course.data;
 
-	// El temario solo se consulta cuando el curso lo pide: uno que se completa
-	// solo por asistencia no mira sus lecciones.
-	const content = requiresContent(course.data)
-		? await context.contentService.summarize(documentId, auth)
-		: null;
-	if (content && !content.success)
-		throw toRouteError(content.error, CONTENT_ERROR_MESSAGES);
+	// Todo depende solo del curso: va en paralelo. Cada lectura se pide solo
+	// cuando aplica: los conteos solo alimentan el pendiente de publicación, y un
+	// curso cancelado ya no tiene certificado que publicar.
+	const [facts, certificate, enrollmentQr] = await Promise.all([
+		canPublish(status)
+			? context.courseService.findContentFacts(course.data)
+			: null,
+		canEditCertificate(status)
+			? context.certificateService.getEditor(documentId, auth)
+			: null,
+		acceptsEnrollmentQr(course.data)
+			? context.enrollmentQrService.find(documentId, auth)
+			: null,
+	]);
 
-	const quiz = evaluatesByQuiz(course.data)
-		? await context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
-		: null;
-	if (quiz && !quiz.success)
-		throw toRouteError(quiz.error, CONTENT_ERROR_MESSAGES);
-
-	// El estado del certificado se pide solo si se puede editar: en un curso
-	// cancelado ya no hay nada que publicar.
-	const certificate = canEditCertificate(status)
-		? await context.certificateService.getEditor(documentId, auth)
-		: null;
+	if (facts && !facts.success)
+		throw toRouteError(facts.error, COURSE_ERROR_MESSAGES);
 	if (certificate && !certificate.success)
 		throw toRouteError(certificate.error, CERTIFICATE_ERROR_MESSAGES);
-
-	const enrollmentQr = acceptsEnrollmentQr(course.data)
-		? await context.enrollmentQrService.find(documentId, auth)
-		: null;
 	if (enrollmentQr && !enrollmentQr.success)
 		throw toRouteError(enrollmentQr.error, ENROLLMENT_QR_ERROR_MESSAGES);
-
-	const facts = {
-		lessonCount: content?.data.lessonCount ?? 0,
-		finalQuizQuestionCount: quiz?.success
-			? (quiz.data?.questions.length ?? 0)
-			: 0,
-	};
 
 	return ok({
 		course: course.data,
@@ -89,9 +72,7 @@ export const loader = async ({
 		enrollment: toEnrollmentSummary(roster.data),
 		certificateState: certificate?.data.state ?? null,
 		enrollmentQr: enrollmentQr?.data ?? null,
-		publishChecklist: canPublish(status)
-			? publishChecklist(course.data, facts)
-			: null,
+		publishChecklist: facts ? publishChecklist(course.data, facts.data) : null,
 		can: {
 			edit: canEdit(status),
 			certificate: canEditCertificate(status),
