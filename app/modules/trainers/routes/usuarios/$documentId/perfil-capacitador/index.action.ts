@@ -86,7 +86,7 @@ export const action = async ({
 
 			return ok(null, {
 				message:
-					"Capacitador deshabilitado. Ya no se puede asignar a cursos; conserva lo que impartió.",
+					"Capacitador deshabilitado. Ya no se puede asignar a capacitaciones; conserva lo que impartió.",
 			});
 		}
 		case TRAINER_INTENTS.reactivate: {

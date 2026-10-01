@@ -46,7 +46,7 @@ export const shouldRevalidateAfterArchive = ({
 		: defaultShouldRevalidate;
 
 export const contentPath = (courseDocumentId: string) =>
-	`/dashboard/cursos/${courseDocumentId}/contenido`;
+	`/dashboard/capacitaciones/${courseDocumentId}/contenido`;
 
 /**
  * La ruta del material de una lección.
@@ -66,7 +66,7 @@ export const materialPath = (
  * panel de cada sesión lo lee y le escribe desde el alta y desde Impartición.
  */
 export const sessionMaterialsPath = (courseDocumentId: string) =>
-	`/dashboard/cursos/${courseDocumentId}/sesiones/material`;
+	`/dashboard/capacitaciones/${courseDocumentId}/sesiones/material`;
 
 export const LESSON_PARAM = "leccion";
 export const MODULE_PARAM = "modulo";
@@ -81,7 +81,7 @@ export const quizPath = (
 	courseDocumentId: string,
 	owner: QuizOwnerRef = FINAL_QUIZ_OWNER,
 ) => {
-	const base = `/dashboard/cursos/${courseDocumentId}/cuestionario`;
+	const base = `/dashboard/capacitaciones/${courseDocumentId}/cuestionario`;
 	if (owner.lessonDocumentId) {
 		return `${base}?${LESSON_PARAM}=${owner.lessonDocumentId}`;
 	}
@@ -92,7 +92,7 @@ export const quizPath = (
 };
 
 export const classroomPath = (courseDocumentId: string) =>
-	`/dashboard/mis-cursos/${courseDocumentId}/aula`;
+	`/dashboard/mis-capacitaciones/${courseDocumentId}/aula`;
 
 export const examPath = (courseDocumentId: string) =>
 	`${classroomPath(courseDocumentId)}/examen`;

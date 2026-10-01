@@ -34,7 +34,7 @@ const run = (payload: unknown, reply: unknown) => {
 
 	const result = action({
 		request: new Request(
-			`https://app.example.com/dashboard/mis-cursos/${COURSE_DOC}/aula/examen`,
+			`https://app.example.com/dashboard/mis-capacitaciones/${COURSE_DOC}/aula/examen`,
 			{
 				method: "POST",
 				body: new URLSearchParams({

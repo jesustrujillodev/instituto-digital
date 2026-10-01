@@ -15,4 +15,4 @@ export const enrollmentQrPathOf = (token: string): string =>
 
 /** A dónde manda el escaneo: la ficha del catálogo, que ya inscribe. */
 export const enrollmentLandingPathOf = (courseDocumentId: string): string =>
-	`/dashboard/cursos-disponibles/${courseDocumentId}`;
+	`/dashboard/catalogo-de-capacitaciones/${courseDocumentId}`;

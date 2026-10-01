@@ -48,9 +48,9 @@ const whoOf = ({
 	groupCount,
 }: EnrollmentSummaryInput) => {
 	if (access === "PUBLIC")
-		return "Todo el personal interno podrá verlo e inscribirse";
+		return "Todo el personal interno podrá verla e inscribirse";
 	if (access === "INVITATION")
-		return "Solo quien invites podrá verlo e inscribirse";
+		return "Solo quien invites podrá verla e inscribirse";
 
 	const chosen = [
 		dependencyCount > 0 &&
@@ -59,8 +59,8 @@ const whoOf = ({
 	].filter(Boolean);
 
 	return chosen.length === 0
-		? "Nadie podrá verlo todavía: elige al menos una dependencia o un grupo"
-		: `El personal de ${chosen.join(" y ")} podrá verlo e inscribirse`;
+		? "Nadie podrá verla todavía: elige al menos una dependencia o un grupo"
+		: `El personal de ${chosen.join(" y ")} podrá verla e inscribirse`;
 };
 
 const seatsOf = (capacity: string) => {

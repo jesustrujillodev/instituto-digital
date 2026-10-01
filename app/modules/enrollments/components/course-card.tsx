@@ -27,7 +27,7 @@ const seatsOf = ({ capacity, seatsLeft }: AvailableCourse) => {
 };
 
 export function CourseCard({ course, layout, eager }: CourseCardProps) {
-	const href = `/dashboard/cursos-disponibles/${course.documentId}`;
+	const href = `/dashboard/catalogo-de-capacitaciones/${course.documentId}`;
 	const trainers =
 		course.trainerCount > 1
 			? `${course.trainerName} +${course.trainerCount - 1}`

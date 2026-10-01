@@ -35,17 +35,17 @@ import {
 } from "../../../utils/parse-course-form-data";
 import type { Route } from "./+types/index";
 
-const LIST_PATH = "/dashboard/cursos";
+const LIST_PATH = "/dashboard/capacitaciones";
 
 export const handle = {
 	breadcrumb: (loaderData) => [
-		{ label: "Cursos", path: LIST_PATH },
-		{ label: loaderData?.data.course.title ?? "Curso" },
+		{ label: "Capacitaciones", path: LIST_PATH },
+		{ label: loaderData?.data.course.title ?? "Capacitación" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta({ data }: Route.MetaArgs) {
-	return [{ title: data?.data.course.title ?? "Curso" }];
+	return [{ title: data?.data.course.title ?? "Capacitación" }];
 }
 
 export default function CursoPage({ loaderData }: Route.ComponentProps) {
@@ -78,7 +78,9 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 		<>
 			{can.certificate && (
 				<Button asChild variant="outline">
-					<Link to={`/dashboard/cursos/${course.documentId}/certificado`}>
+					<Link
+						to={`/dashboard/capacitaciones/${course.documentId}/certificado`}
+					>
 						<Award aria-hidden="true" />
 						Certificado
 					</Link>
@@ -86,7 +88,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 			)}
 			{can.edit && (
 				<Button asChild variant="outline">
-					<Link to={`/dashboard/cursos/${course.documentId}/editar/1`}>
+					<Link to={`/dashboard/capacitaciones/${course.documentId}/editar/1`}>
 						<Pencil aria-hidden="true" />
 						Editar
 					</Link>
@@ -203,9 +205,9 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 			<ConfirmDialog
 				open={confirmingCancel}
 				onOpenChange={setConfirmingCancel}
-				title="¿Cancelar el curso?"
+				title="¿Cancelar la capacitación?"
 				description="Dejará de ofrecerse y no podrá volver a publicarse. Sus sesiones, capacitadores y audiencia se conservan."
-				confirmLabel="Cancelar curso"
+				confirmLabel="Cancelar capacitación"
 				cancelLabel="Volver"
 				destructive
 				onConfirm={() => {

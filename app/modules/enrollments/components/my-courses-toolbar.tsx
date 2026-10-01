@@ -106,8 +106,8 @@ export function MyCoursesToolbar({
 				<TextInput
 					name="buscar"
 					type="search"
-					aria-label="Buscar en mis cursos"
-					placeholder="Buscar en mis cursos"
+					aria-label="Buscar en mis capacitaciones"
+					placeholder="Buscar en mis capacitaciones"
 					icon={<Search className="size-4" />}
 					value={filter.query}
 					onChange={(event) =>
@@ -189,10 +189,10 @@ export function MyCoursesToolbar({
 			{canExport && (
 				<Button variant="outline" size="icon" asChild>
 					<a
-						href="/dashboard/mis-cursos/finalizados.xlsx"
+						href="/dashboard/mis-capacitaciones/finalizados.xlsx"
 						download
-						aria-label="Descargar finalizados en Excel"
-						title="Descargar finalizados en Excel"
+						aria-label="Descargar finalizadas en Excel"
+						title="Descargar finalizadas en Excel"
 					>
 						<Download aria-hidden="true" />
 					</a>

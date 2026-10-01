@@ -34,7 +34,7 @@ describe("material de sesiones como referencias de storage", () => {
 				owner: "session",
 				label: "Presentación",
 				detail: "Material de una sesión",
-				href: `/dashboard/cursos/${COURSE_DOC}`,
+				href: `/dashboard/capacitaciones/${COURSE_DOC}`,
 			},
 		]);
 		expect(asked).toEqual([toProxyRef(KEY), toProxyRef(OTHER)]);

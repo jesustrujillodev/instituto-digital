@@ -43,11 +43,11 @@ import {
 import type { Route } from "./+types/index";
 
 export const handle = {
-	breadcrumb: () => [{ label: "Mis cursos" }],
+	breadcrumb: () => [{ label: "Mis capacitaciones" }],
 } satisfies BreadcrumbHandle;
 
 export function meta() {
-	return [{ title: "Mis cursos" }];
+	return [{ title: "Mis capacitaciones" }];
 }
 
 /** El historial se enseña de una fila; lo que está en marcha, completo. */
@@ -102,7 +102,7 @@ function CourseSection({
 	busy: boolean;
 }) {
 	const [expanded, setExpanded] = useState(false);
-	const headingId = `mis-cursos-${section}`;
+	const headingId = `mis-capacitaciones-${section}`;
 	const canCollapse = collapsible && entries.length > COLLAPSED_LIMIT;
 	const shown =
 		canCollapse && !expanded ? entries.slice(0, COLLAPSED_LIMIT) : entries;
@@ -197,8 +197,8 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="flex flex-col gap-2 pb-8">
 			<PageHeader
-				title="Mis cursos"
-				description={summaryOf(data) || "Todavía no tienes cursos."}
+				title="Mis capacitaciones"
+				description={summaryOf(data) || "Todavía no tienes capacitaciones."}
 				actions={
 					total > 0 && (
 						<MyCoursesToolbar
@@ -216,16 +216,16 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 			{total === 0 ? (
 				<Empty>
 					<EmptyHeader>
-						<EmptyTitle>Aún no te inscribes a ningún curso</EmptyTitle>
+						<EmptyTitle>Aún no te inscribes a ninguna capacitación</EmptyTitle>
 						<EmptyDescription>
-							Aquí verás tus invitaciones, los cursos que llevas y los que ya
-							terminaste.
+							Aquí verás tus invitaciones, las capacitaciones que llevas y las
+							que ya terminaste.
 						</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
 						<Button asChild>
-							<Link to="/dashboard/cursos-disponibles">
-								Ver cursos disponibles
+							<Link to="/dashboard/catalogo-de-capacitaciones">
+								Ver catálogo de capacitaciones
 							</Link>
 						</Button>
 					</EmptyContent>
@@ -233,7 +233,7 @@ export default function MisCursosPage({ loaderData }: Route.ComponentProps) {
 			) : sections.length === 0 ? (
 				<Empty>
 					<EmptyHeader>
-						<EmptyTitle>Ningún curso coincide</EmptyTitle>
+						<EmptyTitle>Ninguna capacitación coincide</EmptyTitle>
 						<EmptyDescription>
 							Prueba con otra búsqueda o quita algún filtro.
 						</EmptyDescription>

@@ -60,7 +60,7 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 						<QrCodeDownload
 							path={checkInPathOf(qr.token)}
 							fileName={`qr-${title}`}
-							ariaLabel="Código QR de asistencia del curso"
+							ariaLabel="Código QR de asistencia de la capacitación"
 						>
 							<p className="text-center text-xs text-muted-foreground">
 								Imprímelo a 5 cm o más para que se lea desde la puerta.
@@ -75,7 +75,7 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 					</>
 				) : (
 					<p className="text-sm text-muted-foreground">
-						Este curso todavía no tiene código QR.
+						Esta capacitación todavía no tiene código QR.
 					</p>
 				)}
 

@@ -122,7 +122,7 @@ describe("summaryOf", () => {
 			summaryOf(
 				mineOf({ invitations: 1, inProgress: 2, upcoming: 1, finished: 3 }),
 			),
-		).toBe("1 invitación · 2 en curso · 1 próximo · 3 finalizados");
-		expect(summaryOf(mineOf({ upcoming: 2, withdrawn: 4 }))).toBe("2 próximos");
+		).toBe("1 invitación · 2 en curso · 1 próxima · 3 finalizadas");
+		expect(summaryOf(mineOf({ upcoming: 2, withdrawn: 4 }))).toBe("2 próximas");
 	});
 });

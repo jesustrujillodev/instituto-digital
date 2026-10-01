@@ -17,7 +17,7 @@ import {
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos/:documentId/evaluaciones — definir las evaluaciones de
+ * POST /dashboard/capacitaciones/:documentId/evaluaciones — definir las evaluaciones de
  * seguimiento junto con el curso: alta, cambio y baja. Quien edita el curso las
  * define; quien lo imparte solo captura sus resultados.
  */

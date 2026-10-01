@@ -38,7 +38,7 @@ const createHarness = (authPayload: unknown = authPayloadOf()) => {
 const run = (context: ActionArgs["context"], fields: Record<string, string>) =>
 	action({
 		request: new Request(
-			`https://app.example.com/dashboard/mis-cursos/${COURSE_DOC}/valorar`,
+			`https://app.example.com/dashboard/mis-capacitaciones/${COURSE_DOC}/valorar`,
 			{ method: "POST", body: new URLSearchParams(fields) },
 		),
 		context,

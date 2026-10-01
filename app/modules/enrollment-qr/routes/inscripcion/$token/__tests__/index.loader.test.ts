@@ -81,7 +81,7 @@ describe("escaneo de inscripción loader", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
-			`/dashboard/cursos-disponibles/${COURSE_DOC}`,
+			`/dashboard/catalogo-de-capacitaciones/${COURSE_DOC}`,
 		);
 		expect(calls.resolves).toBe(1);
 	});

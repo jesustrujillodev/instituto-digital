@@ -41,7 +41,7 @@ Escaneo del QR
   │   token inexistente          → ENROLLMENT_QR_INVALID_TOKEN   (404)
   │   no PUBLISHED o INVITATION  → ENROLLMENT_QR_UNAVAILABLE     (409)
   │   fuera de la audiencia      → ENROLLMENT_QR_NOT_IN_AUDIENCE (403)
-  ▼ redirect /dashboard/cursos-disponibles/<documentId>
+  ▼ redirect /dashboard/catalogo-de-capacitaciones/<documentId>
   │
   ▼ La ficha del catálogo y su action "Inscribirme" (enrollmentService.enroll)
 ```
@@ -51,7 +51,7 @@ Escaneo del QR
 `acceptsEnrollmentQr`: curso **publicado** con acceso **público o restringido**.
 
 - **Por invitación, no.** El escaneo no podría inscribir a quien no fue
-  invitado, y a quien sí lo fue le basta con «Mis cursos».
+  invitado, y a quien sí lo fue le basta con «Mis capacitaciones».
 - **Inscripción cerrada, sí.** Un autogestivo se cierra y se reabre a mano, y un
   calendarizado cierra en su fecha límite. El panel avisa del cierre y la ficha
   muestra «inscripción cerrada» a quien escanee.

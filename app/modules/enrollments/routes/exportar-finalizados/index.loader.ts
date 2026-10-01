@@ -9,7 +9,7 @@ import { requireParticipant } from "../require-participant.server";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/finalizados.xlsx
+ * GET /dashboard/mis-capacitaciones/finalizados.xlsx
  *
  * Ruta de recurso: responde el archivo, no el envelope. El envelope solo se
  * consume aquí dentro, y un fallo sale por `toRouteError` como en cualquier loader.

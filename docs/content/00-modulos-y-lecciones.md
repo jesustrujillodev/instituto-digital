@@ -49,11 +49,11 @@ Tres convenciones que hay que tener presentes:
 
 | Qué | Dónde |
 | --- | --- |
-| Editar el temario de un borrador | Paso **Contenido** de `/dashboard/cursos/:documentId/nuevo/5` |
-| Editar el de un curso publicado | `/dashboard/cursos/:documentId/contenido` |
-| Escribir el temario | `POST /dashboard/cursos/:documentId/contenido` |
-| Leer y escribir el material de una lección | `/dashboard/cursos/:documentId/contenido/:lessonDocumentId` |
-| Recorrer el temario (participante) | `/dashboard/mis-cursos/:documentId/aula` y `…/aula/:lessonDocumentId` |
+| Editar el temario de un borrador | Paso **Contenido** de `/dashboard/capacitaciones/:documentId/nuevo/5` |
+| Editar el de un curso publicado | `/dashboard/capacitaciones/:documentId/contenido` |
+| Escribir el temario | `POST /dashboard/capacitaciones/:documentId/contenido` |
+| Leer y escribir el material de una lección | `/dashboard/capacitaciones/:documentId/contenido/:lessonDocumentId` |
+| Recorrer el temario (participante) | `/dashboard/mis-capacitaciones/:documentId/aula` y `…/aula/:lessonDocumentId` |
 
 Las dos pantallas de edición montan el **mismo panel** (`CourseContentPanel`) y
 escriben contra la misma ruta. El panel tiene dos vistas, con un selector
@@ -213,7 +213,7 @@ que un documento absurdamente anidado se rechace en vez de agotar la pila.
 
 ## 8. El aula y el avance
 
-El participante recorre el temario en `/dashboard/mis-cursos/:documentId/aula`: un
+El participante recorre el temario en `/dashboard/mis-capacitaciones/:documentId/aula`: un
 índice lateral con el estado de cada lección y la lección abierta con su
 material, anterior y siguiente. Entrar sin lección lleva a «Continuar»: la primera
 obligatoria sin completar; si no queda ninguna, la primera sin completar; con
@@ -308,10 +308,10 @@ Hay tres, sobre las mismas tablas
 
 | Ruta | Pieza |
 | --- | --- |
-| `/dashboard/cursos/:documentId/cuestionario[?leccion=\|?modulo=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz`, `rename-quiz` y `archive-module-quiz` |
-| `/dashboard/mis-cursos/:documentId/aula/examen` | Presentar el examen. El índice del aula lo lleva al final con su estado |
-| `/dashboard/mis-cursos/:documentId/aula/:lessonDocumentId` | La práctica de una lección `QUIZ`, con el intent `submit-quiz` |
-| `/dashboard/mis-cursos/:documentId/aula/modulo/:moduleDocumentId` | Presentar la evaluación del módulo. El índice la pone al final de su módulo |
+| `/dashboard/capacitaciones/:documentId/cuestionario[?leccion=\|?modulo=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz`, `rename-quiz` y `archive-module-quiz` |
+| `/dashboard/mis-capacitaciones/:documentId/aula/examen` | Presentar el examen. El índice del aula lo lleva al final con su estado |
+| `/dashboard/mis-capacitaciones/:documentId/aula/:lessonDocumentId` | La práctica de una lección `QUIZ`, con el intent `submit-quiz` |
+| `/dashboard/mis-capacitaciones/:documentId/aula/modulo/:moduleDocumentId` | Presentar la evaluación del módulo. El índice la pone al final de su módulo |
 | `/dashboard/imparticion/:documentId/cuestionarios` | Solo action: `grant-retake`, desde la pestaña Avance de Impartición |
 
 El aula también se abre en un curso evaluado por examen que no tiene lecciones:

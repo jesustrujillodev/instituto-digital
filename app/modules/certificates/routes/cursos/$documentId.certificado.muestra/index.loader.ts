@@ -7,7 +7,7 @@ import { toDownloadResponse } from "../../download-response";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/certificado/muestra?version=draft|published&formato=pdf|png
+ * GET /dashboard/capacitaciones/:documentId/certificado/muestra?version=draft|published&formato=pdf|png
  *
  * El certificado guardado con datos de muestra, para revisarlo antes de emitir.
  * Lo baja quien lo diseña; lo que no se guardó no se exporta.

@@ -20,8 +20,8 @@ export default function LandingPage() {
 					Instituto Digital de Capacitación
 				</h1>
 				<p className="max-w-prose text-base text-sidebar-foreground/80 sm:text-lg">
-					Consulta tus cursos, tus sesiones y tus créditos, o administra la
-					capacitación de tu dependencia.
+					Consulta tus capacitaciones, tus sesiones y tus créditos, o administra
+					la capacitación de tu dependencia.
 				</p>
 				<Button
 					asChild

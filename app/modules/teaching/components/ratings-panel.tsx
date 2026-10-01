@@ -12,7 +12,7 @@ export function RatingsPanel({ summary }: { summary: CourseRatingSummary }) {
 					<Star className="h-5 w-5 text-muted-foreground" />
 					<p className="text-sm">
 						{summary.average === null
-							? "Todavía nadie ha valorado el curso."
+							? "Todavía nadie ha valorado la capacitación."
 							: `${summary.average.toFixed(1)} de 5 · ${summary.count} ${summary.count === 1 ? "valoración" : "valoraciones"}`}
 					</p>
 				</div>

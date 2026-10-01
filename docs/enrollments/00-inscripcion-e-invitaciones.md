@@ -4,12 +4,12 @@
 
 El módulo `app/modules/enrollments` cubre §6.6 del alcance:
 
-- cursos disponibles;
+- catálogo de capacitaciones;
 - inscripción propia contra el cupo;
 - baja voluntaria;
 - asignación por titular o auxiliar;
 - invitación a personas o grupos, con aceptar o rechazar;
-- "Mis cursos".
+- "Mis capacitaciones".
 
 Las decisiones de modelo están en `docs/adr/0004-inscripcion-una-fila-y-cupo-con-bloqueo.md`.
 
@@ -20,7 +20,7 @@ Lo que ya añadieron los PRD siguientes:
 | --- | --- |
 | Sesiones inscritas en el calendario | PRD-05 (`docs/calendar/00-calendario.md`) |
 | `result`, `grade`, `completed` y quién capturó el resultado | PRD-06: los escribe `teaching` por `saveResults` y `setCompletion` |
-| "Mis cursos" enseña asistencia, nota, si completó y el diálogo para valorar | PRD-06 (`MyCourseEntry.outcome` y `canRate`) |
+| "Mis capacitaciones" enseña asistencia, nota, si completó y el diálogo para valorar | PRD-06 (`MyCourseEntry.outcome` y `canRate`) |
 | Correos de invitación, inscripción y asignación | PRD-08 (`docs/notifications/00-notificaciones.md`) |
 | Avance por lección en caché, entrada al aula y cierre a mano del autogestivo | MVP-02 · F-05 ([ADR 0014](../adr/0014-avance-por-leccion-y-completado-por-participante.md)) |
 
@@ -62,7 +62,7 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Solo cursos `PUBLISHED` admiten inscribirse, aceptar, asignar o invitar | `isEnrollmentOpen` |
 | La baja se permite hasta que empiece la primera sesión; en un autogestivo, mientras no lo haya completado | `canWithdraw` |
 | Un autogestivo cae en **En curso**, no en Próximos: se recorre desde el día uno. Al completarlo pasa a **Finalizados**, porque no se cierra nunca | `classifyMyCourse` |
-| Un curso por invitación solo existe en el catálogo —listado y ficha de `/dashboard/cursos-disponibles`— para quien fue invitado, con la invitación pendiente o ya aceptada. Quien lo administra o lo imparte sin estar invitado no lo encuentra ahí ni por URL (404): lo gestiona desde `/dashboard/cursos` o la impartición | `catalogAccessWhere` (`domain/enrollment.access.ts`) en `listAvailable` y `findAvailable` |
+| Un curso por invitación solo existe en el catálogo —listado y ficha de `/dashboard/catalogo-de-capacitaciones`— para quien fue invitado, con la invitación pendiente o ya aceptada. Quien lo administra o lo imparte sin estar invitado no lo encuentra ahí ni por URL (404): lo gestiona desde `/dashboard/capacitaciones` o la impartición | `catalogAccessWhere` (`domain/enrollment.access.ts`) en `listAvailable` y `findAvailable` |
 | En un curso por invitación solo se inscribe quien tiene una pendiente; sin ella, `enroll` responde `ENROLLMENT_INVITATION_REQUIRED`. A su personal se le asigna | `canSelfEnroll` |
 | Inscribirse, aceptar y asignar ocupan lugar; invitar no | `assertSeatsFor` en `enroll`, `accept` y `assign` |
 | Solo cursa quien tiene dependencia y no tiene rol global | `canParticipate` (externos y `SUPERADMIN` quedan fuera) |
@@ -81,7 +81,7 @@ fechas fijas.
 
 | Operación | Quién | Alcance |
 | --- | --- | --- |
-| Ver cursos disponibles, inscribirse, baja, aceptar, rechazar | Quien cumple `canParticipate` | Lo que ve según `courseVisibilityWhere`; el catálogo, además, según `catalogAccessWhere` |
+| Ver catálogo de capacitaciones, inscribirse, baja, aceptar, rechazar | Quien cumple `canParticipate` | Lo que ve según `courseVisibilityWhere`; el catálogo, además, según `catalogAccessWhere` |
 | Asignar personas o grupos | Superadministrador, titular, auxiliar, capacitador interno | Superadministrador: cualquier curso y persona. Titular y auxiliar: cursos que ve su dependencia (`dependencyVisibilityWhere`). Capacitador: los que creó. En los tres últimos, solo personal de su dependencia |
 | Invitar personas o grupos | Los mismos | Cursos `INVITATION` que ven. Quien organiza invita a cualquier dependencia; los demás, solo a su personal |
 | Ver la lista de inscritos | Los mismos | Quien organiza la ve completa; una dependencia que manda personal a un curso ajeno ve solo a la suya |
@@ -98,14 +98,14 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 
 | Ruta | Guard | Pantalla |
 | --- | --- | --- |
-| `/dashboard/cursos-disponibles` | `requireParticipant` | Cuadrícula de tarjetas con portada. Publicados, visibles y con la inscripción abierta |
-| `/dashboard/cursos-disponibles/:documentId` | `requireParticipant` | Ficha del catálogo: sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`. Si la dependencia puede asignar, enlaza a Inscripciones con "Inscribir a mi personal". Inscrito y con aula, ofrece «Entrar al aula» |
-| `/dashboard/mis-cursos` | `requireParticipant` | Secciones apiladas: «Te invitaron», «En curso», «Próximos» y «Finalizados»; las «Inscripciones canceladas» (`WITHDRAWN`) solo aparecen al pedirlas desde «Filtrar». Finalizados y canceladas enseñan una fila y «Ver todos» despliega el resto. Buscador (título o dependencia, sin acentos) y filtros por estado, modalidad, formato y dependencia, en el navegador. En curso, la barra mide el temario («3 de 5 lecciones», de `classroomService.summarizeMine`) o las sesiones ya transcurridas con la próxima; «empieza en N días» y las sesiones transcurridas los calcula el servidor (`courseTimelineOf`). Intents `accept`, `decline`. Cada tarjeta lleva a la ficha propia |
-| `/dashboard/mis-cursos/:documentId` | `requireParticipant` | Ficha propia del curso para quien lo cursa (`INVITED`, `ENROLLED` o `WITHDRAWN`): estado, avance, resultado, aula, certificado y valoración; «volver» y el rastro regresan a Mis cursos. Intents `enroll` («Volver a inscribirme» tras una baja propia; el avance se conserva), `withdraw`, `accept`, `decline`. Sin inscripción o con la invitación rechazada, redirige a la ficha del catálogo. A ella llevan también el calendario (lentes inscrito/invitado), Mis créditos y los correos del curso |
-| `/dashboard/mis-cursos/finalizados.xlsx` | `requireParticipant` | Ruta de recurso: descarga los finalizados en Excel, con una hoja "Cursos" y otra "Sesiones". El libro lo arma `spreadsheetWriter` (exceljs), y las fechas salen en la hora del instituto |
-| `/dashboard/cursos/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign`, `invite` y `remove`; la baja se ofrece desde «Completado» en la impartición y envía aquí. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
+| `/dashboard/catalogo-de-capacitaciones` | `requireParticipant` | Cuadrícula de tarjetas con portada. Publicados, visibles y con la inscripción abierta |
+| `/dashboard/catalogo-de-capacitaciones/:documentId` | `requireParticipant` | Ficha del catálogo: sesiones, lugares y cierre. Intents `enroll`, `withdraw`, `accept`, `decline`. Si la dependencia puede asignar, enlaza a Inscripciones con "Inscribir a mi personal". Inscrito y con aula, ofrece «Entrar al aula» |
+| `/dashboard/mis-capacitaciones` | `requireParticipant` | Secciones apiladas: «Te invitaron», «En curso», «Próximos» y «Finalizados»; las «Inscripciones canceladas» (`WITHDRAWN`) solo aparecen al pedirlas desde «Filtrar». Finalizados y canceladas enseñan una fila y «Ver todos» despliega el resto. Buscador (título o dependencia, sin acentos) y filtros por estado, modalidad, formato y dependencia, en el navegador. En curso, la barra mide el temario («3 de 5 lecciones», de `classroomService.summarizeMine`) o las sesiones ya transcurridas con la próxima; «empieza en N días» y las sesiones transcurridas los calcula el servidor (`courseTimelineOf`). Intents `accept`, `decline`. Cada tarjeta lleva a la ficha propia |
+| `/dashboard/mis-capacitaciones/:documentId` | `requireParticipant` | Ficha propia del curso para quien lo cursa (`INVITED`, `ENROLLED` o `WITHDRAWN`): estado, avance, resultado, aula, certificado y valoración; «volver» y el rastro regresan a Mis capacitaciones. Intents `enroll` («Volver a inscribirme» tras una baja propia; el avance se conserva), `withdraw`, `accept`, `decline`. Sin inscripción o con la invitación rechazada, redirige a la ficha del catálogo. A ella llevan también el calendario (lentes inscrito/invitado), Mis créditos y los correos del curso |
+| `/dashboard/mis-capacitaciones/finalizados.xlsx` | `requireParticipant` | Ruta de recurso: descarga los finalizados en Excel, con una hoja "Cursos" y otra "Sesiones". El libro lo arma `spreadsheetWriter` (exceljs), y las fechas salen en la hora del instituto |
+| `/dashboard/capacitaciones/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign`, `invite` y `remove`; la baja se ofrece desde «Completado» en la impartición y envía aquí. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
 
-El menú muestra "Cursos disponibles" y "Mis cursos" a `USER`, `DEPENDENCY_HEAD` y
+El menú muestra "Catálogo de capacitaciones" y "Mis capacitaciones" a `USER`, `DEPENDENCY_HEAD` y
 `DEPENDENCY_DEPUTY` con dependencia (`requiresDependency`): el capacitador
 externo, `USER` sin dependencia, no los ve.
 
@@ -153,7 +153,7 @@ de grupos no es gratis.
   restante es `capacity − count(ENROLLED)` y un `where` no compara una columna
   contra el agregado de una relación.
 
-La ficha abre con la portada a 21:9 y Mis cursos la lleva como miniatura: la
+La ficha abre con la portada a 21:9 y Mis capacitaciones la lleva como miniatura: la
 imagen se subió una vez y es lo que hace reconocible el curso en las tres.
 
 ## 6. Concurrencia

@@ -27,7 +27,7 @@ export default function InscripcionPage() {
 	return (
 		<Shell>
 			<p className="text-sm text-muted-foreground" role="status">
-				Abriendo el curso…
+				Abriendo la capacitación…
 			</p>
 		</Shell>
 	);
@@ -42,13 +42,17 @@ export function ErrorBoundary() {
 
 	return (
 		<Shell>
-			<h1 className="text-base font-semibold">No pudimos abrir el curso</h1>
+			<h1 className="text-base font-semibold">
+				No pudimos abrir la capacitación
+			</h1>
 			<p role="alert" className="mt-2 text-sm text-muted-foreground">
 				{message ?? "Este código de inscripción no es válido."}
 			</p>
 
 			<Button asChild className="mt-6 w-full">
-				<Link to="/dashboard/cursos-disponibles">Ver cursos disponibles</Link>
+				<Link to="/dashboard/catalogo-de-capacitaciones">
+					Ver catálogo de capacitaciones
+				</Link>
 			</Button>
 
 			<Link

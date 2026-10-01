@@ -85,7 +85,7 @@ export const action = async ({
 				return localizeError(result, TEACHING_ERROR_MESSAGES);
 
 			return ok(null, {
-				message: `Curso finalizado: ${plural(result.data.completed, "persona completó", "personas completaron")}, se ${result.data.credits === 1 ? "otorgó 1 crédito" : `otorgaron ${result.data.credits} créditos`} y se ${result.data.certificates === 1 ? "emitió 1 certificado" : `emitieron ${result.data.certificates} certificados`}.`,
+				message: `Capacitación finalizada: ${plural(result.data.completed, "persona completó", "personas completaron")}, se ${result.data.credits === 1 ? "otorgó 1 crédito" : `otorgaron ${result.data.credits} créditos`} y se ${result.data.certificates === 1 ? "emitió 1 certificado" : `emitieron ${result.data.certificates} certificados`}.`,
 			});
 		}
 		case TEACHING_INTENTS.issueCertificates: {

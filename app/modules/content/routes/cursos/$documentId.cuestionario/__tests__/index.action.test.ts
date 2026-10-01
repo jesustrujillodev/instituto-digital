@@ -36,7 +36,7 @@ const run = (fields: Record<string, string>) => {
 
 	const result = action({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${COURSE_DOC}/cuestionario`,
+			`https://app.example.com/dashboard/capacitaciones/${COURSE_DOC}/cuestionario`,
 			{ method: "POST", body: new URLSearchParams(fields) },
 		),
 		context,
@@ -46,7 +46,7 @@ const run = (fields: Record<string, string>) => {
 	return { result, calls };
 };
 
-describe("cursos/cuestionario action", () => {
+describe("capacitaciones/cuestionario action", () => {
 	test("archiva la evaluación de un módulo", async () => {
 		const { result, calls } = run({
 			intent: "archive-module-quiz",

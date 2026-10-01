@@ -75,7 +75,8 @@ export const loadCourseWizard = async (
 		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 
 	const { status } = course.data;
-	if (!canEdit(status)) throw redirect(`/dashboard/cursos/${documentId}`);
+	if (!canEdit(status))
+		throw redirect(`/dashboard/capacitaciones/${documentId}`);
 
 	const expected: CourseWizardMode = status === "DRAFT" ? "create" : "edit";
 	if (expected !== mode) {

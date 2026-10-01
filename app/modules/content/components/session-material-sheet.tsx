@@ -161,7 +161,7 @@ function SheetBody({ source }: { source: SessionMaterialSource }) {
 					)
 				) : (
 					<p className="text-muted-foreground text-sm">
-						El curso terminó o se canceló: su material queda como está.
+						La capacitación terminó o se canceló: su material queda como está.
 					</p>
 				)}
 			</div>
@@ -382,7 +382,7 @@ function AddMaterialForm({ source }: { source: SessionMaterialSource }) {
 					</Label>
 					<p className="text-muted-foreground text-xs">
 						Antes de que empiece, el participante ve que existe pero no puede
-						abrirlo. Sin marcar, lo ve desde que se publica el curso.
+						abrirlo. Sin marcar, lo ve desde que se publica la capacitación.
 					</p>
 				</div>
 			</div>

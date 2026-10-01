@@ -53,13 +53,13 @@ describe("toFinishedCoursesSheets", () => {
 
 		const [courses] = toFinishedCoursesSheets([course]);
 
-		expect(courses.name).toBe("Cursos");
+		expect(courses.name).toBe("Capacitaciones");
 		expect(courses.rows).toEqual([
 			[
 				"Atención ciudadana",
 				"Trato al público",
 				"SEDESOL",
-				"Finalizado",
+				"Finalizada",
 				"Híbrida",
 				"Por invitación",
 				20,
@@ -104,7 +104,7 @@ describe("toFinishedCoursesSheets", () => {
 			}),
 		]);
 
-		expect(courses.rows[0][3]).toBe("Cancelado");
+		expect(courses.rows[0][3]).toBe("Cancelada");
 		expect(courses.rows[0][6]).toBeNull();
 		expect(courses.rows[0].slice(8)).toEqual([0, null, null, null, null]);
 		expect(sessions.rows).toEqual([]);
@@ -123,7 +123,7 @@ describe("finishedCoursesFileName", () => {
 	test("usa la fecha del instituto, no la de UTC", () => {
 		// 03:00 UTC del 20 son las 20:00 del 19 en Tijuana.
 		expect(finishedCoursesFileName(new Date("2026-09-20T03:00:00.000Z"))).toBe(
-			"mis-cursos-finalizados-2026-09-19.xlsx",
+			"mis-capacitaciones-finalizadas-2026-09-19.xlsx",
 		);
 	});
 });

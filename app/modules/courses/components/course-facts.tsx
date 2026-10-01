@@ -106,7 +106,7 @@ export function CourseFacts({
 	});
 
 	if (course.publishedAt) {
-		facts.push({ term: "Publicado", value: dateOf(course.publishedAt) });
+		facts.push({ term: "Publicada", value: dateOf(course.publishedAt) });
 	}
 
 	return (

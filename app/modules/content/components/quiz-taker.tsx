@@ -40,8 +40,9 @@ export function QuizRetryNotice({ outcome }: { outcome: QuizOutcome }) {
 export function QuizRetakeHint() {
 	return (
 		<p className="text-muted-foreground text-sm">
-			Ya no te quedan intentos. Tu mejor nota cuenta para el promedio del curso;
-			si necesitas otro intento, pídeselo a quien imparte el curso.
+			Ya no te quedan intentos. Tu mejor nota cuenta para el promedio de la
+			capacitación; si necesitas otro intento, pídeselo a quien imparte la
+			capacitación.
 		</p>
 	);
 }
@@ -98,17 +99,17 @@ const CONFIRM_COPY: Record<QuizKind, { title: string; description: string }> = {
 	FINAL: {
 		title: "¿Enviar el examen?",
 		description:
-			"Tu calificación del curso será el promedio de tu mejor nota en este examen y en las evaluaciones del temario.",
+			"Tu calificación de la capacitación será el promedio de tu mejor nota en este examen y en las evaluaciones del temario.",
 	},
 	PRACTICE: {
 		title: "¿Enviar el cuestionario?",
 		description:
-			"Enviarlo completa la lección, apruebes o no, y tu mejor nota cuenta para la calificación del curso.",
+			"Enviarlo completa la lección, apruebes o no, y tu mejor nota cuenta para la calificación de la capacitación.",
 	},
 	MODULE: {
 		title: "¿Enviar la evaluación del módulo?",
 		description:
-			"Enviarla cuenta para tu avance, apruebes o no, y tu mejor nota entra al promedio del curso.",
+			"Enviarla cuenta para tu avance, apruebes o no, y tu mejor nota entra al promedio de la capacitación.",
 	},
 };
 

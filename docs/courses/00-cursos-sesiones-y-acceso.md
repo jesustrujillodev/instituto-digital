@@ -15,7 +15,7 @@ Lo que **no** hace todavía, y quién lo hace:
 | Estado `FINISHED`, asistencia, créditos y valoración | PRD-06 (`docs/teaching/00-imparticion-creditos-y-valoracion.md`) |
 | Plan anual y "crear curso desde esta línea" | PRD-07 (`docs/annual-plan/00-plan-anual.md`) |
 
-La inscripción, las invitaciones y "Mis cursos" viven en su propio módulo
+La inscripción, las invitaciones y "Mis capacitaciones" viven en su propio módulo
 (`docs/enrollments/00-inscripcion-e-invitaciones.md`), que consume la regla de
 visibilidad de §5.
 
@@ -75,7 +75,7 @@ Decisiones que el schema no dice por sí solo:
   enteras, de 1 a 500 (`COURSE_HOURS_LIMITS`), y opcionales: no hay check de
   publicación. Sin ellas, un curso con sesiones acredita la duración sumada de
   sus sesiones, y un autogestivo no muestra horas. Esa resolución vive en una
-  sola función pura, `courseHoursOf`, y la usan la ficha, «Mis cursos», el Excel
+  sola función pura, `courseHoursOf`, y la usan la ficha, «Mis capacitaciones», el Excel
   de finalizados y «Mis créditos». La columna es nula en los cursos anteriores,
   que siguen mostrando las horas de sus sesiones. Las horas se muestran y no se
   convierten: un curso completado vale un crédito, dure lo que dure (D-06 de
@@ -312,8 +312,8 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 | 5 | Inscripción | Acceso, audiencia, cupo, fecha límite |
 | 6 | Revisión | Pendientes y publicar; solo en el alta |
 
-- **El estado decide el modo.** Un borrador va por `/cursos/:id/nuevo/:paso`
-  (alta, con revisión y publicar); un publicado por `/cursos/:id/editar/:paso?`
+- **El estado decide el modo.** Un borrador va por `/capacitaciones/:id/nuevo/:paso`
+  (alta, con revisión y publicar); un publicado por `/capacitaciones/:id/editar/:paso?`
   (edición, sin revisión: el último paso guarda y sale). La URL del otro modo
   redirige a la correcta, y un finalizado o cancelado va a su ficha. Loader y
   action son comunes: `routes/course-wizard.server.ts`.

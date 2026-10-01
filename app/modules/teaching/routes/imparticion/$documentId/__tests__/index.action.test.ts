@@ -143,7 +143,7 @@ describe("impartición action", () => {
 		expect(result).toMatchObject({
 			success: true,
 			message:
-				"Curso finalizado: 2 personas completaron, se otorgó 1 crédito y se emitieron 2 certificados.",
+				"Capacitación finalizada: 2 personas completaron, se otorgó 1 crédito y se emitieron 2 certificados.",
 		});
 	});
 

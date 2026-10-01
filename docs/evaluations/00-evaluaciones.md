@@ -58,8 +58,8 @@ evaluación sin día, nunca la borra.
 
 | Qué | Dónde |
 | --- | --- |
-| Definir | Paso Evaluación de `/dashboard/cursos/:documentId/nuevo/4` o `/editar/4` |
-| Escribir la definición | `POST /dashboard/cursos/:documentId/evaluaciones` (solo action: `create`, `update`, `remove`) |
+| Definir | Paso Evaluación de `/dashboard/capacitaciones/:documentId/nuevo/4` o `/editar/4` |
+| Escribir la definición | `POST /dashboard/capacitaciones/:documentId/evaluaciones` (solo action: `create`, `update`, `remove`) |
 | Ver y capturar | Pestaña **Evaluaciones** de `/dashboard/imparticion/:documentId` |
 | Escribir la captura | `POST /dashboard/imparticion/:documentId/evaluaciones` (solo action: `results`) |
 
@@ -114,7 +114,7 @@ Altas, cambios y bajas del mismo envío van en una transacción.
 
 | Amenaza | Defensa |
 | --- | --- |
-| Un participante lee la observación que escribió su capacitador | Ninguna consulta de "Mis cursos" selecciona `evaluation_results` |
+| Un participante lee la observación que escribió su capacitador | Ninguna consulta de "Mis capacitaciones" selecciona `evaluation_results` |
 | Se capturan evaluaciones de un curso que no se imparte | `teachingCourseWhere` en el `where` del curso |
 | Quien solo imparte crea o borra evaluaciones | Definir usa `courseScopeWhere`, no el alcance de impartición |
 | Un capacitador corrige un curso ya finalizado | `canWrite` → `EVALUATION_FORBIDDEN` |

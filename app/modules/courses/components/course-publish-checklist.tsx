@@ -13,7 +13,7 @@ import {
 
 const pendingCopy = (pending: number) =>
 	pending === 0
-		? "Todo listo. Al publicar, el curso aparece a su audiencia."
+		? "Todo listo. Al publicar, la capacitación aparece a su audiencia."
 		: pending === 1
 			? "Falta una cosa. El pendiente lleva al paso que la resuelve."
 			: `Faltan ${pending} cosas. Cada pendiente lleva al paso que la resuelve.`;

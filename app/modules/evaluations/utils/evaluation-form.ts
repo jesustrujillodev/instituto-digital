@@ -14,7 +14,7 @@ export type EvaluationActionData = AppResponse<null>;
 
 /** Alta, cambio y baja: se definen junto con el curso. */
 export const evaluationDefinitionsPath = (courseDocumentId: string) =>
-	`/dashboard/cursos/${courseDocumentId}/evaluaciones`;
+	`/dashboard/capacitaciones/${courseDocumentId}/evaluaciones`;
 
 /** La captura de resultados: se hace al impartirlo. */
 export const evaluationResultsPath = (courseDocumentId: string) =>

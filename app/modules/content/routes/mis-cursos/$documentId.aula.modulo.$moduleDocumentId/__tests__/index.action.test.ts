@@ -40,7 +40,7 @@ const run = (payload: unknown, passed: boolean) => {
 
 	const result = action({
 		request: new Request(
-			`https://app.example.com/dashboard/mis-cursos/${COURSE_DOC}/aula/modulo/${MODULE_A}`,
+			`https://app.example.com/dashboard/mis-capacitaciones/${COURSE_DOC}/aula/modulo/${MODULE_A}`,
 			{
 				method: "POST",
 				body: new URLSearchParams({

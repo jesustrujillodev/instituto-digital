@@ -130,7 +130,7 @@ export function CourseCoverField({
 					) : shownUrl ? (
 						<img
 							src={shownUrl}
-							alt="Portada del curso"
+							alt="Portada de la capacitación"
 							className="size-full object-cover"
 						/>
 					) : (

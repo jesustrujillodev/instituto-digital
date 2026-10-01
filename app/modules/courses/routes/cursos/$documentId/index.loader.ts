@@ -23,7 +23,7 @@ import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId — ficha del curso.
+ * GET /dashboard/capacitaciones/:documentId — ficha del curso.
  *
  * Fuera de alcance responde 404 igual que inexistente: un capacitador no
  * confirma por URL que exista un curso que no creó.

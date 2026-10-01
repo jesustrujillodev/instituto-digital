@@ -129,7 +129,7 @@ Igual que las evaluaciones de seguimiento, el examen se arma en el paso 4 del
 alta y de la edición (`/nuevo/4`, `/editar/4`), como un *slot* que guarda por su
 cuenta y no viaja en el payload del curso. La práctica se arma desde el panel de
 la lección en el temario. Las dos escriben contra
-`/dashboard/cursos/:documentId/cuestionario`.
+`/dashboard/capacitaciones/:documentId/cuestionario`.
 
 ## 3. Consecuencias
 

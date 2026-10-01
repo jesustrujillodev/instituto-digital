@@ -8,7 +8,7 @@ import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/contenido — el temario del curso.
+ * GET /dashboard/capacitaciones/:documentId/contenido — el temario del curso.
  *
  * Es la puerta del curso ya publicado: el borrador lo edita desde su paso del
  * alta, con el mismo panel. Fuera de alcance responde 404 igual que inexistente.

@@ -5,24 +5,24 @@ import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizardScreen } from "../../../components/course-wizard-screen";
 import type { Route } from "./+types/index";
 
-const LIST_PATH = "/dashboard/cursos";
+const LIST_PATH = "/dashboard/capacitaciones";
 
 export const handle = {
 	breadcrumb: (loaderData) => [
-		{ label: "Cursos", path: LIST_PATH },
+		{ label: "Capacitaciones", path: LIST_PATH },
 		loaderData
 			? {
 					label: loaderData.data.course.title,
 					path: `${LIST_PATH}/${loaderData.data.course.documentId}`,
 				}
-			: { label: "Curso" },
+			: { label: "Capacitación" },
 		{ label: "Editar" },
 	],
 } satisfies BreadcrumbHandle<Route.ComponentProps["loaderData"]>;
 
 export function meta({ data }: Route.MetaArgs) {
 	const title = data?.data.course.title;
-	return [{ title: title ? `Editar · ${title}` : "Editar curso" }];
+	return [{ title: title ? `Editar · ${title}` : "Editar capacitación" }];
 }
 
 export default function CursoEditarPasoPage({

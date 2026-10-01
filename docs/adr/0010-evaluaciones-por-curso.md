@@ -77,7 +77,7 @@ valoraciones.
 ### 2.6 Interno de quien imparte
 
 Ninguna proyección del participante selecciona `evaluation_results`. El alumno
-sigue viendo en "Mis cursos" su resultado final y su nota, no el desglose ni las
+sigue viendo en "Mis capacitaciones" su resultado final y su nota, no el desglose ni las
 observaciones. La confidencialidad empieza en la consulta, igual que el
 anonimato de los comentarios de valoración.
 

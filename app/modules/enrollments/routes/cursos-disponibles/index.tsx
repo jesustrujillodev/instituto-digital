@@ -42,11 +42,11 @@ const SKELETON_KEYS = Array.from(
 );
 
 export const handle = {
-	breadcrumb: () => [{ label: "Cursos disponibles" }],
+	breadcrumb: () => [{ label: "Catálogo de capacitaciones" }],
 } satisfies BreadcrumbHandle;
 
 export function meta() {
-	return [{ title: "Cursos disponibles" }];
+	return [{ title: "Catálogo de capacitaciones" }];
 }
 
 export default function CursosDisponiblesPage({
@@ -115,8 +115,8 @@ export default function CursosDisponiblesPage({
 	return (
 		<div className="flex flex-col">
 			<PageHeader
-				title="Cursos disponibles"
-				description="Cursos publicados a los que puedes inscribirte mientras la inscripción siga abierta."
+				title="Catálogo de capacitaciones"
+				description="Capacitaciones publicadas a las que puedes inscribirte mientras la inscripción siga abierta."
 			/>
 
 			<div className="flex flex-col gap-4">
@@ -137,8 +137,8 @@ export default function CursosDisponiblesPage({
 					{isLoading || !pagination || pagination.total === 0
 						? ""
 						: pagination.total === 1
-							? "1 curso disponible"
-							: `${pagination.total} cursos disponibles`}
+							? "1 capacitación disponible"
+							: `${pagination.total} capacitaciones disponibles`}
 				</p>
 
 				{isLoading ? (
@@ -206,12 +206,14 @@ function CatalogEmpty({
 					{hasFilters ? <SearchX /> : <BookOpen />}
 				</EmptyMedia>
 				<EmptyTitle>
-					{hasFilters ? "Ningún curso coincide" : "Todavía no hay cursos"}
+					{hasFilters
+						? "Ninguna capacitación coincide"
+						: "Todavía no hay capacitaciones"}
 				</EmptyTitle>
 				<EmptyDescription>
 					{hasFilters
 						? "Prueba con otras palabras o quita algún filtro."
-						: "Cuando una dependencia publique un curso abierto a tu perfil, aparecerá aquí."}
+						: "Cuando una dependencia publique una capacitación abierta a tu perfil, aparecerá aquí."}
 				</EmptyDescription>
 			</EmptyHeader>
 			{hasFilters && (

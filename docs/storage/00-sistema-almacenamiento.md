@@ -636,7 +636,7 @@ por consumidor, y la ruta del proxy si no se usa `/api/storage`.
   borran desde el gestor de nube, que cruza `listObjects` con las
   `IObjectReferenceSource` de cada módulo ([cloud/00-gestor-nube.md](../cloud/00-gestor-nube.md) §5).
   No es una rutina automática: la ejecuta un admin.
-- **CDN en el panel de administración:** el catálogo de cursos disponibles ya
+- **CDN en el panel de administración:** el catálogo de catálogo de capacitaciones ya
   resuelve sus portadas con `assetUrlResolver` (`enrollments`), pero el listado
   administrativo sigue usando la referencia del proxy. Va autenticado y son pocas
   filas, así que se dejó fuera a propósito; el resolutor ya está inyectado si

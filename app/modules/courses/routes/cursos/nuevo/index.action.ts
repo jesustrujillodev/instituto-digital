@@ -9,7 +9,7 @@ import {
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/nuevo — alta en borrador. */
+/** POST /dashboard/capacitaciones/nuevo — alta en borrador. */
 export const action = async ({
 	request,
 	context,
@@ -28,6 +28,6 @@ export const action = async ({
 
 	return ok(
 		{ documentId: created.data.documentId },
-		{ message: "Curso creado en borrador" },
+		{ message: "Capacitación creada en borrador" },
 	);
 };

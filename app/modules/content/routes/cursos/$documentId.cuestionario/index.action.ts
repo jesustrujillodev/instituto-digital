@@ -16,7 +16,7 @@ import {
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos/:documentId/cuestionario — guardar o renombrar el
+ * POST /dashboard/capacitaciones/:documentId/cuestionario — guardar o renombrar el
  * banco, o archivar la evaluación de un módulo.
  */
 export const action = async ({

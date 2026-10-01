@@ -278,9 +278,9 @@ export function ContentModuleQuizPane({
 					Evaluación del módulo
 				</h3>
 				<p className="max-w-prose text-muted-foreground text-sm">
-					Si el curso cuenta el contenido, hay que presentarla para completarlo
-					y su mejor nota entra al promedio; a quien la repruebe y agote sus
-					intentos, quien imparte le puede habilitar otro.
+					Si la capacitación cuenta el contenido, hay que presentarla para
+					completarlo y su mejor nota entra al promedio; a quien la repruebe y
+					agote sus intentos, quien imparte le puede habilitar otro.
 				</p>
 			</div>
 

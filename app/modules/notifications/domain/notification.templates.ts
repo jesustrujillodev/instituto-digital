@@ -81,10 +81,10 @@ const sessionItems = (sessions: readonly NotifiedSession[]): string[] =>
 			);
 
 const courseSummary = (course: NotifiedCourse): string =>
-	`«${course.title}», organizado por ${course.dependencyName} (${MODALITY_LABELS[course.modality].toLowerCase()}).`;
+	`«${course.title}», organizada por ${course.dependencyName} (${MODALITY_LABELS[course.modality].toLowerCase()}).`;
 
 const courseUrl = (context: RenderContext, course: NotifiedCourse) =>
-	`${context.appUrl}/dashboard/mis-cursos/${course.documentId}`;
+	`${context.appUrl}/dashboard/mis-capacitaciones/${course.documentId}`;
 
 const build = (subject: string, blocks: Block[]): RenderedEmail => ({
 	subject,
@@ -155,11 +155,11 @@ export const renderNotification = (
 			]);
 
 		case "COURSE_INVITATION":
-			return build(`Invitación al curso «${event.course.title}»`, [
+			return build(`Invitación a la capacitación «${event.course.title}»`, [
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Te invitaron al curso ${courseSummary(event.course)} Invitar no aparta lugar: acepta la invitación para inscribirte.`,
+					text: `Te invitaron a la capacitación ${courseSummary(event.course)} Invitar no aparta lugar: acepta la invitación para inscribirte.`,
 				},
 				{ kind: "list", items: sessionItems(event.sessions) },
 				{
@@ -174,71 +174,71 @@ export const renderNotification = (
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Quedaste inscrito en el curso ${courseSummary(event.course)}`,
+					text: `Quedaste inscrito en la capacitación ${courseSummary(event.course)}`,
 				},
 				{ kind: "list", items: sessionItems(event.sessions) },
 				{
 					kind: "action",
-					label: "Ver el curso",
+					label: "Ver la capacitación",
 					url: courseUrl(context, event.course),
 				},
 			]);
 
 		case "ENROLLMENT_ASSIGNED":
-			return build(`Te asignaron al curso «${event.course.title}»`, [
+			return build(`Te asignaron a la capacitación «${event.course.title}»`, [
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Tu dependencia te inscribió en el curso ${courseSummary(event.course)}`,
+					text: `Tu dependencia te inscribió en la capacitación ${courseSummary(event.course)}`,
 				},
 				{ kind: "list", items: sessionItems(event.sessions) },
 				{
 					kind: "action",
-					label: "Ver el curso",
+					label: "Ver la capacitación",
 					url: courseUrl(context, event.course),
 				},
 			]);
 
 		case "COURSE_UPDATED":
-			return build(`Cambios en el curso «${event.course.title}»`, [
+			return build(`Cambios en la capacitación «${event.course.title}»`, [
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Cambiaron las sesiones, la sede o el enlace del curso ${courseSummary(event.course)} Así quedan:`,
+					text: `Cambiaron las sesiones, la sede o el enlace de la capacitación ${courseSummary(event.course)} Así quedan:`,
 				},
 				{ kind: "list", items: sessionItems(event.sessions) },
 				{
 					kind: "action",
-					label: "Ver el curso",
+					label: "Ver la capacitación",
 					url: courseUrl(context, event.course),
 				},
 			]);
 
 		case "COURSE_CANCELLED":
-			return build(`Curso cancelado: «${event.course.title}»`, [
+			return build(`Capacitación cancelada: «${event.course.title}»`, [
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Se canceló el curso ${courseSummary(event.course)} Ya no se impartirá.`,
+					text: `Se canceló la capacitación ${courseSummary(event.course)} Ya no se impartirá.`,
 				},
 				{
 					kind: "action",
-					label: "Ver otros cursos disponibles",
-					url: `${context.appUrl}/dashboard/cursos-disponibles`,
+					label: "Ver otras capacitaciones disponibles",
+					url: `${context.appUrl}/dashboard/catalogo-de-capacitaciones`,
 				},
 			]);
 
 		case "ENROLLMENT_REMOVED":
-			return build(`Baja del curso «${event.course.title}»`, [
+			return build(`Baja de la capacitación «${event.course.title}»`, [
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Quien organiza el curso ${courseSummary(event.course)} te dio de baja. Ya no estás inscrito y tu lugar quedó libre.`,
+					text: `Quien organiza la capacitación ${courseSummary(event.course)} te dio de baja. Ya no estás inscrito y tu lugar quedó libre.`,
 				},
 				{
 					kind: "action",
-					label: "Ver otros cursos disponibles",
-					url: `${context.appUrl}/dashboard/cursos-disponibles`,
+					label: "Ver otras capacitaciones disponibles",
+					url: `${context.appUrl}/dashboard/catalogo-de-capacitaciones`,
 				},
 			]);
 
@@ -247,7 +247,7 @@ export const renderNotification = (
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Completaste el curso «${event.course.title}», organizado por ${event.course.dependencyName}, y se emitió tu certificado con el folio ${event.folio}.`,
+					text: `Completaste la capacitación «${event.course.title}», organizada por ${event.course.dependencyName}, y se emitió tu certificado con el folio ${event.folio}.`,
 				},
 				...(event.message
 					? [{ kind: "paragraph", text: event.message } satisfies Block]

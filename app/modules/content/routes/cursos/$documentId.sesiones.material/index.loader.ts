@@ -6,7 +6,7 @@ import { requireSessionMaterialScope } from "../../require-session-material.serv
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/sesiones/material
+ * GET /dashboard/capacitaciones/:documentId/sesiones/material
  *
  * El material de todas las sesiones del curso, ya firmado para abrirse.
  */

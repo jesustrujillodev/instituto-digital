@@ -23,7 +23,7 @@ const methodOptions = (scheduled: boolean): ChoiceOption[] => [
 		label: EVALUATION_METHOD_LABELS.MANUAL,
 		description: scheduled
 			? "Quien imparte captura aprobado o no aprobado de cada participante."
-			: "Un autogestivo no tiene capacitador que capture resultados.",
+			: "Una autogestiva no tiene capacitador que capture resultados.",
 		disabled: !scheduled,
 	},
 ];
@@ -117,7 +117,7 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 						disabled={isPublished}
 						helperText={
 							isPublished
-								? "El curso ya está publicado: la vía de evaluación no se puede cambiar."
+								? "La capacitación ya está publicada: la vía de evaluación no se puede cambiar."
 								: undefined
 						}
 					/>
@@ -129,11 +129,11 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 			{automatic && (
 				<fieldset className="flex flex-col gap-3">
 					<legend className="mb-1 font-medium text-sm">
-						Calificación del curso
+						Calificación de la capacitación
 					</legend>
 					<p className="text-muted-foreground text-sm">
-						La calificación del curso es el promedio de la mejor nota de cada
-						evaluación
+						La calificación de la capacitación es el promedio de la mejor nota
+						de cada evaluación
 						{requiresEvaluation ? ", examen final incluido" : " del temario"}.
 						Se acredita si el promedio alcanza este mínimo, aunque alguna
 						evaluación quede reprobada.
@@ -148,7 +148,7 @@ export const CourseEvaluationFields = memo(function CourseEvaluationFields({
 							readOnly={isPublished}
 							helperText={
 								isPublished
-									? "El curso ya está publicado: la calificación mínima no se puede cambiar."
+									? "La capacitación ya está publicada: la calificación mínima no se puede cambiar."
 									: undefined
 							}
 							error={errors.minPassingGrade?.message}

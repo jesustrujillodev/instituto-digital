@@ -37,8 +37,8 @@ describe("createCourseCoverReferenceSource", () => {
 				key: KEY,
 				owner: "course",
 				label: "Inducción al servicio público",
-				detail: "Portada del curso",
-				href: "/dashboard/cursos/doc-induccion/editar",
+				detail: "Portada de la capacitación",
+				href: "/dashboard/capacitaciones/doc-induccion/editar",
 			},
 		]);
 	});
@@ -128,7 +128,10 @@ describe("createCourseCoverReferenceSource", () => {
 				`${COURSE_COVER.prefix}/`,
 			]),
 		).toEqual([
-			{ prefix: `${COURSE_COVER.prefix}/`, label: "Portadas de cursos" },
+			{
+				prefix: `${COURSE_COVER.prefix}/`,
+				label: "Portadas de capacitaciones",
+			},
 		]);
 	});
 });

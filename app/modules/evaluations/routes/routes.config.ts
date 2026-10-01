@@ -6,7 +6,7 @@ import { type RouteConfigEntry, route } from "@react-router/dev/routes";
  */
 export const evaluationsRoutes = [
 	route(
-		"cursos/:documentId/evaluaciones",
+		"capacitaciones/:documentId/evaluaciones",
 		"modules/evaluations/routes/cursos/$documentId/evaluaciones/index.ts",
 	),
 	route(

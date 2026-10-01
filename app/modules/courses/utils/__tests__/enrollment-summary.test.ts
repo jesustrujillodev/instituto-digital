@@ -42,7 +42,7 @@ describe("enrollmentSummaryOf", () => {
 				inputOf({ firstSessionStart: new Date("2026-09-23T17:00:00.000Z") }),
 			),
 		).toBe(
-			"Todo el personal interno podrá verlo e inscribirse, sin límite de lugares, hasta el 23-09-2026 a las 10:00.",
+			"Todo el personal interno podrá verla e inscribirse, sin límite de lugares, hasta el 23-09-2026 a las 10:00.",
 		);
 	});
 
@@ -57,13 +57,13 @@ describe("enrollmentSummaryOf", () => {
 				}),
 			),
 		).toBe(
-			"El personal de 2 dependencias y 1 grupo podrá verlo e inscribirse, con 30 lugares, hasta que empiece la primera sesión.",
+			"El personal de 2 dependencias y 1 grupo podrá verla e inscribirse, con 30 lugares, hasta que empiece la primera sesión.",
 		);
 	});
 
 	test("restringido sin audiencia avisa que nadie lo verá", () => {
 		expect(enrollmentSummaryOf(inputOf({ access: "RESTRICTED" }))).toMatch(
-			/^Nadie podrá verlo todavía/,
+			/^Nadie podrá verla todavía/,
 		);
 	});
 
@@ -77,13 +77,13 @@ describe("enrollmentSummaryOf", () => {
 				}),
 			),
 		).toBe(
-			"Solo quien invites podrá verlo e inscribirse, sin límite de lugares, hasta el 20-09-2026.",
+			"Solo quien invites podrá verla e inscribirse, sin límite de lugares, hasta el 20-09-2026.",
 		);
 	});
 
 	test("un autogestivo sin fecha no cierra solo", () => {
 		expect(enrollmentSummaryOf(inputOf({ scheduled: false }))).toBe(
-			"Todo el personal interno podrá verlo e inscribirse, sin límite de lugares, mientras no se cierren las inscripciones.",
+			"Todo el personal interno podrá verla e inscribirse, sin límite de lugares, mientras no se cierren las inscripciones.",
 		);
 	});
 });

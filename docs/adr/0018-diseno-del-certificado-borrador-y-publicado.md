@@ -101,7 +101,7 @@ La ficha pedía un editor a pantalla completa. Se descartó: el lienzo es un `if
 escalado con `transform: scale()` al ancho disponible, así que el layout no afecta
 al rendimiento. Lo que sí cuesta son las regeneraciones del documento, y eso lo
 resuelve el punto anterior. La pantalla es una sola ruta,
-`/dashboard/cursos/:documentId/certificado`, con el grid del theme builder: paneles
+`/dashboard/capacitaciones/:documentId/certificado`, con el grid del theme builder: paneles
 a la izquierda y vista previa fija a la derecha.
 
 ### 2.8 Guardado explícito

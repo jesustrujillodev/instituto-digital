@@ -50,7 +50,7 @@ caso normal de un auxiliar capacitador. Las lentes se suman sin jerarquía y la
 interfaz decide cuál pinta.
 
 `organizing` reutiliza `resolveCourseScope` de `courses`, así que el capacitador
-interno organiza exactamente lo mismo que administra en `/dashboard/cursos`.
+interno organiza exactamente lo mismo que administra en `/dashboard/capacitaciones`.
 
 ### 2.3 · Cuatro reglas que el alcance deja abiertas
 

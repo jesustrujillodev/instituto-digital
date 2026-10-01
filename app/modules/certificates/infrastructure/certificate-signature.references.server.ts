@@ -68,7 +68,7 @@ export const createCertificateSignatureReferenceSource = ({
 						detail: inDesign.has(ref)
 							? "Firma del certificado"
 							: "Firma de certificados emitidos",
-						href: `/dashboard/cursos/${owner.courseDocumentId}/certificado`,
+						href: `/dashboard/capacitaciones/${owner.courseDocumentId}/certificado`,
 					},
 				];
 			});
@@ -127,7 +127,7 @@ export const createCertificateSignatureReferenceSource = ({
 			...owners.map((owner) => ({
 				prefix: courseFolders.get(owner.courseDocumentId) ?? "",
 				label: owner.courseTitle,
-				href: `/dashboard/cursos/${owner.courseDocumentId}/certificado`,
+				href: `/dashboard/capacitaciones/${owner.courseDocumentId}/certificado`,
 			})),
 		];
 	},

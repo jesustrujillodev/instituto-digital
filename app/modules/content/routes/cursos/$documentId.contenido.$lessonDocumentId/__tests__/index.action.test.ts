@@ -47,7 +47,7 @@ const createHarness = (reply: unknown = okReply()) => {
 const run = (context: ActionArgs["context"], fields: Record<string, string>) =>
 	action({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${COURSE_DOC}/contenido/${LESSON_1}`,
+			`https://app.example.com/dashboard/capacitaciones/${COURSE_DOC}/contenido/${LESSON_1}`,
 			{ method: "POST", body: new URLSearchParams(fields) },
 		),
 		context,

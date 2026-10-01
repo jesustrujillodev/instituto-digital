@@ -56,8 +56,8 @@ export function EvaluationDefinitions({
 				Evaluaciones de seguimiento
 			</legend>
 			<p className="text-muted-foreground text-sm">
-				Exámenes o prácticas a lo largo del curso. Quien imparte captura
-				aprobado o no aprobado en cada una; no cuentan para el crédito.
+				Exámenes o prácticas a lo largo de la capacitación. Quien imparte
+				captura aprobado o no aprobado en cada una; no cuentan para el crédito.
 			</p>
 
 			{evaluations.length > 0 && (
@@ -133,8 +133,8 @@ export function EvaluationDefinitions({
 				title={`¿Eliminar ${removing?.title ?? "la evaluación"}?`}
 				description={
 					removing && removing.recorded > 0
-						? "Se borra junto con las calificaciones y observaciones ya capturadas. No afecta a la asistencia ni al resultado del curso."
-						: "No afecta a la asistencia ni al resultado del curso."
+						? "Se borra junto con las calificaciones y observaciones ya capturadas. No afecta a la asistencia ni al resultado de la capacitación."
+						: "No afecta a la asistencia ni al resultado de la capacitación."
 				}
 				confirmLabel="Eliminar"
 				destructive

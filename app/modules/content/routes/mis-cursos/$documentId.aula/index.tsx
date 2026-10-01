@@ -9,13 +9,13 @@ import type { Route } from "./+types/index";
 
 export { loader } from "./index.loader";
 
-const MY_COURSES_PATH = "/dashboard/mis-cursos";
+const MY_COURSES_PATH = "/dashboard/mis-capacitaciones";
 
 export const handle = {
 	breadcrumb: (loaderData) => [
-		{ label: "Mis cursos", path: MY_COURSES_PATH },
+		{ label: "Mis capacitaciones", path: MY_COURSES_PATH },
 		{
-			label: loaderData?.data.course.title ?? "Curso",
+			label: loaderData?.data.course.title ?? "Capacitación",
 			path: loaderData
 				? `${MY_COURSES_PATH}/${loaderData.data.course.documentId}`
 				: undefined,
@@ -43,17 +43,17 @@ function progressNote({
 	withModuleQuizzes: boolean;
 }): string {
 	if (!countsContent) {
-		return "Material de apoyo: recorrerlo no cuenta para completar el curso.";
+		return "Material de apoyo: recorrerlo no cuenta para completar la capacitación.";
 	}
-	if (completed) return "Completaste el curso.";
+	if (completed) return "Completaste la capacitación.";
 	if (contentCompletedAt) {
 		return `Terminaste el contenido el ${formatZonedDate(new Date(contentCompletedAt))}.`;
 	}
-	if (readOnly) return "El curso terminó: puedes repasar sus lecciones.";
+	if (readOnly) return "La capacitación terminó: puedes repasar sus lecciones.";
 
 	return withModuleQuizzes
-		? "Completa las lecciones obligatorias y aprueba la evaluación de cada módulo para terminar el curso."
-		: "Completa las lecciones obligatorias para terminar el curso.";
+		? "Completa las lecciones obligatorias y aprueba la evaluación de cada módulo para terminar la capacitación."
+		: "Completa las lecciones obligatorias para terminar la capacitación.";
 }
 
 export default function AulaLayout({ loaderData }: Route.ComponentProps) {
@@ -93,7 +93,10 @@ export default function AulaLayout({ loaderData }: Route.ComponentProps) {
 										{percent} %
 									</span>
 								</div>
-								<ProgressBar value={percent} label="Avance del curso" />
+								<ProgressBar
+									value={percent}
+									label="Avance de la capacitación"
+								/>
 							</div>
 						)}
 

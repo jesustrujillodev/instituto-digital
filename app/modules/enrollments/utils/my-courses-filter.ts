@@ -22,8 +22,8 @@ const DEFAULT_SECTIONS: readonly MyCourseSection[] = MY_COURSE_SECTIONS.filter(
 export const SECTION_TITLES: Record<MyCourseSection, string> = {
 	invitations: "Te invitaron",
 	inProgress: "En curso",
-	upcoming: "Próximos",
-	finished: "Finalizados",
+	upcoming: "Próximas",
+	finished: "Finalizadas",
 	withdrawn: "Inscripciones canceladas",
 };
 
@@ -101,16 +101,16 @@ export const dependencyOptionsOf = (mine: MyCourses): string[] =>
 const plural = (count: number, one: string, many: string) =>
 	`${count} ${count === 1 ? one : many}`;
 
-/** «1 invitación · 2 en curso · 1 próximo»: solo lo que hay. */
+/** «1 invitación · 2 en curso · 1 próxima»: solo lo que hay. */
 export const summaryOf = (mine: MyCourses): string =>
 	[
 		mine.invitations.length > 0 &&
 			plural(mine.invitations.length, "invitación", "invitaciones"),
 		mine.inProgress.length > 0 && `${mine.inProgress.length} en curso`,
 		mine.upcoming.length > 0 &&
-			plural(mine.upcoming.length, "próximo", "próximos"),
+			plural(mine.upcoming.length, "próxima", "próximas"),
 		mine.finished.length > 0 &&
-			plural(mine.finished.length, "finalizado", "finalizados"),
+			plural(mine.finished.length, "finalizada", "finalizadas"),
 	]
 		.filter(Boolean)
 		.join(" · ");

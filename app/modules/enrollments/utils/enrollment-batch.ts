@@ -65,7 +65,7 @@ export const planBatch = ({
 			blocked: true,
 			message:
 				seatsLeft === 0
-					? `El curso está lleno.${canInvite ? " Aún puedes invitar." : ""}`
+					? `La capacitación está llena.${canInvite ? " Aún puedes invitar." : ""}`
 					: `Inscribir ocuparía ${seats(seatsNeeded)} y solo quedan ${seatsLeft}.`,
 		};
 	}

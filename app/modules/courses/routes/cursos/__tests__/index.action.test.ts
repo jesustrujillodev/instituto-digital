@@ -39,11 +39,11 @@ const createHarness = (options: ActorOptions & { failsWith?: string } = {}) => {
 
 const run = (fields: Record<string, string>, context: ActionArgs["context"]) =>
 	action({
-		request: postRequest("/dashboard/cursos", fields),
+		request: postRequest("/dashboard/capacitaciones", fields),
 		context,
 	} as ActionArgs);
 
-describe("cursos action — guard", () => {
+describe("capacitaciones action — guard", () => {
 	test("un participante recibe 403 sin llegar al servicio", async () => {
 		const { context, calls } = createHarness({ role: "USER" });
 
@@ -57,7 +57,7 @@ describe("cursos action — guard", () => {
 	});
 });
 
-describe("cursos action — intenciones", () => {
+describe("capacitaciones action — intenciones", () => {
 	test("publica y cancela por el documentId", async () => {
 		const { context, calls } = createHarness();
 
@@ -110,7 +110,7 @@ describe("cursos action — intenciones", () => {
 		);
 
 		expect(!result.success && result.error.message).toBe(
-			"Para publicar, el curso necesita al menos una sesión.",
+			"Para publicar, la capacitación necesita al menos una sesión.",
 		);
 	});
 });

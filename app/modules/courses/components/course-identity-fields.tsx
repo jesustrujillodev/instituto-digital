@@ -129,7 +129,7 @@ export const CourseIdentityFields = memo(function CourseIdentityFields({
 						>
 							{scheduled
 								? "Las que acredita el certificado. Si la dejas vacía, se calcula con las sesiones."
-								: "Las que acredita el certificado. Si la dejas vacía, el curso no muestra horas."}
+								: "Las que acredita el certificado. Si la dejas vacía, la capacitación no muestra horas."}
 						</span>
 					)}
 				</div>

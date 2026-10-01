@@ -8,7 +8,7 @@ import { requireParticipant } from "../../require-participant.server";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/:documentId
+ * GET /dashboard/mis-capacitaciones/:documentId
  *
  * Sin una inscripción que enseñar, la ficha que responde es la del catálogo:
  * ahí se decide si el curso se ve y si puede inscribirse.
@@ -38,7 +38,7 @@ export const loader = async ({
 		throw toRouteError(sessionMaterials.error, CONTENT_ERROR_MESSAGES);
 	}
 	if (!detail.data) {
-		throw redirect(`/dashboard/cursos-disponibles/${documentId}`);
+		throw redirect(`/dashboard/catalogo-de-capacitaciones/${documentId}`);
 	}
 
 	return ok({

@@ -51,7 +51,7 @@ export function CourseCatalogPreview({
 	>({ name: ["title", "description", "hours", "format", "modality"] });
 	const newCover = useObjectUrl(cover.value);
 	const src = newCover ?? (cover.removed ? null : cover.existingUrl);
-	const shownTitle = title.trim() || "Título del curso";
+	const shownTitle = title.trim() || "Título de la capacitación";
 
 	return (
 		<figure className="flex flex-col gap-2">

@@ -78,7 +78,7 @@ cuestionario, si es un módulo.
 En el segundo caso el resultado se escribe **antes** de `completionSync`, en la misma
 transacción. Terminar el temario ya exige haber aprobado cada evaluación, así que no hay
 `FAILED` que escribir. `isCompleted` no lee `result` cuando el curso no exige evaluación, así
-que escribirlo no cambia quién completa; solo hace visible la nota en Mis cursos y en Mis
+que escribirlo no cambia quién completa; solo hace visible la nota en Mis capacitaciones y en Mis
 créditos.
 
 ## 3. Consecuencias

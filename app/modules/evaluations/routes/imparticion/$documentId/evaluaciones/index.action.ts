@@ -23,7 +23,7 @@ const savedMessage = (affected: number) =>
  * POST /dashboard/imparticion/:documentId/evaluaciones — capturar resultados.
  *
  * Dar de alta, renombrar o quitar una evaluación no se hace al impartir: se
- * define con el curso, en `/dashboard/cursos/:documentId/evaluaciones`.
+ * define con el curso, en `/dashboard/capacitaciones/:documentId/evaluaciones`.
  */
 export const action = async ({
 	request,

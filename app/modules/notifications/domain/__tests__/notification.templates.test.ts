@@ -90,11 +90,11 @@ describe("renderNotification", () => {
 	test("los avisos del curso llevan a su ficha en «Mis cursos»", () => {
 		for (const event of ALL_EVENTS.slice(3, 7)) {
 			expect(render(event).text).toContain(
-				`${APP_URL}/dashboard/mis-cursos/c-1`,
+				`${APP_URL}/dashboard/mis-capacitaciones/c-1`,
 			);
 		}
 		expect(render(ALL_EVENTS[7]).text).toContain(
-			`${APP_URL}/dashboard/cursos-disponibles`,
+			`${APP_URL}/dashboard/catalogo-de-capacitaciones`,
 		);
 	});
 
@@ -104,8 +104,8 @@ describe("renderNotification", () => {
 
 		expect(subject).toContain("Seguridad en obra");
 		expect(text).toContain("te dio de baja");
-		expect(text).toContain(`${APP_URL}/dashboard/cursos-disponibles`);
-		expect(text).not.toContain("/dashboard/mis-cursos/");
+		expect(text).toContain(`${APP_URL}/dashboard/catalogo-de-capacitaciones`);
+		expect(text).not.toContain("/dashboard/mis-capacitaciones/");
 	});
 
 	test("sin nombre, el saludo es genérico", () => {

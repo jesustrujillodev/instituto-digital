@@ -105,7 +105,7 @@ describe("navigationSections — orden por intención", () => {
 		] as const) {
 			expect(mainPathsFor(role, true).slice(0, 2)).toEqual([
 				"/dashboard",
-				"/dashboard/mis-cursos",
+				"/dashboard/mis-capacitaciones",
 			]);
 			expect(sectionLabelsFor(role, true)[1]).toBe("Mi capacitación");
 		}
@@ -153,8 +153,8 @@ describe("navigationSections — filtrado por rol", () => {
 	// Los roles globales administran pero no cursan (§3): lo único de un USER que
 	// no ven son las pantallas de participante.
 	const PARTICIPANT_PATHS = [
-		"/dashboard/cursos-disponibles",
-		"/dashboard/mis-cursos",
+		"/dashboard/catalogo-de-capacitaciones",
+		"/dashboard/mis-capacitaciones",
 		"/dashboard/mis-creditos",
 		"/dashboard/mis-certificados",
 	];
@@ -257,11 +257,11 @@ describe("navigationSections — filtrado por rol", () => {
 			"DEPENDENCY_HEAD",
 			"DEPENDENCY_DEPUTY",
 		] as const) {
-			expect(mainPathsFor(role)).toContain("/dashboard/cursos");
+			expect(mainPathsFor(role)).toContain("/dashboard/capacitaciones");
 		}
 
-		expect(mainPathsFor("USER", true)).toContain("/dashboard/cursos");
-		expect(mainPathsFor("USER")).not.toContain("/dashboard/cursos");
+		expect(mainPathsFor("USER", true)).toContain("/dashboard/capacitaciones");
+		expect(mainPathsFor("USER")).not.toContain("/dashboard/capacitaciones");
 	});
 
 	test("la impartición la ven la gestión y cualquier capacitador", () => {
@@ -302,10 +302,10 @@ describe("navigationSections — filtrado por rol", () => {
 		const external = mainPathsFor("USER", true, false);
 
 		for (const path of [
-			"/dashboard/mis-cursos",
-			"/dashboard/cursos-disponibles",
+			"/dashboard/mis-capacitaciones",
+			"/dashboard/catalogo-de-capacitaciones",
 			"/dashboard/mis-creditos",
-			"/dashboard/cursos",
+			"/dashboard/capacitaciones",
 		]) {
 			expect(external).not.toContain(path);
 		}

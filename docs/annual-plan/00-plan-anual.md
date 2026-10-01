@@ -10,7 +10,7 @@ orienta sin restringir: un curso puede existir sin línea de plan.
 | --- | --- | --- |
 | `/dashboard/plan-anual` | Superadministrador, titular, auxiliar | Planes con su avance. El titular y los auxiliares crean el del ejercicio actual o el siguiente; el superadministrador filtra por dependencia |
 | `/dashboard/plan-anual/:documentId` | Los mismos | Líneas en lista y por mes, avance, y acciones por línea |
-| `/dashboard/cursos/nuevo?linea=<id>` | Titular, auxiliar | Alta de curso precargada desde la línea |
+| `/dashboard/capacitaciones/nuevo?linea=<id>` | Titular, auxiliar | Alta de curso precargada desde la línea |
 
 Las decisiones están en [ADR 0007](../adr/0007-plan-anual-estado-derivado.md).
 
@@ -71,7 +71,7 @@ Hay dos caminos, y los dos acaban en `claimPlanLine`:
 
 ```
 Plan → "Crear curso"
-  │ /dashboard/cursos/nuevo?linea=<id>
+  │ /dashboard/capacitaciones/nuevo?linea=<id>
   ▼ loader: annualPlanService.findLineForCourse → título, modalidad y línea precargados
 Paso General (plan y línea) → POST
   ▼ courseService.create, dentro de runInTransaction

@@ -48,14 +48,18 @@ import {
 } from "../../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
-const LIST_PATH = "/dashboard/cursos-disponibles";
+const LIST_PATH = "/dashboard/catalogo-de-capacitaciones";
 
 const OWN_STATUS: Record<
 	EnrollmentStatus,
 	{ icon: LucideIcon; tone: "success" | "neutral" | "muted"; title: string }
 > = {
 	ENROLLED: { icon: CircleCheck, tone: "success", title: "Estás inscrito" },
-	INVITED: { icon: Mail, tone: "neutral", title: "Te invitaron a este curso" },
+	INVITED: {
+		icon: Mail,
+		tone: "neutral",
+		title: "Te invitaron a esta capacitación",
+	},
 	WITHDRAWN: { icon: UserX, tone: "muted", title: "Te diste de baja" },
 	DECLINED: { icon: CircleX, tone: "muted", title: "Rechazaste la invitación" },
 };
@@ -72,7 +76,7 @@ function AvailabilityStatus({
 }) {
 	const deadline =
 		course.closesAt === null
-			? "Este curso todavía no tiene sesiones."
+			? "Esta capacitación todavía no tiene sesiones."
 			: course.isOpen
 				? `La inscripción cierra el ${formatZonedDate(new Date(course.closesAt))}.`
 				: `La inscripción cerró el ${formatZonedDate(new Date(course.closesAt))}.`;
@@ -99,13 +103,13 @@ function AvailabilityStatus({
 
 export const handle = {
 	breadcrumb: () => [
-		{ label: "Cursos disponibles", path: LIST_PATH },
-		{ label: "Curso" },
+		{ label: "Catálogo de capacitaciones", path: LIST_PATH },
+		{ label: "Capacitación" },
 	],
 } satisfies BreadcrumbHandle;
 
 export function meta() {
-	return [{ title: "Curso" }];
+	return [{ title: "Capacitación" }];
 }
 
 export default function CursoDisponiblePage({
@@ -148,7 +152,9 @@ export default function CursoDisponiblePage({
 		<div className="flex flex-wrap gap-2">
 			{can.assign && (
 				<Button variant="outline" asChild>
-					<Link to={`/dashboard/cursos/${course.documentId}/inscripciones`}>
+					<Link
+						to={`/dashboard/capacitaciones/${course.documentId}/inscripciones`}
+					>
 						<Users className="h-4 w-4" />
 						Inscribir a mi personal
 					</Link>
@@ -185,7 +191,7 @@ export default function CursoDisponiblePage({
 			)}
 			{hasClassroom && (
 				<Button asChild>
-					<Link to={`/dashboard/mis-cursos/${course.documentId}/aula`}>
+					<Link to={`/dashboard/mis-capacitaciones/${course.documentId}/aula`}>
 						<BookOpen className="h-4 w-4" />
 						Entrar al aula
 					</Link>
@@ -225,7 +231,7 @@ export default function CursoDisponiblePage({
 			<ConfirmDialog
 				open={confirmingWithdraw}
 				onOpenChange={setConfirmingWithdraw}
-				title="¿Darte de baja del curso?"
+				title="¿Darte de baja de la capacitación?"
 				description="Liberarás tu lugar. Podrás volver a inscribirte mientras la inscripción siga abierta."
 				confirmLabel="Darme de baja"
 				cancelLabel="Volver"

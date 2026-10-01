@@ -6,7 +6,7 @@ import { ENROLLMENT_ERROR_MESSAGES } from "../../utils/enrollment-error-messages
 import { requireParticipant } from "../require-participant.server";
 import type { Route } from "./+types/index";
 
-/** GET /dashboard/mis-cursos */
+/** GET /dashboard/mis-capacitaciones */
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const auth = await requireParticipant(request, context);
 

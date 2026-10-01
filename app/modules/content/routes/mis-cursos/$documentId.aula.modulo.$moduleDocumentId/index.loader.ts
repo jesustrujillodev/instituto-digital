@@ -6,7 +6,7 @@ import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/mis-cursos/:documentId/aula/modulo/:moduleDocumentId
+ * GET /dashboard/mis-capacitaciones/:documentId/aula/modulo/:moduleDocumentId
  *
  * La evaluación del módulo, sin respuestas correctas, y dónde cae en el
  * recorrido del aula.

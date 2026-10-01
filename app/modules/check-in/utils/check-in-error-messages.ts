@@ -28,24 +28,24 @@ export const CHECK_IN_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[CHECK_IN_ERROR_CODES.INVALID_TOKEN]: {
 		message:
-			"Este código de asistencia no es válido o fue reemplazado. Pide el código vigente a quien imparte el curso.",
+			"Este código de asistencia no es válido o fue reemplazado. Pide el código vigente a quien imparte la capacitación.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[CHECK_IN_ERROR_CODES.COURSE_NOT_OPEN]: {
-		message: "Este curso no está registrando asistencia.",
+		message: "Esta capacitación no está registrando asistencia.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CHECK_IN_ERROR_CODES.NOT_ENROLLED]: {
-		message: "No estás inscrito en este curso.",
+		message: "No estás inscrito en esta capacitación.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[CHECK_IN_ERROR_CODES.INVITATION_PENDING]: {
 		message:
-			"Tienes una invitación pendiente a este curso. Acéptala para poder registrar tu asistencia.",
+			"Tienes una invitación pendiente a esta capacitación. Acéptala para poder registrar tu asistencia.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[CHECK_IN_ERROR_CODES.WITHOUT_SESSIONS]: {
-		message: "Este curso todavía no tiene sesiones programadas.",
+		message: "Esta capacitación todavía no tiene sesiones programadas.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CHECK_IN_ERROR_CODES.SESSION_NOT_OPEN]: {
@@ -63,7 +63,7 @@ export const CHECK_IN_ERROR_MESSAGES: ErrorMessageMap = {
 			const closed = window
 				? `El registro estuvo abierto ${window}.`
 				: "El registro de la última sesión ya cerró.";
-			return `${closed} Pide a quien imparte el curso que registre tu asistencia.`;
+			return `${closed} Pide a quien imparte la capacitación que registre tu asistencia.`;
 		},
 		status: HTTP_STATUS.CONFLICT,
 	},
@@ -72,7 +72,7 @@ export const CHECK_IN_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.TOO_MANY_REQUESTS,
 	},
 	[CHECK_IN_ERROR_CODES.FORBIDDEN_SCOPE]: {
-		message: "No administras el código QR de este curso.",
+		message: "No administras el código QR de esta capacitación.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

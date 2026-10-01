@@ -42,12 +42,12 @@ const createHarness = (options: ActorOptions & { listFails?: string } = {}) => {
 
 const run = (context: LoaderArgs["context"]) =>
 	loader({
-		request: getRequest("/dashboard/mis-cursos/finalizados.xlsx"),
+		request: getRequest("/dashboard/mis-capacitaciones/finalizados.xlsx"),
 		context,
 		params: {},
 	} as unknown as LoaderArgs);
 
-describe("mis-cursos/finalizados.xlsx loader", () => {
+describe("mis-capacitaciones/finalizados.xlsx loader", () => {
 	test("descarga solo los cursos finalizados como adjunto", async () => {
 		const { context, calls } = createHarness();
 
@@ -60,7 +60,7 @@ describe("mis-cursos/finalizados.xlsx loader", () => {
 			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		);
 		expect(response.headers.get("Content-Disposition")).toBe(
-			'attachment; filename="mis-cursos-finalizados-2026-09-19.xlsx"',
+			'attachment; filename="mis-capacitaciones-finalizadas-2026-09-19.xlsx"',
 		);
 		expect(new Uint8Array(await response.arrayBuffer())).toEqual(FILE);
 	});

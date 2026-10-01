@@ -83,15 +83,15 @@ const describeStep = (step: CourseStep, mode: CourseWizardMode): string => {
 				? "Es lo que el personal lee en el catálogo. Con el título basta para guardar el borrador."
 				: "Es lo que el personal lee en el catálogo.";
 		case "program":
-			return "Quién lo imparte, cuándo y dónde.";
+			return "Quién la imparte, cuándo y dónde.";
 		case "content":
 			return "Los módulos y las lecciones que se recorren.";
 		case "rules":
-			return "Qué hace falta para completar el curso y obtener el crédito, y cómo se evalúa a quien lo toma.";
+			return "Qué hace falta para completar la capacitación y obtener el crédito, y cómo se evalúa a quien la toma.";
 		case "access":
-			return "Quién puede verlo e inscribirse, y cuántos lugares hay.";
+			return "Quién puede verla e inscribirse, y cuántos lugares hay.";
 		case "review":
-			return "Repasa lo capturado. Al publicar, el curso aparece a su audiencia y puede recibir inscripciones.";
+			return "Repasa lo capturado. Al publicar, la capacitación aparece a su audiencia y puede recibir inscripciones.";
 	}
 };
 
@@ -153,7 +153,7 @@ export function CourseWizard({
 	prefill,
 	ids,
 	exitTo,
-	exitLabel = "al curso",
+	exitLabel = "a la capacitación",
 	finishTo,
 	finishLabel,
 	search = "",
@@ -288,8 +288,8 @@ export function CourseWizard({
 
 	useFetcherToast(fetcher, {
 		errorMessage: isCreate
-			? "No se pudo crear el curso"
-			: "No se pudo guardar el curso",
+			? "No se pudo crear la capacitación"
+			: "No se pudo guardar la capacitación",
 		onError: () => settle(false),
 		onSuccess: () => {
 			const data = fetcher.data;
@@ -465,11 +465,11 @@ export function CourseWizard({
 
 			<div className="flex flex-col">
 				<PageHeader
-					title={course ? course.title : "Nuevo curso"}
+					title={course ? course.title : "Nueva capacitación"}
 					description={
 						course
 							? `${isEdit ? "Editando" : "Borrador"} · Paso ${position} de ${total}`
-							: "En cuanto continúes, el curso queda guardado como borrador."
+							: "En cuanto continúes, la capacitación queda guardada como borrador."
 					}
 					goBack={exitPath}
 					collapseActionsOnMobile

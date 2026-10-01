@@ -149,7 +149,9 @@ export function CourseDetailBody({
 					<CardContent className="flex flex-col gap-5">
 						{course.description && (
 							<section className="flex flex-col gap-2">
-								<h2 className="font-medium text-base">Acerca del curso</h2>
+								<h2 className="font-medium text-base">
+									Acerca de la capacitación
+								</h2>
 								<p className="max-w-prose whitespace-pre-line text-sm leading-relaxed">
 									{course.description}
 								</p>

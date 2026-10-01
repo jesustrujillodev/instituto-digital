@@ -10,7 +10,7 @@ import type { Route } from "./+types/index";
 export const PLAN_LINE_PARAM = "linea";
 
 /**
- * GET /dashboard/cursos/nuevo — opciones de los selectores del alta y, con
+ * GET /dashboard/capacitaciones/nuevo — opciones de los selectores del alta y, con
  * `?linea=`, el título y la modalidad de la línea del plan (§6.11).
  */
 export const loader = async ({ request, context }: Route.LoaderArgs) => {

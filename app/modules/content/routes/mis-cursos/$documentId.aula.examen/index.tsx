@@ -32,7 +32,7 @@ export default function AulaExamenPage({ loaderData }: Route.ComponentProps) {
 
 				{!view ? (
 					<p className="text-muted-foreground text-sm">
-						Este curso no se evalúa con examen en línea.
+						Esta capacitación no se evalúa con examen en línea.
 					</p>
 				) : view.sheet ? (
 					<>
@@ -54,7 +54,7 @@ export default function AulaExamenPage({ loaderData }: Route.ComponentProps) {
 					</Alert>
 				) : (
 					<p className="text-muted-foreground text-sm">
-						El curso terminó: el examen ya no se puede presentar.
+						La capacitación terminó: el examen ya no se puede presentar.
 					</p>
 				)}
 			</CardContent>

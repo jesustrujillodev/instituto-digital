@@ -51,11 +51,11 @@ import type { Route } from "./+types/index";
 type LineRow = PlanLineView & { id: string };
 
 const newCoursePath = (line: PlanLineView) =>
-	`/dashboard/cursos/nuevo?linea=${line.documentId}`;
+	`/dashboard/capacitaciones/nuevo?linea=${line.documentId}`;
 
 const coursePath = (line: PlanLineView) =>
 	line.activeCourse
-		? `/dashboard/cursos/${line.activeCourse.documentId}`
+		? `/dashboard/capacitaciones/${line.activeCourse.documentId}`
 		: null;
 
 /** Dice por qué la línea está realizada sin que su curso se haya finalizado. */
@@ -164,7 +164,7 @@ export default function PlanDetallePage({ loaderData }: Route.ComponentProps) {
 			columnHelpers.custom<LineRow>("status", "Estado", (line) => (
 				<PlanLineStatusBadge status={line.status} />
 			)),
-			columnHelpers.custom<LineRow>("activeCourse", "Curso", (line) => {
+			columnHelpers.custom<LineRow>("activeCourse", "Capacitación", (line) => {
 				const path = coursePath(line);
 				return path && line.activeCourse ? (
 					<div className="flex flex-col">
@@ -189,13 +189,13 @@ export default function PlanDetallePage({ loaderData }: Route.ComponentProps) {
 		() => [
 			{
 				icon: BookPlus,
-				label: "Crear curso",
+				label: "Crear capacitación",
 				show: (line) => line.can.createCourse,
 				onClick: (line) => navigate(newCoursePath(line)),
 			},
 			{
 				icon: ExternalLink,
-				label: "Ver curso",
+				label: "Ver capacitación",
 				show: (line) => line.activeCourse !== null,
 				onClick: (line) => {
 					const path = coursePath(line);
@@ -282,7 +282,7 @@ export default function PlanDetallePage({ loaderData }: Route.ComponentProps) {
 								icon: CalendarRange,
 								title: "Sin líneas",
 								description: canManage
-									? "Agrega los cursos que la dependencia prevé dar este año."
+									? "Agrega las capacitaciones que la dependencia prevé dar este año."
 									: "Este plan todavía no tiene líneas.",
 							}}
 							mobileCard={{
@@ -307,7 +307,7 @@ export default function PlanDetallePage({ loaderData }: Route.ComponentProps) {
 									</h3>
 									{monthLines.length === 0 ? (
 										<p className="text-muted-foreground text-xs">
-											Sin cursos previstos.
+											Sin capacitaciones previstas.
 										</p>
 									) : (
 										<ul className="flex flex-col gap-2">
@@ -337,7 +337,7 @@ export default function PlanDetallePage({ loaderData }: Route.ComponentProps) {
 				title={deleting ? "¿Borrar la línea?" : "¿Cancelar la línea?"}
 				description={
 					deleting
-						? `"${confirm?.line.title ?? ""}" se borrará del plan. Solo se puede porque nunca tuvo curso.`
+						? `"${confirm?.line.title ?? ""}" se borrará del plan. Solo se puede porque nunca tuvo capacitación.`
 						: `"${confirm?.line.title ?? ""}" dejará de contar para el avance. Puedes reactivarla después.`
 				}
 				confirmLabel={deleting ? "Borrar" : "Cancelar línea"}

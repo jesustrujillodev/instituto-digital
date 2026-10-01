@@ -48,12 +48,12 @@ export const ANNUAL_PLAN_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[ANNUAL_PLAN_ERROR_CODES.LINE_HAS_ACTIVE_COURSE]: {
 		message:
-			"La línea ya tiene un curso vigente. Cancela el curso para liberarla.",
+			"La línea ya tiene una capacitación vigente. Cancela la capacitación para liberarla.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[ANNUAL_PLAN_ERROR_CODES.LINE_HAS_COURSES]: {
 		message:
-			"La línea tuvo cursos y conserva ese historial: cancélala en lugar de borrarla.",
+			"La línea tuvo capacitaciones y conserva ese historial: cancélala en lugar de borrarla.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

@@ -32,7 +32,7 @@ describe("ventana de escaneo", () => {
 		const message = messageOf(new CheckInSessionClosedError(WINDOW));
 
 		expect(message).toContain("14:30–15:15");
-		expect(message).toContain("quien imparte el curso");
+		expect(message).toContain("quien imparte la capacitación");
 	});
 
 	test("una ventana que cruza la medianoche repite la fecha", () => {

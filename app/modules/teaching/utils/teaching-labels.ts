@@ -7,11 +7,11 @@ export const finishBlockerMessage = (
 ): string => {
 	switch (blocker) {
 		case "NOT_PUBLISHED":
-			return "Solo se finaliza un curso publicado.";
+			return "Solo se finaliza una capacitación publicada.";
 		case "SELF_PACED":
-			return "Un curso autogestivo no se finaliza: cada participante lo completa al terminarlo.";
+			return "Una capacitación autogestiva no se finaliza: cada participante la completa al terminarla.";
 		case "WITHOUT_SESSIONS":
-			return "El curso no tiene sesiones.";
+			return "La capacitación no tiene sesiones.";
 		case "TOO_EARLY":
 			return context.opensAt
 				? `Se podrá finalizar a partir del ${formatZonedDate(context.opensAt)}.`

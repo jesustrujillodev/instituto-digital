@@ -73,7 +73,7 @@ describe("findByKeys", () => {
 				owner: "certificate",
 				label: "Seguridad en obra",
 				detail: "Firma del certificado",
-				href: `/dashboard/cursos/${COURSE}/certificado`,
+				href: `/dashboard/capacitaciones/${COURSE}/certificado`,
 			},
 			expect.objectContaining({ key: IN_PUBLISHED }),
 		]);
@@ -127,7 +127,7 @@ describe("describeFolders", () => {
 			{
 				prefix: `documentos/firmas/${COURSE}/`,
 				label: "Seguridad en obra",
-				href: `/dashboard/cursos/${COURSE}/certificado`,
+				href: `/dashboard/capacitaciones/${COURSE}/certificado`,
 			},
 		]);
 	});

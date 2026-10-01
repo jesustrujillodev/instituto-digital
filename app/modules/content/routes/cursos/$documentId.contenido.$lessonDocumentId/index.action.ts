@@ -15,7 +15,7 @@ import {
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/cursos/:documentId/contenido/:lessonDocumentId
+ * POST /dashboard/capacitaciones/:documentId/contenido/:lessonDocumentId
  *
  * Dos intents: pedir permiso para subir y guardar el material. El archivo nunca
  * pasa por aquí —lo escribe el navegador en el bucket con la URL firmada—, así

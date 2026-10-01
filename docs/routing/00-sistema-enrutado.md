@@ -126,6 +126,11 @@ Puntos de diseño:
   Su loader lo dice en su JSDoc
   ([ADR 0020](../adr/0020-ruta-publica-de-verificacion.md)). Una ruta pública
   nueva con datos de personas sigue ese mismo patrón.
+- **URL y carpeta son independientes.** Las rutas de capacitaciones se sirven en
+  `/dashboard/capacitaciones`, `/dashboard/catalogo-de-capacitaciones` y
+  `/dashboard/mis-capacitaciones`, pero las carpetas de los módulos conservan sus
+  nombres originales (`cursos/`, `cursos-disponibles/`, `mis-cursos/`): en este
+  proyecto la URL la decide el primer argumento de `route()`, no la carpeta.
 - No se crean archivos vacíos "de reserva" para zonas futuras. El repo arrastró
   siete archivos de ruta de 0 bytes precisamente por esa práctica; los marcadores
   de zona comentados cumplen la misma función sin código muerto.
@@ -399,7 +404,7 @@ export const navigationSections: readonly NavSection[] = [
   {
     label: "Mi capacitación",
     roles: LEARNER_ROLES,
-    items: [{ label: "Mis cursos", path: "/dashboard/mis-cursos", icon: BookOpenCheck }],
+    items: [{ label: "Mis capacitaciones", path: "/dashboard/mis-capacitaciones", icon: BookOpenCheck }],
   },
   { label: "Gestión", roles: LEARNER_ROLES, items: [/* Cursos, Grupos, … */] },
   { label: "Administración", roles: PLATFORM_ROLES, items: [/* Dependencias, … */] },
@@ -407,7 +412,7 @@ export const navigationSections: readonly NavSection[] = [
 ];
 ```
 
-- **Orden por intención**: quien cursa ve primero su capacitación (Mis cursos
+- **Orden por intención**: quien cursa ve primero su capacitación (Mis capacitaciones
   encabeza) y después lo que imparte u organiza; los roles de plataforma, que no
   cursan, empiezan por la administración. Un mismo destino puede vivir en dos
   secciones con roles disjuntos; el test garantiza que nadie lo ve dos veces.
@@ -465,8 +470,8 @@ Componentes instalados para esta capa: `sidebar`, `collapsible`, `dropdown-menu`
 | `/dashboard/usuarios/*` | Protegida | `requireScope(USER_MANAGER_ROLES)` |
 | `/dashboard/usuarios/capacitador-externo`, `/dashboard/usuarios/:documentId/perfil-capacitador` | Protegida | `requireRole(TRAINER_ADMIN_ROLES)`; alcance y rango en el servicio (`canManageTrainer`) |
 | `/dashboard/grupos/*` | Protegida | `requireScope(GROUP_ACCESS_ROLES)` |
-| `/dashboard/cursos/*` | Protegida | `requireCourseScope` (admite al capacitador interno; ver [courses/00](../courses/00-cursos-sesiones-y-acceso.md) §4). Incluye `/:documentId/inscripciones` |
-| `/dashboard/cursos-disponibles/*`, `/dashboard/mis-cursos`, `/dashboard/mis-cursos/:documentId` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
+| `/dashboard/capacitaciones/*` | Protegida | `requireCourseScope` (admite al capacitador interno; ver [courses/00](../courses/00-cursos-sesiones-y-acceso.md) §4). Incluye `/:documentId/inscripciones` |
+| `/dashboard/catalogo-de-capacitaciones/*`, `/dashboard/mis-capacitaciones`, `/dashboard/mis-capacitaciones/:documentId` | Protegida | `requireAuth` + `canParticipate` (dependencia y rol no global; ver [enrollments/00](../enrollments/00-inscripcion-e-invitaciones.md) §5) |
 | `/dashboard/nube` | Protegida | `requireRole(["SUPERADMIN"])` |
 | `/dashboard/sesiones` | Protegida | `requireRole(SESSION_MONITOR_ROLES)` |
 | `/api/storage` | Infraestructura | Mixta por prefijo de key |

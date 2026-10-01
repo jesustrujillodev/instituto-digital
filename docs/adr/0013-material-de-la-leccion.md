@@ -121,7 +121,7 @@ contrato, y por eso tampoco hay botón de quitar.
 
 ### 2.8 El material tiene su propia ruta
 
-`cursos/:documentId/contenido/:lessonDocumentId`, sin componente: el panel la lee
+`capacitaciones/:documentId/contenido/:lessonDocumentId`, sin componente: el panel la lee
 con `fetcher.load` y le escribe con `fetcher.submit`.
 
 Meterlo en el árbol habría hecho que cada carga del temario arrastrara el cuerpo

@@ -22,8 +22,8 @@ export const certificateSampleUrl = (
 	version: SampleVersion,
 	format: CertificateExportFormat,
 ) =>
-	`/dashboard/cursos/${courseDocumentId}/certificado/muestra?version=${version}&formato=${format}`;
+	`/dashboard/capacitaciones/${courseDocumentId}/certificado/muestra?version=${version}&formato=${format}`;
 
 /** El editor del certificado de un curso. */
 export const certificateEditorPath = (courseDocumentId: string) =>
-	`/dashboard/cursos/${courseDocumentId}/certificado`;
+	`/dashboard/capacitaciones/${courseDocumentId}/certificado`;

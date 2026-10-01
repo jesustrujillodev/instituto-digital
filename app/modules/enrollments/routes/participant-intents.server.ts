@@ -17,7 +17,7 @@ const PARTICIPANT_OPERATIONS = {
 	},
 	[ENROLLMENT_INTENTS.withdraw]: {
 		method: "withdraw",
-		message: "Te diste de baja del curso",
+		message: "Te diste de baja de la capacitación",
 	},
 	[ENROLLMENT_INTENTS.accept]: {
 		method: "accept",

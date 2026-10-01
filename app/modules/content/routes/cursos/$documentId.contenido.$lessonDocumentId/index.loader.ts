@@ -9,7 +9,7 @@ import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/contenido/:lessonDocumentId
+ * GET /dashboard/capacitaciones/:documentId/contenido/:lessonDocumentId
  *
  * El material de una sola lección. Vive aparte del temario porque el árbol se
  * carga entero en cada pantalla y el cuerpo de cada lección no tiene por qué

@@ -165,7 +165,7 @@ La pantalla de alta del externo lo resume en su descripción
 ### 5.1 · Definición
 
 Participar es **poder inscribirse a cursos, recibir invitaciones y aparecer en
-"Mis cursos"**. No es un rol ni un perfil, y no se guarda en ningún lado: se
+"Mis capacitaciones"**. No es un rol ni un perfil, y no se guarda en ningún lado: se
 calcula cada vez con una sola función.
 
 ### 5.2 · La regla
@@ -204,14 +204,14 @@ El perfil de capacitador **no interviene**: ni lo da ni lo quita.
 
 | Lugar | Qué hace | Referencia |
 | --- | --- | --- |
-| Acceso a "Cursos disponibles" y "Mis cursos" | Responde 403 a quien no participa | [`app/modules/enrollments/routes/require-participant.server.ts:15-24`](../../app/modules/enrollments/routes/require-participant.server.ts) |
+| Acceso a "Catálogo de capacitaciones" y "Mis capacitaciones" | Responde 403 a quien no participa | [`app/modules/enrollments/routes/require-participant.server.ts:15-24`](../../app/modules/enrollments/routes/require-participant.server.ts) |
 | Servicio de inscripción | Rechaza la operación con un error de dominio | [`app/modules/enrollments/application/enrollments.service.server.ts:101-106`](../../app/modules/enrollments/application/enrollments.service.server.ts) |
 | Calendario | Decide si se muestran los cursos que la persona cursa | [`app/modules/calendar/domain/calendar.rules.ts:40`](../../app/modules/calendar/domain/calendar.rules.ts) |
 
 ### 5.5 · Dos detalles que confunden
 
-1. **El menú usa una aproximación por rol.** Los enlaces "Cursos disponibles" y
-   "Mis cursos" se muestran a `USER`, `DEPENDENCY_HEAD` y `DEPENDENCY_DEPUTY`
+1. **El menú usa una aproximación por rol.** Los enlaces "Catálogo de capacitaciones" y
+   "Mis capacitaciones" se muestran a `USER`, `DEPENDENCY_HEAD` y `DEPENDENCY_DEPUTY`
    ([`app/shared/layout/navigation.config.ts:86-97`](../../app/shared/layout/navigation.config.ts)).
    El menú no conoce la dependencia, así que el capacitador externo (rol `USER`)
    ve los enlaces y al entrar recibe 403. La lista `PARTICIPANT_ROLES`

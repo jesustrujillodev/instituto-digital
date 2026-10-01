@@ -3,7 +3,7 @@ import { runParticipantIntent } from "../../participant-intents.server";
 import { requireParticipant } from "../../require-participant.server";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos-disponibles/:documentId */
+/** POST /dashboard/catalogo-de-capacitaciones/:documentId */
 export const action = async ({
 	request,
 	context,

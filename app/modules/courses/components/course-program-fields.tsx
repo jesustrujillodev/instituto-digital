@@ -130,7 +130,7 @@ export function CourseProgramFields({
 				disabled={modalityLocked}
 				helperText={
 					isPublished
-						? "Cómo se imparte el curso no cambia una vez publicado."
+						? "Cómo se imparte la capacitación no cambia una vez publicada."
 						: undefined
 				}
 				detail={
@@ -153,7 +153,7 @@ export function CourseProgramFields({
 								<p className="flex items-start gap-2 text-muted-foreground text-sm">
 									<Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
 									{modality === "HYBRID"
-										? "Agregamos el paso Contenido al alta para que armes las lecciones. Las sesiones de abajo son opcionales y no cuentan para completarlo."
+										? "Agregamos el paso Contenido al alta para que armes las lecciones. Las sesiones de abajo son opcionales y no cuentan para completarla."
 										: "Agregamos el paso Contenido al alta para que armes las lecciones. Sin sesiones ni capacitador: cada quien obtiene su crédito al terminarlas."}
 								</p>
 							)}

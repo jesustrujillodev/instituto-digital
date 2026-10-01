@@ -20,9 +20,9 @@ export const toFinishedCoursesSheets = (
 	courses: readonly EnrollmentCourse[],
 ): SpreadsheetSheet[] => [
 	{
-		name: "Cursos",
+		name: "Capacitaciones",
 		columns: [
-			{ header: "Curso", width: 40 },
+			{ header: "Capacitación", width: 40 },
 			{ header: "Descripción", width: 60 },
 			{ header: "Dependencia organizadora", width: 32 },
 			{ header: "Estado", width: 12 },
@@ -34,7 +34,7 @@ export const toFinishedCoursesSheets = (
 			{ header: "Horas", width: 8, format: "decimal" },
 			{ header: "Inicio", width: 18, format: "datetime" },
 			{ header: "Fin", width: 18, format: "datetime" },
-			{ header: "Finalizado el", width: 14, format: "date" },
+			{ header: "Finalizada el", width: 14, format: "date" },
 		],
 		rows: courses.map((course) => [
 			course.title,
@@ -55,7 +55,7 @@ export const toFinishedCoursesSheets = (
 	{
 		name: "Sesiones",
 		columns: [
-			{ header: "Curso", width: 40 },
+			{ header: "Capacitación", width: 40 },
 			{ header: "Sesión", width: 8, format: "integer" },
 			{ header: "Fecha", width: 12, format: "date" },
 			{ header: "Inicio", width: 8, format: "time" },
@@ -79,6 +79,6 @@ export const toFinishedCoursesSheets = (
 	},
 ];
 
-/** `mis-cursos-finalizados-2026-09-19.xlsx`, con la fecha del instituto. */
+/** `mis-capacitaciones-finalizadas-2026-09-19.xlsx`, con la fecha del instituto. */
 export const finishedCoursesFileName = (now: Date) =>
-	`mis-cursos-finalizados-${utcToZonedInput(now).date}.xlsx`;
+	`mis-capacitaciones-finalizadas-${utcToZonedInput(now).date}.xlsx`;

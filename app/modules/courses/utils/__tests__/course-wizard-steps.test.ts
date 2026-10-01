@@ -217,20 +217,20 @@ describe("parseStepNumber", () => {
 describe("stepPath", () => {
 	test("apunta al paso del alta", () => {
 		expect(stepPath(COURSE_ID, 2)).toBe(
-			`/dashboard/cursos/${COURSE_ID}/nuevo/2`,
+			`/dashboard/capacitaciones/${COURSE_ID}/nuevo/2`,
 		);
 	});
 
 	test("la edición tiene su propia ruta", () => {
 		expect(stepPath(COURSE_ID, 4, "edit")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/editar/4`,
+			`/dashboard/capacitaciones/${COURSE_ID}/editar/4`,
 		);
 	});
 });
 
 describe("finishReturnPath", () => {
 	test("terminar lleva a la lista de cursos", () => {
-		expect(finishReturnPath(COURSE_ID, null)).toBe("/dashboard/cursos");
+		expect(finishReturnPath(COURSE_ID, null)).toBe("/dashboard/capacitaciones");
 	});
 
 	test("si se entró desde impartición, regresa ahí", () => {
@@ -251,7 +251,7 @@ describe("editReturnPath", () => {
 		"%s vuelve a la ficha, nunca a una dirección arbitraria",
 		(returnTo) => {
 			expect(editReturnPath(COURSE_ID, returnTo)).toBe(
-				`/dashboard/cursos/${COURSE_ID}`,
+				`/dashboard/capacitaciones/${COURSE_ID}`,
 			);
 		},
 	);
@@ -259,15 +259,15 @@ describe("editReturnPath", () => {
 
 describe("editReturnLabel y finishReturnLabel", () => {
 	test("nombran el mismo destino que su ruta", () => {
-		expect(editReturnLabel(null)).toBe("al curso");
+		expect(editReturnLabel(null)).toBe("a la capacitación");
 		expect(editReturnLabel("imparticion")).toBe("a Impartición");
-		expect(finishReturnLabel(null)).toBe("a Cursos");
+		expect(finishReturnLabel(null)).toBe("a Capacitaciones");
 		expect(finishReturnLabel("imparticion")).toBe("a Impartición");
 	});
 
 	test("un regreso desconocido se nombra como la ruta a la que lleva", () => {
-		expect(editReturnLabel("https://otro.sitio")).toBe("al curso");
-		expect(finishReturnLabel("/dashboard/usuarios")).toBe("a Cursos");
+		expect(editReturnLabel("https://otro.sitio")).toBe("a la capacitación");
+		expect(finishReturnLabel("/dashboard/usuarios")).toBe("a Capacitaciones");
 	});
 });
 

@@ -11,7 +11,7 @@ import { parseContentFormData } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/mis-cursos/:documentId/aula/examen
+ * POST /dashboard/mis-capacitaciones/:documentId/aula/examen
  *
  * Presenta el examen final. La inscripción, la disponibilidad y el intento
  * único se imponen en el servicio.

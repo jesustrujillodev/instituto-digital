@@ -41,7 +41,7 @@ borrador o publicado; finalizado o cancelado queda como está
 
 Se administra desde el paso Programa del alta (botón por sesión guardada) y desde la pestaña
 Material de Impartición. Las dos montan la misma hoja contra la misma ruta de recurso,
-`/dashboard/cursos/:id/sesiones/material`.
+`/dashboard/capacitaciones/:id/sesiones/material`.
 
 ### 2.4 Cuándo lo ve el participante
 

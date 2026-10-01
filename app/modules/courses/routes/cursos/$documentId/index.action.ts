@@ -8,7 +8,7 @@ import { runStatusIntent } from "../../course-status-intents.server";
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/cursos/:documentId — publicar, cancelar o generar el QR de inscripción. */
+/** POST /dashboard/capacitaciones/:documentId — publicar, cancelar o generar el QR de inscripción. */
 export const action = async ({
 	request,
 	context,

@@ -67,16 +67,16 @@ export function TrainerProfileSection<T extends TrainerProfileSubject>({
 			{profile === null && (
 				<p className="text-muted-foreground text-sm">
 					{visible.length > 0
-						? "No imparte cursos. Al habilitarlo podrá crearlos e impartirlos, y cualquier dependencia podrá asignarle los suyos."
-						: "No imparte cursos."}
+						? "No imparte capacitaciones. Al habilitarlo podrá crearlas e impartirlas, y cualquier dependencia podrá asignarle las suyas."
+						: "No imparte capacitaciones."}
 				</p>
 			)}
 
 			{profile?.archivedAt && (
 				<p className="text-muted-foreground text-sm">
 					Deshabilitado desde el {formatZonedDate(new Date(profile.archivedAt))}
-					. No se puede asignar a cursos; conserva su especialidad y lo que
-					impartió.
+					. No se puede asignar a capacitaciones; conserva su especialidad y lo
+					que impartió.
 				</p>
 			)}
 
@@ -95,7 +95,7 @@ export function TrainerProfileSection<T extends TrainerProfileSubject>({
 							<span className="text-muted-foreground">Sin semblanza</span>
 						)}
 					</Datum>
-					<Datum label="Cursos impartidos">
+					<Datum label="Capacitaciones impartidas">
 						<span className="tabular-nums">{profile.coursesTaught}</span>
 					</Datum>
 					<Datum label="Valoración promedio">

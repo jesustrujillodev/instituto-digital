@@ -77,7 +77,7 @@ export type EvaluationMethod = (typeof EVALUATION_METHODS)[number];
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
 const title = v.pipe(
-	v.string("El título del curso es obligatorio."),
+	v.string("El título de la capacitación es obligatorio."),
 	v.trim(),
 	v.minLength(3, "El título debe tener al menos 3 caracteres."),
 	v.maxLength(160, "El título no puede superar los 160 caracteres."),
@@ -132,15 +132,15 @@ const minPassingGrade = v.pipe(
 );
 
 const hours = v.pipe(
-	v.number("Las horas del curso deben ser un número."),
-	v.integer("Las horas del curso deben ser un número entero."),
+	v.number("Las horas de la capacitación deben ser un número."),
+	v.integer("Las horas de la capacitación deben ser un número entero."),
 	v.minValue(
 		COURSE_HOURS_LIMITS.min,
-		`Las horas del curso deben ser al menos ${COURSE_HOURS_LIMITS.min}.`,
+		`Las horas de la capacitación deben ser al menos ${COURSE_HOURS_LIMITS.min}.`,
 	),
 	v.maxValue(
 		COURSE_HOURS_LIMITS.max,
-		`Las horas del curso no pueden superar las ${COURSE_HOURS_LIMITS.max}.`,
+		`Las horas de la capacitación no pueden superar las ${COURSE_HOURS_LIMITS.max}.`,
 	),
 );
 
@@ -309,10 +309,10 @@ const courseFormShape = {
 	enrollmentDeadline: v.optional(dateInputOf("la fecha límite de inscripción")),
 	minAttendance: v.optional(minAttendance),
 	requiresEvaluation: v.optional(
-		v.boolean("Indica si el curso exige evaluación."),
+		v.boolean("Indica si la capacitación exige evaluación."),
 	),
 	evaluationMethod: v.optional(
-		v.picklist(EVALUATION_METHODS, "Elige con qué se evalúa el curso."),
+		v.picklist(EVALUATION_METHODS, "Elige con qué se evalúa la capacitación."),
 	),
 	minPassingGrade: v.optional(minPassingGrade),
 	completionRule: v.optional(
@@ -323,7 +323,10 @@ const courseFormShape = {
 	),
 	qrOpensBeforeMinutes: v.optional(qrWindowMinutes),
 	qrClosesAfterMinutes: v.optional(qrWindowMinutes),
-	trainers: v.array(documentId, "Selecciona los capacitadores del curso."),
+	trainers: v.array(
+		documentId,
+		"Selecciona los capacitadores de la capacitación.",
+	),
 	audienceDependencies: v.optional(
 		v.array(documentId, "Selecciona las dependencias que pueden inscribirse."),
 	),
@@ -343,7 +346,10 @@ const courseFormShape = {
 	 * Vacío es válido: el curso nace en borrador y se completa después. La
 	 * exigencia de al menos una sesión es de la publicación, no del guardado.
 	 */
-	sessions: v.array(courseSessionInputRule, "Revisa las sesiones del curso."),
+	sessions: v.array(
+		courseSessionInputRule,
+		"Revisa las sesiones de la capacitación.",
+	),
 };
 
 export const createCourseRule = v.object({

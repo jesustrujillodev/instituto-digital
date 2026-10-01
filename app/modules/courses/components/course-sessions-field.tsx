@@ -268,7 +268,7 @@ export function CourseSessionsField({
 			</legend>
 			<p className="text-muted-foreground text-sm">
 				{optional
-					? "Encuentros en sede o por videollamada para complementar el contenido, por ejemplo un taller práctico. No cuentan para completar el curso."
+					? "Encuentros en sede o por videollamada para complementar el contenido, por ejemplo un taller práctico. No cuentan para completar la capacitación."
 					: `Para publicar hace falta al menos una, con fecha, horario y ${PLACE_OF[modality]}.`}
 				{isPublished &&
 					" Si cambias horario o lugar, se avisa por correo a inscritos e invitados."}
@@ -285,7 +285,7 @@ export function CourseSessionsField({
 						</EmptyTitle>
 						<EmptyDescription>
 							{optional
-								? "El curso se recorre solo con el contenido. Agrega una si quieres un encuentro presencial o en línea."
+								? "La capacitación se recorre solo con el contenido. Agrega una si quieres un encuentro presencial o en línea."
 								: `Una sesión es una fecha con su horario y su ${PLACE_OF[modality]}. Puedes guardar el borrador así y programarlas más adelante.`}
 						</EmptyDescription>
 					</EmptyHeader>

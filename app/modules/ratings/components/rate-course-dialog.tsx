@@ -70,7 +70,7 @@ export function RateCourseDialog({
 				<DialogTrigger asChild>
 					<Button size="sm" variant="outline" className={triggerClassName}>
 						<Star className="h-4 w-4" />
-						Valorar curso
+						Valorar capacitación
 					</Button>
 				</DialogTrigger>
 			)}

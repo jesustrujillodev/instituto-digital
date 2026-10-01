@@ -8,7 +8,7 @@ PRD-06 cierra el ciclo del curso en tres módulos:
 | --- | --- | --- |
 | `app/modules/teaching` | §6.8: pase de lista, resultados, cierre y corrección | `/dashboard/imparticion`, `/dashboard/imparticion/:documentId` |
 | `app/modules/credits` | §6.9: mis créditos, créditos del personal, créditos por dependencia | `/dashboard/mis-creditos`, `/dashboard/creditos` |
-| `app/modules/ratings` | §6.10: valorar y ver el promedio | `/dashboard/mis-cursos/:documentId/valorar` (solo action) |
+| `app/modules/ratings` | §6.10: valorar y ver el promedio | `/dashboard/mis-capacitaciones/:documentId/valorar` (solo action) |
 | `app/modules/evaluations` | §6.8: varias evaluaciones por curso, documentales; aquí solo se capturan, se definen con el curso | `/dashboard/imparticion/:documentId/evaluaciones` (solo action) |
 
 Las decisiones están en [ADR 0006](../adr/0006-imparticion-creditos-y-valoracion.md).
@@ -202,7 +202,7 @@ alcance global, como en cursos.
   la inscripción, y quien lo imparte ve el resumen mientras sigue publicado.
 - Una sola vez y sin editar: la unicidad de la base (P2002) se traduce a
   `RATING_ALREADY_RATED`, igual que la comprobación previa.
-- "Mis cursos" enseña el diálogo en la tarjeta del curso finalizado, junto con
+- "Mis capacitaciones" enseña el diálogo en la tarjeta del curso finalizado, junto con
   asistencia, nota y si completó.
 - El resumen (promedio a un decimal, número y comentarios) lo ven los mismos que
   pasan lista, y la proyección **no lee** `user_id`: el anonimato empieza en la
@@ -222,7 +222,7 @@ alcance global, como en cursos.
 | Cambiarse de dependencia y pedir una corrección mueve el crédito | Restaurar no toca `dependency_id` |
 | Un externo suma créditos | `creditCandidatesOf` exige cuenta interna con dependencia |
 | Un titular lee los créditos de otra dependencia pidiéndola en la URL | El filtro solo se lee con alcance global |
-| Un participante lee la observación de una evaluación | Ninguna consulta de "Mis cursos" selecciona `evaluation_results` |
+| Un participante lee la observación de una evaluación | Ninguna consulta de "Mis capacitaciones" selecciona `evaluation_results` |
 | Se infiere quién dejó un comentario | La consulta del resumen no selecciona al autor |
 | Se valora dos veces con dos pestañas | Unicidad `(course_id, user_id)` → `RATING_ALREADY_RATED` |
 | Una clase nocturna del 31 de diciembre cuenta para el año siguiente | `zonedYearOf` sobre la zona del instituto |

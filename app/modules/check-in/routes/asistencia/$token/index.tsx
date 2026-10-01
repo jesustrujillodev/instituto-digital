@@ -119,10 +119,10 @@ export default function AsistenciaPage() {
 			)}
 
 			<Link
-				to="/dashboard/mis-cursos"
+				to="/dashboard/mis-capacitaciones"
 				className="mt-6 block text-center text-xs text-muted-foreground underline"
 			>
-				Ir a mis cursos
+				Ir a mis capacitaciones
 			</Link>
 		</Shell>
 	);
@@ -144,7 +144,7 @@ export function ErrorBoundary() {
 
 			{code === CHECK_IN_ERROR_CODES.INVITATION_PENDING && (
 				<Button asChild className="mt-6 w-full">
-					<Link to="/dashboard/mis-cursos">Ver mi invitación</Link>
+					<Link to="/dashboard/mis-capacitaciones">Ver mi invitación</Link>
 				</Button>
 			)}
 

@@ -43,11 +43,13 @@ const createHarness = (options: ActorOptions & { listFails?: string } = {}) => {
 
 const run = (query: string, context: LoaderArgs["context"]) =>
 	loader({
-		request: new Request(`https://app.example.com/dashboard/cursos${query}`),
+		request: new Request(
+			`https://app.example.com/dashboard/capacitaciones${query}`,
+		),
 		context,
 	} as LoaderArgs);
 
-describe("cursos loader — guard", () => {
+describe("capacitaciones loader — guard", () => {
 	test("un participante sin perfil recibe 403", async () => {
 		const { context, calls } = createHarness({ role: "USER" });
 
@@ -81,7 +83,7 @@ describe("cursos loader — guard", () => {
 	});
 });
 
-describe("cursos loader — filtros", () => {
+describe("capacitaciones loader — filtros", () => {
 	// El filtro por dependencia se suma al alcance, pero fuera del alcance global
 	// ni siquiera se lee: no hay nada que ampliar.
 	test("un titular no puede pedir otra dependencia por la URL", async () => {

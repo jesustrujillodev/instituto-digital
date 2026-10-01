@@ -55,13 +55,13 @@ const run = (
 ) =>
 	loader({
 		request: new Request(
-			`https://app.example.com/dashboard/cursos/${documentId}/editar${paso ? `/${paso}` : ""}${search}`,
+			`https://app.example.com/dashboard/capacitaciones/${documentId}/editar${paso ? `/${paso}` : ""}${search}`,
 		),
 		context,
 		params: { documentId, paso: paso || undefined },
 	} as unknown as LoaderArgs);
 
-describe("cursos/edición loader", () => {
+describe("capacitaciones/edición loader", () => {
 	test("un publicado abre el paso sin checklist de alta", async () => {
 		const { context } = createHarness();
 
@@ -82,7 +82,7 @@ describe("cursos/edición loader", () => {
 
 		expect(thrown).toBeInstanceOf(Response);
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/editar/1?volver=imparticion`,
+			`/dashboard/capacitaciones/${COURSE_ID}/editar/1?volver=imparticion`,
 		);
 	});
 
@@ -93,7 +93,7 @@ describe("cursos/edición loader", () => {
 		const thrown = await run(context, { paso: "6" }).catch((e) => e);
 
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/editar/1`,
+			`/dashboard/capacitaciones/${COURSE_ID}/editar/1`,
 		);
 	});
 
@@ -103,7 +103,7 @@ describe("cursos/edición loader", () => {
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}/nuevo/1`,
+			`/dashboard/capacitaciones/${COURSE_ID}/nuevo/1`,
 		);
 	});
 
@@ -115,7 +115,7 @@ describe("cursos/edición loader", () => {
 		expect(thrown).toBeInstanceOf(Response);
 		expect(thrown.status).toBe(302);
 		expect(thrown.headers.get("Location")).toBe(
-			`/dashboard/cursos/${COURSE_ID}`,
+			`/dashboard/capacitaciones/${COURSE_ID}`,
 		);
 	});
 

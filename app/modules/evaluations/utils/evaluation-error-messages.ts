@@ -9,7 +9,7 @@ export const EVALUATION_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
 	[EVALUATION_ERROR_CODES.COURSE_NOT_FOUND]: {
-		message: "El curso no existe.",
+		message: "La capacitación no existe.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[EVALUATION_ERROR_CODES.EVALUATION_NOT_FOUND]: {
@@ -17,12 +17,12 @@ export const EVALUATION_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[EVALUATION_ERROR_CODES.SESSION_NOT_FOUND]: {
-		message: "La sesión elegida no es de este curso.",
+		message: "La sesión elegida no es de esta capacitación.",
 		status: HTTP_STATUS.NOT_FOUND,
 	},
 	[EVALUATION_ERROR_CODES.FORBIDDEN]: {
 		message:
-			"Este curso ya está finalizado: solo el titular o un auxiliar de la dependencia organizadora pueden corregir sus evaluaciones.",
+			"Esta capacitación ya está finalizada: solo el titular o un auxiliar de la dependencia organizadora pueden corregir sus evaluaciones.",
 		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[EVALUATION_ERROR_CODES.UNKNOWN_PARTICIPANT]: {
@@ -32,11 +32,11 @@ export const EVALUATION_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[EVALUATION_ERROR_CODES.SELF_PACED]: {
 		message:
-			"Un curso autogestivo no tiene evaluaciones de seguimiento: no hay capacitador que las capture.",
+			"Una capacitación autogestiva no tiene evaluaciones de seguimiento: no hay capacitador que las capture.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[EVALUATION_ERROR_CODES.TOO_MANY]: {
-		message: "Este curso ya llegó al máximo de evaluaciones.",
+		message: "Esta capacitación ya llegó al máximo de evaluaciones.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

@@ -71,7 +71,7 @@ const run = (
 ) =>
 	action({
 		request: postRequest(
-			`/dashboard/cursos/${documentId}/nuevo/${paso}`,
+			`/dashboard/capacitaciones/${documentId}/nuevo/${paso}`,
 			fields,
 		),
 		context,
@@ -83,7 +83,7 @@ const updateFields = (payload: unknown = stepOnePayload) => ({
 	[PAYLOAD_FIELD]: JSON.stringify(payload),
 });
 
-describe("cursos/alta action · guardar el paso", () => {
+describe("capacitaciones/alta action · guardar el paso", () => {
 	test("guarda con el documentId de la URL", async () => {
 		const { context, calls } = createHarness({ role: "USER", isTrainer: true });
 
@@ -161,12 +161,12 @@ describe("cursos/alta action · guardar el paso", () => {
 		const result = await run(updateFields(), context);
 
 		expect(!result.success && result.error.message).toBe(
-			"Un curso finalizado o cancelado ya no se puede modificar.",
+			"Una capacitación finalizada o cancelada ya no se puede modificar.",
 		);
 	});
 });
 
-describe("cursos/alta action · publicar", () => {
+describe("capacitaciones/alta action · publicar", () => {
 	test("el último paso publica el curso de la URL", async () => {
 		const { context, calls } = createHarness();
 
@@ -196,7 +196,7 @@ describe("cursos/alta action · publicar", () => {
 	});
 });
 
-describe("cursos/alta action · intents", () => {
+describe("capacitaciones/alta action · intents", () => {
 	test.each([COURSE_INTENTS.create, COURSE_INTENTS.cancel, "borrar"])(
 		"%s no es una acción del alta",
 		async (intent) => {

@@ -14,7 +14,7 @@ import {
 import type { Route } from "./+types/index";
 
 /**
- * POST /dashboard/mis-cursos/:documentId/aula/:lessonDocumentId
+ * POST /dashboard/mis-capacitaciones/:documentId/aula/:lessonDocumentId
  *
  * Registra el avance de quien está en sesión, o presenta la práctica de una
  * lección `QUIZ`. La inscripción activa se exige en el servicio: esconder el
@@ -81,7 +81,7 @@ export const action = async ({
 
 	return ok(result.data, {
 		message: result.data.contentCompleted
-			? "Terminaste el contenido del curso."
+			? "Terminaste el contenido de la capacitación."
 			: "Lección completada.",
 	});
 };

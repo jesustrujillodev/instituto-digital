@@ -82,7 +82,7 @@ export const CoursePlanLineField = memo(function CoursePlanLineField({
 		return (
 			<FixedPlanLine
 				planLine={current}
-				reason="El plan anual solo se cambia mientras el curso es borrador."
+				reason="El plan anual solo se cambia mientras la capacitación es borrador."
 			/>
 		);
 	}

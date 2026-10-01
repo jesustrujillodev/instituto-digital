@@ -10,7 +10,7 @@ import { LESSON_PARAM, MODULE_PARAM } from "../../../utils/content-form";
 import type { Route } from "./+types/index";
 
 /**
- * GET /dashboard/cursos/:documentId/cuestionario[?leccion=…|?modulo=…]
+ * GET /dashboard/capacitaciones/:documentId/cuestionario[?leccion=…|?modulo=…]
  *
  * El banco con sus respuestas correctas: solo para quien administra el curso.
  */

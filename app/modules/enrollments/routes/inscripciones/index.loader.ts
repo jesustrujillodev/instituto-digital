@@ -9,7 +9,7 @@ import { ENROLLMENT_ERROR_MESSAGES } from "../../utils/enrollment-error-messages
 import { PERSON_SEARCH_PARAM } from "../../utils/parse-enrollment-form-data";
 import type { Route } from "./+types/index";
 
-/** GET /dashboard/cursos/:documentId/inscripciones — lista de inscritos e invitados. */
+/** GET /dashboard/capacitaciones/:documentId/inscripciones — lista de inscritos e invitados. */
 export const loader = async ({
 	request,
 	context,

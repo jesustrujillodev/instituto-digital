@@ -12,7 +12,7 @@ import {
 } from "../../utils/rating-form";
 import type { Route } from "./+types/index";
 
-/** POST /dashboard/mis-cursos/:documentId/valorar */
+/** POST /dashboard/mis-capacitaciones/:documentId/valorar */
 export const action = async ({
 	request,
 	context,
@@ -34,5 +34,5 @@ export const action = async ({
 	);
 	if (!result.success) return localizeError(result, RATING_ERROR_MESSAGES);
 
-	return ok(null, { message: "Gracias por valorar el curso." });
+	return ok(null, { message: "Gracias por valorar la capacitación." });
 };

@@ -57,7 +57,7 @@ export default function NuevoCapacitadorPage() {
 		<div className="flex flex-col">
 			<PageHeader
 				title="Nuevo capacitador externo"
-				description="Para quien imparte desde fuera del Ayuntamiento. No pertenece a ninguna dependencia: solo imparte los cursos a los que se le asigna; no crea cursos, no se inscribe ni acumula créditos."
+				description="Para quien imparte desde fuera del Ayuntamiento. No pertenece a ninguna dependencia: solo imparte las capacitaciones a las que se le asigna; no crea capacitaciones, no se inscribe ni acumula créditos."
 				goBack={USERS_PATH}
 				actions={actions}
 				collapseActionsOnMobile

@@ -32,7 +32,7 @@ export default function IniciarSesionPage() {
 						Instituto Digital de Capacitación
 					</p>
 					<p className="text-sm text-sidebar-foreground/80 lg:text-base">
-						Cursos, calendario y créditos del personal del Ayuntamiento.
+						Capacitaciones, calendario y créditos del personal del Ayuntamiento.
 					</p>
 				</div>
 			</section>

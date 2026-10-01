@@ -14,7 +14,7 @@ import { loader } from "../index.loader";
 type ActionArgs = Parameters<typeof action>[0];
 type LoaderArgs = Parameters<typeof loader>[0];
 
-const PATH = `/dashboard/cursos/${COURSE_ID}/inscripciones`;
+const PATH = `/dashboard/capacitaciones/${COURSE_ID}/inscripciones`;
 
 const createHarness = (options: ActorOptions & { isOpen?: boolean } = {}) => {
 	const calls: { method: string; args: unknown[] }[] = [];

@@ -50,7 +50,7 @@ import type { MyCourseSection } from "../utils/my-courses-filter";
 import { isOverFor } from "./my-course-parts";
 
 const detailPathOf = (entry: MyCourseEntry) =>
-	`/dashboard/mis-cursos/${entry.course.documentId}`;
+	`/dashboard/mis-capacitaciones/${entry.course.documentId}`;
 
 const classroomPathOf = (entry: MyCourseEntry) => `${detailPathOf(entry)}/aula`;
 
@@ -121,7 +121,7 @@ const closingStatusOf = (
 	if (isCancelled(entry)) {
 		return {
 			icon: CircleX,
-			label: "Cancelado por quien lo organiza",
+			label: "Cancelada por quien la organiza",
 			tone: "muted",
 			note: "No requiere ninguna acción.",
 		};
@@ -296,7 +296,7 @@ function FinishedActions({
 						)}
 						{more.rate && (
 							<DropdownMenuItem onSelect={() => setRating(true)}>
-								Valorar curso
+								Valorar capacitación
 							</DropdownMenuItem>
 						)}
 					</DropdownMenuContent>
