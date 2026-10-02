@@ -155,12 +155,13 @@ export const createSessionMaterialService = ({
 			});
 		},
 
-		async findForParticipant(courseDocumentId, actor) {
+		async findForParticipant(courseDocumentId, actor, sessionDocumentId) {
 			return run("findForParticipant", async () => {
 				const sessions =
 					await sessionMaterialRepository.findSessionsForParticipant(
 						courseDocumentId,
 						actor.userId,
+						sessionDocumentId,
 					);
 				if (!sessions) return ok([]);
 

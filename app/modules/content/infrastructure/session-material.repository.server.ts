@@ -49,13 +49,22 @@ export const createSessionMaterialRepository = ({
 		});
 	},
 
-	async findSessionsForParticipant(courseDocumentId, userId) {
+	async findSessionsForParticipant(
+		courseDocumentId,
+		userId,
+		sessionDocumentId,
+	) {
 		const course = await prisma.course.findFirst({
 			where: {
 				documentId: courseDocumentId,
 				enrollments: { some: { userId, status: "ENROLLED" } },
 			},
-			select: { sessions: SESSIONS_SELECT },
+			select: {
+				sessions: {
+					...SESSIONS_SELECT,
+					where: { documentId: sessionDocumentId },
+				},
+			},
 		});
 
 		return course?.sessions ?? null;

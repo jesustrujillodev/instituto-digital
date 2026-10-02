@@ -6,6 +6,7 @@ import {
 } from "./modules/auth/routes/routes.config";
 import { calendarRoutes } from "./modules/calendar/routes/routes.config";
 import {
+	certificateEditorRoutes,
 	certificatesRoutes,
 	certificateVerificationRoutes,
 } from "./modules/certificates/routes/routes.config";
@@ -25,7 +26,10 @@ import { teachingRoutes } from "./modules/teaching/routes/routes.config";
 import { themeRoutes } from "./modules/theme/routes/routes.config";
 import { trainersRoutes } from "./modules/trainers/routes/routes.config";
 import { usersRoutes } from "./modules/users/routes/routes.config";
-import { DASHBOARD_LAYOUT_ID } from "./shared/layout/layout.constants";
+import {
+	DASHBOARD_LAYOUT_ID,
+	FULLSCREEN_LAYOUT_ID,
+} from "./shared/layout/layout.constants";
 import { storageRoutes } from "./shared/storage/routes.config";
 
 export default [
@@ -72,6 +76,21 @@ export default [
 					...cloudAdminRoutes, // /dashboard/nube  (SUPERADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (SUPERADMIN)
 				]),
+			]),
+		],
+	),
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// ZONA 3 — Pantalla completa protegida (/dashboard/*, sin shell)
+	//   Mismo gate estructural que la zona 2, sin barra lateral: herramientas que
+	//   necesitan toda la ventana. Las rutas no chocan con las de la zona 2.
+	// ══════════════════════════════════════════════════════════════════════════
+	layout(
+		"shared/layout/routes/fullscreen.layout.tsx",
+		{ id: FULLSCREEN_LAYOUT_ID },
+		[
+			...prefix("dashboard", [
+				...certificateEditorRoutes, // /dashboard/capacitaciones/:id/certificado/editor
 			]),
 		],
 	),

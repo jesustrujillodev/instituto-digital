@@ -26,6 +26,28 @@ export const certificatesRoutes = [
 		"mis-certificados/:documentId/descargar",
 		"modules/certificates/routes/mis-certificados/$documentId.descargar/index.ts",
 	),
+	/** Los logos que se pueden poner en un certificado (SUPERADMIN, docs/adr/0030). */
+	route("logos-institucionales", "modules/certificates/routes/logos/index.tsx"),
+	/** La biblioteca de plantillas de certificado (docs/adr/0030). */
+	route(
+		"plantillas-de-certificado",
+		"modules/certificates/routes/plantillas/index.tsx",
+	),
+] satisfies RouteConfigEntry[];
+
+/**
+ * El editor del certificado, a pantalla completa (docs/adr/0028): cuelga del
+ * layout sin shell de la ZONA 3.
+ */
+export const certificateEditorRoutes = [
+	route(
+		"capacitaciones/:documentId/certificado/editor",
+		"modules/certificates/routes/cursos/$documentId.certificado.editor/index.tsx",
+	),
+	route(
+		"plantillas-de-certificado/:documentId/editor",
+		"modules/certificates/routes/plantillas/$documentId.editor/index.tsx",
+	),
 ] satisfies RouteConfigEntry[];
 
 /**

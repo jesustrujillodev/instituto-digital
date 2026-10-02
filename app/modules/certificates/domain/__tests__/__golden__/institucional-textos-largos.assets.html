@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1100">
+<title>Constancia</title>
+<style>@font-face { font-family: "ITC Avant Garde Std"; src: url("data:f0") format("woff2"); font-weight: 200; font-style: normal; font-display: block; }
+@font-face { font-family: "ITC Avant Garde Std"; src: url("data:f1") format("woff2"); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: "ITC Avant Garde Std"; src: url("data:f2") format("woff2"); font-weight: 500; font-style: normal; font-display: block; }
+@font-face { font-family: "ITC Avant Garde Std"; src: url("data:f3") format("woff2"); font-weight: 600; font-style: normal; font-display: block; }
+@font-face { font-family: "ITC Avant Garde Std"; src: url("data:f4") format("woff2"); font-weight: 700; font-style: normal; font-display: block; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1100px; height: 780px; background: #ffffff; }
+body { -webkit-font-smoothing: antialiased; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@page { size: 1100px 780px; margin: 0; }
+.cert { width: 1100px; height: 780px; position: relative; overflow: hidden; }
+
+
+.t-institucional { background: #ffffff; color: #383838; font-family: "ITC Avant Garde Std", Arial, sans-serif; }
+.t-institucional .band { height: 136px; background: #750d2f; display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 0 72px; }
+.t-institucional .logo { height: 80px; width: auto; max-width: 300px; object-fit: contain; }
+.t-institucional .org { color: #ffffff; text-align: right; max-width: 520px; }
+.t-institucional .org-name { font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.t-institucional .org-issuer { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; margin-top: 6px; }
+.t-institucional .content { height: 470px; padding: 0 110px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+.t-institucional .kicker { font-size: 13px; font-weight: 600; letter-spacing: 0.4em; text-transform: uppercase; color: #750d2f; margin-bottom: 10px; }
+.t-institucional .subtitle { font-size: 14px; color: #6b6b6b; margin-bottom: 14px; overflow-wrap: anywhere; }
+.t-institucional .lead { font-size: 14px; color: #6b6b6b; margin: 6px 0; }
+.t-institucional .recipient { font-family: Georgia, "Times New Roman", serif; font-size: 52px; line-height: 1.1; color: #1f1f1f; padding: 4px 24px 10px; border-bottom: 2px solid #750d2f; margin-bottom: 8px; max-width: 100%; overflow-wrap: anywhere; }
+.t-institucional .recipient.is-long { font-size: 42px; }
+.t-institucional .recipient.is-longer { font-size: 32px; }
+.t-institucional .course { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 28px; line-height: 1.25; color: #750d2f; max-width: 100%; overflow-wrap: anywhere; }
+.t-institucional .course.is-long { font-size: 23px; }
+.t-institucional .course.is-longer { font-size: 19px; }
+.t-institucional .hours { font-size: 14px; font-weight: 600; margin-top: 12px; }
+.t-institucional .description { font-size: 13px; line-height: 1.55; color: #555555; margin-top: 12px; max-width: 760px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.t-institucional .footer { position: absolute; left: 90px; right: 90px; bottom: 48px; }
+
+.t-institucional .footer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; align-items: start; }
+.t-institucional .cell { min-width: 0; font-family: "ITC Avant Garde Std", Arial, sans-serif; text-align: center; }
+.t-institucional .sig-slot { height: 52px; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid #750d2f; margin-bottom: 8px; }
+.t-institucional .sig-slot img { max-height: 48px; max-width: 100%; object-fit: contain; }
+.t-institucional .sig-name, .t-institucional .meta-value { font-size: 13px; font-weight: 600; color: #383838; overflow-wrap: anywhere; }
+.t-institucional .sig-role, .t-institucional .meta-label { font-size: 11px; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+.t-institucional .sig-name, .t-institucional .sig-role { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.t-institucional .meta { padding-top: 60px; position: relative; }
+.t-institucional .qr { position: absolute; left: 50%; bottom: calc(100% - 56px); transform: translateX(-50%); width: 80px; height: 80px; }
+.t-institucional .qr svg { display: block; }
+.t-institucional .meta-label { margin-bottom: 6px; }
+
+</style>
+</head>
+<body>
+<div class="cert t-institucional">
+	<div class="band">
+		<img class="logo" src="data:logo" alt="">
+		<div class="org">
+			<div class="org-name">Secretaría de Obras Públicas</div>
+			<div class="org-issuer">Instituto Digital de Capacitación</div>
+		</div>
+	</div>
+	<div class="content">
+		<div class="kicker">Constancia</div>
+		
+	<div class="subtitle">Programa anual de capacitación y actualización profesional del personal del Ayuntamiento 2026</div>
+	<div class="lead">Otorga la presente constancia a</div>
+	<div class="recipient is-longer">María Fernanda Guadalupe Rodríguez de la Barrera Villalobos</div>
+	<div class="lead">por haber acreditado la capacitación</div>
+	<div class="course is-longer">Actualización en el marco normativo municipal para la contratación, supervisión y finiquito de la obra pública</div>
+	<div class="hours">Con una duración de 20 horas</div>
+	<div class="description">Prevención de riesgos, equipo de protección personal y señalización en la obra pública municipal.</div>
+
+	</div>
+	<div class="footer">
+		<div class="cell sig">
+		<div class="sig-slot"><img src="data:sig" alt=""></div>
+		<div class="sig-name">María Guadalupe Hernández de la Fuente Villaseñor</div>
+		<div class="sig-role">Coordinadora de Capacitación y Desarrollo Organizacional</div>
+	</div>
+		<div class="cell sig">
+		<div class="sig-slot"></div>
+		<div class="sig-name">José Francisco Martínez Castañeda Ibarra</div>
+		<div class="sig-role">Titular de la dependencia</div>
+	</div>
+		<div class="cell meta">
+		
+		<div class="meta-label">Fecha de emisión</div>
+		<div class="meta-value">23 de septiembre de 2026</div>
+	</div>
+		<div class="cell meta">
+		<div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" width="80" height="80" shape-rendering="crispEdges" aria-hidden="true"><rect width="33" height="33" fill="#ffffff"/><path d="M2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM16 2h1v1h-1zM17 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM24 2h1v1h-1zM25 2h1v1h-1zM26 2h1v1h-1zM27 2h1v1h-1zM28 2h1v1h-1zM29 2h1v1h-1zM30 2h1v1h-1zM2 3h1v1h-1zM8 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM14 3h1v1h-1zM15 3h1v1h-1zM17 3h1v1h-1zM18 3h1v1h-1zM19 3h1v1h-1zM21 3h1v1h-1zM22 3h1v1h-1zM24 3h1v1h-1zM30 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM14 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM20 4h1v1h-1zM24 4h1v1h-1zM26 4h1v1h-1zM27 4h1v1h-1zM28 4h1v1h-1zM30 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM20 5h1v1h-1zM21 5h1v1h-1zM24 5h1v1h-1zM26 5h1v1h-1zM27 5h1v1h-1zM28 5h1v1h-1zM30 5h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM13 6h1v1h-1zM17 6h1v1h-1zM20 6h1v1h-1zM21 6h1v1h-1zM24 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM30 6h1v1h-1zM2 7h1v1h-1zM8 7h1v1h-1zM11 7h1v1h-1zM14 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM21 7h1v1h-1zM24 7h1v1h-1zM30 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM10 8h1v1h-1zM12 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM18 8h1v1h-1zM20 8h1v1h-1zM22 8h1v1h-1zM24 8h1v1h-1zM25 8h1v1h-1zM26 8h1v1h-1zM27 8h1v1h-1zM28 8h1v1h-1zM29 8h1v1h-1zM30 8h1v1h-1zM11 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM17 9h1v1h-1zM19 9h1v1h-1zM20 9h1v1h-1zM22 9h1v1h-1zM2 10h1v1h-1zM4 10h1v1h-1zM6 10h1v1h-1zM8 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM15 10h1v1h-1zM16 10h1v1h-1zM17 10h1v1h-1zM18 10h1v1h-1zM19 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM26 10h1v1h-1zM29 10h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM10 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM18 11h1v1h-1zM23 11h1v1h-1zM24 11h1v1h-1zM27 11h1v1h-1zM30 11h1v1h-1zM2 12h1v1h-1zM4 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM18 12h1v1h-1zM22 12h1v1h-1zM24 12h1v1h-1zM25 12h1v1h-1zM26 12h1v1h-1zM28 12h1v1h-1zM29 12h1v1h-1zM30 12h1v1h-1zM2 13h1v1h-1zM3 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM18 13h1v1h-1zM19 13h1v1h-1zM20 13h1v1h-1zM22 13h1v1h-1zM24 13h1v1h-1zM25 13h1v1h-1zM29 13h1v1h-1zM2 14h1v1h-1zM4 14h1v1h-1zM6 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM15 14h1v1h-1zM18 14h1v1h-1zM19 14h1v1h-1zM21 14h1v1h-1zM22 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM27 14h1v1h-1zM29 14h1v1h-1zM30 14h1v1h-1zM2 15h1v1h-1zM3 15h1v1h-1zM5 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM18 15h1v1h-1zM19 15h1v1h-1zM20 15h1v1h-1zM22 15h1v1h-1zM23 15h1v1h-1zM24 15h1v1h-1zM27 15h1v1h-1zM30 15h1v1h-1zM4 16h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM10 16h1v1h-1zM14 16h1v1h-1zM16 16h1v1h-1zM20 16h1v1h-1zM26 16h1v1h-1zM27 16h1v1h-1zM29 16h1v1h-1zM30 16h1v1h-1zM4 17h1v1h-1zM7 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM12 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM17 17h1v1h-1zM19 17h1v1h-1zM22 17h1v1h-1zM25 17h1v1h-1zM27 17h1v1h-1zM29 17h1v1h-1zM2 18h1v1h-1zM4 18h1v1h-1zM5 18h1v1h-1zM6 18h1v1h-1zM8 18h1v1h-1zM11 18h1v1h-1zM15 18h1v1h-1zM17 18h1v1h-1zM18 18h1v1h-1zM19 18h1v1h-1zM21 18h1v1h-1zM22 18h1v1h-1zM23 18h1v1h-1zM24 18h1v1h-1zM25 18h1v1h-1zM27 18h1v1h-1zM29 18h1v1h-1zM30 18h1v1h-1zM10 19h1v1h-1zM12 19h1v1h-1zM13 19h1v1h-1zM15 19h1v1h-1zM18 19h1v1h-1zM22 19h1v1h-1zM24 19h1v1h-1zM27 19h1v1h-1zM28 19h1v1h-1zM30 19h1v1h-1zM2 20h1v1h-1zM4 20h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM12 20h1v1h-1zM15 20h1v1h-1zM16 20h1v1h-1zM18 20h1v1h-1zM23 20h1v1h-1zM24 20h1v1h-1zM25 20h1v1h-1zM26 20h1v1h-1zM29 20h1v1h-1zM30 20h1v1h-1zM3 21h1v1h-1zM4 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM14 21h1v1h-1zM15 21h1v1h-1zM19 21h1v1h-1zM21 21h1v1h-1zM23 21h1v1h-1zM25 21h1v1h-1zM27 21h1v1h-1zM29 21h1v1h-1zM2 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM8 22h1v1h-1zM12 22h1v1h-1zM15 22h1v1h-1zM19 22h1v1h-1zM21 22h1v1h-1zM22 22h1v1h-1zM23 22h1v1h-1zM24 22h1v1h-1zM25 22h1v1h-1zM26 22h1v1h-1zM10 23h1v1h-1zM11 23h1v1h-1zM13 23h1v1h-1zM15 23h1v1h-1zM18 23h1v1h-1zM19 23h1v1h-1zM21 23h1v1h-1zM22 23h1v1h-1zM26 23h1v1h-1zM28 23h1v1h-1zM29 23h1v1h-1zM30 23h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM5 24h1v1h-1zM6 24h1v1h-1zM7 24h1v1h-1zM8 24h1v1h-1zM11 24h1v1h-1zM12 24h1v1h-1zM15 24h1v1h-1zM16 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM24 24h1v1h-1zM26 24h1v1h-1zM27 24h1v1h-1zM29 24h1v1h-1zM30 24h1v1h-1zM2 25h1v1h-1zM8 25h1v1h-1zM12 25h1v1h-1zM13 25h1v1h-1zM14 25h1v1h-1zM15 25h1v1h-1zM16 25h1v1h-1zM17 25h1v1h-1zM18 25h1v1h-1zM19 25h1v1h-1zM20 25h1v1h-1zM22 25h1v1h-1zM26 25h1v1h-1zM27 25h1v1h-1zM29 25h1v1h-1zM30 25h1v1h-1zM2 26h1v1h-1zM4 26h1v1h-1zM5 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM10 26h1v1h-1zM14 26h1v1h-1zM16 26h1v1h-1zM18 26h1v1h-1zM19 26h1v1h-1zM20 26h1v1h-1zM22 26h1v1h-1zM23 26h1v1h-1zM24 26h1v1h-1zM25 26h1v1h-1zM26 26h1v1h-1zM2 27h1v1h-1zM4 27h1v1h-1zM5 27h1v1h-1zM6 27h1v1h-1zM8 27h1v1h-1zM11 27h1v1h-1zM13 27h1v1h-1zM18 27h1v1h-1zM22 27h1v1h-1zM25 27h1v1h-1zM26 27h1v1h-1zM28 27h1v1h-1zM29 27h1v1h-1zM30 27h1v1h-1zM2 28h1v1h-1zM4 28h1v1h-1zM5 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM10 28h1v1h-1zM11 28h1v1h-1zM12 28h1v1h-1zM16 28h1v1h-1zM18 28h1v1h-1zM19 28h1v1h-1zM22 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1zM27 28h1v1h-1zM30 28h1v1h-1zM2 29h1v1h-1zM8 29h1v1h-1zM11 29h1v1h-1zM18 29h1v1h-1zM19 29h1v1h-1zM20 29h1v1h-1zM21 29h1v1h-1zM22 29h1v1h-1zM23 29h1v1h-1zM26 29h1v1h-1zM29 29h1v1h-1zM2 30h1v1h-1zM3 30h1v1h-1zM4 30h1v1h-1zM5 30h1v1h-1zM6 30h1v1h-1zM7 30h1v1h-1zM8 30h1v1h-1zM10 30h1v1h-1zM11 30h1v1h-1zM12 30h1v1h-1zM14 30h1v1h-1zM15 30h1v1h-1zM19 30h1v1h-1zM21 30h1v1h-1zM22 30h1v1h-1zM23 30h1v1h-1zM24 30h1v1h-1zM26 30h1v1h-1zM29 30h1v1h-1zM30 30h1v1h-1z" fill="#1f1f1f"/></svg></div>
+		<div class="meta-label">Folio</div>
+		<div class="meta-value">2026-0001</div>
+	</div>
+	</div>
+</div></body>
+</html>

@@ -50,5 +50,6 @@ export const loader = async ({
 		hasClassroom: classrooms.data.includes(documentId),
 		sessionMaterials: sessionMaterials.data,
 		followUps: followUps.data,
+		now: context.clock.now(),
 	});
 };

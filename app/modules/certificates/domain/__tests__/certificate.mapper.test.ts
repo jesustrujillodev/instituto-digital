@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-	CERTIFICATE_SAMPLE_RECIPIENT,
-	DEFAULT_CERTIFICATE_DESIGN,
-} from "../certificate.config";
+import { CERTIFICATE_SAMPLE_RECIPIENT } from "../certificate.config";
 import {
 	folioPartsOf,
 	formatCertificateHours,
@@ -13,6 +10,7 @@ import {
 	toSampleRenderData,
 } from "../certificate.mapper";
 import type { CertificateCourse } from "../certificate.types";
+import { LEGACY_DEFAULT_DESIGN_V1 as DEFAULT_CERTIFICATE_DESIGN } from "../design/design-v1.schema";
 
 const course: CertificateCourse = {
 	id: 7,

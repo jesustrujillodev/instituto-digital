@@ -1,13 +1,12 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
-import { RotateCcw, Save, Send, TriangleAlert } from "lucide-react";
+import { PencilRuler, RotateCcw, Send, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { pendingIntentOf } from "@/lib/form-data";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
-import { UnsavedChangesDialog } from "@/shared/components/common/unsaved-changes-dialog";
 import {
 	Alert,
 	AlertDescription,
@@ -15,26 +14,17 @@ import {
 } from "@/shared/components/ui/alert";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@/shared/components/ui/tabs";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
-import { CertificateColorPanel } from "../../../components/certificate-color-panel";
-import { CertificateContentPanel } from "../../../components/certificate-content-panel";
 import { CertificateDeliveryPanel } from "../../../components/certificate-delivery-panel";
 import { CertificateExportPanel } from "../../../components/certificate-export-panel";
 import { CertificatePreview } from "../../../components/certificate-preview";
-import { CertificateSignaturesPanel } from "../../../components/certificate-signatures-panel";
-import { CertificateTemplatePanel } from "../../../components/certificate-template-panel";
 import { toSampleRenderData } from "../../../domain/certificate.mapper";
-import { useCertificateDraft } from "../../../hooks/use-certificate-draft";
+import { isDesignV2 } from "../../../domain/design/design.schema";
 import {
 	CERTIFICATE_INTENTS,
 	type CertificateActionData,
+	certificateEditorPath,
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../../../utils/certificate-form";
@@ -70,40 +60,29 @@ export default function CursoCertificadoPage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { editor, canEdit, today },
+		data: { editor, logoUrls, canEdit, today },
 	} = loaderData;
 	const { course, record, state, delivery } = editor;
 
-	const draft = useCertificateDraft(record.draft);
 	const fetcher = useFetcher<CertificateActionData>();
 	useFetcherToast(fetcher);
 	const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-
 	const busy = fetcher.state !== "idle";
 	const pendingIntent = pendingIntentOf(fetcher, INTENT_FIELD);
-	const disabled = !canEdit || busy;
 
-	// Del diseño, solo el folio cambia los datos de muestra: depender del
-	// borrador entero regeneraría la vista previa dos veces por tecla.
-	const { folioFormat } = draft.draft;
 	const sampleData = useMemo(
-		() => toSampleRenderData(course, folioFormat, new Date(today)),
-		[course, folioFormat, today],
+		() => toSampleRenderData(course, record.draft.folioFormat, new Date(today)),
+		[course, record.draft.folioFormat, today],
 	);
 
-	const submit = (intent: string, fields: Record<string, string> = {}) =>
-		fetcher.submit({ [INTENT_FIELD]: intent, ...fields }, { method: "post" });
+	// Un borrador del gestor anterior se publica desde el editor, después de
+	// revisar su conversión: aquí no se publica a ciegas.
+	const draftIsV2 = isDesignV2(record.draft);
+	const label = STATE_LABELS[state];
 
-	// Guardar y publicar mandan lo que está en pantalla: publicar ya no exige
-	// guardar antes, que era el paso que se olvidaba.
-	const submitDesign = (intent: string) =>
-		submit(intent, { [PAYLOAD_FIELD]: JSON.stringify(draft.draft) });
-
-	const shownState = draft.isDirty ? null : STATE_LABELS[state];
-
-	const actions = canEdit && (
+	const actions = (
 		<>
-			{record.published && state === "unpublished-changes" && (
+			{canEdit && record.published && state === "unpublished-changes" && (
 				<Button
 					variant="ghost"
 					disabled={busy}
@@ -113,24 +92,30 @@ export default function CursoCertificadoPage({
 					Descartar cambios
 				</Button>
 			)}
-			<Button
-				variant="outline"
-				disabled={!draft.isDirty || !draft.isValid || busy}
-				pending={pendingIntent === CERTIFICATE_INTENTS.saveDraft}
-				onClick={() => submitDesign(CERTIFICATE_INTENTS.saveDraft)}
-			>
-				<Save aria-hidden="true" />
-				Guardar borrador
-			</Button>
-			<Button
-				disabled={
-					!draft.isValid || busy || (state === "published" && !draft.isDirty)
-				}
-				pending={pendingIntent === CERTIFICATE_INTENTS.publish}
-				onClick={() => submitDesign(CERTIFICATE_INTENTS.publish)}
-			>
-				<Send aria-hidden="true" />
-				Publicar
+			{canEdit && draftIsV2 && state !== "published" && (
+				<Button
+					variant="outline"
+					disabled={busy}
+					pending={pendingIntent === CERTIFICATE_INTENTS.publish}
+					onClick={() =>
+						fetcher.submit(
+							{
+								[INTENT_FIELD]: CERTIFICATE_INTENTS.publish,
+								[PAYLOAD_FIELD]: JSON.stringify(record.draft),
+							},
+							{ method: "post" },
+						)
+					}
+				>
+					<Send aria-hidden="true" />
+					Publicar lo guardado
+				</Button>
+			)}
+			<Button asChild>
+				<Link to={certificateEditorPath(course.documentId)}>
+					<PencilRuler aria-hidden="true" />
+					{canEdit ? "Abrir editor" : "Ver en el editor"}
+				</Link>
 			</Button>
 		</>
 	);
@@ -141,27 +126,14 @@ export default function CursoCertificadoPage({
 				title="Certificado"
 				description={course.title}
 				goBack={`${LIST_PATH}/${course.documentId}`}
-				actions={actions || undefined}
+				actions={actions}
 			/>
 
 			<div className="flex flex-wrap items-center gap-2 text-sm">
-				{shownState ? (
-					<>
-						<Badge variant={state === "published" ? "default" : "outline"}>
-							{shownState.label}
-						</Badge>
-						<span className="text-muted-foreground">{shownState.hint}</span>
-					</>
-				) : (
-					<>
-						<Badge variant="secondary">Sin guardar</Badge>
-						<span className="text-muted-foreground">
-							{draft.isValid
-								? "Publica para que se emita con estos cambios, o guárdalos como borrador."
-								: "Revisa los campos marcados antes de guardar."}
-						</span>
-					</>
-				)}
+				<Badge variant={state === "published" ? "default" : "outline"}>
+					{label.label}
+				</Badge>
+				<span className="text-muted-foreground">{label.hint}</span>
 			</div>
 
 			{/* Mientras no haya publicado, la emisión usa el diseño por defecto: es el
@@ -181,6 +153,16 @@ export default function CursoCertificadoPage({
 				</Alert>
 			)}
 
+			{canEdit && !draftIsV2 && (
+				<Alert>
+					<AlertTitle>Hecho con el gestor de plantillas</AlertTitle>
+					<AlertDescription>
+						Ábrelo en el editor para pasarlo al editor libre. Se sigue emitiendo
+						con lo publicado hasta que publiques la nueva versión.
+					</AlertDescription>
+				</Alert>
+			)}
+
 			{!canEdit && (
 				<Alert>
 					<AlertDescription>
@@ -190,51 +172,25 @@ export default function CursoCertificadoPage({
 				</Alert>
 			)}
 
-			<div className="grid items-start gap-4 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+			<div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+				<div className="flex flex-col gap-2">
+					<CertificatePreview
+						design={record.draft}
+						data={sampleData}
+						logoUrls={logoUrls}
+					/>
+					<p className="text-muted-foreground text-xs">
+						El borrador guardado, con una persona de muestra y el primer folio.
+						Al emitirse lleva el nombre de cada participante.
+					</p>
+				</div>
 				<div className="flex flex-col gap-4">
-					<div className="rounded-lg border bg-card p-4">
-						<Tabs defaultValue="template">
-							<TabsList className="w-full">
-								<TabsTrigger value="template">Plantilla</TabsTrigger>
-								<TabsTrigger value="content">Contenido</TabsTrigger>
-								<TabsTrigger value="color">Color</TabsTrigger>
-								<TabsTrigger value="signatures">Firmas</TabsTrigger>
-							</TabsList>
-							<TabsContent value="template" className="pt-4">
-								<CertificateTemplatePanel
-									value={draft.draft.templateId}
-									accent={draft.draft.accentColor}
-									disabled={disabled}
-									onChange={(templateId) => draft.update({ templateId })}
-								/>
-							</TabsContent>
-							<TabsContent value="content" className="pt-4">
-								<CertificateContentPanel
-									draft={draft}
-									courseDescription={course.description}
-									sampleFolio={sampleData.folio}
-									disabled={disabled}
-								/>
-							</TabsContent>
-							<TabsContent value="color" className="pt-4">
-								<CertificateColorPanel
-									value={draft.draft.accentColor}
-									error={draft.errors.accentColor}
-									disabled={disabled}
-									onChange={(accentColor) => draft.update({ accentColor })}
-								/>
-							</TabsContent>
-							<TabsContent value="signatures" className="pt-4">
-								<CertificateSignaturesPanel draft={draft} disabled={disabled} />
-							</TabsContent>
-						</Tabs>
-					</div>
 					<div className="rounded-lg border bg-card p-4">
 						<h2 className="mb-3 font-medium text-sm">Exportar muestra</h2>
 						<CertificateExportPanel
 							courseDocumentId={course.documentId}
 							hasPublished={record.published !== null}
-							isDirty={draft.isDirty}
+							isDirty={false}
 						/>
 					</div>
 					<div className="rounded-lg border bg-card p-4">
@@ -246,17 +202,7 @@ export default function CursoCertificadoPage({
 						/>
 					</div>
 				</div>
-
-				<div className="flex flex-col gap-2 xl:sticky xl:top-20">
-					<CertificatePreview design={draft.draft} data={sampleData} />
-					<p className="text-muted-foreground text-xs">
-						Vista previa con una persona de muestra y el primer folio. Al
-						emitirse lleva el nombre de cada participante.
-					</p>
-				</div>
 			</div>
-
-			<UnsavedChangesDialog when={draft.isDirty && !busy} />
 
 			<ConfirmDialog
 				open={confirmingDiscard}
@@ -267,7 +213,10 @@ export default function CursoCertificadoPage({
 				cancelLabel="Volver"
 				destructive
 				onConfirm={() => {
-					submit(CERTIFICATE_INTENTS.discard);
+					fetcher.submit(
+						{ [INTENT_FIELD]: CERTIFICATE_INTENTS.discard },
+						{ method: "post" },
+					);
 					setConfirmingDiscard(false);
 				}}
 			/>

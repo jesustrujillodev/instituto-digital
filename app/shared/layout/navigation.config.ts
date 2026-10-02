@@ -7,10 +7,12 @@ import {
 	ClipboardCheck,
 	Cloud,
 	LayoutDashboard,
+	LayoutTemplate,
 	LibraryBig,
 	MonitorSmartphone,
 	NotebookPen,
 	ScrollText,
+	Stamp,
 	Users,
 	UsersRound,
 } from "lucide-react";
@@ -118,6 +120,13 @@ export const navigationSections: readonly NavSection[] = [
 				roles: DEPENDENCY_ROLES,
 			},
 			{
+				// Las de su dependencia; las institucionales las ve, no las cambia.
+				label: "Plantillas de certificado",
+				path: "/dashboard/plantillas-de-certificado",
+				icon: LayoutTemplate,
+				roles: DEPENDENCY_ROLES,
+			},
+			{
 				label: "Plan anual",
 				path: "/dashboard/plan-anual",
 				icon: CalendarRange,
@@ -150,6 +159,11 @@ export const navigationSections: readonly NavSection[] = [
 				icon: Building2,
 			},
 			{ label: "Usuarios", path: "/dashboard/usuarios", icon: Users },
+			{
+				label: "Logos institucionales",
+				path: "/dashboard/logos-institucionales",
+				icon: Stamp,
+			},
 			{ label: "Nube", path: "/dashboard/nube", icon: Cloud },
 		],
 	},
@@ -168,6 +182,11 @@ export const navigationSections: readonly NavSection[] = [
 				icon: ClipboardCheck,
 			},
 			{ label: "Créditos", path: "/dashboard/creditos", icon: Award },
+			{
+				label: "Plantillas de certificado",
+				path: "/dashboard/plantillas-de-certificado",
+				icon: LayoutTemplate,
+			},
 			{
 				label: "Plan anual",
 				path: "/dashboard/plan-anual",

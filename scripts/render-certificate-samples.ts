@@ -2,7 +2,8 @@
  * Muestras del renderer de certificados, para revisarlas en el navegador sin
  * interfaz de por medio (docs/certificates/00-certificados.md §5).
  *
- * Escribe cada plantilla con cinco casos en `.cache/certificados/` y los sirve
+ * Escribe cada plantilla v1 (congelada) y cada diseño de partida v2 con cinco
+ * casos en `.cache/certificados/` y los sirve
  * en localhost junto con `public/`. Servirlos y no abrirlos como `file://` es a
  * propósito: el navegador bloquea las fuentes cargadas desde archivo, y la
  * muestra saldría con tipografías sustitutas que el PDF no tendrá.
@@ -13,13 +14,16 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
-import { DEFAULT_CERTIFICATE_DESIGN } from "@/modules/certificates/domain/certificate.config";
 import { renderCertificateDocument } from "@/modules/certificates/domain/certificate.renderer";
-import { CERTIFICATE_TEMPLATE_IDS } from "@/modules/certificates/domain/certificate.rules";
 import type {
-	CertificateDesign,
+	CertificateDesignV1,
 	CertificateRenderData,
 } from "@/modules/certificates/domain/certificate.types";
+import { PRESETS } from "@/modules/certificates/domain/design/design.presets";
+import {
+	CERTIFICATE_TEMPLATE_IDS,
+	LEGACY_DEFAULT_DESIGN_V1 as DEFAULT_CERTIFICATE_DESIGN,
+} from "@/modules/certificates/domain/design/design-v1.schema";
 
 const PORT = 4400;
 const OUT_DIR = join(process.cwd(), ".cache", "certificados");
@@ -40,7 +44,7 @@ const [first, second] = DEFAULT_CERTIFICATE_DESIGN.signatories;
 
 const CASES: {
 	name: string;
-	design?: Partial<CertificateDesign>;
+	design?: Partial<CertificateDesignV1>;
 	data?: Partial<CertificateRenderData>;
 }[] = [
 	{
@@ -114,6 +118,17 @@ for (const templateId of CERTIFICATE_TEMPLATE_IDS) {
 			{ ...DEFAULT_CERTIFICATE_DESIGN, templateId, ...sample.design },
 			{ ...baseData, ...sample.data },
 			// Raíz del servidor: fuentes y logo se piden igual que dentro de la app.
+			{ assetBaseUrl: "" },
+		);
+		await writeFile(join(OUT_DIR, file), document, "utf8");
+		files.push(file);
+	}
+	// El diseño de partida v2 equivalente, con los mismos datos.
+	for (const sample of CASES) {
+		const file = `v2-${templateId}-${sample.name}.html`;
+		const document = renderCertificateDocument(
+			PRESETS[templateId],
+			{ ...baseData, ...sample.data },
 			{ assetBaseUrl: "" },
 		);
 		await writeFile(join(OUT_DIR, file), document, "utf8");

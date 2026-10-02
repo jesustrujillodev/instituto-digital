@@ -330,10 +330,13 @@ Orden de resolución del `loader`:
    - `?inline=true` → **streaming del archivo** (`getFile`) con `Content-Type`
      inferido por extensión (`contentTypeForKey`) y `Content-Disposition: inline`.
      **Cap de 15 MB**: por encima responde `413` en vez de bufferizar en memoria.
-     Útil para incrustar imágenes/PDF sin exponer al proveedor.
+     Útil para incrustar imágenes/PDF sin exponer al proveedor. Siempre lleva
+     `X-Content-Type-Options: nosniff`, y un SVG además
+     `Content-Security-Policy: sandbox; default-src 'none'` (docs/certificates/04).
    - por defecto → **URL firmada** (300 s) + `redirect(signedUrl)`. El navegador
      va directo al proveedor para la descarga real (el archivo no pasa por
-     nuestro servidor).
+     nuestro servidor). Un `.svg` se firma como adjunto: abierto directo se
+     descarga; por `<img>` se sigue pintando.
 5. `try/catch` con el logger del proyecto; un redirect de `requireAuth` (que es un
    `Response`) se re-lanza tal cual; cualquier otro error → `500` controlado.
 

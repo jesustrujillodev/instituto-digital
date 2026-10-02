@@ -121,7 +121,7 @@ export function CourseReviewStep({
 						}
 					>
 						<div className="flex flex-col gap-5">
-							<CourseTrainers trainers={course.trainers} />
+							<CourseTrainers trainers={course.trainers} showContact />
 							<CourseProgram
 								sessions={course.sessions}
 								modality={course.modality}

@@ -28,7 +28,7 @@ app/modules/certificates/
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `org.certificate_issues` | Una fila por persona y curso (`@@unique([courseId, userId])`): `folio` único, `issued_at`, `design_snapshot`, `data_snapshot` y `revoked_at` |
+| `org.certificate_issues` | Una fila por persona y curso (`@@unique([courseId, userId])`): `folio` único, `issued_at`, `design_snapshot`, `data_snapshot`, `asset_refs` (lo que imprime de storage, [ADR 0030](../adr/0030-biblioteca-de-plantillas-y-logos.md)) y `revoked_at` |
 | `org.certificate_folio_counter` | Una sola fila (`id = "folio"`) con el último `{seq}` usado |
 
 - **`design_snapshot`** es el diseño publicado al emitir, o el de por defecto si nunca se
@@ -96,7 +96,15 @@ error en un toast, cosa que un `<a download>` no puede hacer.
 
 ## 6. Exportación
 
-1. `certificateAssetSource.load(firmas)`:
+> Con el diseño v2 (editor libre), el perfil de exportación sale de `exportProfileOf`:
+> la página mide lo que dice el diseño (en puntos, vía `@page` y `preferCSSPageSize`) y el
+> PNG sale a 300 ppp. La fuente de recursos recibe un manifiesto (`assetManifestOf`) con
+> solo las caras, logos e imágenes que el certificado imprime, y guarda en una caché LRU los
+> objetos de storage. Con fondo PDF, el PDF se compone sobre el original
+> ([ADR 0029](../adr/0029-fondo-pdf-vectorial.md)). El v1 exporta exactamente como se
+> describe a continuación.
+
+1. `certificateAssetSource.load(manifiesto, logos)`:
    - Lee la ITC Avant Garde (`.woff2`) y el logo de `public/`, o de `build/client/` dentro
      de la imagen. Los tiene en memoria mientras vive el proceso.
    - Lee cada firma **activa** del bucket con `storageProvider.getFile`. Solo acepta keys
@@ -119,7 +127,8 @@ al descargar y no se congela ([03-verificacion.md](./03-verificacion.md)).
 
 ## 7. Firmas y gestor de nube
 
-La fuente de referencias de firmas cuenta también las que imprimen los snapshots emitidos
+La fuente de referencias de recursos del certificado (`certificate-assets.references.server.ts`,
+antes solo de firmas) cuenta también lo que imprimen las emisiones, leído de `asset_refs`
 («Firma de certificados emitidos»), así que nunca aparecen como huérfanas. Borrar una desde
 el gestor de nube responde `STORAGE_OBJECT_LOCKED` y no borra nada: un snapshot emitido no se
 reescribe.

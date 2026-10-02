@@ -7,7 +7,7 @@ import {
 } from "../certificate.config";
 import type {
 	CertificateAssets,
-	CertificateDesign,
+	CertificateDesignV1,
 	CertificateRenderData,
 	CertificateSignatory,
 } from "../certificate.types";
@@ -16,7 +16,7 @@ import { certificateQrSvg } from "./qr";
 /** Lo que recibe una plantilla, ya saneado por el renderer. */
 export interface TemplateContext {
 	/** Con el acento validado y la plantilla resuelta. */
-	design: CertificateDesign;
+	design: CertificateDesignV1;
 	data: CertificateRenderData;
 	logoUrl: string;
 	/** La imagen de una firma ya resuelta y saneada, o null para omitirla. */

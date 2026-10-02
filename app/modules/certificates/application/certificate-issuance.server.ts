@@ -1,8 +1,8 @@
 import type { ICradle } from "@/shared/di/container.types";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../domain/certificate.config";
 import { folioPartsOf, toIssueRenderData } from "../domain/certificate.mapper";
 import { diffIssues, resolveFolio } from "../domain/certificate.rules";
 import type { ICertificateIssuance } from "../domain/certificate.service";
+import { DEFAULT_CERTIFICATE_DESIGN } from "../domain/design/design.presets";
 
 type Dependencies = {
 	certificateRepository: ICradle["certificateRepository"];

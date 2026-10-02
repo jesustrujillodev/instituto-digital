@@ -6,7 +6,7 @@ import {
 	verificationPathOf,
 } from "./certificate.config";
 import type { MyCertificateRow } from "./certificate.repository";
-import { certificateDesignSchema, resolveFolio } from "./certificate.rules";
+import { resolveFolio } from "./certificate.rules";
 import type {
 	CertificateCourse,
 	CertificateDesign,
@@ -15,6 +15,7 @@ import type {
 	MyCertificate,
 	VerifiableIssue,
 } from "./certificate.types";
+import { certificateDesignSchema } from "./design/design.schema";
 
 /**
  * El blob guardado como diseño, o null si no valida.

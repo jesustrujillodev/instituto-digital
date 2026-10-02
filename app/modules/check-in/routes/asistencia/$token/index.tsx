@@ -13,6 +13,7 @@ import {
 	INSTITUTE_TIME_ZONE_LABEL,
 } from "@/lib/date-utils";
 import { ParticipantFollowUps } from "@/modules/content/components/participant-follow-ups";
+import { SessionMaterialList } from "@/modules/content/components/session-material-list";
 import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import { InstitutionalLogo } from "@/shared/components/common/institutional-logo";
 import { Button } from "@/shared/components/ui/button";
@@ -109,6 +110,19 @@ export default function AsistenciaPage() {
 					</p>
 				)}
 			</div>
+
+			{!pending && result?.success && data.materials.length > 0 && (
+				<section className="mt-6 flex flex-col gap-2">
+					<h2 className="text-sm font-medium">Material de esta sesión</h2>
+					<SessionMaterialList materials={data.materials} />
+					{data.materials.some((material) => material.state === "locked") && (
+						<p className="text-xs text-muted-foreground">
+							Si alguno todavía no se abre, recarga esta página cuando empiece
+							la sesión.
+						</p>
+					)}
+				</section>
+			)}
 
 			{!pending && result?.success && data.followUps.length > 0 && (
 				<section className="mt-6 flex flex-col gap-2">

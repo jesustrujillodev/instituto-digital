@@ -17,7 +17,9 @@ export type ObjectOwnerType =
 	| "course"
 	| "lesson"
 	| "session"
-	| "certificate";
+	| "certificate"
+	| "certificate-template"
+	| "institutional-logo";
 
 /** Uso de un objeto por una fila de la base. */
 export interface ObjectReference {

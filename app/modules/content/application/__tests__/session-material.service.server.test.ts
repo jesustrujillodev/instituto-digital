@@ -68,6 +68,7 @@ const createHarness = (
 ) => {
 	const calls = {
 		courseWhere: [] as unknown[],
+		participantReads: [] as unknown[][],
 		created: [] as { sessionId: number; write: SessionMaterialWrite }[],
 		updated: [] as { id: number; patch: unknown }[],
 		removed: [] as number[],
@@ -82,10 +83,12 @@ const createHarness = (
 				: options.course;
 		},
 		findSessions: async () => options.sessions ?? [],
-		findSessionsForParticipant: async () =>
-			options.participantSessions === undefined
+		findSessionsForParticipant: async (...args: unknown[]) => {
+			calls.participantReads.push(args);
+			return options.participantSessions === undefined
 				? []
-				: options.participantSessions,
+				: options.participantSessions;
+		},
 		findSession: async () =>
 			options.session === undefined
 				? { id: 11, materialCount: 0 }
@@ -252,6 +255,16 @@ describe("findForParticipant", () => {
 			state: "available",
 			fileUrl: `https://bucket.example/${KEY}?signature=read`,
 		});
+	});
+
+	test("con sesión, solo lee la de esa", async () => {
+		const { service, calls } = createHarness();
+
+		await service.findForParticipant(COURSE_DOC, actorOf(), SESSION);
+
+		expect(calls.participantReads).toEqual([
+			[COURSE_DOC, actorOf().userId, SESSION],
+		]);
 	});
 
 	test("quien no está inscrito no ve material", async () => {

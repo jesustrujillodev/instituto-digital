@@ -35,6 +35,7 @@ import {
 	requiresSessions,
 	requiresTrainer,
 	resolveModality,
+	sessionPhasesOf,
 } from "../course.rules";
 
 type PublishableCourse = Parameters<typeof assertPublishable>[0];
@@ -878,5 +879,47 @@ describe("mensajes de la regla de alta", () => {
 		});
 
 		expect(errors["sessions.0.date"]).toBe("Escribe la fecha de la sesión.");
+	});
+});
+
+describe("sessionPhasesOf", () => {
+	const at = (iso: string) => new Date(`2026-10-02T${iso}:00.000Z`);
+	const sessionAt = (documentId: string, start: string, end: string) => ({
+		documentId,
+		startsAt: at(start),
+		endsAt: at(end),
+	});
+	const sessions = [
+		sessionAt("c", "20:00", "22:00"),
+		sessionAt("a", "10:00", "12:00"),
+		sessionAt("b", "15:00", "17:00"),
+	];
+
+	test("marca pasadas y señala la primera por empezar", () => {
+		const phases = sessionPhasesOf(sessions, at("13:00"));
+
+		expect(Object.fromEntries(phases)).toEqual({
+			a: "past",
+			b: "next",
+			c: "upcoming",
+		});
+	});
+
+	test("con una en curso, ninguna es la próxima", () => {
+		const phases = sessionPhasesOf(sessions, at("16:00"));
+
+		expect(Object.fromEntries(phases)).toEqual({
+			a: "past",
+			b: "current",
+			c: "upcoming",
+		});
+	});
+
+	test("al terminar justo a la hora, ya es pasada", () => {
+		expect(sessionPhasesOf(sessions, at("22:00")).get("c")).toBe("past");
+	});
+
+	test("sin sesiones no hay fases", () => {
+		expect(sessionPhasesOf([], at("13:00")).size).toBe(0);
 	});
 });

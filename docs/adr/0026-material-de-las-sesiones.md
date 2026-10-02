@@ -51,6 +51,11 @@ curso, salvo que el material tenga marcada la casilla «Disponible a partir de l
 y cuándo se abre, pero el servidor **no envía sus enlaces**. La espera no depende de que la
 interfaz lo esconda.
 
+Lo ve en dos lugares: el detalle de Mis capacitaciones, con el material de todas las
+sesiones, y la pantalla del escaneo del QR (`/asistencia/:token`), solo con el de la sesión
+cuya asistencia registra y una vez registrada. Las dos leen con `findForParticipant`; la del
+escaneo le pasa la sesión para no leer las demás. Las reglas de bloqueo son las mismas.
+
 ### 2.5 Quitar una sesión borra su material
 
 La fila cae en cascada. El servicio de cursos lee antes las referencias del material de las

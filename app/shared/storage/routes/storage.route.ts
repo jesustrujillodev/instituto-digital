@@ -28,6 +28,14 @@ const SIGNED_URL_TTL_S = 300;
  */
 const REDIRECT_CACHE_CONTROL = `private, max-age=${SIGNED_URL_TTL_S - 60}`;
 
+const SVG = "image/svg+xml";
+/**
+ * Un SVG abierto directamente es un documento que puede llevar scripts. Se
+ * pinta siempre por `<img>` (que no los ejecuta); esto cubre que alguien lo
+ * abra en una pestaña: sin scripts, sin recursos externos y sin origen propio.
+ */
+const SVG_CSP = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const { logger, storageProvider, storageBucket, storagePublicBucket } =
 		context;
@@ -83,19 +91,27 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 				return new Response("File Too Large For Inline", { status: 413 });
 			}
 
+			const contentType = contentTypeForKey(finalKey);
 			return new Response(fileBuffer as unknown as BodyInit, {
 				headers: {
-					"Content-Type": contentTypeForKey(finalKey),
+					"Content-Type": contentType,
 					"Content-Disposition": "inline",
 					"Content-Length": String(fileBuffer.byteLength),
+					"X-Content-Type-Options": "nosniff",
+					...(contentType === SVG && { "Content-Security-Policy": SVG_CSP }),
 				},
 			});
 		}
 
+		// Un SVG por URL firmada se descarga en vez de abrirse: `<img>` ignora la
+		// disposición y lo sigue pintando.
 		const signedUrl = await storageProvider.getPresignedUrl(
 			bucketName,
 			finalKey,
 			SIGNED_URL_TTL_S,
+			contentTypeForKey(finalKey) === SVG
+				? { disposition: "attachment" }
+				: undefined,
 		);
 
 		return redirect(signedUrl, {

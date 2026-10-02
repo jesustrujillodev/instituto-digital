@@ -12,9 +12,14 @@ import {
 	type CertificateFontFile,
 } from "../domain/certificate.config";
 import { CertificateExportFailedError } from "../domain/certificate.errors";
-import type { ICertificateAssetSource } from "../domain/certificate.exporter";
-import { courseOfSignatureKey } from "../domain/certificate.rules";
+import type {
+	ICertificateAssetSource,
+	LogoSource,
+} from "../domain/certificate.exporter";
 import type { CertificateAssets } from "../domain/certificate.types";
+import { courseOfCertificateAssetKey } from "../domain/certificate-assets.rules";
+import { INSTITUTIONAL_LOGO } from "../domain/certificate-logo.rules";
+import { ALL_FACES } from "../domain/design/font-catalog";
 
 type Dependencies = {
 	storageProvider: ICradle["storageProvider"];
@@ -28,6 +33,9 @@ type Dependencies = {
  */
 const STATIC_ROOTS = ["public", path.join("build", "client")];
 
+/** Tope de la caché de objetos de storage. Sus keys llevan marca de tiempo: no cambian. */
+const STORAGE_CACHE_BYTES = 64 * 1024 * 1024;
+
 const staticRoot = (): string => {
 	const probe = CERTIFICATE_LOGO_PATH.slice(1);
 	const root = STATIC_ROOTS.map((candidate) => path.resolve(candidate)).find(
@@ -37,86 +45,172 @@ const staticRoot = (): string => {
 	return root;
 };
 
-const dataUri = (contentType: string, bytes: Buffer): string =>
-	`data:${contentType};base64,${bytes.toString("base64")}`;
+const dataUri = (contentType: string, bytes: Uint8Array): string =>
+	`data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
 
-const readStatic = async (root: string, publicPath: string) =>
-	readFile(path.join(root, publicPath.slice(1)));
+/** Una caché LRU por bytes: `Map` conserva el orden de inserción. */
+const createByteCache = (limit: number) => {
+	const entries = new Map<string, Buffer>();
+	let size = 0;
+	return {
+		get(key: string) {
+			const value = entries.get(key);
+			if (value) {
+				entries.delete(key);
+				entries.set(key, value);
+			}
+			return value;
+		},
+		set(key: string, value: Buffer) {
+			if (value.byteLength > limit) return;
+			entries.set(key, value);
+			size += value.byteLength;
+			for (const [oldest, bytes] of entries) {
+				if (size <= limit) break;
+				entries.delete(oldest);
+				size -= bytes.byteLength;
+			}
+		},
+	};
+};
 
 export const createCertificateAssetSource = ({
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
 }: Dependencies): ICertificateAssetSource => {
-	// Fuentes y logo no cambian mientras vive el proceso: se leen una vez.
-	let staticAssets: Promise<Omit<CertificateAssets, "signatures">> | null =
-		null;
+	const statics = new Map<string, Promise<Buffer>>();
+	const cache = createByteCache(STORAGE_CACHE_BYTES);
+	let root: string | null = null;
 
-	const loadStatic = () => {
-		staticAssets ??= (async () => {
-			const root = staticRoot();
-			const fonts = Object.fromEntries(
-				await Promise.all(
-					CERTIFICATE_FONT_FILES.map(async ([file]) => [
-						file,
-						dataUri(
-							"font/woff2",
-							await readStatic(
-								root,
-								`${CERTIFICATE_FONT_DIR}/ITCAvantGardeStd-${file}.woff2`,
-							),
-						),
-					]),
-				),
-			) as Record<CertificateFontFile, string>;
-
-			return {
-				fonts,
-				logo: dataUri(
-					"image/png",
-					await readStatic(root, CERTIFICATE_LOGO_PATH),
-				),
-			};
-		})().catch((error) => {
-			staticAssets = null;
-			throw error;
-		});
-		return staticAssets;
+	/** Un archivo de `public/`, leído una vez por proceso. */
+	const readStatic = (publicPath: string): Promise<Buffer> => {
+		let pending = statics.get(publicPath);
+		if (!pending) {
+			root ??= staticRoot();
+			pending = readFile(path.join(root, publicPath.slice(1)));
+			pending.catch(() => statics.delete(publicPath));
+			statics.set(publicPath, pending);
+		}
+		return pending;
 	};
 
-	const loadSignature = async (ref: string): Promise<[string, string]> => {
-		const key = getKeyFromUrl(ref);
-		// Solo firmas: el snapshot ya pasó por `isOwnSignatureRef`, pero de aquí
-		// no sale un objeto de otra carpeta aunque alguien edite la fila a mano.
-		if (!key || key.includes("..") || !courseOfSignatureKey(key)) {
-			throw new CertificateExportFailedError("signature reference is invalid");
-		}
+	const readStorage = async (key: string): Promise<Buffer> => {
+		const cached = cache.get(key);
+		if (cached) return cached;
 		if (!storageBucket) throw new Error("STORAGE_BUCKET_NAME no configurado");
 
-		const bucket = bucketForKey(key, {
-			defaultBucket: storageBucket,
-			publicBucket: storagePublicBucket,
-		});
+		const bytes = await storageProvider.getFile(
+			bucketForKey(key, {
+				defaultBucket: storageBucket,
+				publicBucket: storagePublicBucket,
+			}),
+			key,
+		);
+		cache.set(key, bytes);
+		return bytes;
+	};
+
+	/**
+	 * Una imagen del curso. El diseño ya pasó por `isOwnCertificateAssetRef`
+	 * al guardarse, pero de aquí no sale un objeto de otra carpeta aunque
+	 * alguien edite la fila a mano.
+	 */
+	const loadImage = async (ref: string): Promise<[string, string]> => {
+		const key = getKeyFromUrl(ref);
+		if (!key || !courseOfCertificateAssetKey(key)) {
+			throw new CertificateExportFailedError("image reference is invalid");
+		}
 		try {
+			return [ref, dataUri(contentTypeForKey(key), await readStorage(key))];
+		} catch {
+			throw new CertificateExportFailedError("image is unreadable");
+		}
+	};
+
+	const loadLogo = async (
+		logoId: string,
+		source: LogoSource | undefined,
+	): Promise<[string, string]> => {
+		if (!source) throw new CertificateExportFailedError("logo is unknown");
+		try {
+			if (source.kind === "builtin") {
+				return [
+					logoId,
+					dataUri(
+						contentTypeForKey(source.path),
+						await readStatic(source.path),
+					),
+				];
+			}
+			if (!source.key.startsWith(`${INSTITUTIONAL_LOGO.prefix}/`)) {
+				throw new Error("logo key outside its folder");
+			}
 			return [
-				ref,
-				dataUri(
-					contentTypeForKey(key),
-					await storageProvider.getFile(bucket, key),
-				),
+				logoId,
+				dataUri(contentTypeForKey(source.key), await readStorage(source.key)),
 			];
 		} catch {
-			throw new CertificateExportFailedError("signature image is unreadable");
+			throw new CertificateExportFailedError("logo is unreadable");
 		}
+	};
+
+	const loadFace = async (faceKey: string): Promise<[string, string]> => {
+		const face = ALL_FACES.get(faceKey);
+		if (!face) throw new CertificateExportFailedError("font face is unknown");
+		return [faceKey, dataUri("font/woff2", await readStatic(face.file))];
+	};
+
+	const loadLegacy = async () => {
+		const fonts = Object.fromEntries(
+			await Promise.all(
+				CERTIFICATE_FONT_FILES.map(async ([file]) => [
+					file,
+					dataUri(
+						"font/woff2",
+						await readStatic(
+							`${CERTIFICATE_FONT_DIR}/ITCAvantGardeStd-${file}.woff2`,
+						),
+					),
+				]),
+			),
+		) as Record<CertificateFontFile, string>;
+		return {
+			fonts,
+			logo: dataUri("image/png", await readStatic(CERTIFICATE_LOGO_PATH)),
+		};
 	};
 
 	return {
-		async load(signatureRefs) {
-			const [assets, signatures] = await Promise.all([
-				loadStatic(),
-				Promise.all([...new Set(signatureRefs)].map(loadSignature)),
+		async load(manifest, logos) {
+			const [legacy, faces, logoEntries, images] = await Promise.all([
+				manifest.legacy ? loadLegacy() : null,
+				Promise.all(manifest.faces.map(loadFace)),
+				Promise.all(manifest.logoIds.map((id) => loadLogo(id, logos[id]))),
+				Promise.all(manifest.imageRefs.map(loadImage)),
 			]);
-			return { ...assets, signatures: Object.fromEntries(signatures) };
+
+			const assets: CertificateAssets = {
+				...legacy,
+				faces: Object.fromEntries(faces),
+				logos: Object.fromEntries(logoEntries),
+				images: Object.fromEntries(images),
+			};
+			return assets;
+		},
+
+		async loadBackgroundPdf(ref) {
+			const key = getKeyFromUrl(ref);
+			if (!key || !courseOfCertificateAssetKey(key)) {
+				throw new CertificateExportFailedError(
+					"background reference is invalid",
+				);
+			}
+			try {
+				return new Uint8Array(await readStorage(key));
+			} catch {
+				throw new CertificateExportFailedError("background is unreadable");
+			}
 		},
 	};
 };

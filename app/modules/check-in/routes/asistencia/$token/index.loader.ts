@@ -22,7 +22,8 @@ import type { Route } from "./+types/index";
 
 /**
  * GET /asistencia/:token — valida el escaneo sin escribir nada, y trae las
- * evaluaciones de seguimiento de la sesión (docs/adr/0027).
+ * evaluaciones de seguimiento (docs/adr/0027) y el material (docs/adr/0026)
+ * de la sesión.
  *
  * La escritura vive en el action: un GET lo dispara cualquier prefetch o vista
  * previa de enlace, y registraría asistencias que nadie pidió.
@@ -68,15 +69,34 @@ export const loader = async ({
 	if (!result.success)
 		throw toRouteError(result.error, CHECK_IN_ERROR_MESSAGES);
 
+	const courseDocumentId = result.data.course.documentId;
+	const sessionDocumentId = result.data.session.documentId;
+
 	// Tras registrar la asistencia el loader se vuelve a ejecutar: ahí ya se
 	// pueden presentar.
-	const followUps = await context.quizService.findParticipantFollowUps(
-		result.data.course.documentId,
-		auth,
-		result.data.session.documentId,
-	);
+	const [followUps, sessionMaterials] = await Promise.all([
+		context.quizService.findParticipantFollowUps(
+			courseDocumentId,
+			auth,
+			sessionDocumentId,
+		),
+		context.sessionMaterialService.findForParticipant(
+			courseDocumentId,
+			auth,
+			sessionDocumentId,
+		),
+	]);
 	if (!followUps.success)
 		throw toRouteError(followUps.error, CONTENT_ERROR_MESSAGES);
+	if (!sessionMaterials.success)
+		throw toRouteError(sessionMaterials.error, CONTENT_ERROR_MESSAGES);
 
-	return ok({ ...result.data, followUps: followUps.data });
+	return ok({
+		...result.data,
+		followUps: followUps.data,
+		materials:
+			sessionMaterials.data.find(
+				(entry) => entry.sessionDocumentId === sessionDocumentId,
+			)?.materials ?? [],
+	});
 };

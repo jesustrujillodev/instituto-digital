@@ -1,8 +1,25 @@
 import { HTTP_STATUS } from "@/shared/http/route-error";
 import type { ErrorMessageMap } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
-import { CERTIFICATE_SIGNATURE_HINT } from "../domain/certificate.config";
-import { CERTIFICATE_ERROR_CODES } from "../domain/certificate.errors";
+import {
+	type BackgroundRejection,
+	CERTIFICATE_ERROR_CODES,
+} from "../domain/certificate.errors";
+
+const reasonOf = (error: { details?: unknown }) =>
+	(error.details as { reason?: string } | undefined)?.reason;
+
+const BACKGROUND_MESSAGES: Record<BackgroundRejection, string> = {
+	not_pdf: "El archivo no es un PDF.",
+	encrypted: "El PDF está protegido con contraseña. Expórtalo sin protección.",
+	unreadable:
+		"No se pudo leer el PDF. Vuelve a exportarlo desde tu programa de diseño.",
+	too_large: "El PDF pesa más de 10 MB.",
+	page_out_of_range:
+		"La página del PDF debe medir entre 7 cm y 42 cm por lado (de A7 a A3).",
+	raster_mismatch:
+		"La vista previa del PDF no coincide con el archivo. Vuelve a subirlo.",
+};
 
 export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 	[RESPONSE_ERROR_CODES.VALIDATION]: {
@@ -21,14 +38,50 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "El certificado todavía no se ha publicado.",
 		status: HTTP_STATUS.CONFLICT,
 	},
-	[CERTIFICATE_ERROR_CODES.SIGNATURE_INVALID]: {
-		message: `La imagen de firma no es válida: ${CERTIFICATE_SIGNATURE_HINT}.`,
+	[CERTIFICATE_ERROR_CODES.ASSET_INVALID]: {
+		message: (error) => {
+			const reason = reasonOf(error);
+			return reason
+				? `La imagen no se puede usar: ${reason}.`
+				: "La imagen debe ser PNG, JPG, WEBP o SVG de hasta 2 MB.";
+		},
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
-	[CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED]: {
+	[CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED]: {
 		message:
-			"Una de las firmas no se subió a esta capacitación. Vuelve a subirla.",
+			"Una de las imágenes no se subió a esta capacitación. Vuelve a subirla.",
 		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CERTIFICATE_ERROR_CODES.BACKGROUND_INVALID]: {
+		message: (error) =>
+			BACKGROUND_MESSAGES[reasonOf(error) as BackgroundRejection] ??
+			"El PDF de fondo no se puede usar.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CERTIFICATE_ERROR_CODES.LOGO_NOT_FOUND]: {
+		message: "Uno de los logos ya no existe. Elige otro.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CERTIFICATE_ERROR_CODES.LOGO_ARCHIVED]: {
+		message: "Uno de los logos se archivó. Elige el vigente.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CERTIFICATE_ERROR_CODES.LOGO_INVALID]: {
+		message: (error) => {
+			const reason = reasonOf(error);
+			return reason
+				? `El logo no se puede usar: ${reason}.`
+				: "El logo debe ser PNG, WEBP o SVG de hasta 2 MB.";
+		},
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
+	[CERTIFICATE_ERROR_CODES.TEMPLATE_NOT_FOUND]: {
+		message: "La plantilla no existe.",
+		status: HTTP_STATUS.NOT_FOUND,
+	},
+	[CERTIFICATE_ERROR_CODES.FORBIDDEN]: {
+		message: "No tienes permiso para modificar esto.",
+		status: HTTP_STATUS.FORBIDDEN,
 	},
 	[CERTIFICATE_ERROR_CODES.ISSUE_NOT_FOUND]: {
 		message: "El certificado no existe.",

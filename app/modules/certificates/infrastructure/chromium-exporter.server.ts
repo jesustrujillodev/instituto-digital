@@ -1,9 +1,6 @@
 import puppeteer, { type Browser } from "puppeteer-core";
 import type { Logger } from "@/shared/logging/logger";
-import {
-	CERTIFICATE_CANVAS,
-	CERTIFICATE_EXPORT,
-} from "../domain/certificate.config";
+import { CERTIFICATE_EXPORT } from "../domain/certificate.config";
 import {
 	CertificateExportFailedError,
 	CertificateExportUnavailableError,
@@ -81,7 +78,7 @@ export const createChromiumExporter = ({
 	};
 
 	return {
-		async export(html, format) {
+		async export(html, profile) {
 			if (!executablePath) throw new CertificateExportUnavailableError();
 
 			return withPage(async () => {
@@ -94,27 +91,37 @@ export const createChromiumExporter = ({
 						if (request.url().startsWith("data:")) request.continue();
 						else request.abort();
 					});
-					await page.setViewport({
-						...CERTIFICATE_CANVAS,
-						deviceScaleFactor: CERTIFICATE_EXPORT.deviceScaleFactor,
-					});
+					await page.setViewport(profile.viewport);
 					await page.setContent(html, { waitUntil: "load" });
 					// Sin esperar a las fuentes, el archivo sale con las de reserva.
 					await page.evaluate(() => document.fonts.ready.then(() => true));
 
 					const file =
-						format === "pdf"
+						profile.format === "pdf"
 							? await page.pdf({
-									width: `${CERTIFICATE_CANVAS.width}px`,
-									height: `${CERTIFICATE_CANVAS.height}px`,
+									...(profile.pdfPage.mode === "px"
+										? {
+												width: `${profile.pdfPage.width}px`,
+												height: `${profile.pdfPage.height}px`,
+											}
+										: { preferCSSPageSize: true }),
 									printBackground: true,
+									omitBackground: profile.transparent,
 									pageRanges: "1",
 								})
-							: await page.screenshot({ type: "png" });
+							: await page.screenshot({
+									type: "png",
+									...(profile.clip && {
+										clip: { x: 0, y: 0, ...profile.clip },
+									}),
+								});
 
 					return new Uint8Array(file);
 				} catch (error) {
-					log.error("certificate export failed", { format, error });
+					log.error("certificate export failed", {
+						format: profile.format,
+						error,
+					});
 					throw new CertificateExportFailedError("browser could not render");
 				} finally {
 					await page.close().catch(() => undefined);

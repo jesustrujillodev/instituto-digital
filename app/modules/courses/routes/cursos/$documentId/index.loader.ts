@@ -73,6 +73,7 @@ export const loader = async ({
 		certificateState: certificate?.data.state ?? null,
 		enrollmentQr: enrollmentQr?.data ?? null,
 		publishChecklist: facts ? publishChecklist(course.data, facts.data) : null,
+		now: context.clock.now(),
 		can: {
 			edit: canEdit(status),
 			certificate: canEditCertificate(status),
