@@ -13,13 +13,13 @@ import type {
 	VerifiableIssue,
 } from "./certificate.types";
 
-/** El diseño guardado de un curso, para la fuente de referencias de firmas. */
+/** El diseño guardado de un curso, para la fuente de referencias de storage. */
 export interface CertificateOwner {
 	courseDocumentId: string;
 	courseTitle: string;
 	record: CertificateRecord;
-	/** Las firmas que imprimen sus certificados ya emitidos. */
-	issuedSignatureRefs: string[];
+	/** Lo que imprimen sus certificados ya emitidos (`asset_refs`). */
+	issuedAssetRefs: string[];
 }
 
 export interface ICertificateRepository {
@@ -48,12 +48,13 @@ export interface ICertificateRepository {
 	): Promise<CertificateOwner[]>;
 
 	/**
-	 * Quita estas firmas del borrador y del publicado del curso, en una sola
-	 * transacción. Es lo que suelta el gestor de nube antes de borrar el objeto.
+	 * Quita estas referencias del borrador y del publicado del curso, en una
+	 * sola escritura. Es lo que suelta el gestor de nube antes de borrar el
+	 * objeto.
 	 *
-	 * @returns Cuántas firmas se quitaron.
+	 * @returns Cuántas referencias se quitaron.
 	 */
-	removeSignatureRefs(
+	removeAssetRefs(
 		courseDocumentId: string,
 		refs: readonly string[],
 	): Promise<number>;

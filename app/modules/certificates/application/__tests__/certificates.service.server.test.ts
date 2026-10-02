@@ -3,25 +3,37 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import { toProxyRef } from "@/shared/storage/public-url";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../../domain/certificate.config";
 import {
 	CERTIFICATE_ERROR_CODES,
+	CertificateBackgroundInvalidError,
 	CertificateExportUnavailableError,
 } from "../../domain/certificate.errors";
 import type {
 	CertificateCourse,
 	CertificateDelivery,
 	CertificateDesign,
-	CertificateExportFormat,
+	CertificateDesignV2,
 	CertificateIssueRecord,
 	CertificateRecord,
+	InstitutionalLogo,
 	MyIssueRecord,
 	VerifiableIssue,
 } from "../../domain/certificate.types";
+import type {
+	AssetManifest,
+	ExportProfile,
+} from "../../domain/design/design.assets";
+import {
+	DEFAULT_CERTIFICATE_DESIGN,
+	PRESETS,
+} from "../../domain/design/design.presets";
+import { LEGACY_DEFAULT_DESIGN_V1 } from "../../domain/design/design-v1.schema";
+import type { DesignElement } from "../../domain/design/design-v2.schema";
 import { createCertificateService } from "../certificates.service.server";
 
 const COURSE_DOC = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_DOC = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const LOGO_DOC = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const NOW = new Date("2026-09-23T18:00:00.000Z");
 
 const silentLogger: Logger = {
@@ -65,11 +77,59 @@ const recordOf = (
 	...overrides,
 });
 
-const withSignature = (ref: string | null): CertificateDesign => ({
+const LOGO = PRESETS.institucional.elements.find(
+	(e) => e.id === "logo",
+) as DesignElement;
+const TEXT = PRESETS.institucional.elements.find(
+	(e) => e.id === "otorga",
+) as DesignElement;
+
+const withElements = (...extra: DesignElement[]): CertificateDesignV2 => ({
 	...DEFAULT_CERTIFICATE_DESIGN,
+	elements: [...DEFAULT_CERTIFICATE_DESIGN.elements, ...extra],
+});
+
+const imageRef = (course: string, file = "a.png") =>
+	toProxyRef(`documentos/certificados/${course}/imagenes/${file}`);
+
+const withImage = (ref: string) =>
+	withElements({
+		...LOGO,
+		id: "img",
+		src: { kind: "asset", ref, role: "image" },
+	} as DesignElement);
+
+const withLogo = (logoId: string) =>
+	withElements({
+		...LOGO,
+		id: "otro-logo",
+		src: { kind: "logo", logoId },
+	} as DesignElement);
+
+const withText = (content: string) =>
+	withElements({ ...TEXT, id: "marca", content } as DesignElement);
+
+const logoOf = (
+	overrides: Partial<InstitutionalLogo> = {},
+): InstitutionalLogo => ({
+	documentId: LOGO_DOC,
+	name: "Logo a color",
+	storageKey: "media/logos/color-1.png",
+	contentType: "image/png",
+	widthPx: 600,
+	heightPx: 200,
+	archivedAt: null,
+	createdAt: NOW,
+	previousDocumentId: null,
+	...overrides,
+});
+
+/** Un v1 emitido con firma: así se sigue descargando lo de antes. */
+const v1WithSignature = (ref: string | null): CertificateDesign => ({
+	...LEGACY_DEFAULT_DESIGN_V1,
 	signatories: [
-		{ ...DEFAULT_CERTIFICATE_DESIGN.signatories[0], signatureUrl: ref },
-		DEFAULT_CERTIFICATE_DESIGN.signatories[1],
+		{ ...LEGACY_DEFAULT_DESIGN_V1.signatories[0], signatureUrl: ref },
+		LEGACY_DEFAULT_DESIGN_V1.signatories[1],
 	],
 });
 
@@ -82,7 +142,7 @@ const issueOf = (
 	courseId: 7,
 	folio: "2026-0042",
 	revokedAt: null,
-	design: withSignature(
+	design: v1WithSignature(
 		toProxyRef(`documentos/firmas/${COURSE_DOC}/firma-1.png`),
 	),
 	data: {
@@ -97,13 +157,37 @@ const issueOf = (
 	...overrides,
 });
 
-const fileOf = (overrides: Partial<{ type: string; size: number }> = {}) => ({
-	name: "firma.png",
+/** Lo justo de un PNG para que se reconozca y se midan sus lados. */
+const pngBytes = (width: number, height: number) => {
+	const bytes = new Uint8Array(33);
+	bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+	bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+	new DataView(bytes.buffer).setUint32(16, width);
+	new DataView(bytes.buffer).setUint32(20, height);
+	return bytes;
+};
+
+const fileOf = (
+	bytes: Uint8Array,
+	overrides: Partial<{ name: string; type: string; size: number }> = {},
+) => ({
+	name: "imagen.png",
 	type: "image/png",
-	size: 2048,
-	arrayBuffer: async () => new ArrayBuffer(8),
+	size: bytes.byteLength,
+	arrayBuffer: async () => bytes.slice().buffer,
 	...overrides,
 });
+
+const text = (value: string) => new TextEncoder().encode(value);
+
+const PDF_BACKGROUND = {
+	kind: "pdf",
+	pdfRef: toProxyRef(`documentos/certificados/${COURSE_DOC}/fondos/f.pdf`),
+	rasterRef: toProxyRef(`documentos/certificados/${COURSE_DOC}/fondos/f.webp`),
+	rasterDpi: 300,
+	widthPt: 841.89,
+	heightPt: 595.28,
+} as const;
 
 const createHarness = (
 	options: {
@@ -114,6 +198,8 @@ const createHarness = (
 		verifiable?: VerifiableIssue | null;
 		mine?: MyIssueRecord | null;
 		exporterUnavailable?: boolean;
+		logos?: InstitutionalLogo[];
+		sanitizeError?: CertificateBackgroundInvalidError;
 	} = {},
 ) => {
 	const calls = {
@@ -126,8 +212,10 @@ const createHarness = (
 		}[],
 		uploaded: [] as { bucket: string; key: string; type?: string }[],
 		findIssue: [] as { documentId: string; where: unknown }[],
-		assets: [] as (readonly string[])[],
-		exported: [] as { html: string; format: CertificateExportFormat }[],
+		assets: [] as { manifest: AssetManifest; logos: unknown }[],
+		backgrounds: [] as string[],
+		exported: [] as { html: string; format: string; profile: ExportProfile }[],
+		overlays: 0,
 		deliveries: [] as { courseId: number; delivery: CertificateDelivery }[],
 		mineFor: [] as number[],
 		myIssueFor: [] as { documentId: string; userId: number }[],
@@ -176,6 +264,11 @@ const createHarness = (
 		},
 	} as unknown as ICradle["certificateRepository"];
 
+	const certificateLogoRepository = {
+		findByDocumentIds: async (ids: readonly string[]) =>
+			(options.logos ?? []).filter((logo) => ids.includes(logo.documentId)),
+	} as unknown as ICradle["certificateLogoRepository"];
+
 	const storageProvider = {
 		uploadFile: async (
 			bucket: string,
@@ -188,8 +281,8 @@ const createHarness = (
 	} as unknown as ICradle["storageProvider"];
 
 	const certificateAssetSource = {
-		load: async (refs: readonly string[]) => {
-			calls.assets.push(refs);
+		load: async (manifest: AssetManifest, logos: unknown) => {
+			calls.assets.push({ manifest, logos });
 			return {
 				fonts: {
 					XLt: "data:f",
@@ -199,27 +292,53 @@ const createHarness = (
 					Bold: "data:f",
 				},
 				logo: "data:image/png;base64,TE9HTw==",
-				signatures: Object.fromEntries(
-					refs.map((ref) => [ref, "data:image/png;base64,RklSTUE="]),
+				faces: Object.fromEntries(
+					manifest.faces.map((face) => [face, "data:font"]),
+				),
+				logos: Object.fromEntries(
+					manifest.logoIds.map((id) => [id, "data:logo"]),
+				),
+				images: Object.fromEntries(
+					manifest.imageRefs.map((ref) => [
+						ref,
+						"data:image/png;base64,RklSTUE=",
+					]),
 				),
 			};
+		},
+		loadBackgroundPdf: async (ref: string) => {
+			calls.backgrounds.push(ref);
+			return new Uint8Array([1]);
 		},
 	} as unknown as ICradle["certificateAssetSource"];
 
 	const certificateExporter = {
-		export: async (html: string, format: CertificateExportFormat) => {
+		export: async (html: string, profile: ExportProfile) => {
 			if (options.exporterUnavailable) {
 				throw new CertificateExportUnavailableError();
 			}
-			calls.exported.push({ html, format });
+			calls.exported.push({ html, format: profile.format, profile });
 			return new Uint8Array([37, 80, 68, 70]);
 		},
 	} as unknown as ICradle["certificateExporter"];
+
+	const certificatePdfTools = {
+		sanitize: async () => {
+			if (options.sanitizeError) throw options.sanitizeError;
+			return { bytes: new Uint8Array([2]), widthPt: 841.89, heightPt: 595.28 };
+		},
+		overlay: async () => {
+			calls.overlays++;
+			return new Uint8Array([9, 9]);
+		},
+	} as unknown as ICradle["certificatePdfTools"];
 
 	const service = createCertificateService({
 		certificateRepository,
 		certificateAssetSource,
 		certificateExporter,
+		certificateLogoRepository,
+		certificatePdfTools,
 		appBaseUrl: "https://capacitacion.test",
 		clock: { now: () => NOW },
 		logger: silentLogger,
@@ -283,11 +402,9 @@ describe("certificateService.getEditor", () => {
 });
 
 describe("certificateService.saveDraft", () => {
-	const ownRef = toProxyRef(`documentos/firmas/${COURSE_DOC}/firma-1.png`);
-
-	test("guarda el borrador con una firma propia", async () => {
+	test("guarda el borrador con una imagen propia", async () => {
 		const { service, calls } = createHarness();
-		const design = withSignature(ownRef);
+		const design = withImage(imageRef(COURSE_DOC));
 
 		const result = await service.saveDraft(
 			{ documentId: COURSE_DOC, design },
@@ -298,26 +415,100 @@ describe("certificateService.saveDraft", () => {
 		expect(calls.saved).toEqual([{ courseId: 7, design }]);
 	});
 
+	test("acepta las firmas del gestor anterior de su propio curso", async () => {
+		const { service, calls } = createHarness();
+		const ref = toProxyRef(`documentos/firmas/${COURSE_DOC}/firma-1.png`);
+
+		const result = await service.saveDraft(
+			{ documentId: COURSE_DOC, design: withImage(ref) },
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.saved).toHaveLength(1);
+	});
+
 	test.each([
-		["una vista previa local", "blob:https://app.test/1234"],
+		["una imagen de otro curso", withImage(imageRef(OTHER_DOC))],
 		[
-			"una firma de otro curso",
-			toProxyRef(`documentos/firmas/${OTHER_DOC}/a.png`),
+			"un fondo de otro curso",
+			{
+				...DEFAULT_CERTIFICATE_DESIGN,
+				background: {
+					...PDF_BACKGROUND,
+					pdfRef: toProxyRef(
+						`documentos/certificados/${OTHER_DOC}/fondos/f.pdf`,
+					),
+				},
+			} as CertificateDesignV2,
 		],
-		["una URL externa", "https://cdn.test/firma.png"],
-	])("rechaza %s sin escribir", async (_case, ref) => {
+		[
+			"una URL que no es del proxy",
+			withImage("/api/storage?key=documentos/x.png"),
+		],
+	])("rechaza %s sin escribir", async (_case, design) => {
 		const { service, calls } = createHarness();
 
 		const result = await service.saveDraft(
-			{ documentId: COURSE_DOC, design: withSignature(ref) },
+			{ documentId: COURSE_DOC, design },
 			actorOf(),
 		);
 
 		expect(result).toMatchObject({
 			success: false,
-			error: { code: CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED },
+			error: { code: CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED },
 		});
 		expect(calls.saved).toEqual([]);
+	});
+
+	test("un logo subido que existe se guarda", async () => {
+		const { service, calls } = createHarness({ logos: [logoOf()] });
+
+		const result = await service.saveDraft(
+			{ documentId: COURSE_DOC, design: withLogo(LOGO_DOC) },
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.saved).toHaveLength(1);
+	});
+
+	test("un logo que no existe no se guarda", async () => {
+		const { service, calls } = createHarness({ logos: [] });
+
+		expect(
+			await service.saveDraft(
+				{ documentId: COURSE_DOC, design: withLogo(LOGO_DOC) },
+				actorOf(),
+			),
+		).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.LOGO_NOT_FOUND },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	test("un logo archivado no se elige, pero sigue si ya estaba", async () => {
+		const archived = logoOf({ archivedAt: NOW });
+		const fresh = createHarness({ logos: [archived] });
+		expect(
+			await fresh.service.saveDraft(
+				{ documentId: COURSE_DOC, design: withLogo(LOGO_DOC) },
+				actorOf(),
+			),
+		).toMatchObject({ error: { code: CERTIFICATE_ERROR_CODES.LOGO_ARCHIVED } });
+
+		const kept = createHarness({
+			logos: [archived],
+			record: recordOf({ published: withLogo(LOGO_DOC), exists: true }),
+		});
+		expect(
+			(
+				await kept.service.saveDraft(
+					{ documentId: COURSE_DOC, design: withLogo(LOGO_DOC) },
+					actorOf(),
+				)
+			).success,
+		).toBe(true);
 	});
 
 	test("un curso cancelado no cambia de certificado", async () => {
@@ -369,15 +560,11 @@ describe("certificateService.saveDraft", () => {
 });
 
 describe("certificateService.publish", () => {
-	// Publica lo que está en pantalla, no lo último guardado: con el borrador
-	// viejo en la base, lo publicado sigue siendo el diseño recibido.
+	// Publica lo que está en pantalla, no lo último guardado.
 	test("publica el diseño recibido con la hora del reloj", async () => {
-		const onScreen = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "En pantalla" };
+		const onScreen = withText("En pantalla");
 		const { service, calls } = createHarness({
-			record: recordOf({
-				draft: { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "Guardado antes" },
-				exists: true,
-			}),
+			record: recordOf({ draft: withText("Guardado antes"), exists: true }),
 		});
 
 		const result = await service.publish(
@@ -393,21 +580,16 @@ describe("certificateService.publish", () => {
 
 	// Publicar recibe un diseño, así que pasa por la misma guarda que guardar:
 	// sin ella se podría imprimir la firma de un titular ajeno.
-	test("rechaza la firma de otro curso sin publicar", async () => {
+	test("rechaza la imagen de otro curso sin publicar", async () => {
 		const { service, calls } = createHarness();
 
 		const result = await service.publish(
-			{
-				documentId: COURSE_DOC,
-				design: withSignature(
-					toProxyRef(`documentos/firmas/${OTHER_DOC}/a.png`),
-				),
-			},
+			{ documentId: COURSE_DOC, design: withImage(imageRef(OTHER_DOC)) },
 			actorOf(),
 		);
 
 		expect(result).toMatchObject({
-			error: { code: CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED },
+			error: { code: CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED },
 		});
 		expect(calls.published).toEqual([]);
 	});
@@ -431,10 +613,10 @@ describe("certificateService.publish", () => {
 
 describe("certificateService.discardDraft", () => {
 	test("el borrador vuelve a ser el publicado", async () => {
-		const published = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "Publicado" };
+		const published = withText("Publicado");
 		const { service, calls } = createHarness({
 			record: recordOf({
-				draft: { ...published, subtitle: "Cambiado" },
+				draft: withText("Cambiado"),
 				published,
 				exists: true,
 			}),
@@ -457,48 +639,86 @@ describe("certificateService.discardDraft", () => {
 	});
 });
 
-describe("certificateService.uploadSignature", () => {
-	test("sube bajo la carpeta del curso, al bucket privado", async () => {
+describe("certificateService.uploadImage", () => {
+	test("sube al bucket privado, con la extensión del tipo real", async () => {
 		const { service, calls } = createHarness();
 
-		const result = await service.uploadSignature(
+		const result = await service.uploadImage(
 			COURSE_DOC,
-			fileOf(),
+			fileOf(pngBytes(600, 200), { name: "logo.jpg", type: "image/jpeg" }),
 			actorOf(),
 		);
 
 		expect(calls.uploaded).toHaveLength(1);
 		const [upload] = calls.uploaded;
 		expect(upload.key).toMatch(
-			new RegExp(`^documentos/firmas/${COURSE_DOC}/firma-\\d+\\.png$`),
+			new RegExp(
+				`^documentos/certificados/${COURSE_DOC}/imagenes/logo-\\d+\\.png$`,
+			),
 		);
-		// Fuera de `media/`: nunca el bucket público ni el CDN.
 		expect(upload.bucket).toBe("privado");
 		expect(upload.type).toBe("image/png");
 		expect(result).toEqual(
 			expect.objectContaining({
 				success: true,
-				data: { signatureUrl: toProxyRef(upload.key) },
+				data: { ref: toProxyRef(upload.key), widthPx: 600, heightPx: 200 },
 			}),
 		);
 	});
 
+	test("acepta un SVG de dibujo", async () => {
+		const { service, calls } = createHarness();
+		const svg = text(
+			'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20"/></svg>',
+		);
+
+		const result = await service.uploadImage(
+			COURSE_DOC,
+			fileOf(svg, { name: "sello.svg", type: "image/svg+xml" }),
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { widthPx: 40, heightPx: 20 },
+		});
+		expect(calls.uploaded[0].key).toMatch(/\.svg$/);
+		expect(calls.uploaded[0].type).toBe("image/svg+xml");
+	});
+
 	test.each([
-		["un JPG, que pierde la transparencia", { type: "image/jpeg" }],
-		["una imagen de más de 1 MB", { size: 2 * 1024 * 1024 }],
-		["un archivo vacío", { size: 0 }],
-	])("rechaza %s sin subir", async (_case, overrides) => {
+		["un archivo vacío", new Uint8Array(0), "el archivo está vacío"],
+		[
+			"algo que no es imagen",
+			text("GIF89a......"),
+			"no es una imagen de un formato admitido",
+		],
+		[
+			"un SVG con scripts",
+			text("<svg><script>alert(1)</script></svg>"),
+			"el SVG contiene scripts",
+		],
+		[
+			"una imagen de más de 2 MB",
+			new Uint8Array(3 * 1024 * 1024),
+			"pesa más de 2 MB",
+		],
+		["una imagen sin medidas", pngBytes(0, 0), "no tiene medidas"],
+	])("rechaza %s sin subir", async (_case, bytes, reason) => {
 		const { service, calls } = createHarness();
 
-		const result = await service.uploadSignature(
+		const result = await service.uploadImage(
 			COURSE_DOC,
-			fileOf(overrides),
+			fileOf(bytes),
 			actorOf(),
 		);
 
 		expect(result).toMatchObject({
 			success: false,
-			error: { code: CERTIFICATE_ERROR_CODES.SIGNATURE_INVALID },
+			error: {
+				code: CERTIFICATE_ERROR_CODES.ASSET_INVALID,
+				details: { reason },
+			},
 		});
 		expect(calls.uploaded).toEqual([]);
 	});
@@ -506,16 +726,206 @@ describe("certificateService.uploadSignature", () => {
 	test("fuera de alcance no sube nada", async () => {
 		const { service, calls } = createHarness({ course: null });
 
-		const result = await service.uploadSignature(
-			COURSE_DOC,
-			fileOf(),
+		expect(
+			await service.uploadImage(
+				COURSE_DOC,
+				fileOf(pngBytes(10, 10)),
+				actorOf(),
+			),
+		).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+		expect(calls.uploaded).toEqual([]);
+	});
+
+	test("sin bucket configurado es un error inesperado", async () => {
+		const { service } = createHarness({ bucket: null });
+
+		expect(
+			await service.uploadImage(
+				COURSE_DOC,
+				fileOf(pngBytes(10, 10)),
+				actorOf(),
+			),
+		).toMatchObject({ success: false, error: { code: "UNEXPECTED_ERROR" } });
+	});
+});
+
+describe("certificateService.uploadBackground", () => {
+	const pdf = () =>
+		fileOf(text("%PDF-1.7"), { name: "diseño.pdf", type: "application/pdf" });
+
+	test("guarda el PDF reconstruido y su raster en la carpeta de fondos", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.uploadBackground(
+			{
+				documentId: COURSE_DOC,
+				pdf: pdf(),
+				raster: fileOf(pngBytes(3508, 2480)),
+				rasterDpi: 300,
+			},
 			actorOf(),
 		);
 
 		expect(result).toMatchObject({
-			error: { code: CERTIFICATE_ERROR_CODES.COURSE_NOT_FOUND },
+			success: true,
+			data: { rasterDpi: 300, widthPt: 841.89, heightPt: 595.28 },
+		});
+		const keys = calls.uploaded.map((upload) => upload.key).sort();
+		expect(keys[0]).toMatch(
+			new RegExp(
+				`^documentos/certificados/${COURSE_DOC}/fondos/fondo-\\d+\\.pdf$`,
+			),
+		);
+		expect(keys[1]).toMatch(/fondos\/fondo-\d+\.png$/);
+		expect(calls.uploaded.every((upload) => upload.bucket === "privado")).toBe(
+			true,
+		);
+	});
+
+	test("un raster que no corresponde a la página se rechaza", async () => {
+		const { service, calls } = createHarness();
+
+		expect(
+			await service.uploadBackground(
+				{
+					documentId: COURSE_DOC,
+					pdf: pdf(),
+					raster: fileOf(pngBytes(1000, 700)),
+					rasterDpi: 300,
+				},
+				actorOf(),
+			),
+		).toMatchObject({
+			error: {
+				code: CERTIFICATE_ERROR_CODES.BACKGROUND_INVALID,
+				details: { reason: "raster_mismatch" },
+			},
 		});
 		expect(calls.uploaded).toEqual([]);
+	});
+
+	test("un PDF de más de 10 MB se rechaza sin leerlo", async () => {
+		const { service } = createHarness();
+
+		expect(
+			await service.uploadBackground(
+				{
+					documentId: COURSE_DOC,
+					pdf: { ...pdf(), size: 11 * 1024 * 1024 },
+					raster: fileOf(pngBytes(3508, 2480)),
+					rasterDpi: 300,
+				},
+				actorOf(),
+			),
+		).toMatchObject({ error: { details: { reason: "too_large" } } });
+	});
+
+	test("lo que rechaza el saneado llega con su motivo", async () => {
+		const { service, calls } = createHarness({
+			sanitizeError: new CertificateBackgroundInvalidError("encrypted"),
+		});
+
+		expect(
+			await service.uploadBackground(
+				{
+					documentId: COURSE_DOC,
+					pdf: pdf(),
+					raster: fileOf(pngBytes(3508, 2480)),
+					rasterDpi: 300,
+				},
+				actorOf(),
+			),
+		).toMatchObject({ error: { details: { reason: "encrypted" } } });
+		expect(calls.uploaded).toEqual([]);
+	});
+
+	test("un curso cancelado no cambia de fondo", async () => {
+		const { service } = createHarness({
+			course: courseOf({ status: "CANCELLED" }),
+		});
+
+		expect(
+			await service.uploadBackground(
+				{
+					documentId: COURSE_DOC,
+					pdf: pdf(),
+					raster: fileOf(pngBytes(3508, 2480)),
+					rasterDpi: 300,
+				},
+				actorOf(),
+			),
+		).toMatchObject({ error: { code: CERTIFICATE_ERROR_CODES.NOT_EDITABLE } });
+	});
+});
+
+describe("exportación de un diseño v2", () => {
+	test("pide solo lo que imprime y exporta al tamaño de su página", async () => {
+		const { service, calls } = createHarness({
+			record: recordOf({ draft: withLogo(LOGO_DOC), exists: true }),
+			logos: [logoOf()],
+		});
+
+		await service.downloadSample(
+			{ documentId: COURSE_DOC, version: "draft", format: "png" },
+			actorOf(),
+		);
+
+		const [{ manifest, logos }] = calls.assets;
+		expect(manifest.legacy).toBe(false);
+		expect(manifest.logoIds).toEqual(["ayto-blanco", LOGO_DOC]);
+		expect(logos).toEqual({
+			"ayto-blanco": { kind: "builtin", path: "/assets/aytoBco.png" },
+			[LOGO_DOC]: { kind: "storage", key: "media/logos/color-1.png" },
+		});
+		expect(calls.exported[0].profile.viewport.deviceScaleFactor).toBe(300 / 96);
+		expect(calls.exported[0].html).toContain('src="data:logo"');
+	});
+
+	test("con PDF de fondo, el PDF se compone sobre el original vectorial", async () => {
+		const design = {
+			...DEFAULT_CERTIFICATE_DESIGN,
+			background: PDF_BACKGROUND,
+		} as CertificateDesignV2;
+		const { service, calls } = createHarness({
+			record: recordOf({ draft: design, exists: true }),
+		});
+
+		const result = await service.downloadSample(
+			{ documentId: COURSE_DOC, version: "draft", format: "pdf" },
+			actorOf(),
+		);
+
+		expect(calls.backgrounds).toEqual([PDF_BACKGROUND.pdfRef]);
+		expect(calls.overlays).toBe(1);
+		expect(calls.exported[0].profile.transparent).toBe(true);
+		expect(calls.exported[0].html).not.toContain('class="bg"');
+		expect(result).toMatchObject({
+			success: true,
+			data: { file: new Uint8Array([9, 9]) },
+		});
+	});
+
+	test("con PDF de fondo, el PNG usa su raster", async () => {
+		const design = {
+			...DEFAULT_CERTIFICATE_DESIGN,
+			background: PDF_BACKGROUND,
+		} as CertificateDesignV2;
+		const { service, calls } = createHarness({
+			record: recordOf({ draft: design, exists: true }),
+		});
+
+		await service.downloadSample(
+			{ documentId: COURSE_DOC, version: "draft", format: "png" },
+			actorOf(),
+		);
+
+		expect(calls.backgrounds).toEqual([]);
+		expect(calls.overlays).toBe(0);
+		expect(calls.exported[0].html).toContain(
+			'class="bg" src="data:image/png;base64,RklSTUE="',
+		);
 	});
 });
 
@@ -542,9 +952,18 @@ describe("certificateService.downloadIssue", () => {
 		expect(html).toContain("data:image/png;base64,RklSTUE=");
 		expect(html).not.toContain("/api/storage");
 		expect(html).toContain('<div class="qr"><svg');
-		expect(calls.assets).toEqual([
-			[toProxyRef(`documentos/firmas/${COURSE_DOC}/firma-1.png`)],
-		]);
+		expect(calls.assets[0].manifest).toEqual({
+			legacy: true,
+			faces: [],
+			logoIds: [],
+			imageRefs: [toProxyRef(`documentos/firmas/${COURSE_DOC}/firma-1.png`)],
+		});
+		// El v1 exporta como siempre: 1100×780 al doble.
+		expect(calls.exported[0].profile.viewport).toEqual({
+			width: 1100,
+			height: 780,
+			deviceScaleFactor: 2,
+		});
 	});
 
 	test("busca con el alcance de impartición de quien descarga", async () => {
@@ -606,14 +1025,8 @@ describe("certificateService.downloadIssue", () => {
 });
 
 describe("certificateService.downloadSample", () => {
-	const published: CertificateDesign = {
-		...DEFAULT_CERTIFICATE_DESIGN,
-		subtitle: "Versión publicada",
-	};
-	const draft: CertificateDesign = {
-		...DEFAULT_CERTIFICATE_DESIGN,
-		subtitle: "Versión en borrador",
-	};
+	const published = withText("Versión publicada");
+	const draft = withText("Versión en borrador");
 
 	test.each([
 		["draft", "Versión en borrador"],

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../../domain/certificate.config";
 import type { CertificateDesign } from "../../domain/certificate.types";
+import { DEFAULT_CERTIFICATE_DESIGN } from "../../domain/design/design.presets";
+import { LEGACY_DEFAULT_DESIGN_V1 } from "../../domain/design/design-v1.schema";
 import { createCertificateRepository } from "../certificates.repository.server";
 
 const REF_A = "/api/storage?key=documentos%2Ffirmas%2Fc%2Fa.png";
@@ -10,10 +11,10 @@ const REF_B = "/api/storage?key=documentos%2Ffirmas%2Fc%2Fb.png";
 
 const withRefs = (first: string | null, second: string | null) =>
 	({
-		...DEFAULT_CERTIFICATE_DESIGN,
+		...LEGACY_DEFAULT_DESIGN_V1,
 		signatories: [
-			{ ...DEFAULT_CERTIFICATE_DESIGN.signatories[0], signatureUrl: first },
-			{ ...DEFAULT_CERTIFICATE_DESIGN.signatories[1], signatureUrl: second },
+			{ ...LEGACY_DEFAULT_DESIGN_V1.signatories[0], signatureUrl: first },
+			{ ...LEGACY_DEFAULT_DESIGN_V1.signatories[1], signatureUrl: second },
 		],
 	}) satisfies CertificateDesign;
 
@@ -109,7 +110,7 @@ describe("findRecord", () => {
 	});
 
 	test("un publicado legible se lee tal cual", async () => {
-		const published = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "Publicado" };
+		const published = { ...LEGACY_DEFAULT_DESIGN_V1, subtitle: "Publicado" };
 		const at = new Date("2026-09-01T00:00:00.000Z");
 		const { repository, errors } = createHarness({
 			draftDesign: DEFAULT_CERTIFICATE_DESIGN,
@@ -162,7 +163,7 @@ describe("saveDraft y publish", () => {
 	});
 });
 
-describe("removeSignatureRefs", () => {
+describe("removeAssetRefs", () => {
 	test("quita la firma del borrador y del publicado en una escritura", async () => {
 		const { repository, writes } = createHarness({
 			courseId: 7,
@@ -171,7 +172,7 @@ describe("removeSignatureRefs", () => {
 			publishedAt: new Date(),
 		});
 
-		const removed = await repository.removeSignatureRefs("c", [REF_A]);
+		const removed = await repository.removeAssetRefs("c", [REF_A]);
 
 		expect(removed).toBe(2);
 		expect(writes).toEqual([
@@ -195,7 +196,7 @@ describe("removeSignatureRefs", () => {
 			publishedAt: null,
 		});
 
-		expect(await repository.removeSignatureRefs("c", [REF_A])).toBe(0);
+		expect(await repository.removeAssetRefs("c", [REF_A])).toBe(0);
 		expect(writes).toEqual([]);
 	});
 });
@@ -256,13 +257,15 @@ describe("findIssue", () => {
 		});
 	});
 
-	test("un diseño congelado ilegible cae al de por defecto y se registra", async () => {
+	// Cae al v1 congelado, no al diseño por defecto del editor: si este cambia,
+	// un snapshot ilegible no puede cambiar de aspecto con él.
+	test("un diseño congelado ilegible cae al v1 de reserva y se registra", async () => {
 		const { repository, errors } = createHarness(null, {
 			issue: rowOf({ designSnapshot: { templateId: "clasica" } }),
 		});
 
 		expect((await repository.findIssue("c", {}))?.design).toEqual(
-			DEFAULT_CERTIFICATE_DESIGN,
+			LEGACY_DEFAULT_DESIGN_V1,
 		);
 		expect(errors).toHaveLength(1);
 	});
@@ -278,7 +281,7 @@ describe("findIssue", () => {
 });
 
 describe("createIssues", () => {
-	test("escribe cada emisión con sus dos snapshots", async () => {
+	test("escribe cada emisión con sus dos snapshots y lo que imprime", async () => {
 		const { repository, writes } = createHarness();
 		const at = new Date("2026-03-10T18:00:00.000Z");
 		const design = withRefs(null, null);
@@ -307,6 +310,7 @@ describe("createIssues", () => {
 							issuedAt: at,
 							designSnapshot: design,
 							dataSnapshot: { folio: "2026-0001" },
+							assetRefs: [],
 						},
 					],
 				},

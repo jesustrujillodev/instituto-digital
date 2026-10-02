@@ -1,28 +1,26 @@
 import * as v from "valibot";
 import { describe, expect, test } from "vitest";
-import { toProxyRef } from "@/shared/storage/public-url";
 import {
 	CERTIFICATE_ACCENTS,
 	CERTIFICATE_MIN_LOGO_CONTRAST,
-	CERTIFICATE_TEXT_LIMITS,
-	DEFAULT_CERTIFICATE_DESIGN,
 } from "../certificate.config";
 import {
 	accentContrastWithWhite,
 	canEditCertificate,
-	certificateDesignSchema,
 	certificateFileName,
 	certificateRules,
 	certificateStateOf,
-	courseOfSignatureKey,
 	designsEqual,
 	diffIssues,
-	isOwnSignatureRef,
 	resolveFolio,
 	resolveTemplateId,
 	safeAccent,
 	safeImageUrl,
 } from "../certificate.rules";
+import {
+	designV1Schema as certificateDesignSchema,
+	LEGACY_DEFAULT_DESIGN_V1 as DEFAULT_CERTIFICATE_DESIGN,
+} from "../design/design-v1.schema";
 
 describe("resolveTemplateId", () => {
 	test("una plantilla conocida se conserva", () => {
@@ -77,7 +75,7 @@ describe("safeImageUrl", () => {
 	});
 });
 
-describe("certificateDesignSchema", () => {
+describe("designV1Schema (congelado)", () => {
 	const parse = (overrides: Record<string, unknown>) =>
 		v.safeParse(certificateDesignSchema, {
 			...DEFAULT_CERTIFICATE_DESIGN,
@@ -89,7 +87,7 @@ describe("certificateDesignSchema", () => {
 	});
 
 	test("el subtítulo admite justo su tope y no uno más", () => {
-		const max = CERTIFICATE_TEXT_LIMITS.subtitle;
+		const max = 120;
 
 		expect(parse({ subtitle: "a".repeat(max) }).success).toBe(true);
 		expect(parse({ subtitle: "a".repeat(max + 1) }).success).toBe(false);
@@ -107,11 +105,6 @@ describe("certificateDesignSchema", () => {
 	});
 });
 
-const COURSE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const OTHER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-const signatureRef = (course: string, file = "firma-1.png") =>
-	toProxyRef(`documentos/firmas/${course}/${file}`);
-
 describe("canEditCertificate", () => {
 	test.each(["DRAFT", "PUBLISHED", "FINISHED"] as const)(
 		"un curso %s sigue editando su certificado",
@@ -122,46 +115,6 @@ describe("canEditCertificate", () => {
 
 	test("un cancelado ya no", () => {
 		expect(canEditCertificate("CANCELLED")).toBe(false);
-	});
-});
-
-describe("courseOfSignatureKey", () => {
-	test("lee el curso del segundo segmento", () => {
-		expect(courseOfSignatureKey(`documentos/firmas/${COURSE}/a.png`)).toBe(
-			COURSE,
-		);
-	});
-
-	test.each([
-		"documentos/lecciones/x.pdf",
-		"documentos/firmas/sin-archivo",
-		"media/firmas/x/a.png",
-	])("%s no es una firma", (key) => {
-		expect(courseOfSignatureKey(key)).toBeNull();
-	});
-});
-
-describe("isOwnSignatureRef", () => {
-	test("la firma subida a este curso es suya", () => {
-		expect(isOwnSignatureRef(signatureRef(COURSE), COURSE)).toBe(true);
-	});
-
-	test.each([
-		["de otro curso", signatureRef(OTHER)],
-		["una vista previa local", "blob:https://app.test/1234"],
-		["un data URI", "data:image/png;base64,AAAA"],
-		["una URL externa", "https://cdn.test/firma.png"],
-		["otra carpeta de storage", toProxyRef("media/portadas/a.png")],
-		[
-			"una key sin codificar",
-			`/api/storage?key=documentos/firmas/${COURSE}/a.png`,
-		],
-		[
-			"un escape de carpeta",
-			toProxyRef(`documentos/firmas/${COURSE}/../${OTHER}/a.png`),
-		],
-	])("rechaza %s", (_case, ref) => {
-		expect(isOwnSignatureRef(ref, COURSE)).toBe(false);
 	});
 });
 

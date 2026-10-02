@@ -5,8 +5,14 @@ export const CERTIFICATE_ERROR_CODES = {
 	COURSE_NOT_FOUND: "CERTIFICATE_COURSE_NOT_FOUND",
 	NOT_EDITABLE: "CERTIFICATE_NOT_EDITABLE",
 	NEVER_PUBLISHED: "CERTIFICATE_NEVER_PUBLISHED",
-	SIGNATURE_INVALID: "CERTIFICATE_SIGNATURE_INVALID",
-	SIGNATURE_NOT_OWNED: "CERTIFICATE_SIGNATURE_NOT_OWNED",
+	ASSET_INVALID: "CERTIFICATE_ASSET_INVALID",
+	ASSET_NOT_OWNED: "CERTIFICATE_ASSET_NOT_OWNED",
+	BACKGROUND_INVALID: "CERTIFICATE_BACKGROUND_INVALID",
+	LOGO_NOT_FOUND: "CERTIFICATE_LOGO_NOT_FOUND",
+	LOGO_ARCHIVED: "CERTIFICATE_LOGO_ARCHIVED",
+	LOGO_INVALID: "CERTIFICATE_LOGO_INVALID",
+	TEMPLATE_NOT_FOUND: "CERTIFICATE_TEMPLATE_NOT_FOUND",
+	FORBIDDEN: "CERTIFICATE_FORBIDDEN",
 	ISSUE_NOT_FOUND: "CERTIFICATE_ISSUE_NOT_FOUND",
 	ISSUE_REVOKED: "CERTIFICATE_ISSUE_REVOKED",
 	EXPORT_UNAVAILABLE: "CERTIFICATE_EXPORT_UNAVAILABLE",
@@ -43,20 +49,88 @@ export class CertificateNeverPublishedError extends CertificateError {
 	}
 }
 
-export class CertificateSignatureInvalidError extends CertificateError {
-	readonly code = CERTIFICATE_ERROR_CODES.SIGNATURE_INVALID;
+/** Una imagen que no es PNG, JPG, WEBP ni un SVG aceptable, o que pesa demasiado. */
+export class CertificateAssetInvalidError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.ASSET_INVALID;
 	readonly details: { reason: string };
 	constructor(reason: string) {
-		super(`Signature image rejected: ${reason}`);
+		super(`Certificate image rejected: ${reason}`);
 		this.details = { reason };
 	}
 }
 
-/** El diseño apunta a una imagen que no es una firma subida a este curso. */
-export class CertificateSignatureNotOwnedError extends CertificateError {
-	readonly code = CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED;
+/** El diseño apunta a una imagen o un fondo que no se subió a este curso. */
+export class CertificateAssetNotOwnedError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED;
 	constructor() {
-		super("Signature does not belong to this course");
+		super("Asset does not belong to this course");
+	}
+}
+
+export const BACKGROUND_REJECTIONS = [
+	"not_pdf",
+	"encrypted",
+	"unreadable",
+	"too_large",
+	"page_out_of_range",
+	"raster_mismatch",
+] as const;
+export type BackgroundRejection = (typeof BACKGROUND_REJECTIONS)[number];
+
+/** Un PDF de fondo que no se puede usar: el motivo lo interpola el mensaje. */
+export class CertificateBackgroundInvalidError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.BACKGROUND_INVALID;
+	readonly details: { reason: BackgroundRejection };
+	constructor(reason: BackgroundRejection) {
+		super(`Background PDF rejected: ${reason}`);
+		this.details = { reason };
+	}
+}
+
+/** El diseño nombra un logo que no existe. */
+export class CertificateLogoNotFoundError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.LOGO_NOT_FOUND;
+	constructor() {
+		super("Institutional logo not found");
+	}
+}
+
+/**
+ * Un logo archivado sigue pintándose donde ya estaba, pero un diseño nuevo no
+ * lo puede elegir.
+ */
+export class CertificateLogoArchivedError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.LOGO_ARCHIVED;
+	constructor() {
+		super("Institutional logo is archived");
+	}
+}
+
+export class CertificateLogoInvalidError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.LOGO_INVALID;
+	readonly details: { reason: string };
+	constructor(reason: string) {
+		super(`Institutional logo rejected: ${reason}`);
+		this.details = { reason };
+	}
+}
+
+/** No existe, o quien pregunta no la puede ver: igual que inexistente. */
+export class CertificateTemplateNotFoundError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.TEMPLATE_NOT_FOUND;
+	constructor() {
+		super("Certificate template not found");
+	}
+}
+
+/**
+ * Quien pregunta ve el recurso pero no lo puede administrar: una plantilla de
+ * otro alcance, o los logos sin ser de la plataforma.
+ */
+export class CertificateForbiddenError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.FORBIDDEN;
+	constructor() {
+		super("Not allowed to manage this certificate resource");
 	}
 }
 

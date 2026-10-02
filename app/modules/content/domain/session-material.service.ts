@@ -16,10 +16,14 @@ export interface ISessionMaterialService {
 		courseDocumentId: string,
 		actor: AuthContext,
 	): Promise<AppResponse<SessionMaterialBoard>>;
-	/** Vacío si quien pregunta no está inscrito: una baja deja de verlo. */
+	/**
+	 * Vacío si quien pregunta no está inscrito: una baja deja de verlo. Con
+	 * sesión, solo la de esa.
+	 */
 	findForParticipant(
 		courseDocumentId: string,
 		actor: AuthContext,
+		sessionDocumentId?: string,
 	): Promise<AppResponse<ParticipantSessionMaterials[]>>;
 	createUploadUrl(
 		courseDocumentId: string,

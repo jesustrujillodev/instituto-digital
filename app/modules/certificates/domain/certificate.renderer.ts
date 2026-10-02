@@ -10,10 +10,18 @@ import {
 } from "./certificate.rules";
 import type {
 	CertificateDesign,
+	CertificateDesignV1,
 	CertificateRenderData,
 	CertificateRenderOptions,
 	CertificateRenderResult,
 } from "./certificate.types";
+import { isDesignV2 } from "./design/design.schema";
+import { builtinLogoOf } from "./design/logos";
+import {
+	imageResolverOf,
+	pageWidthPx,
+	renderDesignV2,
+} from "./design/render-v2";
 import { renderInstitucional } from "./templates/institucional";
 import { renderMarco } from "./templates/marco";
 import { renderMinima } from "./templates/minima";
@@ -50,6 +58,37 @@ export const renderCertificate = (
 	data: CertificateRenderData,
 	options: CertificateRenderOptions,
 ): CertificateRenderResult => {
+	if (!isDesignV2(design)) return renderV1(design, data, options);
+
+	const { body, styles } = renderDesignV2(
+		design,
+		data,
+		options,
+		imageResolverOf(
+			options,
+			safeImageUrl,
+			(logoId) => builtinLogoOf(logoId)?.path ?? null,
+		),
+	);
+	return { html: documentOf(pageWidthPx(design), body), styles };
+};
+
+const documentOf = (viewportWidth: number, body: string) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=${viewportWidth}">
+<title>Constancia</title>
+</head>
+<body>${body}</body>
+</html>`;
+
+/** Las plantillas del gestor anterior. Congelado: ver las pruebas golden. */
+const renderV1 = (
+	design: CertificateDesignV1,
+	data: CertificateRenderData,
+	options: CertificateRenderOptions,
+): CertificateRenderResult => {
 	const { assets } = options;
 	const templateId = resolveTemplateId(design.templateId);
 	const description =
@@ -64,23 +103,13 @@ export const renderCertificate = (
 		data,
 		logoUrl: assets?.logo ?? `${options.assetBaseUrl}${CERTIFICATE_LOGO_PATH}`,
 		signatureSrc: assets
-			? (ref) => (ref ? (assets.signatures[ref] ?? null) : null)
+			? (ref) => (ref ? (assets.images[ref] ?? null) : null)
 			: safeImageUrl,
 		description,
 	});
 
-	const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=${CERTIFICATE_CANVAS.width}">
-<title>Constancia</title>
-</head>
-<body>${body}</body>
-</html>`;
-
 	return {
-		html,
+		html: documentOf(CERTIFICATE_CANVAS.width, body),
 		styles: `${fontFaces(options.assetBaseUrl, assets?.fonts)}\n${BASE_STYLES}\n${styles}`,
 	};
 };

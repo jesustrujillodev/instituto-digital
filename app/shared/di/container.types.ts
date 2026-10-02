@@ -19,11 +19,16 @@ import type {
 	ICertificateAssetSource,
 	ICertificateExporter,
 } from "@/modules/certificates/domain/certificate.exporter";
+import type { ICertificatePdfTools } from "@/modules/certificates/domain/certificate.pdf";
 import type { ICertificateRepository } from "@/modules/certificates/domain/certificate.repository";
 import type {
 	ICertificateIssuance,
 	ICertificateService,
 } from "@/modules/certificates/domain/certificate.service";
+import type { ICertificateLogoRepository } from "@/modules/certificates/domain/certificate-logo.repository";
+import type { ICertificateLogoService } from "@/modules/certificates/domain/certificate-logo.service";
+import type { ICertificateTemplateRepository } from "@/modules/certificates/domain/certificate-template.repository";
+import type { ICertificateTemplateService } from "@/modules/certificates/domain/certificate-template.service";
 import type { ICheckInService } from "@/modules/check-in/domain/check-in.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
 import type { IClassroomRepository } from "@/modules/content/domain/classroom.repository";
@@ -143,6 +148,13 @@ export interface ICradle {
 	certificateIssuance: ICertificateIssuance;
 	certificateExporter: ICertificateExporter;
 	certificateAssetSource: ICertificateAssetSource;
+	certificatePdfTools: ICertificatePdfTools;
+	// Logos institucionales, inmutables y versionados (docs/adr/0030).
+	certificateLogoRepository: ICertificateLogoRepository;
+	certificateLogoService: ICertificateLogoService;
+	// Biblioteca de plantillas de certificado (docs/adr/0030).
+	certificateTemplateRepository: ICertificateTemplateRepository;
+	certificateTemplateService: ICertificateTemplateService;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
 	calendarRepository: ICalendarRepository;

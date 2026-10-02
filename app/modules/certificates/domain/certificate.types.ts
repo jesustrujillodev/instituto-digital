@@ -1,25 +1,26 @@
 import type * as v from "valibot";
 import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import type { UploadInput } from "@/shared/storage/upload-validation";
 import type {
 	CERTIFICATE_EXPORT_FORMATS,
 	CertificateFontFile,
 } from "./certificate.config";
+import type { CertificateState, certificateRules } from "./certificate.rules";
+import type { CertificateDesign } from "./design/design.schema";
 import type {
-	CertificateState,
+	CertificateDesignV1,
+	CertificateSignatory,
 	CertificateTemplateId,
-	certificateDesignSchema,
-	certificateRules,
-	certificateSignatorySchema,
-} from "./certificate.rules";
+} from "./design/design-v1.schema";
+import type { CertificateDesignV2 } from "./design/design-v2.schema";
 
-export type { CertificateTemplateId };
-
-export type CertificateSignatory = v.InferOutput<
-	typeof certificateSignatorySchema
->;
-
-/** Lo que configura el capacitador y se persiste por curso. */
-export type CertificateDesign = v.InferOutput<typeof certificateDesignSchema>;
+export type {
+	CertificateDesign,
+	CertificateDesignV1,
+	CertificateDesignV2,
+	CertificateSignatory,
+	CertificateTemplateId,
+};
 
 /**
  * Lo que aporta el sistema al emitir. Nunca se persiste en el diseño: si
@@ -53,14 +54,30 @@ export interface CertificateRenderOptions {
 	assetBaseUrl: string;
 	/** Recursos incrustados para exportar; sin ellos, se piden por URL. */
 	assets?: CertificateAssets;
+	/** URL pública de cada logo institucional subido, para la vista previa. */
+	logoUrls?: Record<string, string>;
+	/**
+	 * `overlay` pinta solo los elementos sobre fondo transparente: la capa que
+	 * se estampa encima de un PDF de fondo (v2).
+	 */
+	mode?: "full" | "overlay";
 }
 
-/** Fuentes, logo y firmas como data URIs, leídos por el servidor. */
+/**
+ * Lo que el exportador incrusta como data URIs, leído por el servidor. Solo
+ * trae lo que el diseño usa (`assetManifestOf`).
+ */
 export interface CertificateAssets {
-	fonts: Record<CertificateFontFile, string>;
-	logo: string;
-	/** Por referencia del diseño (`/api/storage?key=…`). */
-	signatures: Record<string, string>;
+	/** Avant Garde de las plantillas v1. */
+	fonts?: Record<CertificateFontFile, string>;
+	/** Logo blanco de las plantillas v1. */
+	logo?: string;
+	/** Por clave de cara del catálogo (`eb-garamond-400`), para v2. */
+	faces: Record<string, string>;
+	/** Por id de logo, para v2. */
+	logos: Record<string, string>;
+	/** Firmas e imágenes por referencia del diseño (`/api/storage?key=…`). */
+	images: Record<string, string>;
 }
 
 export interface CertificateRenderResult {
@@ -112,6 +129,27 @@ export interface CertificateDelivery {
 export type SaveCertificateDraftDto = v.InferOutput<
 	typeof certificateRules.saveDraft
 >;
+
+export interface UploadedImage {
+	ref: string;
+	widthPx: number;
+	heightPx: number;
+}
+
+export interface UploadBackgroundDto {
+	documentId: string;
+	pdf: UploadInput;
+	raster: UploadInput;
+	rasterDpi: number;
+}
+
+export interface UploadedBackground {
+	pdfRef: string;
+	rasterRef: string;
+	rasterDpi: number;
+	widthPt: number;
+	heightPt: number;
+}
 
 // ── Emisión y exportación (F-09) ──────────────────────────────────────────────
 
@@ -231,3 +269,70 @@ export interface MyIssueRecord {
 export type SaveCertificateDeliveryDto = v.InferOutput<
 	typeof certificateRules.delivery
 >;
+
+// ── Logos institucionales (ADR 0030) ──────────────────────────────────────────
+
+/** Un logo subido. Inmutable: reemplazarlo crea otro y archiva este. */
+export interface InstitutionalLogo {
+	documentId: string;
+	name: string;
+	storageKey: string;
+	contentType: string;
+	widthPx: number;
+	heightPx: number;
+	archivedAt: Date | null;
+	createdAt: Date;
+	/** El logo al que este reemplazó. */
+	previousDocumentId: string | null;
+}
+
+/** Un logo tal como lo ofrece el editor: integrado o subido, con su URL. */
+export interface LogoOption {
+	id: string;
+	name: string;
+	url: string;
+	widthPx: number;
+	heightPx: number;
+	builtin: boolean;
+	archived: boolean;
+}
+
+export interface NewInstitutionalLogo {
+	name: string;
+	storageKey: string;
+	contentType: string;
+	widthPx: number;
+	heightPx: number;
+	createdById: number;
+}
+
+// ── Biblioteca de plantillas (ADR 0030) ───────────────────────────────────────
+
+export type CertificateTemplateScope = "INSTITUTIONAL" | "DEPENDENCY";
+
+/** Un diseño reutilizable. Aplicarlo copia su diseño e imágenes al curso. */
+export interface CertificateTemplate {
+	documentId: string;
+	name: string;
+	description: string | null;
+	scope: CertificateTemplateScope;
+	dependencyId: number | null;
+	dependencyName: string | null;
+	design: CertificateDesignV2;
+	archivedAt: Date | null;
+	updatedAt: Date;
+}
+
+/** Una plantilla tal como la ve quien pregunta: con lo que puede hacer. */
+export interface CertificateTemplateView extends CertificateTemplate {
+	canEdit: boolean;
+}
+
+export interface NewCertificateTemplate {
+	name: string;
+	description: string | null;
+	scope: CertificateTemplateScope;
+	dependencyId: number | null;
+	design: CertificateDesignV2;
+	createdById: number;
+}

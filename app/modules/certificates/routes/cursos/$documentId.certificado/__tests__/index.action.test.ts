@@ -5,8 +5,9 @@ import {
 	failReply,
 	okReply,
 } from "@/modules/courses/routes/cursos/__tests__/route-harness";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../../../../domain/certificate.config";
 import { CERTIFICATE_ERROR_CODES } from "../../../../domain/certificate.errors";
+import { DEFAULT_CERTIFICATE_DESIGN } from "../../../../domain/design/design.presets";
+import { LEGACY_DEFAULT_DESIGN_V1 } from "../../../../domain/design/design-v1.schema";
 import { action } from "../index.action";
 
 type ActionArgs = Parameters<typeof action>[0];
@@ -26,7 +27,8 @@ const createHarness = (reply: unknown = okReply(null)) => {
 			saveDraft: record("saveDraft"),
 			publish: record("publish"),
 			discardDraft: record("discardDraft"),
-			uploadSignature: record("uploadSignature"),
+			uploadImage: record("uploadImage"),
+			uploadBackground: record("uploadBackground"),
 			saveDelivery: record("saveDelivery"),
 		},
 	} as unknown as ActionArgs["context"];
@@ -77,10 +79,17 @@ describe("certificado action", () => {
 
 	test.each([
 		["un JSON roto", "{no es json"],
-		["un diseño incompleto", JSON.stringify({ templateId: "marco" })],
+		["un diseño incompleto", JSON.stringify({ version: 2 })],
+		// El gestor anterior se sigue leyendo, pero ya no se escribe.
+		["un diseño v1", JSON.stringify(LEGACY_DEFAULT_DESIGN_V1)],
 		[
-			"un acento que no es #rrggbb",
-			JSON.stringify({ ...DEFAULT_CERTIFICATE_DESIGN, accentColor: "red" }),
+			"un diseño sin QR",
+			JSON.stringify({
+				...DEFAULT_CERTIFICATE_DESIGN,
+				elements: DEFAULT_CERTIFICATE_DESIGN.elements.filter(
+					(e) => e.type !== "qr",
+				),
+			}),
 		],
 	])("%s no llega al servicio", async (_case, payload) => {
 		const { context, calls } = createHarness();
@@ -98,7 +107,7 @@ describe("certificado action", () => {
 	// que se pueda olvidar (docs/adr/0023).
 	test("publicar pasa al servicio el diseño del cuerpo", async () => {
 		const { context, calls } = createHarness();
-		const design = { ...DEFAULT_CERTIFICATE_DESIGN, subtitle: "X" };
+		const design = { ...DEFAULT_CERTIFICATE_DESIGN, folioFormat: "SOP-{seq}" };
 
 		const result = await run(
 			context,
@@ -129,31 +138,68 @@ describe("certificado action", () => {
 		expect(calls).toEqual([]);
 	});
 
-	test("subir una firma pasa el archivo al servicio", async () => {
+	test("subir una imagen pasa el archivo al servicio", async () => {
 		const { context, calls } = createHarness(
-			okReply({ signatureUrl: "/api/storage?key=x" }),
+			okReply({ ref: "/api/storage?key=x", widthPx: 10, heightPx: 10 }),
 		);
-		const file = new File([new Uint8Array([1, 2, 3])], "firma.png", {
+		const file = new File([new Uint8Array([1, 2, 3])], "sello.png", {
 			type: "image/png",
 		});
 
-		const result = await run(
-			context,
-			formOf({ intent: "upload-signature", file }),
-		);
+		const result = await run(context, formOf({ intent: "upload-image", file }));
 
 		expect(result).toMatchObject({
 			success: true,
-			data: { signatureUrl: "/api/storage?key=x" },
+			data: { ref: "/api/storage?key=x" },
 		});
-		expect(calls[0].method).toBe("uploadSignature");
-		expect((calls[0].args[1] as File).name).toBe("firma.png");
+		expect(calls[0].method).toBe("uploadImage");
+		expect(calls[0].args[0]).toBe(COURSE_ID);
+		expect((calls[0].args[1] as File).name).toBe("sello.png");
 	});
 
 	test("subir sin archivo no llega al servicio", async () => {
 		const { context, calls } = createHarness();
 
-		const result = await run(context, formOf({ intent: "upload-signature" }));
+		const result = await run(context, formOf({ intent: "upload-image" }));
+
+		expect(!result.success && result.error.code).toBe("VALIDATION_ERROR");
+		expect(calls).toEqual([]);
+	});
+
+	test("subir un fondo pasa el PDF, el raster y su resolución", async () => {
+		const { context, calls } = createHarness(okReply(null));
+		const pdf = new File([new Uint8Array([1])], "fondo.pdf", {
+			type: "application/pdf",
+		});
+		const raster = new File([new Uint8Array([2])], "fondo.webp", {
+			type: "image/webp",
+		});
+
+		const result = await run(
+			context,
+			formOf({ intent: "upload-background", pdf, raster, rasterDpi: "300" }),
+		);
+
+		expect(result).toMatchObject({ success: true, message: "Fondo cargado." });
+		expect(calls[0]).toMatchObject({
+			method: "uploadBackground",
+			args: [{ documentId: COURSE_ID, rasterDpi: 300 }, expect.anything()],
+		});
+	});
+
+	test.each([
+		["sin raster", { rasterDpi: "300" }],
+		["sin resolución", { rasterDpi: "nada" }],
+	])("un fondo %s no llega al servicio", async (_case, fields) => {
+		const { context, calls } = createHarness();
+		const pdf = new File([new Uint8Array([1])], "fondo.pdf", {
+			type: "application/pdf",
+		});
+
+		const result = await run(
+			context,
+			formOf({ intent: "upload-background", pdf, ...fields }),
+		);
 
 		expect(!result.success && result.error.code).toBe("VALIDATION_ERROR");
 		expect(calls).toEqual([]);
@@ -161,7 +207,7 @@ describe("certificado action", () => {
 
 	test("un fallo del servicio vuelve con su copia", async () => {
 		const { context } = createHarness(
-			failReply(CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED),
+			failReply(CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED),
 		);
 
 		const result = await run(
@@ -173,7 +219,7 @@ describe("certificado action", () => {
 		);
 
 		expect(!result.success && result.error.message).toBe(
-			"Una de las firmas no se subió a esta capacitación. Vuelve a subirla.",
+			"Una de las imágenes no se subió a esta capacitación. Vuelve a subirla.",
 		);
 	});
 

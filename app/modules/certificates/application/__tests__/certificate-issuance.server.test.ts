@@ -1,13 +1,16 @@
 import { describe, expect, test } from "vitest";
 import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../../domain/certificate.config";
 import type {
 	CertificateCourse,
 	CertificateDesign,
 	NewCertificateIssue,
 	StoredIssue,
 } from "../../domain/certificate.types";
+import {
+	DEFAULT_CERTIFICATE_DESIGN,
+	PRESETS,
+} from "../../domain/design/design.presets";
 import { createCertificateIssuance } from "../certificate-issuance.server";
 
 const AT = new Date("2026-03-10T18:00:00.000Z");
@@ -23,8 +26,7 @@ const course: CertificateCourse = {
 };
 
 const PUBLISHED: CertificateDesign = {
-	...DEFAULT_CERTIFICATE_DESIGN,
-	templateId: "marco",
+	...PRESETS.marco,
 	folioFormat: "SOP-{year}-{seq}",
 };
 

@@ -23,3 +23,6 @@ export type DashboardLayoutData = OkResponse<{
 	 */
 	securityState: PublicSecurityState | null;
 }>;
+
+/** Contrato del layout a pantalla completa: la misma sesión, sin el shell. */
+export type FullscreenLayoutData = OkResponse<{ user: SessionUser }>;

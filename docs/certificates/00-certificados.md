@@ -8,7 +8,12 @@ editor (F-08), el PDF y el PNG (F-09) y lo que enseña la verificación pública
 Las decisiones de fondo están en
 [ADR 0017](../adr/0017-certificado-html-y-un-solo-renderizador.md).
 
-En esta etapa el módulo es solo `domain/`: sin base de datos, sin rutas y sin cradle.
+Hay dos versiones de diseño. El **v1** (las plantillas institucional, mínima y marco) queda
+congelado: lo leen los certificados ya emitidos y un curso que aún no republica. El **v2**
+es el documento de elementos del editor libre
+([04-editor-libre.md](./04-editor-libre.md), [ADR 0028](../adr/0028-editor-libre-documento-v2.md)).
+`renderCertificate` despacha por `version`; lo que sigue en este documento describe el v1,
+salvo §7.
 
 ```
 app/modules/certificates/domain/
@@ -96,3 +101,19 @@ saldría con tipografías sustitutas.
 4. Las pruebas de `certificate.renderer.test.ts` la recorren solas, porque iteran
    `CERTIFICATE_TEMPLATE_IDS`.
 5. Revisar sus cinco muestras.
+
+## 7. Diseño v2
+
+| Pieza | Dónde |
+| --- | --- |
+| Esquema y tipos | `domain/design/design-v2.schema.ts`; la unión con el v1, `design.schema.ts` |
+| Renderizador | `domain/design/render-v2.ts`: un `div` absoluto por elemento con `data-el-id`, formas en SVG, renglones ya cortados |
+| Texto | `domain/design/text-layout.ts` con `font-metrics.generated.ts` (`bun run certificates:font-metrics`) |
+| Fuentes | `domain/design/font-catalog.ts`; archivos en `public/font/cert/`, inmutables |
+| Diseños de partida y conversión | `domain/design/design.presets.ts` (`PRESETS`, `migrateV1ToV2`, `DEFAULT_CERTIFICATE_DESIGN`) |
+| Tamaño, exportación y recursos | `domain/design/design.assets.ts` (`pageBoxOf`, `exportProfileOf`, `assetManifestOf`) |
+
+Mismas reglas que el v1: todo texto se escapa después de resolver los campos, los colores
+pasan por `safeColor`, las imágenes por `safeImageUrl` o por los recursos incrustados, y
+`options.mode = "overlay"` pinta solo los elementos sobre fondo transparente (fondo PDF,
+[ADR 0029](../adr/0029-fondo-pdf-vectorial.md)).

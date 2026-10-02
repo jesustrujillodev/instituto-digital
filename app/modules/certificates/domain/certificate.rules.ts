@@ -1,13 +1,9 @@
 import * as v from "valibot";
 import type { CourseStatus } from "@/modules/courses/domain/course.rules";
-import { toProxyRef } from "@/shared/storage/public-url";
-import { getKeyFromUrl } from "@/shared/storage/storage.utils";
 import {
 	CERTIFICATE_ACCENTS,
 	CERTIFICATE_EMAIL_MESSAGE_MAX,
 	CERTIFICATE_EXPORT_FORMATS,
-	CERTIFICATE_SIGNATURE,
-	CERTIFICATE_TEXT_LIMITS,
 } from "./certificate.config";
 import type {
 	CertificateDesign,
@@ -16,56 +12,26 @@ import type {
 	IssueDiff,
 	StoredIssue,
 } from "./certificate.types";
+import { safeColor } from "./design/color";
+import {
+	CERTIFICATE_TEMPLATE_IDS,
+	type CertificateTemplateId,
+	DEFAULT_TEMPLATE_ID,
+} from "./design/design-v1.schema";
+import { designV2Schema } from "./design/design-v2.schema";
 
-export const CERTIFICATE_TEMPLATE_IDS = [
-	"institucional",
-	"minima",
-	"marco",
-] as const;
-export type CertificateTemplateId = (typeof CERTIFICATE_TEMPLATE_IDS)[number];
+export {
+	CERTIFICATE_TEMPLATE_IDS,
+	type CertificateTemplateId,
+	certificateSignatorySchema,
+	DEFAULT_TEMPLATE_ID,
+} from "./design/design-v1.schema";
 
-export const DEFAULT_TEMPLATE_ID: CertificateTemplateId = "institucional";
-
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-
-const text = (field: string, max: number) =>
-	v.pipe(
-		v.string(`${field} debe ser texto.`),
-		v.trim(),
-		v.maxLength(max, `${field} no puede superar los ${max} caracteres.`),
-	);
-
-export const certificateSignatorySchema = v.object({
-	name: text("El nombre del firmante", CERTIFICATE_TEXT_LIMITS.signatoryName),
-	role: text("El cargo del firmante", CERTIFICATE_TEXT_LIMITS.signatoryRole),
-	enabled: v.boolean("Indica si el firmante aparece en el certificado."),
-	signatureUrl: v.nullable(
-		text("La firma", CERTIFICATE_TEXT_LIMITS.signatureUrl),
-	),
-});
-
-/** Lo que el capacitador configura de su certificado. */
-export const certificateDesignSchema = v.object({
-	templateId: v.picklist(
-		CERTIFICATE_TEMPLATE_IDS,
-		"Elige una plantilla válida.",
-	),
-	accentColor: v.pipe(
-		v.string("El color de acento debe ser texto."),
-		v.regex(HEX_COLOR, "El color de acento debe tener la forma #RRGGBB."),
-	),
-	subtitle: text("El subtítulo", CERTIFICATE_TEXT_LIMITS.subtitle),
-	description: text("La descripción", CERTIFICATE_TEXT_LIMITS.description),
-	signatories: v.tuple(
-		[certificateSignatorySchema, certificateSignatorySchema],
-		"El certificado lleva exactamente dos firmantes.",
-	),
-	// Sin `{seq}` todos los folios del curso serían el mismo texto.
-	folioFormat: v.pipe(
-		text("El formato del folio", CERTIFICATE_TEXT_LIMITS.folioFormat),
-		v.includes("{seq}", "El formato del folio debe incluir {seq}."),
-	),
-});
+/**
+ * El diseño que acepta la frontera del editor: solo v2. Un v1 se sigue leyendo
+ * (snapshots, borradores viejos), pero ya no se escribe.
+ */
+export const certificateDesignSchema = designV2Schema;
 
 /**
  * La plantilla con la que se dibuja: la pedida si existe y, si no, la de por
@@ -77,15 +43,9 @@ export const resolveTemplateId = (
 ): CertificateTemplateId =>
 	CERTIFICATE_TEMPLATE_IDS.find((id) => id === value) ?? DEFAULT_TEMPLATE_ID;
 
-/**
- * El acento, solo si es un `#rrggbb`.
- *
- * Entra al CSS sin escapar —no hay escape posible dentro de una declaración—,
- * así que cualquier otra forma se descarta: `red;} body{…}` sería una inyección
- * de estilos con el diseño como vector.
- */
+/** El acento, solo si es un `#rrggbb` (`safeColor`). */
 export const safeAccent = (value: string): string =>
-	HEX_COLOR.test(value) ? value.toLowerCase() : CERTIFICATE_ACCENTS[0];
+	safeColor(value, CERTIFICATE_ACCENTS[0]);
 
 /**
  * Una imagen de firma, solo desde `https:` o desde el proxy de storage.
@@ -169,42 +129,6 @@ export const certificateRules = {
  */
 export const canEditCertificate = (status: CourseStatus): boolean =>
 	status !== "CANCELLED";
-
-/** Carpeta de las firmas de un curso, con su barra final. */
-export const signatureFolderOf = (courseDocumentId: string): string =>
-	`${CERTIFICATE_SIGNATURE.prefix}/${courseDocumentId}/`;
-
-/** El curso dueño de una key de firma, o null si la key no es de firmas. */
-export const courseOfSignatureKey = (key: string): string | null => {
-	const root = `${CERTIFICATE_SIGNATURE.prefix}/`;
-	if (!key.startsWith(root)) return null;
-
-	const [courseDocumentId, file] = key.slice(root.length).split("/");
-	return courseDocumentId && file ? courseDocumentId : null;
-};
-
-/**
- * Lo único que un diseño puede guardar como firma: la referencia del proxy de
- * una key bajo la carpeta de ESTE curso.
- *
- * Deja fuera la vista previa local (`blob:`, `data:`), las URLs externas y las
- * firmas de otro curso: con estas últimas, cualquiera que administre un curso
- * imprimiría la firma de un titular ajeno.
- */
-export const isOwnSignatureRef = (
-	ref: string,
-	courseDocumentId: string,
-): boolean => {
-	if (!ref.startsWith("/api/storage?")) return false;
-
-	const key = getKeyFromUrl(ref);
-	return (
-		key !== null &&
-		!key.includes("..") &&
-		courseOfSignatureKey(key) === courseDocumentId &&
-		toProxyRef(key) === ref
-	);
-};
 
 const pad = (value: number, length: number) =>
 	String(value).padStart(length, "0");

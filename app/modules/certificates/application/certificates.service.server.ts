@@ -10,25 +10,22 @@ import {
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
-import { buildObjectKey } from "@/shared/storage/object-key";
-import { toProxyRef } from "@/shared/storage/public-url";
-import { bucketForKey } from "@/shared/storage/storage.policy";
-import { validateUploadInput } from "@/shared/storage/upload-validation";
 import {
 	CERTIFICATE_EXPORT,
-	CERTIFICATE_SIGNATURE,
 	verificationPathOf,
 } from "../domain/certificate.config";
 import {
+	CertificateAssetNotOwnedError,
 	CertificateCourseNotFoundError,
 	CertificateDownloadDisabledError,
 	CertificateIssueNotFoundError,
 	CertificateIssueRevokedError,
+	CertificateLogoArchivedError,
+	CertificateLogoNotFoundError,
 	CertificateNeverPublishedError,
 	CertificateNotEditableError,
-	CertificateSignatureInvalidError,
-	CertificateSignatureNotOwnedError,
 } from "../domain/certificate.errors";
+import type { LogoSource } from "../domain/certificate.exporter";
 import {
 	toCertificateVerification,
 	toMyCertificate,
@@ -39,8 +36,6 @@ import {
 	canEditCertificate,
 	certificateFileName,
 	certificateStateOf,
-	isOwnSignatureRef,
-	signatureFolderOf,
 } from "../domain/certificate.rules";
 import type { ICertificateService } from "../domain/certificate.service";
 import type {
@@ -48,13 +43,32 @@ import type {
 	CertificateDesign,
 	CertificateExportFormat,
 	CertificateFile,
+	CertificateRecord,
 	CertificateRenderData,
 } from "../domain/certificate.types";
+import {
+	certificateAssetFolderOf,
+	isOwnCertificateAssetRef,
+} from "../domain/certificate-assets.rules";
+import {
+	assetManifestOf,
+	backgroundPdfRefOf,
+	exportProfileOf,
+	logoIdsOf,
+	storageRefsOf,
+} from "../domain/design/design.assets";
+import { builtinLogoOf } from "../domain/design/logos";
+import {
+	storeCertificateBackground,
+	storeCertificateImage,
+} from "./certificate-uploads.server";
 
 type Dependencies = {
 	certificateRepository: ICradle["certificateRepository"];
 	certificateExporter: ICradle["certificateExporter"];
 	certificateAssetSource: ICradle["certificateAssetSource"];
+	certificateLogoRepository: ICradle["certificateLogoRepository"];
+	certificatePdfTools: ICradle["certificatePdfTools"];
 	appBaseUrl: ICradle["appBaseUrl"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -67,6 +81,8 @@ export const createCertificateService = ({
 	certificateRepository,
 	certificateExporter,
 	certificateAssetSource,
+	certificateLogoRepository,
+	certificatePdfTools,
 	appBaseUrl,
 	clock,
 	logger,
@@ -75,6 +91,7 @@ export const createCertificateService = ({
 	storagePublicBucket,
 }: Dependencies): ICertificateService => {
 	const run = createOperationRunner(logger.child({ module: "certificates" }));
+	const uploads = { storageProvider, storageBucket, storagePublicBucket };
 
 	/**
 	 * Quién administra el certificado de un curso: el alcance de escritura sobre
@@ -107,40 +124,109 @@ export const createCertificateService = ({
 		return course;
 	};
 
-	const assertOwnSignatures = (
+	/** Toda imagen y fondo del diseño, subidos a ESTE curso. */
+	const assertOwnAssets = (
 		design: CertificateDesign,
 		courseDocumentId: string,
 	) => {
-		for (const { signatureUrl } of design.signatories) {
-			if (signatureUrl && !isOwnSignatureRef(signatureUrl, courseDocumentId)) {
-				throw new CertificateSignatureNotOwnedError();
+		for (const ref of storageRefsOf(design)) {
+			if (!isOwnCertificateAssetRef(ref, courseDocumentId)) {
+				throw new CertificateAssetNotOwnedError();
 			}
 		}
 	};
 
 	/**
+	 * Los logos subidos que el diseño nombra existen. Uno archivado solo pasa
+	 * si el diseño guardado ya lo usaba: sigue pintándose, pero no se elige.
+	 */
+	const assertLogos = async (
+		design: CertificateDesign,
+		stored: CertificateRecord,
+	) => {
+		const uploaded = logoIdsOf(design).filter((id) => !builtinLogoOf(id));
+		if (uploaded.length === 0) return;
+
+		const logos = await certificateLogoRepository.findByDocumentIds(uploaded);
+		const known = new Map(logos.map((logo) => [logo.documentId, logo]));
+		const alreadyUsed = new Set([
+			...logoIdsOf(stored.draft),
+			...(stored.published ? logoIdsOf(stored.published) : []),
+		]);
+		for (const id of uploaded) {
+			const logo = known.get(id);
+			if (!logo) throw new CertificateLogoNotFoundError();
+			if (logo.archivedAt && !alreadyUsed.has(id)) {
+				throw new CertificateLogoArchivedError();
+			}
+		}
+	};
+
+	const assertSavable = async (
+		design: CertificateDesign,
+		course: CertificateCourse,
+	) => {
+		assertOwnAssets(design, course.documentId);
+		await assertLogos(
+			design,
+			await certificateRepository.findRecord(course.id),
+		);
+	};
+
+	/** De dónde leer cada logo del diseño al exportar. */
+	const logoSourcesOf = async (
+		logoIds: readonly string[],
+	): Promise<Record<string, LogoSource>> => {
+		const sources: Record<string, LogoSource> = {};
+		const uploaded: string[] = [];
+		for (const id of logoIds) {
+			const builtin = builtinLogoOf(id);
+			if (builtin) sources[id] = { kind: "builtin", path: builtin.path };
+			else uploaded.push(id);
+		}
+		const logos = await certificateLogoRepository.findByDocumentIds(uploaded);
+		for (const logo of logos) {
+			sources[logo.documentId] = { kind: "storage", key: logo.storageKey };
+		}
+		return sources;
+	};
+
+	/**
 	 * El archivo de un certificado. Todo lo que se dibuja viene de la base:
 	 * ni el diseño ni los datos llegan nunca en la petición.
+	 *
+	 * Con un PDF de fondo y formato PDF, Chromium pinta solo la capa de
+	 * elementos sobre fondo transparente y se estampa encima del PDF original:
+	 * el fondo sale vectorial, no rasterizado.
 	 */
 	const exportCertificate = async (
 		design: CertificateDesign,
 		data: CertificateRenderData,
 		format: CertificateExportFormat,
 	): Promise<CertificateFile> => {
-		const assets = await certificateAssetSource.load(
-			design.signatories.flatMap((signatory) =>
-				signatory.enabled && signatory.signatureUrl
-					? [signatory.signatureUrl]
-					: [],
+		const manifest = assetManifestOf(design);
+		const backgroundPdf = format === "pdf" ? backgroundPdfRefOf(design) : null;
+		const [assets, base] = await Promise.all([
+			logoSourcesOf(manifest.logoIds).then((logos) =>
+				certificateAssetSource.load(manifest, logos),
 			),
-		);
+			backgroundPdf
+				? certificateAssetSource.loadBackgroundPdf(backgroundPdf)
+				: null,
+		]);
+
 		const html = renderCertificateDocument(design, data, {
 			assetBaseUrl: "",
 			assets,
+			mode: base ? "overlay" : "full",
 		});
+		const rendered = await certificateExporter.export(
+			html,
+			exportProfileOf(design, format, { transparent: base !== null }),
+		);
 
 		return {
-			file: await certificateExporter.export(html, format),
+			file: base ? await certificatePdfTools.overlay(base, rendered) : rendered,
 			contentType: CERTIFICATE_EXPORT.contentTypes[format],
 			fileName: certificateFileName(data.folio, format),
 		};
@@ -167,7 +253,7 @@ export const createCertificateService = ({
 		async saveDraft({ documentId, design }, actor) {
 			return run("saveDraft", async () => {
 				const course = await requireEditableCourse(documentId, actor);
-				assertOwnSignatures(design, course.documentId);
+				await assertSavable(design, course);
 
 				await certificateRepository.saveDraft(course.id, design);
 				return ok(null);
@@ -177,7 +263,7 @@ export const createCertificateService = ({
 		async publish({ documentId, design }, actor) {
 			return run("publish", async () => {
 				const course = await requireEditableCourse(documentId, actor);
-				assertOwnSignatures(design, course.documentId);
+				await assertSavable(design, course);
 
 				await certificateRepository.publish(course.id, design, clock.now());
 				return ok(null);
@@ -196,36 +282,33 @@ export const createCertificateService = ({
 		},
 
 		/**
-		 * La firma se sube sola y el diseño la recoge al guardarse. Si nunca se
-		 * guarda, el objeto queda huérfano y lo detecta el gestor de nube. Tampoco
-		 * se borra la anterior al reemplazarla: el diseño publicado —y, desde
-		 * F-09, una emisión— pueden seguir usándola.
+		 * La imagen se sube sola y el diseño la recoge al guardarse. Si nunca se
+		 * guarda, el objeto queda huérfano y lo detecta el gestor de nube. Nada
+		 * se borra al reemplazar: el publicado o una emisión pueden usarla.
 		 */
-		async uploadSignature(courseDocumentId, file, actor) {
-			return run("uploadSignature", async () => {
-				const reason = validateUploadInput(file, CERTIFICATE_SIGNATURE);
-				if (reason) throw new CertificateSignatureInvalidError(reason);
-
+		async uploadImage(courseDocumentId, file, actor) {
+			return run("uploadImage", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
-				// Error de configuración, no de negocio: sale como UNEXPECTED.
-				if (!storageBucket)
-					throw new Error("STORAGE_BUCKET_NAME no configurado");
-
-				const key = buildObjectKey(
-					signatureFolderOf(course.documentId).slice(0, -1),
-					file.name,
+				return ok(
+					await storeCertificateImage(
+						uploads,
+						certificateAssetFolderOf(course.documentId, "image"),
+						file,
+					),
 				);
-				await storageProvider.uploadFile(
-					bucketForKey(key, {
-						defaultBucket: storageBucket,
-						publicBucket: storagePublicBucket,
-					}),
-					key,
-					Buffer.from(await file.arrayBuffer()),
-					file.type,
-				);
+			});
+		},
 
-				return ok({ signatureUrl: toProxyRef(key) });
+		async uploadBackground({ documentId, ...input }, actor) {
+			return run("uploadBackground", async () => {
+				const course = await requireEditableCourse(documentId, actor);
+				return ok(
+					await storeCertificateBackground(
+						{ ...uploads, certificatePdfTools },
+						certificateAssetFolderOf(course.documentId, "background"),
+						input,
+					),
+				);
 			});
 		},
 

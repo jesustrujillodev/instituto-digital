@@ -1,25 +1,4 @@
-import type {
-	CertificateState,
-	CertificateTemplateId,
-} from "../domain/certificate.rules";
-
-export const TEMPLATE_LABELS: Record<
-	CertificateTemplateId,
-	{ label: string; description: string }
-> = {
-	institucional: {
-		label: "Institucional",
-		description: "Franja de color con el logo y el texto centrado.",
-	},
-	minima: {
-		label: "Mínima",
-		description: "Columna de color a la izquierda y tipografía limpia.",
-	},
-	marco: {
-		label: "Con marco",
-		description: "Doble marco de color y el logo en una placa.",
-	},
-};
+import type { CertificateState } from "../domain/certificate.rules";
 
 export const STATE_LABELS: Record<
 	CertificateState,

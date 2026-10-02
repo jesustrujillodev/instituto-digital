@@ -32,5 +32,6 @@ export const loader = async ({
 		...detail.data,
 		/** Inscrito y con aula abierta: el mismo criterio que «Mis cursos». */
 		hasClassroom: classrooms.data.includes(documentId),
+		now: context.clock.now(),
 	});
 };

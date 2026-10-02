@@ -2,8 +2,11 @@
 
 ## 1. Qué es
 
-`/dashboard/capacitaciones/:documentId/certificado` es la pantalla donde quien administra un
-curso diseña su certificado, lo guarda y lo publica. La emisión usa el diseño
+`/dashboard/capacitaciones/:documentId/certificado` es la ficha del certificado de un curso:
+vista previa de lo guardado, estado, publicar lo guardado, descartar cambios, exportar
+muestra y entrega. El diseño se hace en el editor libre a pantalla completa
+(`…/certificado/editor`, [04-editor-libre.md](./04-editor-libre.md)), que reemplazó a los
+paneles de plantilla, contenido, color y firmas de esta pantalla. La emisión usa el diseño
 **publicado** ([02-emision.md](./02-emision.md)). Se entra desde el botón «Certificado» de la ficha del curso, que aparece
 en todo estado menos cancelado. Las decisiones de fondo están en
 [ADR 0018](../adr/0018-diseno-del-certificado-borrador-y-publicado.md); el renderizador,
@@ -51,7 +54,9 @@ que no valida cae a `DEFAULT_CERTIFICATE_DESIGN` y queda en el log.
 | Guardar borrador (`save-draft`) | Valida con `certificateDesignSchema`, comprueba las firmas y escribe el borrador | Sí |
 | Publicar (`publish`) | Lo mismo que guardar, y escribe ese diseño **también** como publicado, sellando `published_at`. Borrador y publicado quedan iguales | Sí |
 | Descartar (`discard`) | El borrador vuelve a ser el publicado | No |
-| Subir firma (`upload-signature`) | Sube la imagen y devuelve su referencia; no toca la base | El archivo |
+| Subir imagen o firma (`upload-image`) | Sube la imagen y devuelve su referencia y medidas; no toca la base | El archivo |
+| Subir fondo (`upload-background`) | Reconstruye el PDF, comprueba su raster y guarda ambos ([ADR 0029](../adr/0029-fondo-pdf-vectorial.md)) | PDF y raster |
+| Aplicar plantilla / guardar como plantilla | Ver [05-biblioteca-y-logos.md](./05-biblioteca-y-logos.md) | Id o diseño |
 
 La cabecera enseña «Sin publicar», «Publicado» o «Cambios sin publicar»
 (`certificateStateOf`). Con cambios locales enseña «Sin guardar»; «Publicar» sigue
@@ -63,6 +68,11 @@ en el editor y `CertificateStatusNotice` en la ficha del curso, que también mar
 «Cambios sin publicar». Publicado no enseña nada en la ficha (docs/adr/0023).
 
 ## 5. Firmas
+
+> Desde el editor libre, firmas e imágenes viven en
+> `documentos/certificados/<curso>/imagenes/` y la regla de propiedad es
+> `isOwnCertificateAssetRef`, que también acepta las firmas heredadas de abajo
+> ([04-editor-libre.md](./04-editor-libre.md) §4). Esta sección describe el gestor anterior.
 
 - Viven en `documentos/firmas/<courseDocumentId>/`, **privadas**: el proxy exige
   sesión.

@@ -38,6 +38,7 @@ const createHarness = (
 	const calls = {
 		getFile: [] as string[],
 		presigned: [] as string[],
+		presignOptions: [] as unknown[],
 		buckets: [] as string[],
 	};
 	const { logger, entries } = createSpyLogger();
@@ -64,9 +65,15 @@ const createHarness = (
 				if (options.getFileFails) throw new Error("el proveedor está caído");
 				return Buffer.alloc(options.fileBytes ?? 10, 1);
 			},
-			getPresignedUrl: async (bucket: string, key: string) => {
+			getPresignedUrl: async (
+				bucket: string,
+				key: string,
+				_ttl: number,
+				presign?: unknown,
+			) => {
 				calls.buckets.push(bucket);
 				calls.presigned.push(key);
+				calls.presignOptions.push(presign);
 				if (options.presignFails) throw new Error("credenciales inválidas");
 				return `https://s3.example.com/${key}?X-Amz-Signature=abc`;
 			},
@@ -209,7 +216,41 @@ describe("storage proxy — modo inline", () => {
 		expect(response.headers.get("Content-Type")).toBe("image/png");
 		expect(response.headers.get("Content-Disposition")).toBe("inline");
 		expect(response.headers.get("Content-Length")).toBe("42");
+		expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+		expect(response.headers.get("Content-Security-Policy")).toBeNull();
 		expect(calls.getFile).toEqual([PUBLIC_KEY]);
+	});
+
+	// Abierto en una pestaña, un SVG es un documento: sin scripts ni origen.
+	test("un SVG en línea va aislado por CSP", async () => {
+		const { context } = createHarness();
+
+		const response = await run(
+			requestOf(
+				`?key=${encodeURIComponent("media/logos/sello.svg")}&inline=true`,
+			),
+			context,
+		);
+
+		expect(response.headers.get("Content-Type")).toBe("image/svg+xml");
+		expect(response.headers.get("Content-Security-Policy")).toBe(
+			"sandbox; default-src 'none'; style-src 'unsafe-inline'",
+		);
+	});
+
+	test("un SVG por URL firmada se descarga en vez de abrirse", async () => {
+		const { context, calls } = createHarness();
+
+		await run(
+			requestOf(`?key=${encodeURIComponent("media/logos/sello.svg")}`),
+			context,
+		);
+		await run(requestOf(`?key=${encodeURIComponent(PUBLIC_KEY)}`), context);
+
+		expect(calls.presignOptions).toEqual([
+			{ disposition: "attachment" },
+			undefined,
+		]);
 	});
 
 	// Red de seguridad para no cargar en RAM un objeto inesperadamente grande: la

@@ -20,7 +20,11 @@ import { formatSessionRange, formatZonedDate } from "@/lib/date-utils";
 import { pendingIntentOf } from "@/lib/form-data";
 import { MyCertificateMenu } from "@/modules/certificates/components/my-certificate-menu";
 import { ParticipantFollowUps } from "@/modules/content/components/participant-follow-ups";
-import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
+import { SessionMaterialList } from "@/modules/content/components/session-material-list";
+import {
+	type CourseDetailFact,
+	CourseDetailSection,
+} from "@/modules/courses/components/course-detail-layout";
 import {
 	countsContent,
 	requiresSessions,
@@ -30,14 +34,11 @@ import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialo
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import {
-	CourseDetailBody,
-	type CourseDetailFact,
 	CourseDetailStatus,
-	CourseDetailSummary,
+	ParticipantCourseDetail,
 } from "../../../components/course-detail";
 import {
 	ClassroomLink,
@@ -262,21 +263,20 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 	);
 
 	const facts: CourseDetailFact[] = [
-		{ label: "Modalidad", value: modalityLabelOf(course) },
 		...(requiresSessions(course.format) || course.sessions.length > 0
-			? [{ label: "Sesiones", value: sessionCountOf(course.sessions.length) }]
+			? [{ term: "Sesiones", value: sessionCountOf(course.sessions.length) }]
 			: []),
 		...(course.hours !== null
-			? [{ label: "Duración", value: formatHours(course.hours) }]
+			? [{ term: "Duración", value: formatHours(course.hours) }]
 			: []),
 		{
-			label: "Inscripción",
+			term: "Inscripción",
 			value: ENROLLMENT_ORIGIN_LABELS[enrollment.origin],
 		},
 		...(isEnrolled && enrollment.result !== "PENDING"
 			? [
 					{
-						label: "Resultado",
+						term: "Resultado",
 						value: ENROLLMENT_RESULT_LABELS[enrollment.result],
 					},
 				]
@@ -284,7 +284,7 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 	];
 
 	return (
-		<div className="flex flex-col gap-6 pb-8">
+		<div className="flex flex-col">
 			<PageHeader
 				title={course.title}
 				description={`Organiza ${course.dependencyName}.`}
@@ -292,29 +292,31 @@ export default function MiCursoPage({ loaderData }: Route.ComponentProps) {
 				actions={actions}
 			/>
 
-			<CourseDetailSummary course={course} facts={facts}>
-				<OwnStatus entry={entry} />
-			</CourseDetailSummary>
-
-			<CourseDetailBody
+			<ParticipantCourseDetail
 				course={course}
-				sessionMaterials={entry.sessionMaterials}
-			/>
-
-			{entry.followUps.length > 0 && (
-				<Card>
-					<CardContent className="flex flex-col gap-3">
-						<h2 className="font-medium text-base">
-							Evaluaciones de seguimiento
-						</h2>
+				now={entry.now}
+				facts={facts}
+				status={<OwnStatus entry={entry} />}
+				renderSessionExtra={(session) => (
+					<SessionMaterialList
+						materials={
+							entry.sessionMaterials.find(
+								(item) => item.sessionDocumentId === session.documentId,
+							)?.materials ?? []
+						}
+					/>
+				)}
+			>
+				{entry.followUps.length > 0 && (
+					<CourseDetailSection title="Evaluaciones de seguimiento">
 						<ParticipantFollowUps
 							courseDocumentId={course.documentId}
 							followUps={entry.followUps}
 							sessions={course.sessions}
 						/>
-					</CardContent>
-				</Card>
-			)}
+					</CourseDetailSection>
+				)}
+			</ParticipantCourseDetail>
 
 			<ConfirmDialog
 				open={confirmingWithdraw}

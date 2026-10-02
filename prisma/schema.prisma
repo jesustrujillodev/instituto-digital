@@ -77,24 +77,27 @@ model User {
   sessions           Session[]
   trainerProfile     TrainerProfile?
   groupMemberships   GroupMember[]
-  coursesCreated     Course[]           @relation("CourseCreator")
+  coursesCreated     Course[]              @relation("CourseCreator")
   coursesTaught      CourseTrainer[]
-  enrollments        Enrollment[]       @relation("EnrollmentParticipant")
-  enrollmentsActed   Enrollment[]       @relation("EnrollmentActor")
-  resultsRecorded    Enrollment[]       @relation("EnrollmentResultRecorder")
-  attendance         CourseAttendance[] @relation("AttendanceParticipant")
-  lessonProgress     LessonProgress[]   @relation("LessonProgressParticipant")
-  quizAttempts       QuizAttempt[]      @relation("QuizAttemptParticipant")
-  quizRetakesGranted QuizAttempt[]      @relation("QuizRetakeGranter")
-  attendanceTaken    CourseAttendance[] @relation("AttendanceRecorder")
-  credits            Credit[]           @relation("CreditHolder")
-  certificates       CertificateIssue[] @relation("CertificateHolder")
-  creditsGranted     Credit[]           @relation("CreditGranter")
-  creditsRevoked     Credit[]           @relation("CreditRevoker")
+  enrollments        Enrollment[]          @relation("EnrollmentParticipant")
+  enrollmentsActed   Enrollment[]          @relation("EnrollmentActor")
+  resultsRecorded    Enrollment[]          @relation("EnrollmentResultRecorder")
+  attendance         CourseAttendance[]    @relation("AttendanceParticipant")
+  lessonProgress     LessonProgress[]      @relation("LessonProgressParticipant")
+  quizAttempts       QuizAttempt[]         @relation("QuizAttemptParticipant")
+  quizRetakesGranted QuizAttempt[]         @relation("QuizRetakeGranter")
+  attendanceTaken    CourseAttendance[]    @relation("AttendanceRecorder")
+  credits            Credit[]              @relation("CreditHolder")
+  certificates       CertificateIssue[]    @relation("CertificateHolder")
+  logosUploaded      InstitutionalLogo[]   @relation("LogoCreator")
+  templatesCreated   CertificateTemplate[] @relation("CertificateTemplateCreator")
+  templatesUpdated   CertificateTemplate[] @relation("CertificateTemplateUpdater")
+  creditsGranted     Credit[]              @relation("CreditGranter")
+  creditsRevoked     Credit[]              @relation("CreditRevoker")
   courseRatings      CourseRating[]
   annualPlans        AnnualPlan[]
-  planLines          PlanLine[]         @relation("PlanLineCreator")
-  planLinesCancelled PlanLine[]         @relation("PlanLineCanceller")
+  planLines          PlanLine[]            @relation("PlanLineCreator")
+  planLinesCancelled PlanLine[]            @relation("PlanLineCanceller")
 
   // documentId y email son @unique — el índice lo crea la constraint;
   // no declarar @@index duplicados.
@@ -188,13 +191,14 @@ model Dependency {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  users          User[]
-  groups         Group[]
-  courses        Course[]
-  courseAudience CourseDependencyAudience[]
-  enrollments    Enrollment[]
-  credits        Credit[]
-  annualPlans    AnnualPlan[]
+  users                User[]
+  groups               Group[]
+  courses              Course[]
+  courseAudience       CourseDependencyAudience[]
+  enrollments          Enrollment[]
+  credits              Credit[]
+  annualPlans          AnnualPlan[]
+  certificateTemplates CertificateTemplate[]
 
   @@map("dependencies")
   @@schema("org")
@@ -487,6 +491,10 @@ model CertificateIssue {
   issuedAt       DateTime @map("issued_at")
   designSnapshot Json     @map("design_snapshot")
   dataSnapshot   Json     @map("data_snapshot")
+  /// Lo que el certificado imprime de storage (keys por referencia del proxy y
+  /// logos subidos como `logo:<id>`), para bloquear su borrado sin leer cada
+  /// snapshot (docs/adr/0030).
+  assetRefs      String[] @default([]) @map("asset_refs")
 
   revokedAt DateTime? @map("revoked_at")
 
@@ -495,7 +503,74 @@ model CertificateIssue {
 
   @@unique([courseId, userId])
   @@index([userId])
+  @@index([assetRefs], type: Gin)
   @@map("certificate_issues")
+  @@schema("org")
+}
+
+/// Alcance de una plantilla de certificado de la biblioteca (docs/adr/0030).
+enum CertificateTemplateScope {
+  INSTITUTIONAL
+  DEPENDENCY
+
+  @@schema("org")
+}
+
+/// Un diseño reutilizable de la biblioteca. Las institucionales las ve todo el
+/// que edita certificados; las de dependencia, solo esa dependencia. Aplicar una
+/// copia el diseño y sus imágenes al curso: el curso nunca apunta a la plantilla.
+model CertificateTemplate {
+  id           Int                      @id @default(autoincrement())
+  documentId   String                   @unique @default(uuid()) @map("document_id") @db.Uuid
+  name         String
+  description  String?
+  scope        CertificateTemplateScope
+  /// Obligatoria con alcance DEPENDENCY y nula con INSTITUTIONAL (CHECK
+  /// certificate_templates_scope_coherence).
+  dependencyId Int?                     @map("dependency_id")
+  dependency   Dependency?              @relation(fields: [dependencyId], references: [id], onDelete: Restrict)
+  /// Siempre un diseño v2.
+  design       Json
+
+  createdById Int   @map("created_by_id")
+  createdBy   User  @relation("CertificateTemplateCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById Int?  @map("updated_by_id")
+  updatedBy   User? @relation("CertificateTemplateUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([scope, dependencyId, archivedAt])
+  @@map("certificate_templates")
+  @@schema("org")
+}
+
+/// Un logo institucional para certificados (docs/adr/0030). Inmutable:
+/// reemplazarlo es una fila nueva que archiva la anterior, y no se borra nunca,
+/// porque los certificados emitidos lo nombran por su `documentId`.
+model InstitutionalLogo {
+  id          Int    @id @default(autoincrement())
+  documentId  String @unique @default(uuid()) @map("document_id") @db.Uuid
+  name        String
+  /// Bajo `media/logos/`: público y con caché inmutable.
+  storageKey  String @unique @map("storage_key")
+  contentType String @map("content_type")
+  widthPx     Int    @map("width_px")
+  heightPx    Int    @map("height_px")
+
+  /// El logo al que este reemplazó.
+  previousId Int?               @unique @map("previous_id")
+  previous   InstitutionalLogo? @relation("LogoReplacement", fields: [previousId], references: [id], onDelete: Restrict)
+  next       InstitutionalLogo? @relation("LogoReplacement")
+
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("LogoCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("institutional_logos")
   @@schema("org")
 }
 

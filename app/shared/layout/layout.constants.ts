@@ -13,3 +13,10 @@
  * Vite, separado del bundle de la app.
  */
 export const DASHBOARD_LAYOUT_ID = "dashboard-layout";
+
+/**
+ * Id estable del layout a pantalla completa: las herramientas que necesitan
+ * toda la ventana (el editor de certificados) sin la barra lateral. Mismo
+ * motivo que `DASHBOARD_LAYOUT_ID` para declararlo a mano.
+ */
+export const FULLSCREEN_LAYOUT_ID = "fullscreen-layout";

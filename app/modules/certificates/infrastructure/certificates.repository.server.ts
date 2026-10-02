@@ -1,10 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { courseHoursOf } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
-import {
-	CERTIFICATE_FOLIO_COUNTER_ID,
-	DEFAULT_CERTIFICATE_DESIGN,
-} from "../domain/certificate.config";
+import { CERTIFICATE_FOLIO_COUNTER_ID } from "../domain/certificate.config";
 import {
 	toCertificateDesign,
 	toCertificateRenderData,
@@ -16,6 +13,13 @@ import type {
 	CertificateRecord,
 	CertificateRenderData,
 } from "../domain/certificate.types";
+import {
+	issuedAssetRefsOf,
+	withoutAssetRefs,
+} from "../domain/design/design.assets";
+import { DEFAULT_CERTIFICATE_DESIGN } from "../domain/design/design.presets";
+import { LEGACY_DEFAULT_DESIGN_V1 } from "../domain/design/design-v1.schema";
+import { builtinLogoOf } from "../domain/design/logos";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
@@ -61,31 +65,7 @@ type StoredRecord = Prisma.CourseCertificateGetPayload<{
 	select: typeof RECORD_SELECT;
 }>;
 
-const withoutSignatures = (
-	design: CertificateDesign,
-	refs: ReadonlySet<string>,
-): { design: CertificateDesign; removed: number } => {
-	let removed = 0;
-	const signatories = design.signatories.map((signatory) => {
-		if (!signatory.signatureUrl || !refs.has(signatory.signatureUrl)) {
-			return signatory;
-		}
-		removed++;
-		return { ...signatory, signatureUrl: null };
-	}) as CertificateDesign["signatories"];
-
-	return { design: { ...design, signatories }, removed };
-};
-
-const signatureRefsOf = (designs: readonly CertificateDesign[]): string[] => [
-	...new Set(
-		designs.flatMap((design) =>
-			design.signatories.flatMap((signatory) =>
-				signatory.signatureUrl ? [signatory.signatureUrl] : [],
-			),
-		),
-	),
-];
+const isBuiltinLogo = (logoId: string) => builtinLogoOf(logoId) !== undefined;
 
 export const createCertificateRepository = ({
 	prisma,
@@ -94,20 +74,32 @@ export const createCertificateRepository = ({
 	const log = logger.child({ module: "certificates", layer: "repository" });
 
 	/**
-	 * Un diseño de una columna `Json`, o el de por defecto si no es legible.
+	 * Un diseño de una columna `Json`, o el de reserva si no es legible.
 	 *
 	 * Una fila de un esquema anterior no puede tumbar el editor ni la emisión:
-	 * se registra y se sigue con el diseño por defecto.
+	 * se registra y se sigue con el de reserva.
 	 */
-	const readDesign = (value: unknown, courseId: number): CertificateDesign => {
+	const readDesign = (
+		value: unknown,
+		courseId: number,
+		fallback: CertificateDesign = DEFAULT_CERTIFICATE_DESIGN,
+	): CertificateDesign => {
 		const design = toCertificateDesign(value);
 		if (design) return design;
 
 		log.error("certificate design is unreadable — falling back to default", {
 			courseId,
 		});
-		return DEFAULT_CERTIFICATE_DESIGN;
+		return fallback;
 	};
+
+	/**
+	 * El de un snapshot emitido. Su reserva es el v1 congelado y no el diseño
+	 * por defecto del editor: si este cambia, un snapshot ilegible no puede
+	 * cambiar de aspecto con él.
+	 */
+	const readSnapshot = (value: unknown, courseId: number) =>
+		readDesign(value, courseId, LEGACY_DEFAULT_DESIGN_V1);
 
 	const toRecord = (
 		row: StoredRecord | null,
@@ -197,7 +189,7 @@ export const createCertificateRepository = ({
 						select: {
 							documentId: true,
 							title: true,
-							certificateIssues: { select: { designSnapshot: true } },
+							certificateIssues: { select: { assetRefs: true } },
 						},
 					},
 				},
@@ -207,16 +199,15 @@ export const createCertificateRepository = ({
 				courseDocumentId: row.course.documentId,
 				courseTitle: row.course.title,
 				record: toRecord(row, row.courseId),
-				issuedSignatureRefs: signatureRefsOf(
-					row.course.certificateIssues.flatMap(({ designSnapshot }) => {
-						const design = toCertificateDesign(designSnapshot);
-						return design ? [design] : [];
-					}),
-				),
+				issuedAssetRefs: [
+					...new Set(
+						row.course.certificateIssues.flatMap(({ assetRefs }) => assetRefs),
+					),
+				],
 			}));
 		},
 
-		async removeSignatureRefs(courseDocumentId, refs) {
+		async removeAssetRefs(courseDocumentId, refs) {
 			if (refs.length === 0) return 0;
 
 			const row = await prisma.courseCertificate.findFirst({
@@ -227,9 +218,9 @@ export const createCertificateRepository = ({
 
 			const wanted = new Set(refs);
 			const record = toRecord(row, row.courseId);
-			const draft = withoutSignatures(record.draft, wanted);
+			const draft = withoutAssetRefs(record.draft, wanted);
 			const published = record.published
-				? withoutSignatures(record.published, wanted)
+				? withoutAssetRefs(record.published, wanted)
 				: null;
 			const removed = draft.removed + (published?.removed ?? 0);
 			if (removed === 0) return 0;
@@ -276,6 +267,7 @@ export const createCertificateRepository = ({
 					issuedAt: at,
 					designSnapshot: asJson(issue.design),
 					dataSnapshot: asJson(issue.data),
+					assetRefs: issuedAssetRefsOf(issue.design, isBuiltinLogo),
 				})),
 			});
 		},
@@ -330,7 +322,7 @@ export const createCertificateRepository = ({
 				courseId: row.courseId,
 				folio: row.folio,
 				revokedAt: row.revokedAt,
-				design: readDesign(row.designSnapshot, row.courseId),
+				design: readSnapshot(row.designSnapshot, row.courseId),
 				data,
 			};
 		},
@@ -410,7 +402,7 @@ export const createCertificateRepository = ({
 			}
 			return {
 				documentId: row.documentId,
-				design: readDesign(row.designSnapshot, row.courseId),
+				design: readSnapshot(row.designSnapshot, row.courseId),
 				data,
 				downloadable: row.course.certificate?.isDownloadable ?? true,
 			};

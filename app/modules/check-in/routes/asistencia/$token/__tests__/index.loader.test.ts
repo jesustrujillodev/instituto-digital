@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { CONTENT_ERROR_CODES } from "@/modules/content/domain/content.errors";
 import { CHECK_IN_ERROR_CODES } from "../../../../domain/check-in.errors";
 import { loader } from "../index.loader";
 
@@ -7,6 +8,7 @@ type LoaderArgs = Parameters<typeof loader>[0];
 const TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const COURSE_DOC = "11111111-1111-4111-8111-111111111111";
 const SESSION_DOC = "33333333-3333-4333-8333-333333333333";
+const MATERIAL = { state: "available", documentId: "m-1", type: "LINK" };
 
 const authPayload = {
 	sub: "99999999-9999-4999-8999-999999999999",
@@ -25,9 +27,17 @@ const okReply = (data: unknown) => ({
 });
 
 const createHarness = (
-	options: { anonymous?: boolean; allowed?: boolean } = {},
+	options: {
+		anonymous?: boolean;
+		allowed?: boolean;
+		materialsFail?: boolean;
+	} = {},
 ) => {
-	const calls = { previews: 0, followUps: [] as unknown[][] };
+	const calls = {
+		previews: 0,
+		followUps: [] as unknown[][],
+		materials: [] as unknown[][],
+	};
 
 	const context = {
 		authPayload: options.anonymous ? null : authPayload,
@@ -51,6 +61,23 @@ const createHarness = (
 			findParticipantFollowUps: async (...args: unknown[]) => {
 				calls.followUps.push(args);
 				return okReply([{ documentId: "f-1", availability: "AVAILABLE" }]);
+			},
+		},
+		sessionMaterialService: {
+			findForParticipant: async (...args: unknown[]) => {
+				calls.materials.push(args);
+				return options.materialsFail
+					? {
+							success: false,
+							error: {
+								code: CONTENT_ERROR_CODES.COURSE_NOT_FOUND,
+								message: "",
+							},
+							timestamp: new Date().toISOString(),
+						}
+					: okReply([
+							{ sessionDocumentId: SESSION_DOC, materials: [MATERIAL] },
+						]);
 			},
 		},
 	} as unknown as LoaderArgs["context"];
@@ -102,6 +129,28 @@ describe("escaneo loader", () => {
 		expect(calls.followUps).toEqual([
 			[COURSE_DOC, expect.anything(), SESSION_DOC],
 		]);
+	});
+
+	// docs/adr/0026: el material de la sesión, a la mano al entrar al aula.
+	test("trae el material de esa sesión", async () => {
+		const { context, calls } = createHarness();
+
+		const result = await run(context);
+
+		expect(result.data.materials).toEqual([MATERIAL]);
+		expect(calls.materials).toEqual([
+			[COURSE_DOC, expect.anything(), SESSION_DOC],
+		]);
+	});
+
+	test("un fallo al leer el material viaja con su código estable", async () => {
+		const { context } = createHarness({ materialsFail: true });
+
+		const thrown = (await caught(() => run(context))) as {
+			data?: { code?: string };
+		};
+
+		expect(thrown.data?.code).toBe(CONTENT_ERROR_CODES.COURSE_NOT_FOUND);
 	});
 
 	test("sin sesión manda al login conservando el token", async () => {

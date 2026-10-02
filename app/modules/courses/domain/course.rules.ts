@@ -546,6 +546,37 @@ export const isSessionPlaced = (
 	return Boolean(session.venue || session.link);
 };
 
+export type SessionPhase = "past" | "current" | "next" | "upcoming";
+
+/**
+ * Dónde queda cada sesión respecto a `now`. Solo una es `next`: la primera que
+ * aún no empieza, y únicamente si no hay otra en curso.
+ */
+export const sessionPhasesOf = (
+	sessions: readonly { documentId: string; startsAt: Date; endsAt: Date }[],
+	now: Date,
+): Map<string, SessionPhase> => {
+	const phases = new Map<string, SessionPhase>();
+	const ordered = [...sessions].sort(
+		(a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
+	);
+	let pointed = false;
+
+	for (const session of ordered) {
+		if (session.endsAt <= now) {
+			phases.set(session.documentId, "past");
+		} else if (session.startsAt <= now) {
+			phases.set(session.documentId, "current");
+			pointed = true;
+		} else {
+			phases.set(session.documentId, pointed ? "upcoming" : "next");
+			pointed = true;
+		}
+	}
+
+	return phases;
+};
+
 /**
  * Una sesión termina después de empezar.
  *

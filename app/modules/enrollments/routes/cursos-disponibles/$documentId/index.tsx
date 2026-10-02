@@ -17,22 +17,17 @@ import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import { pendingIntentOf } from "@/lib/form-data";
-import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
+import type { CourseDetailFact } from "@/modules/courses/components/course-detail-layout";
 import { requiresSessions } from "@/modules/courses/domain/course.rules";
-import {
-	ACCESS_LABELS,
-	formatHours,
-} from "@/modules/courses/utils/course-labels";
+import { formatHours } from "@/modules/courses/utils/course-labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Button } from "@/shared/components/ui/button";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import {
-	CourseDetailBody,
-	type CourseDetailFact,
 	CourseDetailStatus,
-	CourseDetailSummary,
+	ParticipantCourseDetail,
 } from "../../../components/course-detail";
 import type { EnrollmentStatus } from "../../../domain/enrollment.config";
 import type { CourseWithAvailability } from "../../../domain/enrollment.types";
@@ -117,7 +112,7 @@ export default function CursoDisponiblePage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { course, enrollment, can, hasClassroom },
+		data: { course, enrollment, can, hasClassroom, now },
 	} = loaderData;
 
 	const fetcher = useFetcher<EnrollmentActionData>();
@@ -131,19 +126,17 @@ export default function CursoDisponiblePage({
 		fetcher.submit({ [INTENT_FIELD]: intent }, { method: "post" });
 
 	const facts: CourseDetailFact[] = [
-		{ label: "Modalidad", value: modalityLabelOf(course) },
-		{ label: "Acceso", value: ACCESS_LABELS[course.access] },
-		{ label: "Cupo", value: seatsLabelOf(course.capacity, course.seatsLeft) },
+		{ term: "Cupo", value: seatsLabelOf(course.capacity, course.seatsLeft) },
 		...(requiresSessions(course.format) || course.sessions.length > 0
-			? [{ label: "Sesiones", value: sessionCountOf(course.sessions.length) }]
+			? [{ term: "Sesiones", value: sessionCountOf(course.sessions.length) }]
 			: []),
 		...(course.hours !== null
-			? [{ label: "Duración", value: formatHours(course.hours) }]
+			? [{ term: "Duración", value: formatHours(course.hours) }]
 			: []),
 		...(enrollment
 			? [
 					{
-						label: "Inscripción",
+						term: "Inscripción",
 						value: ENROLLMENT_ORIGIN_LABELS[enrollment.origin],
 					},
 				]
@@ -216,7 +209,7 @@ export default function CursoDisponiblePage({
 	);
 
 	return (
-		<div className="flex flex-col gap-6 pb-8">
+		<div className="flex flex-col">
 			<PageHeader
 				title={course.title}
 				description={`Organiza ${course.dependencyName}.`}
@@ -224,15 +217,18 @@ export default function CursoDisponiblePage({
 				actions={actions}
 			/>
 
-			<CourseDetailSummary course={course} facts={facts}>
-				<AvailabilityStatus
-					course={course}
-					enrollmentStatus={enrollment?.status ?? null}
-					removed={enrollment?.removed ?? false}
-				/>
-			</CourseDetailSummary>
-
-			<CourseDetailBody course={course} />
+			<ParticipantCourseDetail
+				course={course}
+				now={now}
+				facts={facts}
+				status={
+					<AvailabilityStatus
+						course={course}
+						enrollmentStatus={enrollment?.status ?? null}
+						removed={enrollment?.removed ?? false}
+					/>
+				}
+			/>
 
 			<ConfirmDialog
 				open={confirmingWithdraw}

@@ -12,10 +12,14 @@ export interface ISessionMaterialRepository {
 	): Promise<SessionMaterialCourseRef | null>;
 	/** Las sesiones del curso por inicio, cada una con su material por alta. */
 	findSessions(courseId: number): Promise<SessionMaterialsRaw[]>;
-	/** Las del curso, solo si el usuario está inscrito; `null` si no lo está. */
+	/**
+	 * Las del curso, o solo esa sesión si se indica, siempre que el usuario esté
+	 * inscrito; `null` si no lo está.
+	 */
 	findSessionsForParticipant(
 		courseDocumentId: string,
 		userId: number,
+		sessionDocumentId?: string,
 	): Promise<SessionMaterialsRaw[] | null>;
 	findSession(
 		courseId: number,

@@ -6,8 +6,8 @@ import {
 	failReply,
 	okReply,
 } from "@/modules/courses/routes/cursos/__tests__/route-harness";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../../../../domain/certificate.config";
 import { CERTIFICATE_ERROR_CODES } from "../../../../domain/certificate.errors";
+import { DEFAULT_CERTIFICATE_DESIGN } from "../../../../domain/design/design.presets";
 import { loader } from "../index.loader";
 
 type LoaderArgs = Parameters<typeof loader>[0];
@@ -44,6 +44,29 @@ const createHarness = (options: ActorOptions & { reply?: unknown } = {}) => {
 				return options.reply ?? okReply(editorOf());
 			},
 		},
+		certificateLogoService: {
+			listForEditor: async () =>
+				okReply([
+					{
+						id: "ayto-blanco",
+						name: "Logo blanco",
+						url: "/assets/aytoBco.png",
+						widthPx: 245,
+						heightPx: 80,
+						builtin: true,
+						archived: false,
+					},
+					{
+						id: "logo-1",
+						name: "Color",
+						url: "https://cdn.test/logo.png",
+						widthPx: 10,
+						heightPx: 10,
+						builtin: false,
+						archived: true,
+					},
+				]),
+		},
 	} as unknown as LoaderArgs["context"];
 
 	return { context, calls };
@@ -66,7 +89,13 @@ describe("certificado loader", () => {
 
 		expect(result).toMatchObject({
 			success: true,
-			data: { canEdit: true, today: NOW, editor: { state: "never-published" } },
+			data: {
+				canEdit: true,
+				today: NOW,
+				editor: { state: "never-published" },
+				// La vista previa pinta también logos archivados que el diseño use.
+				logoUrls: { "logo-1": "https://cdn.test/logo.png" },
+			},
 		});
 		expect(calls[0][0]).toBe(COURSE_ID);
 	});

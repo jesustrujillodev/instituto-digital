@@ -1,7 +1,5 @@
 import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
-import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import {
 	allowsSessions,
 	countsAttendance,
@@ -12,6 +10,10 @@ import {
 	COMPLETION_RULE_LABELS,
 	courseHoursLabel,
 } from "../utils/course-labels";
+import {
+	type CourseDetailFact,
+	CourseDetailsCard,
+} from "./course-detail-layout";
 
 const dateOf = (value: Date | string) => formatZonedDate(new Date(value));
 
@@ -28,7 +30,7 @@ export function CourseFacts({
 	course: CourseDetail;
 	className?: string;
 }) {
-	const facts: { term: string; value: React.ReactNode }[] = [];
+	const facts: CourseDetailFact[] = [];
 
 	if (course.status === "DRAFT") {
 		facts.push(
@@ -106,19 +108,5 @@ export function CourseFacts({
 		facts.push({ term: "Publicada", value: dateOf(course.publishedAt) });
 	}
 
-	return (
-		<Card size="sm" className={cn(className)}>
-			<CardContent className="flex flex-col gap-3">
-				<h2 className="font-medium text-base">Detalles</h2>
-				<dl className="flex flex-col gap-3">
-					{facts.map(({ term, value }) => (
-						<div key={term} className="flex flex-col gap-0.5">
-							<dt className="text-muted-foreground text-xs">{term}</dt>
-							<dd className="text-sm">{value}</dd>
-						</div>
-					))}
-				</dl>
-			</CardContent>
-		</Card>
-	);
+	return <CourseDetailsCard facts={facts} className={className} />;
 }

@@ -2,15 +2,21 @@ import { describe, expect, test } from "vitest";
 import { isDomainError } from "@/shared/errors/domain-error";
 import {
 	CERTIFICATE_ERROR_CODES,
+	CertificateAssetInvalidError,
+	CertificateAssetNotOwnedError,
+	CertificateBackgroundInvalidError,
 	CertificateCourseNotFoundError,
 	CertificateExportFailedError,
 	CertificateExportUnavailableError,
+	CertificateForbiddenError,
 	CertificateIssueNotFoundError,
 	CertificateIssueRevokedError,
+	CertificateLogoArchivedError,
+	CertificateLogoInvalidError,
+	CertificateLogoNotFoundError,
 	CertificateNeverPublishedError,
 	CertificateNotEditableError,
-	CertificateSignatureInvalidError,
-	CertificateSignatureNotOwnedError,
+	CertificateTemplateNotFoundError,
 	CertificateVerifyRateLimitedError,
 } from "../certificate.errors";
 
@@ -29,13 +35,31 @@ describe("errores del certificado", () => {
 			CERTIFICATE_ERROR_CODES.NEVER_PUBLISHED,
 		],
 		[
-			new CertificateSignatureInvalidError("archivo vacío"),
-			CERTIFICATE_ERROR_CODES.SIGNATURE_INVALID,
+			new CertificateAssetInvalidError("el archivo está vacío"),
+			CERTIFICATE_ERROR_CODES.ASSET_INVALID,
 		],
 		[
-			new CertificateSignatureNotOwnedError(),
-			CERTIFICATE_ERROR_CODES.SIGNATURE_NOT_OWNED,
+			new CertificateAssetNotOwnedError(),
+			CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED,
 		],
+		[
+			new CertificateBackgroundInvalidError("encrypted"),
+			CERTIFICATE_ERROR_CODES.BACKGROUND_INVALID,
+		],
+		[
+			new CertificateLogoNotFoundError(),
+			CERTIFICATE_ERROR_CODES.LOGO_NOT_FOUND,
+		],
+		[new CertificateLogoArchivedError(), CERTIFICATE_ERROR_CODES.LOGO_ARCHIVED],
+		[
+			new CertificateLogoInvalidError("pesa más de 2 MB"),
+			CERTIFICATE_ERROR_CODES.LOGO_INVALID,
+		],
+		[
+			new CertificateTemplateNotFoundError(),
+			CERTIFICATE_ERROR_CODES.TEMPLATE_NOT_FOUND,
+		],
+		[new CertificateForbiddenError(), CERTIFICATE_ERROR_CODES.FORBIDDEN],
 		[
 			new CertificateIssueNotFoundError(),
 			CERTIFICATE_ERROR_CODES.ISSUE_NOT_FOUND,

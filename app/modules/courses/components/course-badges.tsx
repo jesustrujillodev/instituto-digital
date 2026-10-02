@@ -47,3 +47,31 @@ export function CourseFormatBadge({ format }: { format: CourseFormat }) {
 export function CourseAccessBadge({ access }: { access: CourseAccessType }) {
 	return <Badge variant="outline">{ACCESS_LABELS[access]}</Badge>;
 }
+
+/**
+ * El renglón bajo el título de toda ficha. Quien administra ve siempre el
+ * estado; el participante, solo cuando no está publicada.
+ */
+export function CourseDetailBadges({
+	course,
+	hidePublished = false,
+}: {
+	course: {
+		status: CourseStatus;
+		modality: CourseModality;
+		format: CourseFormat;
+		access: CourseAccessType;
+	};
+	hidePublished?: boolean;
+}) {
+	return (
+		<div className="mb-6 flex flex-wrap items-center gap-2">
+			{!(hidePublished && course.status === "PUBLISHED") && (
+				<CourseStatusBadge status={course.status} />
+			)}
+			<CourseModalityBadge modality={course.modality} />
+			<CourseFormatBadge format={course.format} />
+			<CourseAccessBadge access={course.access} />
+		</div>
+	);
+}

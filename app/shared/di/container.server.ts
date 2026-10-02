@@ -28,11 +28,18 @@ import { createSessionRepository } from "@/modules/auth/infrastructure/session.r
 import { createCalendarService } from "@/modules/calendar/application/calendar.service.server";
 import { createCalendarRepository } from "@/modules/calendar/infrastructure/calendar.repository.server";
 import { createCertificateIssuance } from "@/modules/certificates/application/certificate-issuance.server";
+import { createCertificateLogoService } from "@/modules/certificates/application/certificate-logos.service.server";
+import { createCertificateTemplateService } from "@/modules/certificates/application/certificate-templates.service.server";
 import { createCertificateService } from "@/modules/certificates/application/certificates.service.server";
+import { createCertificateAssetReferenceSource } from "@/modules/certificates/infrastructure/certificate-assets.references.server";
 import { createCertificateAssetSource } from "@/modules/certificates/infrastructure/certificate-assets.server";
-import { createCertificateSignatureReferenceSource } from "@/modules/certificates/infrastructure/certificate-signature.references.server";
+import { createCertificateLogoReferenceSource } from "@/modules/certificates/infrastructure/certificate-logo.references.server";
+import { createCertificateLogoRepository } from "@/modules/certificates/infrastructure/certificate-logos.repository.server";
+import { createCertificateTemplateReferenceSource } from "@/modules/certificates/infrastructure/certificate-template.references.server";
+import { createCertificateTemplateRepository } from "@/modules/certificates/infrastructure/certificate-templates.repository.server";
 import { createCertificateRepository } from "@/modules/certificates/infrastructure/certificates.repository.server";
 import { createChromiumExporter } from "@/modules/certificates/infrastructure/chromium-exporter.server";
+import { createPdfLibTools } from "@/modules/certificates/infrastructure/pdf-lib-tools.server";
 import { createCheckInService } from "@/modules/check-in/application/check-in.service.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
 import { createClassroomService } from "@/modules/content/application/classroom.service.server";
@@ -137,6 +144,7 @@ const certificateAssetSource = createCertificateAssetSource({
 	storageBucket: env.STORAGE_BUCKET_NAME ?? null,
 	storagePublicBucket: env.STORAGE_PUBLIC_BUCKET_NAME ?? null,
 });
+const certificatePdfTools = createPdfLibTools();
 
 if (isEmailWorkerEnabled(env)) {
 	const notificationRepository = createNotificationRepository({ prisma });
@@ -252,6 +260,13 @@ export const configureContainer = async (
 		certificateIssuance: asSingleton(createCertificateIssuance),
 		certificateExporter: asValue(certificateExporter),
 		certificateAssetSource: asValue(certificateAssetSource),
+		certificatePdfTools: asValue(certificatePdfTools),
+		certificateLogoRepository: asSingleton(createCertificateLogoRepository),
+		certificateLogoService: asSingleton(createCertificateLogoService),
+		certificateTemplateRepository: asSingleton(
+			createCertificateTemplateRepository,
+		),
+		certificateTemplateService: asSingleton(createCertificateTemplateService),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
 		calendarRepository: asSingleton(createCalendarRepository),
@@ -279,7 +294,9 @@ export const configureContainer = async (
 			createCourseCoverReferenceSource(cradle),
 			createLessonMaterialReferenceSource(cradle),
 			createSessionMaterialReferenceSource(cradle),
-			createCertificateSignatureReferenceSource(cradle),
+			createCertificateAssetReferenceSource(cradle),
+			createCertificateLogoReferenceSource(cradle),
+			createCertificateTemplateReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
 		themeRepository: asSingleton(createThemeRepository),

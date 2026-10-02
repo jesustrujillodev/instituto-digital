@@ -12,6 +12,9 @@ import type {
 	MyCertificate,
 	SaveCertificateDeliveryDto,
 	SaveCertificateDraftDto,
+	UploadBackgroundDto,
+	UploadedBackground,
+	UploadedImage,
 } from "./certificate.types";
 
 export interface ICertificateService {
@@ -42,14 +45,23 @@ export interface ICertificateService {
 	): Promise<AppResponse<null>>;
 
 	/**
-	 * Sube una imagen de firma y devuelve su referencia. No toca la base: la
-	 * referencia entra al diseño cuando se guarda.
+	 * Sube una imagen (o firma) del curso y devuelve su referencia. No toca la
+	 * base: la referencia entra al diseño cuando se guarda.
 	 */
-	uploadSignature(
+	uploadImage(
 		courseDocumentId: string,
 		file: UploadInput,
 		actor: AuthContext,
-	): Promise<AppResponse<{ signatureUrl: string }>>;
+	): Promise<AppResponse<UploadedImage>>;
+
+	/**
+	 * Sube un PDF de fondo: lo reconstruye sin nada activo, comprueba que su
+	 * vista previa rasterizada le corresponde y guarda ambos.
+	 */
+	uploadBackground(
+		dto: UploadBackgroundDto,
+		actor: AuthContext,
+	): Promise<AppResponse<UploadedBackground>>;
 
 	/**
 	 * El PDF o PNG de una emisión, dibujado SOLO con lo congelado en la base.

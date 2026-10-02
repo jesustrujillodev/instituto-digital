@@ -10,18 +10,19 @@ import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Button } from "@/shared/components/ui/button";
-import { Card } from "@/shared/components/ui/card";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseAudience } from "../../../components/course-audience";
+import { CourseDetailBadges } from "../../../components/course-badges";
 import {
-	CourseAccessBadge,
-	CourseFormatBadge,
-	CourseModalityBadge,
-	CourseStatusBadge,
-} from "../../../components/course-badges";
+	CourseDetailLayout,
+	CourseDetailSection,
+} from "../../../components/course-detail-layout";
 import { CourseFacts } from "../../../components/course-facts";
-import { CourseProgram } from "../../../components/course-program";
+import {
+	CourseProgram,
+	programAsideOf,
+} from "../../../components/course-program";
 import { CourseStatusPanel } from "../../../components/course-status-panel";
 import { CourseTrainers } from "../../../components/course-trainers";
 import {
@@ -56,6 +57,7 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 			enrollment,
 			publishChecklist,
 			certificateState,
+			now,
 			enrollmentQr,
 			can,
 		},
@@ -106,27 +108,19 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 				actions={actions || undefined}
 			/>
 
-			<div className="mb-6 flex flex-wrap items-center gap-2">
-				<CourseStatusBadge status={course.status} />
-				<CourseModalityBadge modality={course.modality} />
-				<CourseFormatBadge format={course.format} />
-				<CourseAccessBadge access={course.access} />
-			</div>
+			<CourseDetailBadges course={course} />
 
-			{/* En móvil manda la tarea: primero el estado, luego el contenido y al
-			    final los detalles. En escritorio, estado y detalles van a la derecha. */}
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
-				<aside className="flex flex-col gap-4 lg:col-start-2 lg:row-start-1">
-					<div className="hidden aspect-video overflow-hidden rounded-4xl bg-muted ring-1 ring-foreground/5 lg:block">
-						<CourseCover
-							documentId={course.documentId}
-							title={course.title}
-							modality={course.modality}
-							src={coverUrl}
-							eager
-						/>
-					</div>
-
+			<CourseDetailLayout
+				cover={
+					<CourseCover
+						documentId={course.documentId}
+						title={course.title}
+						modality={course.modality}
+						src={coverUrl}
+						eager
+					/>
+				}
+				status={
 					<CourseStatusPanel
 						documentId={course.documentId}
 						status={course.status}
@@ -143,64 +137,59 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 						onCancel={() => setConfirmingCancel(true)}
 						onPublish={() => submitStatus(COURSE_INTENTS.publish)}
 					/>
-
-					{enrollmentQr && (
-						<EnrollmentQrPanel title={course.title} qr={enrollmentQr} />
-					)}
-
-					{certificateState && (
-						<CertificateStatusNotice
-							courseDocumentId={course.documentId}
-							state={certificateState}
-						/>
-					)}
-
-					<CourseFacts course={course} className="hidden lg:flex" />
-				</aside>
-
-				<Card className="gap-0 py-0 lg:col-start-1 lg:row-start-1">
-					<DetailSection title="Descripción">
-						{course.description ? (
-							<p className="max-w-prose whitespace-pre-line text-sm leading-relaxed">
-								{course.description}
-							</p>
-						) : (
-							<p className="text-muted-foreground text-sm">
-								{can.edit
-									? "Sin descripción. Agrégala desde Editar: es lo primero que lee el personal en el catálogo."
-									: "Sin descripción."}
-							</p>
+				}
+				aside={
+					<>
+						{enrollmentQr && (
+							<EnrollmentQrPanel title={course.title} qr={enrollmentQr} />
 						)}
-					</DetailSection>
-
-					{requiresSessions(course.format) && (
-						<DetailSection
-							title="Programa"
-							aside={
-								course.sessions.length > 0 &&
-								`${course.sessions.length} ${course.sessions.length === 1 ? "sesión" : "sesiones"} · Horario de Tijuana`
-							}
-						>
-							<CourseProgram
-								sessions={course.sessions}
-								modality={course.modality}
+						{certificateState && (
+							<CertificateStatusNotice
+								courseDocumentId={course.documentId}
+								state={certificateState}
 							/>
-						</DetailSection>
+						)}
+					</>
+				}
+				details={<CourseFacts course={course} />}
+			>
+				<CourseDetailSection title="Descripción">
+					{course.description ? (
+						<p className="max-w-prose whitespace-pre-line text-sm leading-relaxed">
+							{course.description}
+						</p>
+					) : (
+						<p className="text-muted-foreground text-sm">
+							{can.edit
+								? "Sin descripción. Agrégala desde Editar: es lo primero que lee el personal en el catálogo."
+								: "Sin descripción."}
+						</p>
 					)}
+				</CourseDetailSection>
 
-					{requiresTrainer(course) && (
-						<DetailSection title="Capacitadores">
-							<CourseTrainers trainers={course.trainers} />
-						</DetailSection>
-					)}
+				{(requiresSessions(course.format) || course.sessions.length > 0) && (
+					<CourseDetailSection
+						title="Programa"
+						aside={programAsideOf(course.sessions.length)}
+					>
+						<CourseProgram
+							sessions={course.sessions}
+							modality={course.modality}
+							now={now}
+						/>
+					</CourseDetailSection>
+				)}
 
-					<DetailSection title="Audiencia">
-						<CourseAudience access={course.access} audience={course.audience} />
-					</DetailSection>
-				</Card>
-			</div>
+				{requiresTrainer(course) && (
+					<CourseDetailSection title="Capacitadores">
+						<CourseTrainers trainers={course.trainers} showContact />
+					</CourseDetailSection>
+				)}
 
-			<CourseFacts course={course} className="mt-4 lg:hidden" />
+				<CourseDetailSection title="Audiencia">
+					<CourseAudience access={course.access} audience={course.audience} />
+				</CourseDetailSection>
+			</CourseDetailLayout>
 
 			<ConfirmDialog
 				open={confirmingCancel}
@@ -216,25 +205,5 @@ export default function CursoPage({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 		</div>
-	);
-}
-
-function DetailSection({
-	title,
-	aside,
-	children,
-}: {
-	title: string;
-	aside?: React.ReactNode;
-	children: React.ReactNode;
-}) {
-	return (
-		<section className="flex flex-col gap-4 border-border border-t p-6 first:border-t-0">
-			<header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-				<h2 className="font-medium text-base">{title}</h2>
-				{aside && <p className="text-muted-foreground text-xs">{aside}</p>}
-			</header>
-			{children}
-		</section>
 	);
 }

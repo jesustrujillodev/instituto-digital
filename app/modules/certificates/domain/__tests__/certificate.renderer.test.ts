@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { DEFAULT_CERTIFICATE_DESIGN } from "../certificate.config";
 import {
 	renderCertificate,
 	renderCertificateDocument,
@@ -10,9 +9,10 @@ import {
 	type CertificateTemplateId,
 } from "../certificate.rules";
 import type {
-	CertificateDesign,
+	CertificateDesignV1,
 	CertificateRenderData,
 } from "../certificate.types";
+import { LEGACY_DEFAULT_DESIGN_V1 as DEFAULT_CERTIFICATE_DESIGN } from "../design/design-v1.schema";
 
 const OPTIONS = { assetBaseUrl: "https://app.test" };
 
@@ -28,8 +28,8 @@ const data: CertificateRenderData = {
 
 const designOf = (
 	templateId: CertificateTemplateId,
-	overrides: Partial<CertificateDesign> = {},
-): CertificateDesign => ({
+	overrides: Partial<CertificateDesignV1> = {},
+): CertificateDesignV1 => ({
 	...DEFAULT_CERTIFICATE_DESIGN,
 	templateId,
 	...overrides,
@@ -230,7 +230,9 @@ describe("con recursos incrustados", () => {
 			Bold: "data:font/woff2;base64,Qg==",
 		},
 		logo: "data:image/png;base64,TE9HTw==",
-		signatures: { [ref]: "data:image/png;base64,RklSTUE=" },
+		faces: {},
+		logos: {},
+		images: { [ref]: "data:image/png;base64,RklSTUE=" },
 	};
 	const signed = designOf("institucional", {
 		signatories: [
@@ -247,7 +249,7 @@ describe("con recursos incrustados", () => {
 		});
 
 		expect(document).toContain(assets.logo);
-		expect(document).toContain(assets.signatures[ref]);
+		expect(document).toContain(assets.images[ref]);
 		expect(document).toContain(assets.fonts.Demi);
 		expect(document).not.toContain("https://app.test");
 		expect(document).not.toContain("/api/storage");
@@ -256,7 +258,7 @@ describe("con recursos incrustados", () => {
 	test("una firma que no está entre los recursos no se pinta", () => {
 		const document = renderCertificateDocument(signed, data, {
 			...OPTIONS,
-			assets: { ...assets, signatures: {} },
+			assets: { ...assets, images: {} },
 		});
 
 		expect(document).not.toContain('<img src="/api');

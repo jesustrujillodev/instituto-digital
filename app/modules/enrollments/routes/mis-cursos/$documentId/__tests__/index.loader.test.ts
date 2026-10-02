@@ -9,6 +9,8 @@ import {
 } from "../../../__tests__/route-harness";
 import { loader } from "../index.loader";
 
+const NOW = new Date("2026-10-02T18:00:00.000Z");
+
 type LoaderArgs = Parameters<typeof loader>[0];
 
 const createHarness = (
@@ -22,6 +24,7 @@ const createHarness = (
 ) => {
 	const context = {
 		authPayload: authPayloadOf(options),
+		clock: { now: () => NOW },
 		enrollmentService: {
 			findMyCourse: async () =>
 				options.findFails
@@ -97,6 +100,7 @@ describe("mis-capacitaciones/:documentId loader", () => {
 		const { data } = await run(context);
 
 		expect(data.sessionMaterials).toEqual(sessionMaterials);
+		expect(data.now).toBe(NOW);
 	});
 
 	test("sin aula no ofrece entrar", async () => {
