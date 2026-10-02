@@ -23,6 +23,8 @@ interface CourseWizardStepperProps {
 	steps: readonly CourseStep[];
 	current: number;
 	pending: ReadonlySet<CourseStepKey>;
+	/** Pasos con pendientes de publicación, todos ya resueltos. */
+	resolved: ReadonlySet<CourseStepKey>;
 	errors: ReadonlySet<CourseStepKey>;
 	/** Pasos que acaba de sumar una elección todavía sin guardar. */
 	added: ReadonlySet<CourseStepKey>;
@@ -37,17 +39,30 @@ function NewTag() {
 	);
 }
 
+/**
+ * Un paso sin pendientes no está hecho por eso: General nunca tiene, y un borrador
+ * recién creado tampoco. Cuenta como hecho si resolvió sus pendientes o si ya se
+ * dejó atrás.
+ */
 const stateOf = (
 	step: CourseStep,
-	pending: ReadonlySet<CourseStepKey>,
-	errors: ReadonlySet<CourseStepKey>,
-	tracksProgress: boolean,
+	{
+		pending,
+		resolved,
+		errors,
+		tracksProgress,
+		current,
+	}: Pick<
+		CourseWizardStepperProps,
+		"pending" | "resolved" | "errors" | "tracksProgress" | "current"
+	>,
 ): StepState => {
 	if (errors.has(step.key)) return "error";
 	if (!tracksProgress) return "neutral";
 	if (pending.has(step.key)) return "pending";
+	if (resolved.has(step.key) || step.number < current) return "done";
 
-	return "done";
+	return "pending";
 };
 
 const stateLabel = (state: StepState) =>
@@ -58,10 +73,10 @@ const stateLabel = (state: StepState) =>
 			: "";
 
 /**
- * Marca del paso: su número mientras algo falta, una palomita cuando no.
+ * Marca del paso: su número mientras no está hecho, una palomita cuando sí.
  *
- * Lo resuelto no sale de haber visitado el paso sino de `publishChecklist()`,
- * así que el índice y los pendientes de la ficha nunca se contradicen.
+ * Un pendiente de `publishChecklist()` siempre gana, así que el índice y los
+ * pendientes de la ficha nunca se contradicen.
  */
 function StepMark({
 	position,
@@ -176,15 +191,9 @@ function StepRow({
 	);
 }
 
-function StepList({
-	hrefOf,
-	tracksProgress,
-	steps,
-	current,
-	pending,
-	errors,
-	added,
-}: CourseWizardStepperProps) {
+function StepList(props: CourseWizardStepperProps) {
+	const { hrefOf, steps, current, added } = props;
+
 	return (
 		<ol className="flex flex-col gap-1">
 			{steps.map((step, index) => (
@@ -193,7 +202,7 @@ function StepList({
 						step={step}
 						position={index + 1}
 						isLast={index === steps.length - 1}
-						state={stateOf(step, pending, errors, tracksProgress)}
+						state={stateOf(step, props)}
 						isCurrent={step.number === current}
 						isAdded={added.has(step.key)}
 						to={hrefOf(step.number)}
@@ -210,19 +219,13 @@ function StepList({
  * Solo el paso actual conserva su nombre en pantallas medianas; los demás lo
  * recuperan cuando hay ancho para los seis sin encimarse.
  */
-function StepBar({
-	hrefOf,
-	tracksProgress,
-	steps,
-	current,
-	pending,
-	errors,
-	added,
-}: CourseWizardStepperProps) {
+function StepBar(props: CourseWizardStepperProps) {
+	const { hrefOf, steps, current, added } = props;
+
 	return (
 		<ol className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3">
 			{steps.map((step, index) => {
-				const state = stateOf(step, pending, errors, tracksProgress);
+				const state = stateOf(step, props);
 				const isCurrent = step.number === current;
 				const isLast = index === steps.length - 1;
 				const isAdded = added.has(step.key);

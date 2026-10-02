@@ -42,6 +42,7 @@ import {
 	stepPath,
 	stepPosition,
 	stepsFor,
+	stepsResolved,
 	stepsWithErrors,
 	stepsWithPending,
 } from "../utils/course-wizard-steps";
@@ -482,6 +483,7 @@ export function CourseWizard({
 	// La revisión no guarda: publica. Y sin curso todavía no hay dónde guardar.
 	const canSaveInPlace = Boolean(course) && !isReview;
 	const pending = checklist ? stepsWithPending(checklist) : NO_PENDING;
+	const resolved = checklist ? stepsResolved(checklist) : NO_PENDING;
 	const canPublish = !checklist || pending.size === 0;
 	const { position, total } = stepPosition(steps, step);
 
@@ -541,6 +543,7 @@ export function CourseWizard({
 						steps={steps}
 						current={step.number}
 						pending={pending}
+						resolved={resolved}
 						errors={stepsWithErrors(Object.keys(errors))}
 						added={addedSteps}
 					/>

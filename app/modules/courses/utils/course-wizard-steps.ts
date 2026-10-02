@@ -187,6 +187,19 @@ export const stepsWithPending = (
 			.map((entry) => STEP_OF_CHECK[entry.check]),
 	);
 
+/** Pasos que tienen pendientes de publicación y ya los resolvieron todos. */
+export const stepsResolved = (
+	checklist: PublishChecklist,
+): Set<CourseStepKey> => {
+	const pending = stepsWithPending(checklist);
+
+	return new Set(
+		checklist
+			.map((entry) => STEP_OF_CHECK[entry.check])
+			.filter((key) => !pending.has(key)),
+	);
+};
+
 /**
  * El paso al que lleva "Continuar el alta": el primero con algo pendiente o,
  * si no falta nada, la revisión.

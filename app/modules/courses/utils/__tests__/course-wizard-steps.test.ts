@@ -15,6 +15,7 @@ import {
 	stepPath,
 	stepPosition,
 	stepsFor,
+	stepsResolved,
 	stepsWithErrors,
 	stepsWithPending,
 } from "../course-wizard-steps";
@@ -150,6 +151,27 @@ describe("stepsWithPending", () => {
 			stepsWithPending([
 				{ check: "sessions", done: true },
 				{ check: "trainer", done: true },
+			]).size,
+		).toBe(0);
+	});
+});
+
+describe("stepsResolved", () => {
+	test("solo marca los pasos con pendientes y todos resueltos", () => {
+		const resolved = stepsResolved([
+			{ check: "sessions", done: true },
+			{ check: "trainer", done: true },
+			{ check: "audience", done: false },
+		]);
+
+		expect(resolved).toEqual(new Set(["program"]));
+	});
+
+	test("un paso con un pendiente abierto no cuenta como resuelto", () => {
+		expect(
+			stepsResolved([
+				{ check: "sessions", done: true },
+				{ check: "places", done: false },
 			]).size,
 		).toBe(0);
 	});
