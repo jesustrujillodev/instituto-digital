@@ -58,7 +58,7 @@ describe("capacitaciones/cuestionario action", () => {
 
 		expect(await result).toMatchObject({
 			success: true,
-			message: "Cuestionario del módulo archivado.",
+			message: "Cuestionario del módulo eliminado.",
 		});
 		expect(calls.map((call) => call.args.slice(0, 2))).toEqual([
 			[COURSE_DOC, { moduleDocumentId: MODULE_A }],

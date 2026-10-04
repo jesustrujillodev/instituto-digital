@@ -41,8 +41,7 @@ export function QuizRetakeHint() {
 	return (
 		<p className="text-muted-foreground text-sm">
 			Ya no te quedan intentos. Tu mejor nota cuenta para el promedio de la
-			capacitación; si necesitas otro intento, pídeselo a quien imparte la
-			capacitación.
+			capacitación; en caso de presentar alguna duda contacta a tu capacitador.
 		</p>
 	);
 }

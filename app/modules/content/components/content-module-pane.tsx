@@ -135,9 +135,9 @@ export function ContentModulePane({
 	const lessonCount = module.lessons.length;
 	const archiveBlocked =
 		lessonCount > 0
-			? "Archiva primero sus lecciones"
+			? "Elimina primero sus lecciones"
 			: module.quiz
-				? "Archiva primero su evaluación"
+				? "Elimina primero su evaluación"
 				: undefined;
 
 	return (
@@ -155,7 +155,7 @@ export function ContentModulePane({
 								canMoveDown={canMoveDown}
 								onMove={onMove}
 								archive={{
-									label: "Archivar módulo",
+									label: "Eliminar módulo",
 									disabledReason: archiveBlocked,
 									onClick: onArchive,
 								}}
@@ -267,7 +267,7 @@ export function ContentModuleQuizPane({
 								canMoveUp={false}
 								canMoveDown={false}
 								archive={{
-									label: "Archivar evaluación del módulo",
+									label: "Eliminar evaluación del módulo",
 									onClick: onArchive,
 								}}
 							/>

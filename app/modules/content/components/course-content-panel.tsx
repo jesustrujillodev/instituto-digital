@@ -145,7 +145,7 @@ export function CourseContentPanel({
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<p className="text-muted-foreground text-sm">
 						{canWrite
-							? "Agregar, ordenar y archivar se guarda al instante. Lo que escribes se guarda al pasar a otro elemento."
+							? "Agregar, ordenar y eliminar se guarda al instante. Lo que escribes se guarda al pasar a otro elemento."
 							: null}
 					</p>
 					{viewToggle}

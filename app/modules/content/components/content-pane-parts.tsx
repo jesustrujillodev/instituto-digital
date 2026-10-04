@@ -1,11 +1,11 @@
 import {
-	Archive,
 	Check,
 	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
 	ChevronUp,
 	MoreHorizontal,
+	Trash2,
 } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -176,7 +176,7 @@ export function PaneMenu({
 					disabled={Boolean(archive.disabledReason)}
 					onSelect={archive.onClick}
 				>
-					<Archive aria-hidden="true" />
+					<Trash2 aria-hidden="true" />
 					<span className="flex flex-col">
 						{archive.label}
 						{archive.disabledReason && (

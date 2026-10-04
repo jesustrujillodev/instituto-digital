@@ -202,7 +202,7 @@ describe("contenido action", () => {
 			error: {
 				code: "CONTENT_MODULE_NOT_EMPTY",
 				message:
-					"Archiva primero sus lecciones: un módulo con lecciones activas no se archiva.",
+					"Elimina primero sus lecciones: un módulo con lecciones activas no se puede eliminar.",
 			},
 		});
 	});

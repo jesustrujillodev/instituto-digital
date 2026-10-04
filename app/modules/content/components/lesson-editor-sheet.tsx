@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, X } from "lucide-react";
+import { ArrowRight, Trash2, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -223,8 +223,8 @@ function LessonEditorBody({
 						onClick={onArchive}
 						className="-ml-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
 					>
-						<Archive aria-hidden="true" />
-						Archivar lección
+						<Trash2 aria-hidden="true" />
+						Eliminar lección
 					</Button>
 				)}
 				<div className="ml-auto flex items-center gap-2">
