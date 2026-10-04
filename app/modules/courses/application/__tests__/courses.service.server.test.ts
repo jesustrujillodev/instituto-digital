@@ -59,6 +59,7 @@ const courseOf = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
 	capacity: null,
 	sessionCount: 1,
 	trainerCount: 1,
+	trainerNames: ["Luis Ramírez"],
 	firstSessionAt: null,
 	lastSessionAt: null,
 	createdByName: null,

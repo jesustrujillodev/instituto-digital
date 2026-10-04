@@ -225,6 +225,8 @@ export const courseSummarySchema = v.object({
 	/** Derivados del `_count` y del agregado de sesiones, no son columnas. */
 	sessionCount: v.number(),
 	trainerCount: v.number(),
+	/** En orden de asignación: el nombre, o el correo si no lo tiene. */
+	trainerNames: v.array(v.string()),
 	firstSessionAt: v.nullable(v.date()),
 	lastSessionAt: v.nullable(v.date()),
 	createdByName: v.nullable(v.string()),
