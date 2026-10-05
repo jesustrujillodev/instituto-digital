@@ -169,7 +169,7 @@ const createHarness = (
 	const calls = {
 		replaced: [] as { owner: QuizOwnerIds; bank: QuizBankWrite }[],
 		renamed: [] as string[],
-		archived: [] as number[],
+		deletedQuizzes: [] as number[],
 		attempts: [] as { number: number; attempt: GradedAttempt }[],
 		retakes: [] as { attemptId: number; actorId: number }[],
 		results: [] as ResultWrite[][],
@@ -235,8 +235,8 @@ const createHarness = (
 		rename: async (_quizId: number, title: string) => {
 			calls.renamed.push(title);
 		},
-		archive: async (quizId: number) => {
-			calls.archived.push(quizId);
+		deleteQuiz: async (quizId: number) => {
+			calls.deletedQuizzes.push(quizId);
 		},
 		findAttempt: async () => options.attempt ?? null,
 		saveAttempt: async (
@@ -757,28 +757,43 @@ describe("evaluación de módulo (docs/adr/0016)", () => {
 		expect(calls.replaced).toEqual([]);
 	});
 
-	test("archivarla la deja de contar y recalcula a todo inscrito", async () => {
-		const { service, calls } = createHarness({
-			editable: { status: "PUBLISHED" },
-		});
+	test("en borrador eliminarla la borra, sin avance que recalcular", async () => {
+		const { service, calls } = createHarness();
 
-		const result = await service.archiveModuleQuiz(
+		const result = await service.deleteModuleQuiz(
 			COURSE_DOC,
 			{ moduleDocumentId: MODULE_A },
 			HEAD,
 		);
 
 		expect(result).toMatchObject({ success: true, data: null });
-		expect(calls.archived).toEqual([9]);
-		expect(calls.recalculated).toEqual([undefined]);
-		expect(calls.lockedInTransaction).toEqual([true]);
+		expect(calls.deletedQuizzes).toEqual([9]);
+		expect(calls.recalculated).toEqual([]);
 	});
 
-	test("archivar una que no existe falla con error tipado", async () => {
+	test("publicada la capacitación, ya no se elimina", async () => {
+		const { service, calls } = createHarness({
+			editable: { status: "PUBLISHED" },
+		});
+
+		expect(
+			await service.deleteModuleQuiz(
+				COURSE_DOC,
+				{ moduleDocumentId: MODULE_A },
+				HEAD,
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.DELETE_LOCKED },
+		});
+		expect(calls.deletedQuizzes).toEqual([]);
+	});
+
+	test("eliminar una que no existe falla con error tipado", async () => {
 		const { service, calls } = createHarness({ quiz: null });
 
 		expect(
-			await service.archiveModuleQuiz(
+			await service.deleteModuleQuiz(
 				COURSE_DOC,
 				{ moduleDocumentId: MODULE_A },
 				HEAD,
@@ -787,7 +802,7 @@ describe("evaluación de módulo (docs/adr/0016)", () => {
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.QUIZ_NOT_FOUND },
 		});
-		expect(calls.archived).toEqual([]);
+		expect(calls.deletedQuizzes).toEqual([]);
 	});
 
 	test("aprobarla recalcula el avance de quien la presenta, sin tocar el resultado", async () => {

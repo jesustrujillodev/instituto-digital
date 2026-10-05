@@ -24,6 +24,7 @@ import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/content-form";
+import { DELETE_LOCKED_REASON } from "../utils/content-labels";
 import { formatMinutes, minutesOf } from "../utils/content-outline";
 import { reportSaveFailure } from "../utils/report-save-failure";
 import {
@@ -55,12 +56,13 @@ export function ContentModulePane({
 	module,
 	trail,
 	canWrite,
+	canDelete,
 	busy,
 	autoFocusTitle,
 	canMoveUp,
 	canMoveDown,
 	onMove,
-	onArchive,
+	onDelete,
 	onAddLesson,
 	onOpenQuiz,
 	onDirtyChange,
@@ -71,12 +73,13 @@ export function ContentModulePane({
 	module: ContentModule;
 	trail: string;
 	canWrite: boolean;
+	canDelete: boolean;
 	busy: boolean;
 	autoFocusTitle: boolean;
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	onMove: (delta: number) => void;
-	onArchive: () => void;
+	onDelete: () => void;
 	onAddLesson: () => void;
 	onOpenQuiz: () => void;
 	onDirtyChange: (dirty: boolean) => void;
@@ -133,8 +136,9 @@ export function ContentModulePane({
 
 	const minutes = minutesOf(module.lessons);
 	const lessonCount = module.lessons.length;
-	const archiveBlocked =
-		lessonCount > 0
+	const deleteBlocked = !canDelete
+		? DELETE_LOCKED_REASON
+		: lessonCount > 0
 			? "Elimina primero sus lecciones"
 			: module.quiz
 				? "Elimina primero su evaluación"
@@ -154,10 +158,10 @@ export function ContentModulePane({
 								canMoveUp={canMoveUp}
 								canMoveDown={canMoveDown}
 								onMove={onMove}
-								archive={{
+								remove={{
 									label: "Eliminar módulo",
-									disabledReason: archiveBlocked,
-									onClick: onArchive,
+									disabledReason: deleteBlocked,
+									onClick: onDelete,
 								}}
 							/>
 						) : null
@@ -244,15 +248,17 @@ export function ContentModuleQuizPane({
 	module,
 	trail,
 	canWrite,
+	canDelete,
 	busy,
-	onArchive,
+	onDelete,
 }: {
 	courseDocumentId: string;
 	module: ContentModule;
 	trail: string;
 	canWrite: boolean;
+	canDelete: boolean;
 	busy: boolean;
-	onArchive: () => void;
+	onDelete: () => void;
 }) {
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pt-4 pb-6 sm:px-6">
@@ -266,9 +272,10 @@ export function ContentModuleQuizPane({
 								busy={busy}
 								canMoveUp={false}
 								canMoveDown={false}
-								archive={{
+								remove={{
 									label: "Eliminar evaluación del módulo",
-									onClick: onArchive,
+									disabledReason: canDelete ? undefined : DELETE_LOCKED_REASON,
+									onClick: onDelete,
 								}}
 							/>
 						) : null

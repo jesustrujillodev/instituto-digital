@@ -17,3 +17,6 @@ export const LESSON_TYPE_HINTS: Record<LessonType, string> = {
 	LINK: "Un recurso que vive fuera.",
 	QUIZ: "Preguntas de práctica: enviarlas completa la lección.",
 };
+
+/** Por qué «Eliminar» está apagado en un curso publicado (docs/adr/0031). */
+export const DELETE_LOCKED_REASON = "Ya publicada: solo se edita o se agrega";

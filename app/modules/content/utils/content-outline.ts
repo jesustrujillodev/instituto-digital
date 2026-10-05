@@ -85,7 +85,7 @@ export const neighborsOf = (
 	};
 };
 
-/** Si lo seleccionado sigue en el árbol: tras archivar, deja de estarlo. */
+/** Si lo seleccionado sigue en el árbol: tras borrar, deja de estarlo. */
 export const selectionExists = (
 	tree: CourseContentTree,
 	selection: OutlineSelection,
@@ -232,9 +232,9 @@ export const withOrder = (
 /** Lo que una mutación del temario en vuelo deja ver ya, antes de la respuesta. */
 export type PendingOutlineChange =
 	| { kind: "reorder"; order: ReorderContentDto }
-	| { kind: "archive-lesson"; lessonDocumentId: string }
-	| { kind: "archive-module"; moduleDocumentId: string }
-	| { kind: "archive-module-quiz"; moduleDocumentId: string };
+	| { kind: "delete-lesson"; lessonDocumentId: string }
+	| { kind: "delete-module"; moduleDocumentId: string }
+	| { kind: "delete-module-quiz"; moduleDocumentId: string };
 
 /**
  * El árbol como quedará si la mutación sale bien. Si falla, la recarga trae
@@ -249,7 +249,7 @@ export const withPendingChange = (
 	switch (change.kind) {
 		case "reorder":
 			return withOrder(tree, change.order);
-		case "archive-lesson":
+		case "delete-lesson":
 			return tree.map((module) =>
 				module.lessons.some(
 					(lesson) => lesson.documentId === change.lessonDocumentId,
@@ -262,11 +262,11 @@ export const withPendingChange = (
 						}
 					: module,
 			);
-		case "archive-module":
+		case "delete-module":
 			return tree.filter(
 				(module) => module.documentId !== change.moduleDocumentId,
 			);
-		case "archive-module-quiz":
+		case "delete-module-quiz":
 			return tree.map((module) =>
 				module.documentId === change.moduleDocumentId
 					? { ...module, quiz: null }
@@ -298,19 +298,19 @@ export const pendingOutlineChangeOf = (
 				? { kind: "reorder", order }
 				: null;
 		}
-		case CONTENT_INTENTS.archiveLesson: {
+		case CONTENT_INTENTS.deleteLesson: {
 			const lessonDocumentId = stringField(payload, "lessonDocumentId");
 			return lessonDocumentId
-				? { kind: "archive-lesson", lessonDocumentId }
+				? { kind: "delete-lesson", lessonDocumentId }
 				: null;
 		}
-		case CONTENT_INTENTS.archiveModule:
-		case CONTENT_INTENTS.archiveModuleQuiz: {
+		case CONTENT_INTENTS.deleteModule:
+		case CONTENT_INTENTS.deleteModuleQuiz: {
 			const moduleDocumentId = stringField(payload, "moduleDocumentId");
 			if (!moduleDocumentId) return null;
-			return intent === CONTENT_INTENTS.archiveModule
-				? { kind: "archive-module", moduleDocumentId }
-				: { kind: "archive-module-quiz", moduleDocumentId };
+			return intent === CONTENT_INTENTS.deleteModule
+				? { kind: "delete-module", moduleDocumentId }
+				: { kind: "delete-module-quiz", moduleDocumentId };
 		}
 		default:
 			return null;

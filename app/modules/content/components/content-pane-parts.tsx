@@ -132,14 +132,14 @@ export function PaneMenu({
 	canMoveUp,
 	canMoveDown,
 	onMove,
-	archive,
+	remove,
 }: {
 	label: string;
 	busy: boolean;
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	onMove?: (delta: number) => void;
-	archive: { label: string; disabledReason?: string; onClick: () => void };
+	remove: { label: string; disabledReason?: string; onClick: () => void };
 }) {
 	return (
 		<DropdownMenu>
@@ -173,15 +173,15 @@ export function PaneMenu({
 				)}
 				<DropdownMenuItem
 					variant="destructive"
-					disabled={Boolean(archive.disabledReason)}
-					onSelect={archive.onClick}
+					disabled={Boolean(remove.disabledReason)}
+					onSelect={remove.onClick}
 				>
 					<Trash2 aria-hidden="true" />
 					<span className="flex flex-col">
-						{archive.label}
-						{archive.disabledReason && (
+						{remove.label}
+						{remove.disabledReason && (
 							<span className="text-muted-foreground text-xs">
-								{archive.disabledReason}
+								{remove.disabledReason}
 							</span>
 						)}
 					</span>

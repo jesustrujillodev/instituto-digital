@@ -37,6 +37,7 @@ import {
 	ContentSessionNotFoundError,
 	ContentTooManyFollowUpsError,
 } from "../domain/content.errors";
+import { assertContentDeletable } from "../domain/content.rules";
 import type { ContentCourseRef } from "../domain/content.types";
 import {
 	assertBankEditable,
@@ -342,30 +343,24 @@ export const createQuizService = ({
 			});
 		},
 
-		async archiveModuleQuiz(
+		async deleteModuleQuiz(
 			courseDocumentId: string,
 			dto: ModuleQuizDto,
 			actor: AuthContext,
 		) {
-			return run("archiveModuleQuiz", async () => {
+			return run("deleteModuleQuiz", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
+				assertContentDeletable(course.status);
 				const { ids } = await resolveOwner(course.id, {
 					lessonDocumentId: null,
 					moduleDocumentId: dto.moduleDocumentId,
 					followUpDocumentId: null,
 				});
-				const now = clock.now();
 
-				await runInTransaction(async () => {
-					await enrollmentRepository.lockCourseSeats(course.id);
+				const quiz = await quizRepository.findQuiz(course.id, ids);
+				if (!quiz) throw new ContentQuizNotFoundError();
 
-					const quiz = await quizRepository.findQuiz(course.id, ids);
-					if (!quiz) throw new ContentQuizNotFoundError();
-
-					// Archivarla puede completar a quien solo la debía a ella.
-					await quizRepository.archive(quiz.id, now);
-					await recalculateProgress(course, actor, now);
-				});
+				await quizRepository.deleteQuiz(quiz.id);
 
 				return ok(null);
 			});

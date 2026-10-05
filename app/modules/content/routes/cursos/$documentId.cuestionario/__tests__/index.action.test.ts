@@ -30,7 +30,7 @@ const run = (fields: Record<string, string>) => {
 		quizService: {
 			saveBank: record("saveBank"),
 			renameQuiz: record("renameQuiz"),
-			archiveModuleQuiz: record("archiveModuleQuiz"),
+			deleteModuleQuiz: record("deleteModuleQuiz"),
 			saveFollowUp: record("saveFollowUp"),
 			saveFollowUpQuestions: record("saveFollowUpQuestions"),
 			removeFollowUp: record("removeFollowUp"),
@@ -50,9 +50,9 @@ const run = (fields: Record<string, string>) => {
 };
 
 describe("capacitaciones/cuestionario action", () => {
-	test("archiva la evaluación de un módulo", async () => {
+	test("elimina la evaluación de un módulo", async () => {
 		const { result, calls } = run({
-			intent: "archive-module-quiz",
+			intent: "delete-module-quiz",
 			payload: JSON.stringify({ moduleDocumentId: MODULE_A }),
 		});
 
@@ -63,12 +63,12 @@ describe("capacitaciones/cuestionario action", () => {
 		expect(calls.map((call) => call.args.slice(0, 2))).toEqual([
 			[COURSE_DOC, { moduleDocumentId: MODULE_A }],
 		]);
-		expect(calls[0]?.method).toBe("archiveModuleQuiz");
+		expect(calls[0]?.method).toBe("deleteModuleQuiz");
 	});
 
 	test("sin módulo no llega al servicio", async () => {
 		const { result, calls } = run({
-			intent: "archive-module-quiz",
+			intent: "delete-module-quiz",
 			payload: JSON.stringify({}),
 		});
 

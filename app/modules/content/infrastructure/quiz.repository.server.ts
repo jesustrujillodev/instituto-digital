@@ -190,11 +190,8 @@ export const createQuizRepository = ({
 		await prisma.quiz.update({ where: { id: quizId }, data: { title } });
 	},
 
-	async archive(quizId, at) {
-		await prisma.quiz.update({
-			where: { id: quizId },
-			data: { archivedAt: at },
-		});
+	async deleteQuiz(quizId) {
+		await prisma.quiz.delete({ where: { id: quizId } });
 	},
 
 	async findAttempt(quizId, userId) {

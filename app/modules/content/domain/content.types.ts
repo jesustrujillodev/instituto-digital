@@ -6,10 +6,10 @@ import type {
 } from "@/modules/courses/domain/course.rules";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
-	archiveLessonRule,
-	archiveModuleRule,
 	createLessonRule,
 	createModuleRule,
+	deleteLessonRule,
+	deleteModuleRule,
 	LessonType,
 	reorderContentRule,
 	saveMaterialRule,
@@ -20,10 +20,10 @@ import type {
 
 export type CreateModuleDto = v.InferOutput<typeof createModuleRule>;
 export type UpdateModuleDto = v.InferOutput<typeof updateModuleRule>;
-export type ArchiveModuleDto = v.InferOutput<typeof archiveModuleRule>;
+export type DeleteModuleDto = v.InferOutput<typeof deleteModuleRule>;
 export type CreateLessonDto = v.InferOutput<typeof createLessonRule>;
 export type UpdateLessonDto = v.InferOutput<typeof updateLessonRule>;
-export type ArchiveLessonDto = v.InferOutput<typeof archiveLessonRule>;
+export type DeleteLessonDto = v.InferOutput<typeof deleteLessonRule>;
 export type ReorderContentDto = v.InferOutput<typeof reorderContentRule>;
 export type SaveMaterialDto = v.InferOutput<typeof saveMaterialRule>;
 export type UploadUrlDto = v.InferOutput<typeof uploadUrlRule>;

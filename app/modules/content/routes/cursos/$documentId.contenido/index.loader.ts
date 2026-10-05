@@ -3,6 +3,7 @@ import { requireCourseScope } from "@/modules/courses/routes/require-course-scop
 import { COURSE_ERROR_MESSAGES } from "@/modules/courses/utils/course-error-messages";
 import { toRouteError } from "@/shared/http/route-error";
 import { ok } from "@/shared/response/response.helpers";
+import { canDeleteContent } from "../../../domain/content.rules";
 import { validateFindContentCourse } from "../../../domain/content.validators";
 import { CONTENT_ERROR_MESSAGES } from "../../../utils/content-error-messages";
 import type { Route } from "./+types/index";
@@ -36,5 +37,6 @@ export const loader = async ({
 		course: course.data,
 		tree: tree.data,
 		canWrite: canEdit(course.data.status),
+		canDelete: canDeleteContent(course.data.status),
 	});
 };

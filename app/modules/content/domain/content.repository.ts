@@ -12,14 +12,14 @@ import type {
 	OrderedRow,
 } from "./content.types";
 
-/** El módulo con lo que hace falta para decidir si se puede archivar. */
+/** El módulo con lo que hace falta para decidir si se puede borrar. */
 export interface ContentModuleRef {
 	id: number;
 	activeLessons: number;
 	hasActiveQuiz: boolean;
 }
 
-/** La lección con su padre y su clase: archivarla re-empaqueta a sus hermanas. */
+/** La lección con su padre y su clase: borrarla re-empaqueta a sus hermanas. */
 export interface ContentLessonRef {
 	id: number;
 	moduleId: number;
@@ -63,10 +63,12 @@ export interface IContentRepository {
 		moduleId: number,
 		data: Pick<ModuleWrite, "title" | "description">,
 	): Promise<void>;
-	/** Archiva y re-empaqueta a sus hermanos en la misma transacción. */
-	archiveModule(
+	/**
+	 * Borra y re-empaqueta a sus hermanos. Lo que cuelga del módulo se va en
+	 * cascada: quien llama comprueba antes que no quede nada que conservar.
+	 */
+	deleteModule(
 		moduleId: number,
-		at: Date,
 		reorder: readonly ModuleOrderWrite[],
 	): Promise<void>;
 
@@ -80,9 +82,9 @@ export interface IContentRepository {
 		lessonId: number,
 		data: Omit<LessonWrite, "order">,
 	): Promise<void>;
-	archiveLesson(
+	/** Borra con su material y re-empaqueta a sus hermanas. */
+	deleteLesson(
 		lessonId: number,
-		at: Date,
 		reorder: readonly ModuleOrderWrite[],
 	): Promise<void>;
 
@@ -102,7 +104,7 @@ export interface IContentRepository {
 	saveMaterial(lessonId: number, data: LessonMaterialWrite): Promise<void>;
 	/**
 	 * La referencia del objeto que cuelga de la lección, para descartarlo al
-	 * reemplazarlo o al archivarla.
+	 * reemplazarlo o al borrarla.
 	 */
 	findMaterialFileUrl(lessonId: number): Promise<string | null>;
 }

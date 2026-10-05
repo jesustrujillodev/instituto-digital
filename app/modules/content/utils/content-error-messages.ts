@@ -40,6 +40,11 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "Esta capacitación ya no admite cambios en su temario.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[CONTENT_ERROR_CODES.DELETE_LOCKED]: {
+		message:
+			"La capacitación ya está publicada: sus módulos y lecciones se editan o se agregan, pero ya no se eliminan.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[CONTENT_ERROR_CODES.MODULE_NOT_FOUND]: {
 		message: "El módulo ya no existe. Vuelve a cargar la página.",
 		status: HTTP_STATUS.NOT_FOUND,

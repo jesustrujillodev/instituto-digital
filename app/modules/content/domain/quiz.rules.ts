@@ -336,7 +336,7 @@ export const quizRules = {
 	save: saveQuizRule,
 	rename: renameQuizRule,
 	submit: submitQuizRule,
-	archiveModuleQuiz: moduleQuizRule,
+	deleteModuleQuiz: moduleQuizRule,
 	grantRetake: grantRetakeRule,
 	saveFollowUp: saveFollowUpRule,
 	saveFollowUpQuestions: saveFollowUpQuestionsRule,

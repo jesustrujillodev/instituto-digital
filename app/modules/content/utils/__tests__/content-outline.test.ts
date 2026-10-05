@@ -110,7 +110,7 @@ describe("selectionExists", () => {
 		).toBe(false);
 	});
 
-	test("una lección archivada deja de existir", () => {
+	test("una lección borrada deja de existir", () => {
 		expect(
 			selectionExists(TREE, { kind: "lesson", documentId: "archivada" }),
 		).toBe(false);
@@ -199,27 +199,27 @@ describe("withPendingChange", () => {
 		expect(withPendingChange(TREE, null)).toBe(TREE);
 	});
 
-	test("archivar una lección la quita ya", () => {
+	test("borrar una lección la quita ya", () => {
 		const tree = withPendingChange(TREE, {
-			kind: "archive-lesson",
+			kind: "delete-lesson",
 			lessonDocumentId: "l1",
 		});
 
 		expect(idsOf(tree)[0]).toEqual(["m1", ["l2"]]);
 	});
 
-	test("archivar un módulo lo quita con sus lecciones", () => {
+	test("borrar un módulo lo quita con sus lecciones", () => {
 		const tree = withPendingChange(TREE, {
-			kind: "archive-module",
+			kind: "delete-module",
 			moduleDocumentId: "m1",
 		});
 
 		expect(idsOf(tree).map(([id]) => id)).toEqual(["m2", "m3"]);
 	});
 
-	test("archivar la evaluación de un módulo deja el módulo sin ella", () => {
+	test("eliminar la evaluación de un módulo deja el módulo sin ella", () => {
 		const tree = withPendingChange(TREE, {
-			kind: "archive-module-quiz",
+			kind: "delete-module-quiz",
 			moduleDocumentId: "m3",
 		});
 
@@ -246,19 +246,19 @@ describe("pendingOutlineChangeOf", () => {
 
 	test.each([
 		[
-			CONTENT_INTENTS.archiveLesson,
+			CONTENT_INTENTS.deleteLesson,
 			{ lessonDocumentId: "l1" },
-			{ kind: "archive-lesson", lessonDocumentId: "l1" },
+			{ kind: "delete-lesson", lessonDocumentId: "l1" },
 		],
 		[
-			CONTENT_INTENTS.archiveModule,
+			CONTENT_INTENTS.deleteModule,
 			{ moduleDocumentId: "m1" },
-			{ kind: "archive-module", moduleDocumentId: "m1" },
+			{ kind: "delete-module", moduleDocumentId: "m1" },
 		],
 		[
-			CONTENT_INTENTS.archiveModuleQuiz,
+			CONTENT_INTENTS.deleteModuleQuiz,
 			{ moduleDocumentId: "m3" },
-			{ kind: "archive-module-quiz", moduleDocumentId: "m3" },
+			{ kind: "delete-module-quiz", moduleDocumentId: "m3" },
 		],
 	])("lee %s", (intent, payload, expected) => {
 		expect(pendingOutlineChangeOf(formOf(intent, payload))).toEqual(expected);
@@ -275,7 +275,7 @@ describe("pendingOutlineChangeOf", () => {
 	test("sin envío o con un cuerpo malformado no hay cambio", () => {
 		expect(pendingOutlineChangeOf(undefined)).toBeNull();
 		expect(
-			pendingOutlineChangeOf(formOf(CONTENT_INTENTS.archiveLesson, {})),
+			pendingOutlineChangeOf(formOf(CONTENT_INTENTS.deleteLesson, {})),
 		).toBeNull();
 		expect(
 			pendingOutlineChangeOf(formOf(CONTENT_INTENTS.reorder, { modules: 1 })),

@@ -31,8 +31,8 @@ export interface IQuizRepository {
 		bank: QuizBankWrite,
 	): Promise<void>;
 	rename(quizId: number, title: string): Promise<void>;
-	/** Deja de contar sin borrar los intentos que respaldan completados ya dados. */
-	archive(quizId: number, at: Date): Promise<void>;
+	/** Borra con su banco en cascada: solo la evaluación de módulo de un borrador. */
+	deleteQuiz(quizId: number): Promise<void>;
 
 	/** El último intento de la persona, o `null` si nunca lo presentó. */
 	findAttempt(quizId: number, userId: number): Promise<StoredAttempt | null>;

@@ -33,7 +33,7 @@ export default function CursoContenidoPage({
 	loaderData,
 }: Route.ComponentProps) {
 	const {
-		data: { course, tree, canWrite },
+		data: { course, tree, canWrite, canDelete },
 	} = loaderData;
 
 	return (
@@ -48,6 +48,7 @@ export default function CursoContenidoPage({
 				courseDocumentId={course.documentId}
 				tree={tree}
 				canWrite={canWrite}
+				canDelete={canDelete}
 			/>
 		</div>
 	);

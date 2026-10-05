@@ -37,8 +37,8 @@ export interface IContentService {
 		dto: UpdateModuleDto,
 		actor: AuthContext,
 	): Promise<ContentMutationResponse>;
-	/** Solo si ya no le quedan lecciones activas. */
-	archiveModule(
+	/** Solo en borrador y si ya no le quedan lecciones ni evaluación. */
+	deleteModule(
 		courseDocumentId: string,
 		moduleDocumentId: string,
 		actor: AuthContext,
@@ -54,7 +54,8 @@ export interface IContentService {
 		dto: UpdateLessonDto,
 		actor: AuthContext,
 	): Promise<ContentMutationResponse>;
-	archiveLesson(
+	/** Solo en borrador. */
+	deleteLesson(
 		courseDocumentId: string,
 		lessonDocumentId: string,
 		actor: AuthContext,

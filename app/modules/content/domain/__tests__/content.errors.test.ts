@@ -4,6 +4,7 @@ import {
 	ContentClassroomReadOnlyError,
 	ContentCourseNotEditableError,
 	ContentCourseNotFoundError,
+	ContentDeleteLockedError,
 	ContentInvalidOrderError,
 	ContentLessonNotFoundError,
 	ContentLinkInvalidError,
@@ -74,6 +75,9 @@ describe("errores de contenido", () => {
 		expect(new ContentCourseNotEditableError("FINISHED").code).toBe(
 			CONTENT_ERROR_CODES.COURSE_NOT_EDITABLE,
 		);
+		expect(new ContentDeleteLockedError("PUBLISHED").code).toBe(
+			CONTENT_ERROR_CODES.DELETE_LOCKED,
+		);
 		expect(new ContentModuleNotFoundError().code).toBe(
 			CONTENT_ERROR_CODES.MODULE_NOT_FOUND,
 		);
@@ -102,6 +106,9 @@ describe("errores de contenido", () => {
 		});
 		expect(new ContentCourseNotEditableError("CANCELLED").details).toEqual({
 			status: "CANCELLED",
+		});
+		expect(new ContentDeleteLockedError("PUBLISHED").details).toEqual({
+			status: "PUBLISHED",
 		});
 	});
 });

@@ -37,12 +37,15 @@ falta un PDF junto a un video, son dos lecciones.
 
 Tres convenciones que hay que tener presentes:
 
-- **Borrar no existe.** Se archiva (`archived_at`), porque el avance por lección
-  cuelga de estas filas.
-- **Un módulo con lecciones activas no se archiva.** Se vacían primero, a mano.
-  Archivar en cascada escondería lecciones que nadie pidió esconder.
+- **Se borra solo en borrador** ([ADR 0031](../adr/0031-borrar-temario-solo-en-borrador.md)).
+  El borrado es real y se lleva en cascada el material, y en un borrador no hay
+  avance ni intentos que perder. Publicado, el temario solo se edita o crece
+  (`CONTENT_DELETE_LOCKED`). `archived_at` queda para las filas que se archivaron
+  antes en cursos ya publicados.
+- **Un módulo con lecciones activas no se borra.** Se vacían primero, a mano.
+  Borrar en cascada se llevaría lecciones que nadie pidió borrar.
 - **`order` es contiguo desde 1 entre los activos**, y no tiene `@@unique`.
-  Archivar re-empaqueta a los hermanos que quedan en la misma transacción; si no,
+  Borrar re-empaqueta a los hermanos que quedan en la misma transacción; si no,
   la fila siguiente nacería con una posición ya ocupada.
 
 ## 3. Rutas y permisos
@@ -63,7 +66,7 @@ escriben contra la misma ruta. El panel tiene dos vistas, con un selector
   lección se nombra en la propia lista (Enter para crear, Esc para cancelar) y se
   abre en un panel lateral (`LessonEditorSheet`) con su ficha y su material, que
   se guardan al cerrarlo, al pasar a la siguiente o con **Listo**. Ordenar,
-  archivar y crear módulos se guarda en el acto; el orden se cambia con
+  eliminar y crear módulos se guarda en el acto; el orden se cambia con
   Subir/Bajar del menú de cada fila, sin arrastre. Es la única vista en móvil.
 - **Editor** (`CourseContentWorkspace`), la vista por omisión en escritorio: la
   estructura a la izquierda y el elemento abierto a la derecha. Módulos y
@@ -82,7 +85,9 @@ servicio lo vuelve a resolver por su cuenta, así que un curso fuera de alcance
 responde igual que inexistente.
 
 El temario se edita mientras el curso admite edición (`DRAFT` y `PUBLISHED`). Un
-curso finalizado o cancelado responde `CONTENT_COURSE_NOT_EDITABLE`.
+curso finalizado o cancelado responde `CONTENT_COURSE_NOT_EDITABLE`. Borrar
+módulos y lecciones solo en `DRAFT`: publicado, «Eliminar» aparece apagado con el
+motivo y el servidor responde `CONTENT_DELETE_LOCKED`.
 
 ## 4. Los intents
 
@@ -90,8 +95,8 @@ Un `intent` y un `payload` JSON, como el resto de paneles del proyecto:
 
 | Intent | Qué hace |
 | --- | --- |
-| `create-module` · `update-module` · `archive-module` | El módulo y su descripción. El alta devuelve `{ documentId }` |
-| `create-lesson` · `update-lesson` · `archive-lesson` | La lección, su tipo, si es obligatoria y sus minutos. El alta devuelve `{ documentId }` |
+| `create-module` · `update-module` · `delete-module` | El módulo y su descripción. El alta devuelve `{ documentId }` |
+| `create-lesson` · `update-lesson` · `delete-lesson` | La lección, su tipo, si es obligatoria y sus minutos. El alta devuelve `{ documentId }` |
 | `reorder` | El árbol entero |
 | `upload-url` · `save-material` | El material de una lección (en su propia ruta) |
 
@@ -183,7 +188,7 @@ pide el reproductor van directos al bucket y la key cruda nunca viaja al cliente
 El prefijo es `documentos/lecciones/`, **privado**: no cuelga de `media/` ni de
 `profile-photos/`, así que `isPublicKey` lo deja fuera y el proxy exige sesión.
 
-Reemplazar un material es volver a subir. Al hacerlo —y al archivar la lección— el
+Reemplazar un material es volver a subir. Al hacerlo —y al borrar la lección— el
 objeto anterior se borra en *best-effort* y fuera de la transacción: un objeto que
 ya no está no puede tumbar una escritura que ya ocurrió, y si el borrado falla lo
 recoge el escaneo de huérfanos del gestor de nube.
@@ -262,7 +267,7 @@ escribe, porque precargar un enlace no es haberlo abierto. No se desmarca:
 | Escritura | Recalcula |
 | --- | --- |
 | Completar una lección en el aula | A esa persona |
-| Crear una lección, archivarla o cambiar su `isRequired` (curso publicado) | A todo inscrito |
+| Crear una lección o cambiar su `isRequired` (curso publicado) | A todo inscrito |
 | Reordenar, cambiar título o material | Nada: no cambia qué cuenta |
 
 Si alguien termina el contenido y el curso completa en vivo —un autogestivo
@@ -303,15 +308,16 @@ dueño decide cuál:
 - **La evaluación del módulo se presenta cuando se quiera** y hay que aprobarla para
   terminar el contenido: `measuredItemsOf` la suma a las lecciones medidas. Solo
   cuenta donde cuenta el contenido (`CONTENT`, `BOTH`).
-- **Se archiva, no se borra**, y un módulo con evaluación activa no se archiva
-  (`CONTENT_MODULE_HAS_QUIZ`). Crearla o archivarla en un curso publicado recalcula a
-  todo inscrito.
+- **Se borra solo en borrador** ([ADR 0031](../adr/0031-borrar-temario-solo-en-borrador.md));
+  publicado, `CONTENT_DELETE_LOCKED`. Un módulo con evaluación activa no se borra
+  (`CONTENT_MODULE_HAS_QUIZ`). Crearla en un curso publicado recalcula a todo
+  inscrito.
 
 ### 9.2 Rutas
 
 | Ruta | Pieza |
 | --- | --- |
-| `/dashboard/capacitaciones/:documentId/cuestionario[?leccion=\|?modulo=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz`, `rename-quiz` y `archive-module-quiz` |
+| `/dashboard/capacitaciones/:documentId/cuestionario[?leccion=\|?modulo=]` | Recurso: el banco con sus respuestas, para quien lo arma. Intents `save-quiz`, `rename-quiz` y `delete-module-quiz` |
 | `/dashboard/mis-capacitaciones/:documentId/aula/examen` | Presentar el examen. El índice del aula lo lleva al final con su estado |
 | `/dashboard/mis-capacitaciones/:documentId/aula/:lessonDocumentId` | La práctica de una lección `QUIZ`, con el intent `submit-quiz` |
 | `/dashboard/mis-capacitaciones/:documentId/aula/modulo/:moduleDocumentId` | Presentar la evaluación del módulo. El índice la pone al final de su módulo |

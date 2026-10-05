@@ -33,25 +33,27 @@ export function LessonEditorSheet({
 	tree,
 	lessonDocumentId,
 	canWrite,
+	canDelete,
 	busy,
 	onNavigate,
 	onClose,
-	onArchive,
+	onDelete,
 }: {
 	courseDocumentId: string;
 	tree: CourseContentTree;
 	/** `null` con el panel cerrado. */
 	lessonDocumentId: string | null;
 	canWrite: boolean;
+	canDelete: boolean;
 	busy: boolean;
 	onNavigate: (lessonDocumentId: string) => void;
 	onClose: () => void;
-	onArchive: (lessonDocumentId: string) => void;
+	onDelete: (lessonDocumentId: string) => void;
 }) {
 	const flushRef = useRef<Flush | null>(null);
 	const position = lessonDocumentId ? findLesson(tree, lessonDocumentId) : null;
 
-	// La lección puede archivarse desde otra pestaña mientras está abierta.
+	// La lección puede borrarse desde otra pestaña mientras está abierta.
 	useEffect(() => {
 		if (lessonDocumentId && !position) onClose();
 	}, [lessonDocumentId, position, onClose]);
@@ -88,7 +90,9 @@ export function LessonEditorSheet({
 						flushRef={flushRef}
 						onClose={() => void leave(onClose)}
 						onNext={next ? () => void leave(() => onNavigate(next)) : null}
-						onArchive={() => onArchive(position.lesson.documentId)}
+						onDelete={
+							canDelete ? () => onDelete(position.lesson.documentId) : null
+						}
 					/>
 				)}
 			</SheetContent>
@@ -105,7 +109,7 @@ function LessonEditorBody({
 	flushRef,
 	onClose,
 	onNext,
-	onArchive,
+	onDelete,
 }: {
 	courseDocumentId: string;
 	lesson: ContentLesson;
@@ -115,7 +119,8 @@ function LessonEditorBody({
 	flushRef: React.RefObject<Flush | null>;
 	onClose: () => void;
 	onNext: (() => void) | null;
-	onArchive: () => void;
+	/** `null` cuando el curso ya no deja borrar. */
+	onDelete: (() => void) | null;
 }) {
 	const id = useId();
 	const editor = useLessonEditor({ courseDocumentId, lesson, canWrite });
@@ -215,12 +220,12 @@ function LessonEditorBody({
 			</div>
 
 			<footer className="flex items-center gap-2 border-border border-t px-6 py-4">
-				{canWrite && (
+				{canWrite && onDelete && (
 					<Button
 						type="button"
 						variant="ghost"
 						disabled={busy || saving}
-						onClick={onArchive}
+						onClick={onDelete}
 						className="-ml-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
 					>
 						<Trash2 aria-hidden="true" />

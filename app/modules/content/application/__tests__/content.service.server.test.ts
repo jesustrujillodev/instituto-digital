@@ -104,7 +104,7 @@ const createHarness = (
 	const calls = {
 		created: [] as unknown[],
 		updated: [] as unknown[],
-		archived: [] as unknown[],
+		removed: [] as unknown[],
 		reorders: [] as unknown[],
 		materials: [] as unknown[],
 		uploadUrls: [] as unknown[],
@@ -157,8 +157,8 @@ const createHarness = (
 		updateModule: async (moduleId: number, data: unknown) => {
 			calls.updated.push({ moduleId, data });
 		},
-		archiveModule: async (moduleId: number, at: Date, reorder: unknown) => {
-			calls.archived.push({ moduleId, at, reorder });
+		deleteModule: async (moduleId: number, reorder: unknown) => {
+			calls.removed.push({ moduleId, reorder });
 		},
 		createLesson: async (moduleId: number, data: unknown) => {
 			calls.created.push({ moduleId, data });
@@ -167,8 +167,8 @@ const createHarness = (
 		updateLesson: async (lessonId: number, data: unknown) => {
 			calls.updated.push({ lessonId, data });
 		},
-		archiveLesson: async (lessonId: number, at: Date, reorder: unknown) => {
-			calls.archived.push({ lessonId, at, reorder });
+		deleteLesson: async (lessonId: number, reorder: unknown) => {
+			calls.removed.push({ lessonId, reorder });
 		},
 		saveOrder: async (writes: unknown) => {
 			calls.reorders.push(writes);
@@ -362,45 +362,58 @@ describe("updateModule", () => {
 	});
 });
 
-describe("archiveModule", () => {
-	test("archiva con la fecha del reloj y re-empaqueta a sus hermanos", async () => {
+describe("deleteModule", () => {
+	test("en borrador lo borra y re-empaqueta a sus hermanos", async () => {
 		const { service, calls } = createHarness();
 
 		expect(
-			await service.archiveModule(COURSE_DOC, MODULE_A, actorOf()),
+			await service.deleteModule(COURSE_DOC, MODULE_A, actorOf()),
 		).toMatchObject({ success: true });
-		expect(calls.archived).toEqual([
-			{
-				moduleId: 21,
-				at: NOW,
-				reorder: [{ documentId: "module-1", order: 1 }],
-			},
+		expect(calls.removed).toEqual([
+			{ moduleId: 21, reorder: [{ documentId: "module-1", order: 1 }] },
 		]);
 		expect(calls.transactions).toBe(1);
 	});
 
-	test("con lecciones activas no se archiva", async () => {
+	test("publicado ya no se borra", async () => {
+		const { service, calls } = createHarness({
+			course: { id: 7, status: "PUBLISHED", format: "SELF_PACED" },
+		});
+
+		expect(
+			await service.deleteModule(COURSE_DOC, MODULE_A, actorOf()),
+		).toMatchObject({
+			success: false,
+			error: {
+				code: CONTENT_ERROR_CODES.DELETE_LOCKED,
+				details: { status: "PUBLISHED" },
+			},
+		});
+		expect(calls.removed).toEqual([]);
+	});
+
+	test("con lecciones activas no se borra", async () => {
 		const { service, calls } = createHarness({ activeLessons: 2 });
 
 		expect(
-			await service.archiveModule(COURSE_DOC, MODULE_A, actorOf()),
+			await service.deleteModule(COURSE_DOC, MODULE_A, actorOf()),
 		).toMatchObject({
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.MODULE_NOT_EMPTY },
 		});
-		expect(calls.archived).toEqual([]);
+		expect(calls.removed).toEqual([]);
 	});
 
 	test("con su evaluación activa tampoco", async () => {
 		const { service, calls } = createHarness({ moduleHasQuiz: true });
 
 		expect(
-			await service.archiveModule(COURSE_DOC, MODULE_A, actorOf()),
+			await service.deleteModule(COURSE_DOC, MODULE_A, actorOf()),
 		).toMatchObject({
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.MODULE_HAS_QUIZ },
 		});
-		expect(calls.archived).toEqual([]);
+		expect(calls.removed).toEqual([]);
 	});
 });
 
@@ -447,16 +460,32 @@ describe("lecciones", () => {
 		expect(calls.updated).toEqual([]);
 	});
 
-	test("archivar una lección re-empaqueta a sus hermanas", async () => {
+	test("borrar una lección re-empaqueta a sus hermanas", async () => {
 		const { service, calls } = createHarness();
 
 		expect(
-			await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf()),
+			await service.deleteLesson(COURSE_DOC, LESSON_1, actorOf()),
 		).toMatchObject({ success: true });
-		expect(calls.archived).toEqual([
-			{ lessonId: 31, at: NOW, reorder: [{ documentId: LESSON_2, order: 1 }] },
+		expect(calls.removed).toEqual([
+			{ lessonId: 31, reorder: [{ documentId: LESSON_2, order: 1 }] },
 		]);
 		expect(calls.transactions).toBe(1);
+	});
+
+	test("una lección de un curso publicado ya no se borra", async () => {
+		const { service, calls } = createHarness({
+			course: { id: 7, status: "PUBLISHED", format: "SELF_PACED" },
+			materialFileUrl: "/api/storage?key=x",
+		});
+
+		expect(
+			await service.deleteLesson(COURSE_DOC, LESSON_1, actorOf()),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.DELETE_LOCKED },
+		});
+		expect(calls.removed).toEqual([]);
+		expect(calls.deleted).toEqual([]);
 	});
 });
 
@@ -721,7 +750,7 @@ describe("saveMaterial", () => {
 	});
 });
 
-describe("archivar una lección con material", () => {
+describe("borrar una lección con material", () => {
 	test("se lleva su objeto del bucket", async () => {
 		const key = `${LESSON_MATERIAL_PREFIX}/manual-1700000000.pdf`;
 		const { service, calls } = createHarness({
@@ -729,17 +758,17 @@ describe("archivar una lección con material", () => {
 			materialFileUrl: `/api/storage?key=${encodeURIComponent(key)}`,
 		});
 
-		const result = await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
+		const result = await service.deleteLesson(COURSE_DOC, LESSON_1, actorOf());
 
 		expect(result).toMatchObject({ success: true, data: null });
 		expect(calls.transactions).toBe(1);
 		expect(calls.deleted).toEqual([key]);
 	});
 
-	test("una lección sin material se archiva sin tocar el bucket", async () => {
+	test("una lección sin material se borra sin tocar el bucket", async () => {
 		const { service, calls } = createHarness();
 
-		await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
+		await service.deleteLesson(COURSE_DOC, LESSON_1, actorOf());
 
 		expect(calls.deleted).toEqual([]);
 	});
@@ -753,14 +782,6 @@ describe("avance tras cambiar el temario", () => {
 		status: "PUBLISHED" as CourseStatus,
 		format: "SELF_PACED" as const,
 	};
-
-	test("archivar una lección de un curso publicado recalcula dentro de la transacción", async () => {
-		const { service, calls } = createHarness({ course: published });
-
-		await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
-
-		expect(calls.recalculated).toEqual([{ courseId: 7, inTransaction: true }]);
-	});
 
 	test("una lección obligatoria nueva recalcula", async () => {
 		const { service, calls } = createHarness({ course: published });
@@ -807,7 +828,7 @@ describe("avance tras cambiar el temario", () => {
 	test("un borrador no tiene avance que recalcular", async () => {
 		const { service, calls } = createHarness();
 
-		await service.archiveLesson(COURSE_DOC, LESSON_1, actorOf());
+		await service.deleteLesson(COURSE_DOC, LESSON_1, actorOf());
 
 		expect(calls.recalculated).toEqual([]);
 	});

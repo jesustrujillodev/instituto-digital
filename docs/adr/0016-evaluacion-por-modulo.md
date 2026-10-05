@@ -103,6 +103,9 @@ nadie podría presentarlo. Se hace en la pestaña **Avance** de Impartición.
 
 ### 2.5 Se archiva, no se borra
 
+> Reemplazada por [ADR 0031](./0031-borrar-temario-solo-en-borrador.md): la
+> evaluación se borra de verdad, y solo mientras el curso está en borrador.
+
 `quizzes.archived_at` solo lo usa la evaluación de módulo. Sus intentos respaldan
 completados ya otorgados, así que no se borran.
 
