@@ -68,6 +68,10 @@ export interface IQuizRepository {
 
 	/** En el orden de sus sesiones. */
 	findFollowUps(courseId: number): Promise<StoredFollowUp[]>;
+	/** El banco de cada evaluación de seguimiento, con sus intentos contados. */
+	findFollowUpBanks(
+		courseId: number,
+	): Promise<(StoredQuiz & { attemptCount: number })[]>;
 	findFollowUp(
 		courseId: number,
 		documentId: string,

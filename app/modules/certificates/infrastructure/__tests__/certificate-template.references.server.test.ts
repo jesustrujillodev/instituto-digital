@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vitest";
 import type { ICradle } from "@/shared/di/container.types";
 import { toProxyRef } from "@/shared/storage/public-url";
+import { STORAGE_ERROR_CODES } from "@/shared/storage/storage.errors";
 import type {
 	CertificateDesignV2,
 	CertificateTemplate,
 } from "../../domain/certificate.types";
+import { storageRefsOf } from "../../domain/design/design.assets";
 import { PRESETS } from "../../domain/design/design.presets";
 import type { DesignElement } from "../../domain/design/design-v2.schema";
 import {
@@ -41,7 +43,7 @@ const template: CertificateTemplate = {
 	updatedAt: new Date(),
 };
 
-const createSource = () => {
+const createSource = (unreadableRefs: string[] = []) => {
 	const saved: {
 		documentId: string;
 		design: CertificateDesignV2;
@@ -50,6 +52,19 @@ const createSource = () => {
 	const certificateTemplateRepository = {
 		findByDocumentIds: async (ids: readonly string[]) =>
 			ids.includes(TEMPLATE) ? [template] : [],
+		findWithStorageRefs: async (ids: readonly string[]) =>
+			ids.includes(TEMPLATE)
+				? [
+						{
+							template,
+							designRefs: [
+								...storageRefsOf(template.design),
+								...unreadableRefs,
+							],
+							unreadableRefs,
+						},
+					]
+				: [],
 		saveDesign: async (
 			documentId: string,
 			design: CertificateDesignV2,
@@ -89,6 +104,21 @@ describe("recursos de plantillas en storage", () => {
 		expect(saved[0].by).toBeNull();
 		expect(saved[0].design.elements.some((e) => e.id === "sello")).toBe(false);
 		expect(await source.release([STALE])).toBe(0);
+	});
+
+	// Un diseño ilegible se lee como el de por defecto: sin esto, lo suyo
+	// parecería huérfano y se podría borrar.
+	test("lo que nombra un diseño ilegible sigue referenciado y no se suelta", async () => {
+		const { source, saved } = createSource([toProxyRef(STALE)]);
+
+		expect(await source.findByKeys([STALE])).toEqual([
+			expect.objectContaining({ key: STALE, owner: "certificate-template" }),
+		]);
+		await expect(source.release([USED, STALE])).rejects.toMatchObject({
+			code: STORAGE_ERROR_CODES.OBJECT_LOCKED,
+			details: { keys: [STALE] },
+		});
+		expect(saved).toEqual([]);
 	});
 
 	test("nombra la raíz y la carpeta de cada plantilla", async () => {

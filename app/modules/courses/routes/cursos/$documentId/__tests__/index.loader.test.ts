@@ -26,6 +26,7 @@ const createHarness = (
 	} = {},
 ) => {
 	const calls = {
+		courseLookups: 0,
 		contentFacts: 0,
 		certificateLookups: 0,
 		enrollmentQrLookups: 0,
@@ -60,8 +61,9 @@ const createHarness = (
 					finalQuizQuestionCount: 0,
 				});
 			},
-			findById: async () =>
-				options.findFails
+			findById: async () => {
+				calls.courseLookups += 1;
+				return options.findFails
 					? failReply(options.findFails)
 					: okReply({
 							documentId: COURSE_ID,
@@ -74,10 +76,11 @@ const createHarness = (
 							sessions: [],
 							trainers: [],
 							audience: { dependencies: [], groups: [] },
-						}),
+						});
+			},
 		},
 		enrollmentService: {
-			listRoster: async () =>
+			findRosterSummary: async () =>
 				options.rosterFails
 					? failReply(options.rosterFails)
 					: okReply({
@@ -89,7 +92,7 @@ const createHarness = (
 								closesAt: null,
 								isOpen: true,
 							},
-							entries: [{ status: "INVITED" }],
+							invited: 1,
 						}),
 		},
 	} as unknown as LoaderArgs["context"];
@@ -187,6 +190,16 @@ describe("capacitaciones/:documentId loader", () => {
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.init.status).toBe(404);
+	});
+
+	test("un id malformado responde 404 sin consultar nada", async () => {
+		const { context, calls } = createHarness();
+
+		const thrown = await run(context, "no-es-un-uuid").catch((e) => e);
+
+		expect(thrown.init.status).toBe(404);
+		expect(thrown.data.code).toBe("COURSE_NOT_FOUND");
+		expect(calls.courseLookups).toBe(0);
 	});
 
 	test("un participante recibe 403 antes de buscar nada", async () => {

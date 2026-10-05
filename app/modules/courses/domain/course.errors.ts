@@ -22,6 +22,8 @@ export const COURSE_ERROR_CODES = {
 	WITHOUT_QUIZ: "COURSE_WITHOUT_QUIZ",
 	FOLLOW_UP_WITHOUT_QUESTIONS: "COURSE_FOLLOW_UP_WITHOUT_QUESTIONS",
 	SESSION_HAS_ATTEMPTS: "COURSE_SESSION_HAS_ATTEMPTS",
+	SESSION_HAS_ATTENDANCE: "COURSE_SESSION_HAS_ATTENDANCE",
+	STATE_CHANGED: "COURSE_STATE_CHANGED",
 	WITHOUT_ACTIVE_TRAINER: "COURSE_WITHOUT_ACTIVE_TRAINER",
 	SESSION_MISSING_VENUE: "COURSE_SESSION_MISSING_VENUE",
 	SESSION_MISSING_LINK: "COURSE_SESSION_MISSING_LINK",
@@ -165,6 +167,24 @@ export class CourseSessionHasAttemptsError extends CourseError {
 	constructor(sessionDocumentIds: string[]) {
 		super("A removed session has follow-up attempts");
 		this.details = { sessionDocumentIds };
+	}
+}
+
+/** Quitar la sesión borraría en cascada la asistencia con la que se acredita. */
+export class CourseSessionHasAttendanceError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.SESSION_HAS_ATTENDANCE;
+	readonly details: { sessionDocumentIds: string[] };
+	constructor(sessionDocumentIds: string[]) {
+		super("A removed session has recorded attendance");
+		this.details = { sessionDocumentIds };
+	}
+}
+
+/** Otra petición cambió el estado del curso entre la lectura y la escritura. */
+export class CourseStateChangedError extends CourseError {
+	readonly code = COURSE_ERROR_CODES.STATE_CHANGED;
+	constructor() {
+		super("The course status changed concurrently");
 	}
 }
 

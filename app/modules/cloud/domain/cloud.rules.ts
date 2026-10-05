@@ -108,3 +108,16 @@ export const validateCloudPath = (data: unknown) =>
 	v.parse(cloudPathRule, data);
 export const validateCloudSelection = (data: unknown) =>
 	v.parse(cloudSelectionRule, data);
+
+/**
+ * Huérfano: nadie lo referencia y lleva más de `orphanGraceMs` sin cambiar. Sin
+ * fecha no se puede descartar que se esté subiendo ahora mismo: no lo es.
+ */
+export const isOrphanObject = (
+	lastModified: Date | null,
+	referenced: boolean,
+	nowMs: number,
+): boolean =>
+	!referenced &&
+	lastModified !== null &&
+	lastModified.getTime() < nowMs - CLOUD_LIMITS.orphanGraceMs;

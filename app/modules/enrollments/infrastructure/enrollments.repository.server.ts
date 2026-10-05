@@ -520,6 +520,16 @@ export const createEnrollmentRepository = ({
 			return rows.map(toRosterEntry);
 		},
 
+		async countInvited(courseId, dependencyId) {
+			return prisma.enrollment.count({
+				where: {
+					courseId,
+					status: "INVITED",
+					...(dependencyId !== null && { dependencyId }),
+				},
+			});
+		},
+
 		async findParticipants(userDocumentIds, dependencyId) {
 			if (userDocumentIds.length === 0) return [];
 

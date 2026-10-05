@@ -4,8 +4,8 @@ import { toProxyRef } from "@/shared/storage/public-url";
 import { STORAGE_ERROR_CODES } from "@/shared/storage/storage.errors";
 import type { CertificateOwner } from "../../domain/certificate.repository";
 import type { CertificateDesign } from "../../domain/certificate.types";
+import { storageRefsOf } from "../../domain/design/design.assets";
 import { PRESETS } from "../../domain/design/design.presets";
-import { LEGACY_DEFAULT_DESIGN_V1 as DEFAULT_CERTIFICATE_DESIGN } from "../../domain/design/design-v1.schema";
 import type { DesignElement } from "../../domain/design/design-v2.schema";
 import { createCertificateAssetReferenceSource } from "../certificate-assets.references.server";
 
@@ -15,26 +15,11 @@ const IN_DRAFT = `documentos/firmas/${COURSE}/borrador.png`;
 const IN_PUBLISHED = `documentos/firmas/${COURSE}/publicada.png`;
 const STALE = `documentos/firmas/${COURSE}/vieja.png`;
 
-const withRef = (key: string | null): CertificateDesign => ({
-	...DEFAULT_CERTIFICATE_DESIGN,
-	signatories: [
-		{
-			...DEFAULT_CERTIFICATE_DESIGN.signatories[0],
-			signatureUrl: key ? toProxyRef(key) : null,
-		},
-		DEFAULT_CERTIFICATE_DESIGN.signatories[1],
-	],
-});
-
 const owner: CertificateOwner = {
 	courseDocumentId: COURSE,
 	courseTitle: "Seguridad en obra",
-	record: {
-		draft: withRef(IN_DRAFT),
-		published: withRef(IN_PUBLISHED),
-		publishedAt: new Date(),
-		exists: true,
-	},
+	designRefs: [toProxyRef(IN_DRAFT), toProxyRef(IN_PUBLISHED)],
+	unreadableRefs: [],
 	issuedAssetRefs: [],
 };
 
@@ -197,7 +182,7 @@ describe("imágenes y fondos del editor libre", () => {
 	};
 	const current: CertificateOwner = {
 		...owner,
-		record: { ...owner.record, draft: v2 },
+		designRefs: storageRefsOf(v2),
 		issuedAssetRefs: [toProxyRef(PDF)],
 	};
 
@@ -235,5 +220,32 @@ describe("imágenes y fondos del editor libre", () => {
 				href: `/dashboard/capacitaciones/${COURSE}/certificado`,
 			},
 		]);
+	});
+});
+
+describe("diseño ilegible en la base", () => {
+	const unreadable: CertificateOwner = {
+		...owner,
+		designRefs: [toProxyRef(IN_DRAFT), toProxyRef(STALE)],
+		unreadableRefs: [toProxyRef(STALE)],
+	};
+
+	test("lo que nombra sigue referenciado", async () => {
+		const { source } = createHarness(unreadable);
+
+		expect(await source.findByKeys([STALE])).toEqual([
+			expect.objectContaining({ key: STALE, detail: "Firma del certificado" }),
+		]);
+	});
+
+	// No se puede quitar de un diseño que no se lee: borrarlo lo dejaría roto.
+	test("release lo bloquea sin soltar nada", async () => {
+		const { source, calls } = createHarness(unreadable);
+
+		await expect(source.release([IN_DRAFT, STALE])).rejects.toMatchObject({
+			code: STORAGE_ERROR_CODES.OBJECT_LOCKED,
+			details: { keys: [STALE] },
+		});
+		expect(calls.removed).toEqual([]);
 	});
 });

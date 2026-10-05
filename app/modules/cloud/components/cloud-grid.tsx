@@ -26,9 +26,8 @@ const metaLine = (row: CloudRow) => {
 		return row.folder.label ? row.folder.name : "Carpeta";
 
 	const size = formatBytes(row.object.size);
-	return row.object.reference
-		? `${size} · ${row.object.reference.label}`
-		: `${size} · Sin uso`;
+	if (row.object.reference) return `${size} · ${row.object.reference.label}`;
+	return `${size} · ${row.object.orphan ? "Sin uso" : "Reciente"}`;
 };
 
 /**

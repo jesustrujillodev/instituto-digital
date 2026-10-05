@@ -102,7 +102,10 @@ export function CloudTable({
 				"Uso",
 				(row) =>
 					row.kind === "file" ? (
-						<UsageCell reference={row.object.reference} />
+						<UsageCell
+							reference={row.object.reference}
+							orphan={row.object.orphan}
+						/>
 					) : (
 						<span className="text-muted-foreground">—</span>
 					),
@@ -173,7 +176,11 @@ export function CloudTable({
 							}
 						/>
 						{row.kind === "file" && (
-							<UsageCell reference={row.object.reference} compact />
+							<UsageCell
+								reference={row.object.reference}
+								orphan={row.object.orphan}
+								compact
+							/>
 						)}
 					</div>
 				),

@@ -15,6 +15,7 @@ import {
 	verificationPathOf,
 } from "../domain/certificate.config";
 import {
+	CertificateAssetMissingError,
 	CertificateAssetNotOwnedError,
 	CertificateCourseNotFoundError,
 	CertificateDownloadDisabledError,
@@ -59,6 +60,7 @@ import {
 } from "../domain/design/design.assets";
 import { builtinLogoOf } from "../domain/design/logos";
 import {
+	missingRefsOf,
 	storeCertificateBackground,
 	storeCertificateImage,
 } from "./certificate-uploads.server";
@@ -162,15 +164,36 @@ export const createCertificateService = ({
 		}
 	};
 
+	/**
+	 * Lo que el diseño estrena y ya no está en storage: entre subirlo y guardar
+	 * pudo borrarse desde la nube. Lo ya guardado no hace falta mirarlo:
+	 * borrarlo desde la nube lo quita también del diseño.
+	 */
+	const missingAddedRefsOf = (
+		design: CertificateDesign,
+		stored: CertificateRecord,
+	) => {
+		const saved = new Set([
+			...storageRefsOf(stored.draft),
+			...(stored.published ? storageRefsOf(stored.published) : []),
+		]);
+		return missingRefsOf(
+			uploads,
+			storageRefsOf(design).filter((ref) => !saved.has(ref)),
+		);
+	};
+
 	const assertSavable = async (
 		design: CertificateDesign,
 		course: CertificateCourse,
 	) => {
 		assertOwnAssets(design, course.documentId);
-		await assertLogos(
-			design,
-			await certificateRepository.findRecord(course.id),
-		);
+		const stored = await certificateRepository.findRecord(course.id);
+		const [, missing] = await Promise.all([
+			assertLogos(design, stored),
+			missingAddedRefsOf(design, stored),
+		]);
+		if (missing.length > 0) throw new CertificateAssetMissingError();
 	};
 
 	/** De dónde leer cada logo del diseño al exportar. */
@@ -284,7 +307,8 @@ export const createCertificateService = ({
 		/**
 		 * La imagen se sube sola y el diseño la recoge al guardarse. Si nunca se
 		 * guarda, el objeto queda huérfano y lo detecta el gestor de nube. Nada
-		 * se borra al reemplazar: el publicado o una emisión pueden usarla.
+		 * se borra al reemplazar: el publicado o una emisión pueden usarla. La
+		 * misma imagen subida dos veces cae en el mismo objeto.
 		 */
 		async uploadImage(courseDocumentId, file, actor) {
 			return run("uploadImage", async () => {

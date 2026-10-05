@@ -3,6 +3,7 @@ import { isDomainError } from "@/shared/errors/domain-error";
 import {
 	CERTIFICATE_ERROR_CODES,
 	CertificateAssetInvalidError,
+	CertificateAssetMissingError,
 	CertificateAssetNotOwnedError,
 	CertificateBackgroundInvalidError,
 	CertificateCourseNotFoundError,
@@ -42,6 +43,7 @@ describe("errores del certificado", () => {
 			new CertificateAssetNotOwnedError(),
 			CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED,
 		],
+		[new CertificateAssetMissingError(), CERTIFICATE_ERROR_CODES.ASSET_MISSING],
 		[
 			new CertificateBackgroundInvalidError("encrypted"),
 			CERTIFICATE_ERROR_CODES.BACKGROUND_INVALID,

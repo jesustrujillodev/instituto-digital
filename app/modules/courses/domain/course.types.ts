@@ -40,10 +40,6 @@ export type FindCourseDto = v.InferInput<typeof findCourseRule>;
 export type ListCoursesDto = v.InferInput<typeof listCoursesRule>;
 export type CourseSessionInput = v.InferInput<typeof courseSessionInputRule>;
 
-// ===============================================================
-// Lo que el repositorio ESCRIBE
-// ===============================================================
-
 /**
  * Sesión lista para persistir.
  *
@@ -107,10 +103,6 @@ export type UpdateCourseData = CourseWriteData & {
 	planLineId?: number | null;
 };
 
-// ===============================================================
-// Opciones de los selectores del formulario
-// ===============================================================
-
 export interface CourseTrainerOption {
 	documentId: string;
 	firstName: string | null;
@@ -159,12 +151,8 @@ export interface CoursePlanOption {
 	lines: CoursePlanLineOption[];
 }
 
-// ===============================================================
-// Asistencia por QR (§6.8)
-// ===============================================================
 // El tipo lo declara `courses` porque es dueño de la tabla; lo consume el
 // modulo `check-in`, igual que `teaching` consume `ResultWrite` de enrollments.
-
 export interface QrCourseSession {
 	id: number;
 	documentId: string;
@@ -190,12 +178,8 @@ export interface QrCourse {
 	sessions: QrCourseSession[];
 }
 
-// ===============================================================
-// Inscripcion por QR
-// ===============================================================
 // Lo consume el modulo `enrollment-qr`. Sin alcance por la misma razon que
 // `QrCourse`: el token es la autorizacion para llegar al curso.
-
 export interface EnrollmentQrCourse {
 	id: number;
 	documentId: string;
@@ -208,10 +192,6 @@ export interface EnrollmentQrState {
 	token: string | null;
 	rotatedAt: Date | null;
 }
-
-// ===============================================================
-// Contrato de respuesta del modulo
-// ===============================================================
 
 export type CourseResponse = AppResponse<CourseDetail>;
 export type CourseListResponse = AppResponse<CourseSummary[]>;

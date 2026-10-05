@@ -167,6 +167,10 @@ const createHarness = (
 		countFails?: boolean;
 		/** Referencias del material de las sesiones que se quitan. */
 		sessionMaterialRefs?: string[];
+		/** Sesiones quitadas que ya tienen asistencia registrada. */
+		sessionsWithAttendance?: string[];
+		/** Otra petición cambió el estado antes de la escritura condicionada. */
+		stateChanged?: boolean;
 	} = {},
 ) => {
 	let inTransaction = false;
@@ -177,6 +181,8 @@ const createHarness = (
 		lineLocks: [] as { documentId: string; inTransaction: boolean }[],
 		planQueries: [] as unknown[],
 		lockedCourses: [] as number[],
+		courseLocks: [] as { documentId: string; inTransaction: boolean }[],
+		courseReads: [] as { inTransaction: boolean }[],
 		created: [] as unknown[],
 		updated: [] as unknown[],
 		published: [] as unknown[],
@@ -205,27 +211,39 @@ const createHarness = (
 			calls.listScopes.push(scope);
 			return 0;
 		},
-		findById: async () =>
-			options.course === undefined ? courseOf() : options.course,
+		findById: async () => {
+			calls.courseReads.push({ inTransaction });
+			return options.course === undefined ? courseOf() : options.course;
+		},
 		create: async (data: unknown) => {
 			calls.created.push(data);
 			return courseOf();
 		},
-		update: async (documentId: string, data: unknown, scope: unknown) => {
-			calls.updated.push({ documentId, data, scope });
-			return courseOf();
+		update: async (
+			documentId: string,
+			data: unknown,
+			scope: unknown,
+			expected: unknown,
+		) => {
+			calls.updated.push({ documentId, data, scope, expected });
+			return options.stateChanged ? null : courseOf();
 		},
+		lock: async (documentId: string) => {
+			calls.courseLocks.push({ documentId, inTransaction });
+		},
+		findSessionsWithAttendance: async () =>
+			options.sessionsWithAttendance ?? [],
 		findSessionMaterialRefs: async (sessionDocumentIds: string[]) => {
 			calls.materialRefQueries.push(sessionDocumentIds);
 			return options.sessionMaterialRefs ?? [];
 		},
 		publish: async (documentId: string, scope: unknown) => {
 			calls.published.push({ documentId, scope });
-			return courseOf({ status: "PUBLISHED" });
+			return options.stateChanged ? null : courseOf({ status: "PUBLISHED" });
 		},
-		cancel: async (documentId: string, scope: unknown) => {
-			calls.cancelled.push({ documentId, scope });
-			return courseOf({ status: "CANCELLED" });
+		cancel: async (documentId: string, scope: unknown, expected: unknown) => {
+			calls.cancelled.push({ documentId, scope, expected });
+			return options.stateChanged ? null : courseOf({ status: "CANCELLED" });
 		},
 		findEligibleTrainers: async (ids: readonly string[]) =>
 			refs(options.eligibleTrainers ?? ids.length),
@@ -1744,5 +1762,162 @@ describe("hasScheduleChanges", () => {
 		expect(
 			hasScheduleChanges([session], [{ ...session, documentId: "otro" }]),
 		).toBe(true);
+	});
+});
+
+describe("coursesService.update de una capacitación publicada", () => {
+	const KEPT_SESSION = {
+		documentId: "44444444-4444-4444-8444-444444444444",
+		date: "2026-10-05",
+		startTime: "09:00",
+		endTime: "13:00",
+		venue: "Sala A",
+	};
+	const published = () => courseOf({ status: "PUBLISHED" });
+
+	test.each([
+		["sin sesiones", { sessions: [] }, COURSE_ERROR_CODES.WITHOUT_SESSIONS],
+		[
+			"sin capacitador",
+			{ trainers: [] },
+			COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER,
+		],
+		[
+			"con una sesión sin sede",
+			{ sessions: [{ ...KEPT_SESSION, venue: undefined }] },
+			COURSE_ERROR_CODES.SESSION_MISSING_VENUE,
+		],
+		[
+			"restringida y sin audiencia",
+			{ access: "RESTRICTED" as const },
+			COURSE_ERROR_CODES.AUDIENCE_REQUIRED,
+		],
+	])("no se queda %s", async (_, overrides, code) => {
+		const { service, calls } = createHarness({ course: published() });
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({ sessions: [KEPT_SESSION], ...overrides }) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({ success: false, error: { code } });
+		expect(calls.updated).toHaveLength(0);
+	});
+
+	test("un borrador sí se guarda incompleto", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf({ sessions: [], trainers: [] }) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.updated).toHaveLength(1);
+	});
+
+	// La asistencia cuelga de la sesión y caería con ella en cascada.
+	test("no quita una sesión con asistencia registrada", async () => {
+		const { service, calls } = createHarness({
+			course: published(),
+			sessionsWithAttendance: [KEPT_SESSION.documentId],
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf() as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: {
+				code: COURSE_ERROR_CODES.SESSION_HAS_ATTENDANCE,
+				details: { sessionDocumentIds: [KEPT_SESSION.documentId] },
+			},
+		});
+		expect(calls.updated).toHaveLength(0);
+	});
+
+	test("escribe solo si el curso sigue en el estado que se leyó", async () => {
+		const { service, calls } = createHarness({ course: published() });
+
+		await service.update(
+			COURSE_ID,
+			dtoOf({ sessions: [KEPT_SESSION] }) as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(calls.updated[0]).toMatchObject({ expected: "PUBLISHED" });
+	});
+
+	test("si otra petición cambió el estado, no avisa y falla con STATE_CHANGED", async () => {
+		const { service, calls } = createHarness({
+			course: published(),
+			stateChanged: true,
+		});
+
+		const result = await service.update(
+			COURSE_ID,
+			dtoOf() as UpdateCourseDto,
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.STATE_CHANGED },
+		});
+		expect(calls.notified).toHaveLength(0);
+	});
+});
+
+describe("publicar y cancelar ante peticiones simultáneas", () => {
+	test("publicar bloquea la fila y lee el curso dentro de la transacción", async () => {
+		const { service, calls } = createHarness();
+
+		await service.publish(COURSE_ID, actorOf());
+
+		expect(calls.courseLocks).toEqual([
+			{ documentId: COURSE_ID, inTransaction: true },
+		]);
+		expect(calls.courseReads).toEqual([{ inTransaction: true }]);
+	});
+
+	test("publicar un curso que ya no es borrador falla con STATE_CHANGED", async () => {
+		const { service } = createHarness({ stateChanged: true });
+
+		const result = await service.publish(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.STATE_CHANGED },
+		});
+	});
+
+	test("cancelar escribe solo si el curso sigue en el estado que se leyó", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "PUBLISHED" }),
+		});
+
+		await service.cancel(COURSE_ID, actorOf());
+
+		expect(calls.cancelled[0]).toMatchObject({ expected: "PUBLISHED" });
+	});
+
+	test("si otra petición se adelantó, cancelar no avisa y falla con STATE_CHANGED", async () => {
+		const { service, calls } = createHarness({
+			course: courseOf({ status: "PUBLISHED" }),
+			stateChanged: true,
+		});
+
+		const result = await service.cancel(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: COURSE_ERROR_CODES.STATE_CHANGED },
+		});
+		expect(calls.notified).toHaveLength(0);
 	});
 });

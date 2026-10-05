@@ -107,7 +107,10 @@ export function CloudObjectSheet({
 									<VisibilityBadge visibility={object.visibility} />
 								</Field>
 								<Field label="Uso">
-									<UsageCell reference={object.reference} />
+									<UsageCell
+										reference={object.reference}
+										orphan={object.orphan}
+									/>
 								</Field>
 								<div className="col-span-2">
 									<Field label="Ruta en el almacenamiento">

@@ -42,7 +42,7 @@ interface CloudOrphansSheetProps {
 	scanToken: number;
 }
 
-const GRACE_MINUTES = Math.round(CLOUD_LIMITS.orphanGraceMs / 60_000);
+const GRACE_HOURS = Math.round(CLOUD_LIMITS.orphanGraceMs / 3_600_000);
 
 export function CloudOrphansSheet({
 	open,
@@ -112,8 +112,8 @@ export function CloudOrphansSheet({
 					<SheetTitle>Huérfanos en {pathLabel}</SheetTitle>
 					<SheetDescription>
 						Archivos que no usa ninguna capacitación, lección, sesión,
-						certificado ni usuario y que llevan más de {GRACE_MINUTES} minutos
-						subidos. Incluye subcarpetas.
+						certificado, plantilla ni usuario y que se subieron hace más de{" "}
+						{GRACE_HOURS} horas. Incluye subcarpetas.
 					</SheetDescription>
 				</SheetHeader>
 

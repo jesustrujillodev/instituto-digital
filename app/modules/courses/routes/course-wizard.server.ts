@@ -1,9 +1,5 @@
 import { redirect } from "react-router";
-import {
-	FINAL_QUIZ_OWNER,
-	followUpOwnerOf,
-} from "@/modules/content/domain/quiz.rules";
-import type { QuizBank } from "@/modules/content/domain/quiz.types";
+import { FINAL_QUIZ_OWNER } from "@/modules/content/domain/quiz.rules";
 import { CONTENT_ERROR_MESSAGES } from "@/modules/content/utils/content-error-messages";
 import type { ICradle } from "@/shared/di/container.types";
 import { toRouteError } from "@/shared/http/route-error";
@@ -35,6 +31,7 @@ import {
 	parseCourseFormData,
 } from "../utils/parse-course-form-data";
 import { runStatusIntent } from "./course-status-intents.server";
+import { requireCourseParam } from "./require-course-param";
 import { requireCourseScope } from "./require-course-scope.server";
 
 interface WizardArgs {
@@ -59,7 +56,7 @@ export const loadCourseWizard = async (
 ) => {
 	const { auth, scope } = await requireCourseScope(request, context);
 
-	const { documentId } = validateFindCourse({ documentId: params.documentId });
+	const documentId = requireCourseParam(params.documentId);
 	const { search } = new URL(request.url);
 
 	const step = parseStepNumber(params.paso);
@@ -77,9 +74,12 @@ export const loadCourseWizard = async (
 		throw redirect(`${stepPath(documentId, 1, expected)}${search}`);
 	}
 
-	// El temario completo solo lo pintan Contenido, Evaluación y Revisión; el
-	// banco, solo Evaluación; el seguimiento, Evaluación y Revisión. Los conteos
+	// Las opciones de los selectores solo las pintan General, Programa e
+	// Inscripción; el temario completo, Contenido, Evaluación y Revisión; los
+	// bancos, solo Evaluación; el seguimiento, Evaluación y Revisión. Los conteos
 	// del pendiente de publicación se leen siempre: son unos cuantos `count`.
+	const readsOptions =
+		step.key === "identity" || step.key === "program" || step.key === "access";
 	const readsTree =
 		requiresContent(course.data) &&
 		(step.key === "content" || step.key === "rules" || step.key === "review");
@@ -90,17 +90,25 @@ export const loadCourseWizard = async (
 
 	// Todo depende solo del curso: va en paralelo. Los planes que se ofrecen son
 	// los de su organizadora.
-	const [options, tree, quiz, facts, followUps] = await Promise.all([
-		context.courseService.listFormOptions(scope, course.data),
-		readsTree ? context.contentService.findTree(documentId, auth) : null,
-		readsBank
-			? context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
-			: null,
-		context.courseService.findContentFacts(course.data),
-		readsFollowUps ? context.quizService.findFollowUps(documentId, auth) : null,
-	]);
+	const [options, tree, quiz, facts, followUps, followUpBanks] =
+		await Promise.all([
+			readsOptions
+				? context.courseService.listFormOptions(scope, course.data)
+				: null,
+			readsTree ? context.contentService.findTree(documentId, auth) : null,
+			readsBank
+				? context.quizService.findBank(documentId, FINAL_QUIZ_OWNER, auth)
+				: null,
+			context.courseService.findContentFacts(course.data),
+			readsFollowUps
+				? context.quizService.findFollowUps(documentId, auth)
+				: null,
+			readsFollowUps && readsBank
+				? context.quizService.findFollowUpBanks(documentId, auth)
+				: null,
+		]);
 
-	if (!options.success)
+	if (options && !options.success)
 		throw toRouteError(options.error, COURSE_ERROR_MESSAGES);
 	if (tree && !tree.success)
 		throw toRouteError(tree.error, CONTENT_ERROR_MESSAGES);
@@ -110,24 +118,8 @@ export const loadCourseWizard = async (
 	if (followUps && !followUps.success) {
 		throw toRouteError(followUps.error, CONTENT_ERROR_MESSAGES);
 	}
-
-	// Las preguntas del seguimiento se editan en el paso, como las del examen.
-	const followUpBanks: Record<string, QuizBank | null> = {};
-	if (readsBank && followUps?.success) {
-		const banks = await Promise.all(
-			followUps.data.map((followUp) =>
-				context.quizService.findBank(
-					documentId,
-					followUpOwnerOf(followUp.documentId),
-					auth,
-				),
-			),
-		);
-		for (const [index, bank] of banks.entries()) {
-			if (!bank.success) throw toRouteError(bank.error, CONTENT_ERROR_MESSAGES);
-			const followUp = followUps.data[index];
-			if (followUp) followUpBanks[followUp.documentId] = bank.data;
-		}
+	if (followUpBanks && !followUpBanks.success) {
+		throw toRouteError(followUpBanks.error, CONTENT_ERROR_MESSAGES);
 	}
 
 	const content = tree?.data ?? null;
@@ -145,12 +137,12 @@ export const loadCourseWizard = async (
 
 	return ok({
 		course: course.data,
-		options: options.data,
+		options: options?.data ?? null,
 		stepNumber: step.number,
 		checklist: mode === "create" ? checklist : null,
 		content,
 		followUps: followUps?.data ?? [],
-		followUpBanks,
+		followUpBanks: followUpBanks?.data ?? {},
 		quiz: bank,
 		quizQuestionCount,
 	});

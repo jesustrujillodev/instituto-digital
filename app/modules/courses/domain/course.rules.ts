@@ -35,12 +35,9 @@ import {
 	CourseWithoutSessionsError,
 } from "./course.errors";
 
-// ── Vocabulario del módulo ────────────────────────────────────────────────────
-//
 // Las tuplas se declaran aquí y no se importan del cliente de Prisma: el
 // dominio no conoce el ORM (reglas §4), y son además la allowlist que valida lo
 // que llega del formulario y del query string.
-
 export const COURSE_MODALITIES = ["IN_PERSON", "ONLINE", "HYBRID"] as const;
 export type CourseModality = (typeof COURSE_MODALITIES)[number];
 
@@ -69,8 +66,6 @@ export const COURSE_COMPLETION_RULES = [
 	"BOTH",
 ] as const;
 export type CourseCompletionRule = (typeof COURSE_COMPLETION_RULES)[number];
-
-// ── Átomos del módulo ─────────────────────────────────────────────────────────
 
 const title = v.pipe(
 	v.string("El título de la capacitación es obligatorio."),
@@ -171,8 +166,6 @@ const timeInput = v.pipe(
 	v.string("La hora es obligatoria."),
 	v.regex(TIME_INPUT_PATTERN, "Escribe la hora con el formato HH:MM."),
 );
-
-// ── Entidad y proyecciones ────────────────────────────────────────────────────
 
 export const courseSessionSchema = v.object({
 	id: v.number(),
@@ -276,8 +269,6 @@ export const COURSE_SORT_FIELDS = [
 export type CourseSortField = (typeof COURSE_SORT_FIELDS)[number];
 
 export { SORT_DIRECTIONS, type SortDirection };
-
-// ── Reglas de entrada ─────────────────────────────────────────────────────────
 
 /**
  * Una sesión tal como la captura el formulario: fecha y horas de pared.
@@ -399,8 +390,6 @@ export const courseRules = {
 	list: listCoursesRule,
 	session: courseSessionInputRule,
 } as const;
-
-// ── Reglas de negocio ─────────────────────────────────────────────────────────
 
 /** Estados desde los que el curso todavía admite cambios. */
 export const EDITABLE_STATUSES: readonly CourseStatus[] = [
@@ -697,6 +686,54 @@ export const assertCapacityCovers = (
 	}
 };
 
+type DeliverableCourse = {
+	modality: CourseModality;
+	format: CourseFormat;
+	access: CourseAccessType;
+	sessions: readonly { venue: string | null; link: string | null }[];
+	trainers: readonly { isActive: boolean }[];
+	audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
+};
+
+const assertHasSessions = (course: DeliverableCourse): void => {
+	if (requiresSessions(course.format) && course.sessions.length === 0) {
+		throw new CourseWithoutSessionsError();
+	}
+};
+
+const assertHasActiveTrainer = (course: DeliverableCourse): void => {
+	if (
+		requiresTrainer(course) &&
+		!course.trainers.some((trainer) => trainer.isActive)
+	) {
+		throw new CourseWithoutActiveTrainerError();
+	}
+};
+
+const assertSessionsPlaced = (course: DeliverableCourse): void => {
+	course.sessions.forEach((session, index) => {
+		if (isSessionPlaced(course.modality, session)) return;
+
+		const sessionNumber = index + 1;
+		if (course.modality === "IN_PERSON") {
+			throw new CourseSessionMissingVenueError(sessionNumber);
+		}
+		if (course.modality === "ONLINE") {
+			throw new CourseSessionMissingLinkError(sessionNumber);
+		}
+		throw new CourseSessionMissingPlaceError(sessionNumber);
+	});
+};
+
+const assertHasAudience = (course: DeliverableCourse): void => {
+	const audienceSize =
+		course.audience.dependencies.length + course.audience.groups.length;
+
+	if (course.access === "RESTRICTED" && audienceSize === 0) {
+		throw new CourseAudienceRequiredError();
+	}
+};
+
 /**
  * Las cuatro condiciones de publicación de §6.5.
  *
@@ -705,16 +742,10 @@ export const assertCapacityCovers = (
  * dominio la satisface.
  */
 export const assertPublishable = (
-	course: {
+	course: DeliverableCourse & {
 		status: CourseStatus;
-		modality: CourseModality;
-		format: CourseFormat;
 		completionRule: CourseCompletionRule;
 		requiresEvaluation: boolean;
-		access: CourseAccessType;
-		sessions: readonly { venue: string | null; link: string | null }[];
-		trainers: readonly { isActive: boolean }[];
-		audience: { dependencies: readonly unknown[]; groups: readonly unknown[] };
 	},
 	content: CourseContentFacts,
 ): void => {
@@ -722,9 +753,7 @@ export const assertPublishable = (
 		throw new CourseInvalidTransitionError(course.status, "PUBLISHED");
 	}
 
-	if (requiresSessions(course.format) && course.sessions.length === 0) {
-		throw new CourseWithoutSessionsError();
-	}
+	assertHasSessions(course);
 
 	if (requiresContent(course) && content.lessonCount === 0) {
 		throw new CourseWithoutLessonsError();
@@ -740,32 +769,21 @@ export const assertPublishable = (
 		);
 	}
 
-	if (
-		requiresTrainer(course) &&
-		!course.trainers.some((trainer) => trainer.isActive)
-	) {
-		throw new CourseWithoutActiveTrainerError();
-	}
+	assertHasActiveTrainer(course);
+	assertSessionsPlaced(course);
+	assertHasAudience(course);
+};
 
-	course.sessions.forEach((session, index) => {
-		if (isSessionPlaced(course.modality, session)) return;
-
-		const sessionNumber = index + 1;
-		if (course.modality === "IN_PERSON") {
-			throw new CourseSessionMissingVenueError(sessionNumber);
-		}
-		if (course.modality === "ONLINE") {
-			throw new CourseSessionMissingLinkError(sessionNumber);
-		}
-		throw new CourseSessionMissingPlaceError(sessionNumber);
-	});
-
-	const audienceSize =
-		course.audience.dependencies.length + course.audience.groups.length;
-
-	if (course.access === "RESTRICTED" && audienceSize === 0) {
-		throw new CourseAudienceRequiredError();
-	}
+/**
+ * Lo de §6.5 que el formulario del curso puede deshacer en uno ya publicado:
+ * sesiones, capacitador, sede o enlace y audiencia. El temario y los exámenes
+ * se editan en `content`.
+ */
+export const assertStaysPublishable = (course: DeliverableCourse): void => {
+	assertHasSessions(course);
+	assertHasActiveTrainer(course);
+	assertSessionsPlaced(course);
+	assertHasAudience(course);
 };
 
 export type PublishCheck =

@@ -26,11 +26,12 @@ export const CLOUD_LIMITS = {
 	/**
 	 * Antigüedad mínima para considerar huérfano un objeto sin referencia.
 	 *
-	 * `withStorageTransaction` sube ANTES de escribir en la base: sin esta
-	 * ventana, un escaneo durante un guardado marcaría como huérfanas las fotos
-	 * que se están guardando, y borrarlas rompería ese guardado.
+	 * Se sube ANTES de escribir en la base: `withStorageTransaction` por unos
+	 * instantes, y el editor de certificados mientras dure la edición sin
+	 * guardar. Sin esta ventana, borrar esos objetos rompería el guardado. Un
+	 * día cubre una jornada de edición.
 	 */
-	orphanGraceMs: 15 * 60 * 1000,
+	orphanGraceMs: 24 * 60 * 60 * 1000,
 	/** Objetos máximos que recorre un escaneo de huérfanos. */
 	orphanScanMaxObjects: 5000,
 	/** Keys y carpetas máximas por petición. */

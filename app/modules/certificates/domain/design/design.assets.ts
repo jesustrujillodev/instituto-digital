@@ -158,6 +158,53 @@ export const storageRefsOf = (design: CertificateDesign): string[] => {
 	]);
 };
 
+const PROXY_REF_PREFIX = "/api/storage?";
+
+/** Toda referencia del proxy en un JSON, a cualquier profundidad. */
+const proxyRefsIn = (value: unknown): string[] => {
+	if (typeof value === "string") {
+		return value.startsWith(PROXY_REF_PREFIX) ? [value] : [];
+	}
+	if (Array.isArray(value)) return value.flatMap(proxyRefsIn);
+	if (value !== null && typeof value === "object") {
+		return Object.values(value).flatMap(proxyRefsIn);
+	}
+	return [];
+};
+
+export interface StoredDesignRefs {
+	/** Todo lo que nombran: lo que el gestor de nube no trata como huérfano. */
+	designRefs: string[];
+	/**
+	 * Lo que nombra un diseño ilegible. No se puede quitar de él sin reescribirlo
+	 * a ciegas, así que tampoco se puede soltar para borrarlo.
+	 */
+	unreadableRefs: string[];
+}
+
+/**
+ * Las referencias de diseños tal como están en la base. Uno ilegible se lee
+ * con el diseño por defecto, que no nombra nada: sin esto, todo lo suyo
+ * parecería huérfano y borrarlo sería una pérdida real.
+ */
+export const storedDesignRefsOf = (
+	blobs: readonly unknown[],
+	read: (blob: unknown) => CertificateDesign | null,
+): StoredDesignRefs => {
+	const readable: string[] = [];
+	const unreadable: string[] = [];
+	for (const blob of blobs) {
+		if (blob === null || blob === undefined) continue;
+		const design = read(blob);
+		if (design) readable.push(...storageRefsOf(design));
+		else unreadable.push(...proxyRefsIn(blob));
+	}
+	return {
+		designRefs: unique([...readable, ...unreadable]),
+		unreadableRefs: unique(unreadable),
+	};
+};
+
 /** Los logos que el diseño usa, impresos o no. */
 export const logoIdsOf = (design: CertificateDesign): string[] =>
 	isDesignV2(design)

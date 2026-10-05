@@ -456,6 +456,20 @@ export const createEnrollmentService = ({
 			});
 		},
 
+		async findRosterSummary(courseDocumentId: string, actor: AuthContext) {
+			return run("findRosterSummary", async () => {
+				const access = await requireRosterAccess(courseDocumentId, actor);
+
+				return ok({
+					course: withAvailability(access.course, clock.now()),
+					invited: await enrollmentRepository.countInvited(
+						access.course.id,
+						access.organizer ? null : access.inviteLimit,
+					),
+				});
+			});
+		},
+
 		async listRosterOptions(
 			courseDocumentId: string,
 			search: string | undefined,

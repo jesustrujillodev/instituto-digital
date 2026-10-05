@@ -33,6 +33,7 @@ import {
 	lastSegment,
 	parentFolder,
 } from "../domain/cloud.paths";
+import { isOrphanObject } from "../domain/cloud.rules";
 import type { ICloudService } from "../domain/cloud.service";
 import type {
 	CloudFolder,
@@ -193,6 +194,7 @@ export const createCloudService = (
 				? assetUrlResolver(object.key)
 				: null,
 			reference,
+			orphan: isOrphanObject(object.lastModified, reference !== null, now()),
 		};
 	};
 
@@ -544,16 +546,15 @@ export const createCloudService = (
 				const references = await resolveReferences(
 					found.map((object) => object.key),
 				);
-				const cutoff = now() - CLOUD_LIMITS.orphanGraceMs;
+				const nowMs = now();
 
 				const orphans = found
-					.filter(
-						(object) =>
-							!references.has(object.key) &&
-							// Sin fecha no se puede descartar que se esté subiendo ahora
-							// mismo: ante la duda, no es huérfano.
-							object.lastModified !== null &&
-							object.lastModified.getTime() < cutoff,
+					.filter((object) =>
+						isOrphanObject(
+							object.lastModified,
+							references.has(object.key),
+							nowMs,
+						),
 					)
 					.sort((a, b) => (a.key < b.key ? -1 : 1))
 					.map((object) => toCloudObject(object, null));

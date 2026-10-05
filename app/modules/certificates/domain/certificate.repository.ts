@@ -12,12 +12,12 @@ import type {
 	StoredIssue,
 	VerifiableIssue,
 } from "./certificate.types";
+import type { StoredDesignRefs } from "./design/design.assets";
 
-/** El diseño guardado de un curso, para la fuente de referencias de storage. */
-export interface CertificateOwner {
+/** Lo que nombra el certificado de un curso, para la fuente de referencias de storage. */
+export interface CertificateOwner extends StoredDesignRefs {
 	courseDocumentId: string;
 	courseTitle: string;
-	record: CertificateRecord;
 	/** Lo que imprimen sus certificados ya emitidos (`asset_refs`). */
 	issuedAssetRefs: string[];
 }

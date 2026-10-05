@@ -29,6 +29,7 @@ const objectOf = (key: string): CloudObject => ({
 	visibility: "public",
 	previewUrl: null,
 	reference: null,
+	orphan: false,
 });
 
 describe("toCloudRows", () => {

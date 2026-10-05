@@ -129,3 +129,37 @@ describe("markPendingAsFailed", () => {
 		]);
 	});
 });
+
+describe("countInvited", () => {
+	const countWith = async (dependencyId: number | null) => {
+		const queries: unknown[] = [];
+		const repository = createEnrollmentRepository({
+			prisma: {
+				enrollment: {
+					count: async (args: unknown) => {
+						queries.push(args);
+						return 4;
+					},
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
+		});
+
+		return { total: await repository.countInvited(7, dependencyId), queries };
+	};
+
+	test("cuenta las invitaciones sin responder del curso", async () => {
+		const { total, queries } = await countWith(null);
+
+		expect(total).toBe(4);
+		expect(queries).toEqual([{ where: { courseId: 7, status: "INVITED" } }]);
+	});
+
+	test("con dependencia, solo las de su personal", async () => {
+		const { queries } = await countWith(3);
+
+		expect(queries).toEqual([
+			{ where: { courseId: 7, status: "INVITED", dependencyId: 3 } },
+		]);
+	});
+});

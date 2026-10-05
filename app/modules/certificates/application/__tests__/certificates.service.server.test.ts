@@ -200,6 +200,8 @@ const createHarness = (
 		exporterUnavailable?: boolean;
 		logos?: InstitutionalLogo[];
 		sanitizeError?: CertificateBackgroundInvalidError;
+		/** Keys que ya no están en storage. */
+		missing?: string[];
 	} = {},
 ) => {
 	const calls = {
@@ -211,6 +213,7 @@ const createHarness = (
 			at: Date;
 		}[],
 		uploaded: [] as { bucket: string; key: string; type?: string }[],
+		existsChecked: [] as string[],
 		findIssue: [] as { documentId: string; where: unknown }[],
 		assets: [] as { manifest: AssetManifest; logos: unknown }[],
 		backgrounds: [] as string[],
@@ -277,6 +280,10 @@ const createHarness = (
 			type?: string,
 		) => {
 			calls.uploaded.push({ bucket, key, type });
+		},
+		fileExists: async (_bucket: string, key: string) => {
+			calls.existsChecked.push(key);
+			return !(options.missing ?? []).includes(key);
 		},
 	} as unknown as ICradle["storageProvider"];
 
@@ -461,6 +468,40 @@ describe("certificateService.saveDraft", () => {
 		expect(calls.saved).toEqual([]);
 	});
 
+	test("una imagen nueva que ya no está en storage no se guarda", async () => {
+		const { service, calls } = createHarness({
+			missing: [`documentos/certificados/${COURSE_DOC}/imagenes/a.png`],
+		});
+
+		const result = await service.saveDraft(
+			{ documentId: COURSE_DOC, design: withImage(imageRef(COURSE_DOC)) },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CERTIFICATE_ERROR_CODES.ASSET_MISSING },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	// Lo ya guardado no se vuelve a mirar: borrarlo desde la nube lo quita
+	// también del diseño.
+	test("solo se comprueba lo que el diseño estrena", async () => {
+		const saved = withImage(imageRef(COURSE_DOC));
+		const { service, calls } = createHarness({
+			record: recordOf({ draft: saved }),
+		});
+
+		const result = await service.saveDraft(
+			{ documentId: COURSE_DOC, design: saved },
+			actorOf(),
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls.existsChecked).toEqual([]);
+	});
+
 	test("un logo subido que existe se guarda", async () => {
 		const { service, calls } = createHarness({ logos: [logoOf()] });
 
@@ -594,6 +635,23 @@ describe("certificateService.publish", () => {
 		expect(calls.published).toEqual([]);
 	});
 
+	test("una imagen que ya no está en storage no se publica", async () => {
+		const { service, calls } = createHarness({
+			missing: [`documentos/certificados/${COURSE_DOC}/imagenes/a.png`],
+		});
+
+		const result = await service.publish(
+			{ documentId: COURSE_DOC, design: withImage(imageRef(COURSE_DOC)) },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CERTIFICATE_ERROR_CODES.ASSET_MISSING },
+		});
+		expect(calls.published).toEqual([]);
+	});
+
 	test("un curso cancelado no publica", async () => {
 		const { service, calls } = createHarness({
 			course: courseOf({ status: "CANCELLED" }),
@@ -653,7 +711,7 @@ describe("certificateService.uploadImage", () => {
 		const [upload] = calls.uploaded;
 		expect(upload.key).toMatch(
 			new RegExp(
-				`^documentos/certificados/${COURSE_DOC}/imagenes/logo-\\d+\\.png$`,
+				`^documentos/certificados/${COURSE_DOC}/imagenes/logo-[0-9a-f]{32}\\.png$`,
 			),
 		);
 		expect(upload.bucket).toBe("privado");
@@ -664,6 +722,22 @@ describe("certificateService.uploadImage", () => {
 				data: { ref: toProxyRef(upload.key), widthPx: 600, heightPx: 200 },
 			}),
 		);
+	});
+
+	// Subir dos veces lo mismo no deja una copia huérfana: reescribe el objeto.
+	test("la misma imagen subida dos veces cae en la misma key", async () => {
+		const { service, calls } = createHarness();
+		const upload = () =>
+			service.uploadImage(
+				COURSE_DOC,
+				fileOf(pngBytes(600, 200), { name: "logo.png" }),
+				actorOf(),
+			);
+
+		const [first, second] = [await upload(), await upload()];
+
+		expect(calls.uploaded[0].key).toBe(calls.uploaded[1].key);
+		expect(first.success && first.data).toEqual(second.success && second.data);
 	});
 
 	test("acepta un SVG de dibujo", async () => {
@@ -772,13 +846,14 @@ describe("certificateService.uploadBackground", () => {
 			success: true,
 			data: { rasterDpi: 300, widthPt: 841.89, heightPt: 595.28 },
 		});
-		const keys = calls.uploaded.map((upload) => upload.key).sort();
-		expect(keys[0]).toMatch(
-			new RegExp(
-				`^documentos/certificados/${COURSE_DOC}/fondos/fondo-\\d+\\.pdf$`,
+		expect(calls.uploaded.map((upload) => upload.key)).toEqual([
+			expect.stringMatching(
+				new RegExp(
+					`^documentos/certificados/${COURSE_DOC}/fondos/fondo-[0-9a-f]{32}\\.pdf$`,
+				),
 			),
-		);
-		expect(keys[1]).toMatch(/fondos\/fondo-\d+\.png$/);
+			expect.stringMatching(/fondos\/fondo-[0-9a-f]{32}\.png$/),
+		]);
 		expect(calls.uploaded.every((upload) => upload.bucket === "privado")).toBe(
 			true,
 		);

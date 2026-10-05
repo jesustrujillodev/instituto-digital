@@ -52,6 +52,11 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 			"Una de las imágenes no se subió a esta capacitación. Vuelve a subirla.",
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
+	[CERTIFICATE_ERROR_CODES.ASSET_MISSING]: {
+		message:
+			"Una de las imágenes o el fondo ya no existe en el almacenamiento. Vuelve a subirlo.",
+		status: HTTP_STATUS.BAD_REQUEST,
+	},
 	[CERTIFICATE_ERROR_CODES.BACKGROUND_INVALID]: {
 		message: (error) =>
 			BACKGROUND_MESSAGES[reasonOf(error) as BackgroundRejection] ??

@@ -1,4 +1,4 @@
-import type { CourseRoster } from "@/modules/enrollments/domain/enrollment.types";
+import type { CourseRosterSummary } from "@/modules/enrollments/domain/enrollment.types";
 
 export interface CourseEnrollmentSummary {
 	enrolled: number;
@@ -10,13 +10,12 @@ export interface CourseEnrollmentSummary {
 	isOpen: boolean;
 }
 
-/** Lo que la ficha necesita de la lista de inscritos, sin la lista. */
 export const toEnrollmentSummary = ({
 	course,
-	entries,
-}: CourseRoster): CourseEnrollmentSummary => ({
+	invited,
+}: CourseRosterSummary): CourseEnrollmentSummary => ({
 	enrolled: course.enrolledCount,
-	invited: entries.filter((entry) => entry.status === "INVITED").length,
+	invited,
 	capacity: course.capacity,
 	seatsLeft: course.seatsLeft,
 	closesAt: course.closesAt,

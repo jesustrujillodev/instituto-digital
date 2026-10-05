@@ -8,6 +8,7 @@ import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { getKeyFromUrl } from "@/shared/storage/storage.utils";
 import {
+	CertificateAssetMissingError,
 	CertificateAssetNotOwnedError,
 	CertificateCourseNotFoundError,
 	CertificateForbiddenError,
@@ -45,6 +46,7 @@ import { DEFAULT_CERTIFICATE_DESIGN } from "../domain/design/design.presets";
 import { builtinLogoOf } from "../domain/design/logos";
 import {
 	copyObject,
+	missingRefsOf,
 	storeCertificateBackground,
 	storeCertificateImage,
 } from "./certificate-uploads.server";
@@ -136,12 +138,22 @@ export const createCertificateTemplateService = ({
 		}
 	};
 
-	/** Copia los recursos del diseño a otra carpeta y reescribe sus referencias. */
+	const assertAssetsExist = async (refs: readonly string[]) => {
+		if ((await missingRefsOf(uploads, refs)).length > 0) {
+			throw new CertificateAssetMissingError();
+		}
+	};
+
+	/**
+	 * Copia los recursos del diseño a otra carpeta y reescribe sus referencias.
+	 * Copiar dos veces lo mismo a la misma carpeta reescribe el mismo objeto.
+	 */
 	const copyAssets = async (
 		design: CertificateDesignV2,
 		folderOf: (kind: "image" | "background") => string,
 	): Promise<CertificateDesignV2> => {
 		const refs = storageRefsOf(design);
+		await assertAssetsExist(refs);
 		const copies = await Promise.all(
 			refs.map(
 				async (ref) =>
@@ -208,13 +220,23 @@ export const createCertificateTemplateService = ({
 
 		async saveDesign({ documentId, design }, actor) {
 			return run("saveDesign", async () => {
-				await requireWritable(documentId, actor);
-				for (const ref of storageRefsOf(design)) {
+				const stored = await requireWritable(documentId, actor);
+				const refs = storageRefsOf(design);
+				for (const ref of refs) {
 					if (!isOwnTemplateAssetRef(ref, documentId)) {
 						throw new CertificateAssetNotOwnedError();
 					}
 				}
-				await assertLogos(design);
+				// Lo ya guardado no se mira: borrarlo desde la nube lo quita del diseño.
+				const saved = new Set(storageRefsOf(stored.design));
+				const [, missing] = await Promise.all([
+					assertLogos(design),
+					missingRefsOf(
+						uploads,
+						refs.filter((ref) => !saved.has(ref)),
+					),
+				]);
+				if (missing.length > 0) throw new CertificateAssetMissingError();
 				await certificateTemplateRepository.saveDesign(
 					documentId,
 					withoutSignatures(design),

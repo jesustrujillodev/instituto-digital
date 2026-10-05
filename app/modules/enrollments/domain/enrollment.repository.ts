@@ -153,6 +153,8 @@ export interface IEnrollmentRepository {
 		courseId: number,
 		dependencyId: number | null,
 	): Promise<RosterEntry[]>;
+	/** Invitaciones sin responder, con el mismo filtro que `findRoster`. */
+	countInvited(courseId: number, dependencyId: number | null): Promise<number>;
 
 	/** Cuentas internas y activas de entre las pedidas; con `dependencyId`, solo de esa dependencia. */
 	findParticipants(

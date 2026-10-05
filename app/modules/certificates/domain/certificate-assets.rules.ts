@@ -149,8 +149,8 @@ export const svgRejectionOf = (svg: string): string | null => {
 
 /**
  * El nombre con el que se guarda una imagen: el del archivo sin su extensión,
- * más la extensión del tipo REAL. `buildObjectKey` lo sanea y le añade la
- * marca de tiempo.
+ * más la extensión del tipo REAL. `buildContentObjectKey` lo sanea y le añade
+ * la huella de los bytes.
  */
 export const assetFileNameOf = (
 	originalName: string,

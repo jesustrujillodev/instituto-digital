@@ -88,6 +88,8 @@ const createHarness = (
 		templates?: CertificateTemplate[];
 		course?: CertificateCourse | null;
 		logos?: InstitutionalLogo[];
+		/** Keys que ya no están en storage. */
+		missing?: string[];
 	} = {},
 ) => {
 	const templates = options.templates ?? [templateOf()];
@@ -155,6 +157,8 @@ const createHarness = (
 		uploadFile: async (_bucket: string, key: string) => {
 			calls.written.push(key);
 		},
+		fileExists: async (_bucket: string, key: string) =>
+			!(options.missing ?? []).includes(key),
 	} as unknown as ICradle["storageProvider"];
 
 	const service = createCertificateTemplateService({
@@ -272,6 +276,27 @@ describe("guardar, renombrar y archivar", () => {
 		);
 	});
 
+	test("una imagen nueva que ya no está en storage no se guarda", async () => {
+		const key = `documentos/plantillas-certificado/${TEMPLATE}/imagenes/s.png`;
+		const { service, calls } = createHarness({ missing: [key] });
+		const image = {
+			...LOGO,
+			id: "sello",
+			src: { kind: "asset", ref: toProxyRef(key), role: "image" },
+		} as DesignElement;
+
+		expect(
+			await service.saveDesign(
+				{ documentId: TEMPLATE, design: designWith(image) },
+				actorOf(),
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CERTIFICATE_ERROR_CODES.ASSET_MISSING },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
 	test("rechaza imágenes de un curso en el diseño de una plantilla", async () => {
 		const { service, calls } = createHarness();
 
@@ -357,7 +382,7 @@ describe("certificateTemplateService.fromCourse", () => {
 		const [created] = calls.created;
 		expect(calls.written[0]).toMatch(
 			new RegExp(
-				`^documentos/plantillas-certificado/${created.documentId}/imagenes/sello-\\d+\\.png$`,
+				`^documentos/plantillas-certificado/${created.documentId}/imagenes/sello-[0-9a-f]{32}\\.png$`,
 			),
 		);
 		const refs = created.design.elements.flatMap((e) =>
@@ -457,20 +482,16 @@ describe("certificateTemplateService.fromCourse", () => {
 });
 
 describe("certificateTemplateService.apply", () => {
+	const TEMPLATE_PDF = `documentos/plantillas-certificado/${TEMPLATE}/fondos/f.pdf`;
+	const templateBackground = {
+		...LOGO,
+		id: "sello",
+		src: { kind: "asset", ref: toProxyRef(TEMPLATE_PDF), role: "image" },
+	} as DesignElement;
+
 	test("devuelve el diseño con sus recursos copiados a la carpeta del curso", async () => {
-		const templateImage = {
-			...LOGO,
-			id: "sello",
-			src: {
-				kind: "asset",
-				ref: toProxyRef(
-					`documentos/plantillas-certificado/${TEMPLATE}/fondos/f.pdf`,
-				),
-				role: "image",
-			},
-		} as DesignElement;
 		const { service, calls } = createHarness({
-			templates: [templateOf({ design: designWith(templateImage) })],
+			templates: [templateOf({ design: designWith(templateBackground) })],
 		});
 
 		const result = await service.apply(
@@ -479,13 +500,51 @@ describe("certificateTemplateService.apply", () => {
 		);
 
 		expect(calls.written[0]).toMatch(
-			new RegExp(`^documentos/certificados/${COURSE}/fondos/f-\\d+\\.pdf$`),
+			new RegExp(
+				`^documentos/certificados/${COURSE}/fondos/f-[0-9a-f]{32}\\.pdf$`,
+			),
 		);
 		expect(
 			result.success && result.data.elements.find((e) => e.id === "sello"),
 		).toMatchObject({
 			src: { ref: toProxyRef(calls.written[0]) },
 		});
+	});
+
+	// Aplicar dos veces la misma plantilla no deja copias huérfanas.
+	test("aplicarla otra vez reescribe las mismas copias", async () => {
+		const { service, calls } = createHarness({
+			templates: [templateOf({ design: designWith(templateBackground) })],
+		});
+		const apply = () =>
+			service.apply(
+				{ courseDocumentId: COURSE, templateDocumentId: TEMPLATE },
+				actorOf(),
+			);
+
+		const [first, second] = [await apply(), await apply()];
+
+		expect(calls.written).toHaveLength(2);
+		expect(calls.written[0]).toBe(calls.written[1]);
+		expect(first.success && first.data).toEqual(second.success && second.data);
+	});
+
+	test("un recurso de la plantilla que ya no está en storage no se copia", async () => {
+		const { service, calls } = createHarness({
+			templates: [templateOf({ design: designWith(templateBackground) })],
+			missing: [TEMPLATE_PDF],
+		});
+
+		expect(
+			await service.apply(
+				{ courseDocumentId: COURSE, templateDocumentId: TEMPLATE },
+				actorOf(),
+			),
+		).toMatchObject({
+			success: false,
+			error: { code: CERTIFICATE_ERROR_CODES.ASSET_MISSING },
+		});
+		expect(calls.written).toEqual([]);
 	});
 
 	test("una plantilla archivada no se aplica", async () => {

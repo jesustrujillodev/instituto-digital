@@ -291,3 +291,41 @@ describe("mejores notas (docs/adr/0024)", () => {
 		expect(await repository.findBestScore(9, 50)).toBeNull();
 	});
 });
+
+describe("quizRepository.findFollowUpBanks", () => {
+	test("lee los bancos de todas las evaluaciones de seguimiento en una consulta", async () => {
+		const queries: unknown[] = [];
+		const repository = createQuizRepository({
+			prisma: {
+				quiz: {
+					findMany: async (args: unknown) => {
+						queries.push(args);
+						return [
+							{
+								id: 40,
+								documentId: "44444444-4444-4444-8444-444444444444",
+								title: "Práctica de campo",
+								passingScore: 60,
+								maxAttempts: 1,
+								shuffleQuestions: false,
+								questions: [],
+								_count: { attempts: 3 },
+							},
+						];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		const banks = await repository.findFollowUpBanks(7);
+
+		expect(queries).toHaveLength(1);
+		expect(queries[0]).toMatchObject({
+			where: { courseId: 7, sessionId: { not: null } },
+		});
+		expect(banks).toEqual([
+			expect.objectContaining({ id: 40, attemptCount: 3, questions: [] }),
+		]);
+		expect(banks[0]).not.toHaveProperty("_count");
+	});
+});

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { buildObjectKey, sanitizeFileName } from "../object-key";
+import {
+	buildContentObjectKey,
+	buildObjectKey,
+	sanitizeFileName,
+} from "../object-key";
 
 const NOW = 1_800_000_000_000;
 
@@ -93,5 +97,26 @@ describe("buildObjectKey", () => {
 		const second = buildObjectKey("p", "foto.png");
 
 		expect(second).not.toBe(first);
+	});
+});
+
+describe("buildContentObjectKey", () => {
+	const DIGEST = "0123456789abcdef0123456789abcdef";
+
+	test("builds prefix/base-digest.ext with the sanitised name", () => {
+		expect(buildContentObjectKey("documents", "../mi fondo.pdf", DIGEST)).toBe(
+			`documents/.._mi_fondo-${DIGEST}.pdf`,
+		);
+	});
+
+	// Es lo que evita duplicados: subir o copiar dos veces lo mismo cae en la
+	// misma key y el segundo guardado reescribe el objeto en vez de crear otro.
+	test("the same bytes land on the same key at any instant", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(NOW);
+		const first = buildContentObjectKey("p", "fondo.pdf", DIGEST);
+
+		vi.setSystemTime(NOW + 1000);
+		expect(buildContentObjectKey("p", "fondo.pdf", DIGEST)).toBe(first);
 	});
 });
