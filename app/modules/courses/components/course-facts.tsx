@@ -53,7 +53,7 @@ export function CourseFacts({
 	facts.push({ term: "Duración", value: courseHoursLabel(course) });
 
 	facts.push({
-		term: "Se completa con",
+		term: "Se acredita con",
 		value: COMPLETION_RULE_LABELS[course.completionRule],
 	});
 

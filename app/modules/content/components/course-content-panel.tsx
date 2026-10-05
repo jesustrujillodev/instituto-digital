@@ -66,12 +66,15 @@ export function CourseContentPanel({
 	courseDocumentId,
 	tree,
 	canWrite = true,
+	canDelete,
 	saveRef,
 	onDirtyChange,
 }: {
 	courseDocumentId: string;
 	tree: CourseContentTree;
 	canWrite?: boolean;
+	/** Solo en borrador: publicado, el temario solo se edita o crece. */
+	canDelete: boolean;
 	saveRef?: ContentSaveRef;
 	onDirtyChange?: (dirty: boolean) => void;
 }) {
@@ -145,7 +148,7 @@ export function CourseContentPanel({
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<p className="text-muted-foreground text-sm">
 						{canWrite
-							? "Agregar, ordenar y eliminar se guarda al instante. Lo que escribes se guarda al pasar a otro elemento."
+							? `${canDelete ? "Agregar, ordenar y eliminar" : "Agregar y ordenar"} se guarda al instante. Lo que escribes se guarda al pasar a otro elemento.`
 							: null}
 					</p>
 					{viewToggle}
@@ -157,6 +160,7 @@ export function CourseContentPanel({
 					courseDocumentId={courseDocumentId}
 					tree={tree}
 					canWrite={canWrite}
+					canDelete={canDelete}
 					saveRef={activeSaveRef}
 					onDirtyChange={reportDirty}
 				/>
@@ -165,6 +169,7 @@ export function CourseContentPanel({
 					courseDocumentId={courseDocumentId}
 					tree={tree}
 					canWrite={canWrite}
+					canDelete={canDelete}
 					actions={viewToggle}
 				/>
 			)}

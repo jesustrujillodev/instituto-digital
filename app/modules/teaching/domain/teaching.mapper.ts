@@ -9,13 +9,13 @@ import type { EnrollmentResult } from "@/modules/enrollments/domain/enrollment.c
 import { removalBlockerOf } from "@/modules/enrollments/domain/enrollment.rules";
 import type { TeachingScope } from "./teaching.access";
 import {
+	accreditationGapsOf,
 	attendancePercent,
 	attendedSessionsOf,
 	canToggleEnrollment,
 	canWrite,
 	finishBlockerOf,
 	finishOpensAt,
-	isCompleted,
 	isSessionOpen,
 	pendingCertificatesOf,
 } from "./teaching.rules";
@@ -229,6 +229,10 @@ export const toTeachingDetail = (
 		})),
 		participants: course.participants.map((participant) => {
 			const attended = attendedSessionsOf(participant);
+			const gaps = accreditationGapsOf(
+				{ ...course, sessionCount },
+				{ ...participant, attendedSessions: attended },
+			);
 
 			return {
 				...personOf(participant),
@@ -237,7 +241,8 @@ export const toTeachingDetail = (
 				result: participant.result,
 				grade: participant.grade,
 				completed: participant.completed,
-				wouldComplete: isCompleted({ ...course, sessionCount }, participant),
+				wouldComplete: gaps.length === 0,
+				gaps,
 				attendedSessions: attended,
 				attendancePercent: attendancePercent(attended, sessionCount),
 				progressPercent: participant.progressPercent,

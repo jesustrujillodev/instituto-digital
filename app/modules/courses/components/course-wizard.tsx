@@ -10,6 +10,7 @@ import { CourseContentPanel } from "@/modules/content/components/course-content-
 import type { ContentSaveRef } from "@/modules/content/components/course-content-workspace";
 import type { QuizSaveRef } from "@/modules/content/components/quiz-editor";
 import { toContentSummary } from "@/modules/content/domain/content.mapper";
+import { canDeleteContent } from "@/modules/content/domain/content.rules";
 import type { CourseContentTree } from "@/modules/content/domain/content.types";
 import { useCreatePendingSessionMaterials } from "@/modules/content/hooks/use-session-materials";
 import { PageHeader } from "@/shared/components/common/page-header";
@@ -709,6 +710,7 @@ function StepFields({
 				<CourseContentPanel
 					courseDocumentId={course.documentId}
 					tree={content}
+					canDelete={canDeleteContent(course.status)}
 					saveRef={contentSaveRef}
 					onDirtyChange={onContentDirtyChange}
 				/>

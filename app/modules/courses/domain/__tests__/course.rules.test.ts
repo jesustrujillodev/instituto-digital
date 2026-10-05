@@ -895,10 +895,10 @@ describe("mensajes de la regla de alta", () => {
 		);
 	});
 
-	test("una regla de completado inventada se rechaza en español", () => {
+	test("una forma de acreditar inventada se rechaza en español", () => {
 		expect(
 			fieldErrorsOf({ ...draft, completionRule: "VIBES" }).completionRule,
-		).toBe("Elige una regla de completado válida.");
+		).toBe("Elige cómo se acredita la capacitación.");
 	});
 
 	test("el cupo fuera de rango explica el límite", () => {

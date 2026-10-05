@@ -46,8 +46,8 @@ export interface IQuizService {
 		dto: RenameQuizDto,
 		actor: AuthContext,
 	): Promise<QuizMutationResponse>;
-	/** Deja de contar para el avance; sus intentos se conservan. */
-	archiveModuleQuiz(
+	/** Solo en borrador, que todavía no tiene intentos que perder. */
+	deleteModuleQuiz(
 		courseDocumentId: string,
 		dto: ModuleQuizDto,
 		actor: AuthContext,

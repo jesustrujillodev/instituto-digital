@@ -18,16 +18,18 @@ import {
 	type ContentUploadTooLargeError,
 } from "../content.errors";
 import {
+	assertContentDeletable,
 	assertLessonLimit,
 	assertMaterialMatchesLesson,
-	assertModuleArchivable,
+	assertModuleDeletable,
 	assertModuleLimit,
 	assertUploadAllowed,
+	canDeleteContent,
 	lessonBodyRule,
 	nextOrderOf,
 	requireUploadedObject,
-	resolveArchiveOrder,
 	resolveContentOrder,
+	resolveDeleteOrder,
 	resolveEmbed,
 	toPlainText,
 } from "../content.rules";
@@ -171,21 +173,21 @@ describe("resolveContentOrder", () => {
 	});
 });
 
-describe("resolveArchiveOrder", () => {
+describe("resolveDeleteOrder", () => {
 	const siblings = [
 		{ documentId: MODULE_A, order: 1 },
 		{ documentId: MODULE_B, order: 2 },
 		{ documentId: OTHER_DOC, order: 3 },
 	];
 
-	test("archivar el del medio re-empaqueta a los de atrás", () => {
-		expect(resolveArchiveOrder(MODULE_B, siblings)).toEqual([
+	test("borrar el del medio re-empaqueta a los de atrás", () => {
+		expect(resolveDeleteOrder(MODULE_B, siblings)).toEqual([
 			{ documentId: OTHER_DOC, order: 2 },
 		]);
 	});
 
-	test("archivar el último no mueve a nadie", () => {
-		expect(resolveArchiveOrder(OTHER_DOC, siblings)).toEqual([]);
+	test("borrar el último no mueve a nadie", () => {
+		expect(resolveDeleteOrder(OTHER_DOC, siblings)).toEqual([]);
 	});
 });
 
@@ -216,11 +218,24 @@ describe("límites", () => {
 	});
 });
 
-describe("assertModuleArchivable", () => {
-	test("con lecciones activas no se archiva", () => {
+describe("borrar temario", () => {
+	test("solo el borrador deja borrar módulos y lecciones", () => {
+		expect(canDeleteContent("DRAFT")).toBe(true);
+		for (const status of ["PUBLISHED", "FINISHED", "CANCELLED"] as const) {
+			expect(canDeleteContent(status)).toBe(false);
+			expect(codeOf(() => assertContentDeletable(status))).toBe(
+				CONTENT_ERROR_CODES.DELETE_LOCKED,
+			);
+		}
+		expect(() => assertContentDeletable("DRAFT")).not.toThrow();
+	});
+});
+
+describe("assertModuleDeletable", () => {
+	test("con lecciones activas no se borra", () => {
 		expect(
 			codeOf(() =>
-				assertModuleArchivable({ activeLessons: 2, hasActiveQuiz: false }),
+				assertModuleDeletable({ activeLessons: 2, hasActiveQuiz: false }),
 			),
 		).toBe(CONTENT_ERROR_CODES.MODULE_NOT_EMPTY);
 	});
@@ -228,14 +243,14 @@ describe("assertModuleArchivable", () => {
 	test("con su cuestionario activo tampoco", () => {
 		expect(
 			codeOf(() =>
-				assertModuleArchivable({ activeLessons: 0, hasActiveQuiz: true }),
+				assertModuleDeletable({ activeLessons: 0, hasActiveQuiz: true }),
 			),
 		).toBe(CONTENT_ERROR_CODES.MODULE_HAS_QUIZ);
 	});
 
 	test("vacío sí", () => {
 		expect(() =>
-			assertModuleArchivable({ activeLessons: 0, hasActiveQuiz: false }),
+			assertModuleDeletable({ activeLessons: 0, hasActiveQuiz: false }),
 		).not.toThrow();
 	});
 });

@@ -67,19 +67,21 @@ export function CourseContentWorkspace({
 	courseDocumentId,
 	tree: savedTree,
 	canWrite,
+	canDelete,
 	saveRef,
 	onDirtyChange,
 }: {
 	courseDocumentId: string;
 	tree: CourseContentTree;
 	canWrite: boolean;
+	canDelete: boolean;
 	saveRef: ContentSaveRef;
 	onDirtyChange: (dirty: boolean) => void;
 }) {
 	const mutation = useFetcherPromise<ContentActionData>();
 	useFetcherToast(mutation.fetcher);
 
-	// Reordenar y archivar se ven al instante: el árbol se pinta como quedará.
+	// Reordenar y eliminar se ven al instante: el árbol se pinta como quedará.
 	// Si el servidor lo rechaza, la recarga trae el real y el cambio se deshace.
 	const { state: mutationState, formData: mutationForm } = mutation.fetcher;
 	const tree = useMemo(
@@ -99,7 +101,7 @@ export function CourseContentWorkspace({
 	const [liveTitle, setLiveTitle] = useState<string | null>(null);
 	const busy = mutation.fetcher.state !== "idle";
 
-	// Tras archivar, o si otro lo borró, lo seleccionado deja de existir.
+	// Tras eliminar, o si otro lo borró, lo seleccionado deja de existir.
 	useEffect(() => {
 		if (selection && selectionExists(tree, selection)) return;
 		setSelection(initialSelection(tree));
@@ -169,13 +171,13 @@ export function CourseContentWorkspace({
 	const reorder = (order: ReorderContentDto) =>
 		void mutate(CONTENT_INTENTS.reorder, order);
 
-	const archive = async (
+	const remove = async (
 		intent: string,
 		payload: unknown,
 		then: OutlineSelection | null,
 		action?: string,
 	) => {
-		// La selección pasa al vecino antes de la respuesta, porque lo archivado
+		// La selección pasa al vecino antes de la respuesta, porque lo eliminado
 		// ya no se pinta; si el servidor lo rechaza, se vuelve a lo que había.
 		const previous = selection;
 		if (then) open(then);
@@ -203,6 +205,7 @@ export function CourseContentWorkspace({
 					lesson={lesson}
 					trail={`Módulo ${moduleIndex + 1} · Lección ${lessonIndex + 1} de ${module.lessons.length}`}
 					canWrite={canWrite}
+					canDelete={canDelete}
 					busy={busy}
 					autoFocusTitle={focusTitleOf === lesson.documentId}
 					previous={
@@ -228,9 +231,9 @@ export function CourseContentWorkspace({
 					onMove={(delta) =>
 						reorder(withLessonMoved(tree, moduleIndex, lessonIndex, delta))
 					}
-					onArchive={() =>
-						void archive(
-							CONTENT_INTENTS.archiveLesson,
+					onDelete={() =>
+						void remove(
+							CONTENT_INTENTS.deleteLesson,
 							{ lessonDocumentId: lesson.documentId },
 							next
 								? { kind: "lesson", documentId: next }
@@ -263,10 +266,11 @@ export function CourseContentWorkspace({
 					module={module}
 					trail={`Módulo ${moduleIndex + 1} · Evaluación`}
 					canWrite={canWrite}
+					canDelete={canDelete}
 					busy={busy}
-					onArchive={() =>
-						void archive(
-							CONTENT_INTENTS.archiveModuleQuiz,
+					onDelete={() =>
+						void remove(
+							CONTENT_INTENTS.deleteModuleQuiz,
 							{ moduleDocumentId: module.documentId },
 							{ kind: "module", documentId: module.documentId },
 							quizPath(courseDocumentId),
@@ -284,14 +288,15 @@ export function CourseContentWorkspace({
 				module={module}
 				trail={`Módulo ${moduleIndex + 1} de ${tree.length}`}
 				canWrite={canWrite}
+				canDelete={canDelete}
 				busy={busy}
 				autoFocusTitle={focusTitleOf === module.documentId}
 				canMoveUp={moduleIndex > 0}
 				canMoveDown={moduleIndex < tree.length - 1}
 				onMove={(delta) => reorder(withModuleMoved(tree, moduleIndex, delta))}
-				onArchive={() =>
-					void archive(
-						CONTENT_INTENTS.archiveModule,
+				onDelete={() =>
+					void remove(
+						CONTENT_INTENTS.deleteModule,
 						{ moduleDocumentId: module.documentId },
 						null,
 					)

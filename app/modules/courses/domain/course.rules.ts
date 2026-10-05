@@ -303,7 +303,7 @@ const courseFormShape = {
 	completionRule: v.optional(
 		v.picklist(
 			COURSE_COMPLETION_RULES,
-			"Elige una regla de completado válida.",
+			"Elige cómo se acredita la capacitación.",
 		),
 	),
 	qrOpensBeforeMinutes: v.optional(qrWindowMinutes),

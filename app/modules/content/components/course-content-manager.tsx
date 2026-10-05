@@ -57,7 +57,10 @@ import {
 	PAYLOAD_FIELD,
 	quizPath,
 } from "../utils/content-form";
-import { LESSON_TYPE_LABELS } from "../utils/content-labels";
+import {
+	DELETE_LOCKED_REASON,
+	LESSON_TYPE_LABELS,
+} from "../utils/content-labels";
 import {
 	formatMinutes,
 	minutesOf,
@@ -116,6 +119,8 @@ interface CourseContentManagerProps {
 	tree: CourseContentTree;
 	/** Un curso finalizado se consulta, no se edita. */
 	canWrite?: boolean;
+	/** Publicado, el temario solo se edita o crece. */
+	canDelete: boolean;
 	/** Controles de quien monta la lista, a la derecha del resumen. */
 	actions?: ReactNode;
 }
@@ -128,13 +133,14 @@ export function CourseContentManager({
 	courseDocumentId,
 	tree: savedTree,
 	canWrite = true,
+	canDelete,
 	actions,
 }: CourseContentManagerProps) {
 	const mutation = useFetcherPromise<ContentActionData>();
 	useFetcherToast(mutation.fetcher);
 	const busy = mutation.fetcher.state !== "idle";
 
-	// Reordenar y archivar se ven al instante: el árbol se pinta como quedará.
+	// Reordenar y eliminar se ven al instante: el árbol se pinta como quedará.
 	// Si el servidor lo rechaza, la recarga trae el real y el cambio se deshace.
 	const tree = useMemo(
 		() =>
@@ -212,11 +218,11 @@ export function CourseContentManager({
 
 	const closeLesson = useCallback(() => setOpenLesson(null), []);
 
-	// La lección deja de pintarse en cuanto se archiva, así que su panel se
+	// La lección deja de pintarse en cuanto se elimina, así que su panel se
 	// cierra ya; si el servidor lo rechaza, reaparece en la lista.
-	const archiveLesson = (lessonDocumentId: string) => {
+	const deleteLesson = (lessonDocumentId: string) => {
 		if (openLesson === lessonDocumentId) setOpenLesson(null);
-		void mutate(CONTENT_INTENTS.archiveLesson, { lessonDocumentId });
+		void mutate(CONTENT_INTENTS.deleteLesson, { lessonDocumentId });
 	};
 
 	if (tree.length === 0) {
@@ -372,17 +378,19 @@ export function CourseContentManager({
 												: "Agregar evaluación del módulo"}
 										</DropdownMenuItem>
 										<DropdownMenuSeparator />
-										<ArchiveItem
+										<RemoveItem
 											label="Eliminar módulo"
 											disabledReason={
-												module.lessons.length > 0
-													? "Elimina primero sus lecciones"
-													: module.quiz
-														? "Elimina primero su evaluación"
-														: undefined
+												!canDelete
+													? DELETE_LOCKED_REASON
+													: module.lessons.length > 0
+														? "Elimina primero sus lecciones"
+														: module.quiz
+															? "Elimina primero su evaluación"
+															: undefined
 											}
 											onSelect={() =>
-												void mutate(CONTENT_INTENTS.archiveModule, {
+												void mutate(CONTENT_INTENTS.deleteModule, {
 													moduleDocumentId: module.documentId,
 												})
 											}
@@ -490,11 +498,12 @@ export function CourseContentManager({
 																Bajar
 															</DropdownMenuItem>
 															<DropdownMenuSeparator />
-															<ArchiveItem
+															<RemoveItem
 																label="Eliminar lección"
-																onSelect={() =>
-																	archiveLesson(lesson.documentId)
+																disabledReason={
+																	canDelete ? undefined : DELETE_LOCKED_REASON
 																}
+																onSelect={() => deleteLesson(lesson.documentId)}
 															/>
 														</RowMenu>
 													)}
@@ -537,11 +546,14 @@ export function CourseContentManager({
 																Editar preguntas
 															</DropdownMenuItem>
 															<DropdownMenuSeparator />
-															<ArchiveItem
+															<RemoveItem
 																label="Eliminar evaluación del módulo"
+																disabledReason={
+																	canDelete ? undefined : DELETE_LOCKED_REASON
+																}
 																onSelect={() =>
 																	void mutate(
-																		CONTENT_INTENTS.archiveModuleQuiz,
+																		CONTENT_INTENTS.deleteModuleQuiz,
 																		{ moduleDocumentId: module.documentId },
 																		quizPath(courseDocumentId),
 																	)
@@ -629,10 +641,11 @@ export function CourseContentManager({
 				tree={tree}
 				lessonDocumentId={openLesson}
 				canWrite={canWrite}
+				canDelete={canDelete}
 				busy={busy}
 				onNavigate={setOpenLesson}
 				onClose={closeLesson}
-				onArchive={archiveLesson}
+				onDelete={deleteLesson}
 			/>
 
 			<ModuleQuizSheet
@@ -678,7 +691,7 @@ function RowMenu({
 	);
 }
 
-function ArchiveItem({
+function RemoveItem({
 	label,
 	disabledReason,
 	onSelect,

@@ -3,16 +3,21 @@ export { loader } from "./index.loader";
 
 import {
 	Award,
+	Check,
+	Clock,
 	DoorClosed,
 	DoorOpen,
 	Download,
 	Flag,
+	type LucideIcon,
 	Pencil,
 	UserMinus,
+	X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
+import { cn } from "@/lib/utils";
 import { useFileDownload } from "@/modules/certificates/hooks/use-file-download";
 import { certificateDownloadUrl } from "@/modules/certificates/utils/certificate-urls";
 import { CourseQrPanel } from "@/modules/check-in/components/course-qr-panel";
@@ -21,6 +26,7 @@ import { ProgressBar } from "@/modules/content/components/progress-bar";
 import { QuizResults } from "@/modules/content/components/quiz-results";
 import { SessionMaterialsPanel } from "@/modules/content/components/session-materials-panel";
 import type { QuizBoard } from "@/modules/content/domain/quiz.types";
+import { AccreditationSummary } from "@/modules/courses/components/accreditation-summary";
 import {
 	CourseFormatBadge,
 	CourseModalityBadge,
@@ -28,21 +34,17 @@ import {
 } from "@/modules/courses/components/course-badges";
 import {
 	allowsSessions,
-	countsAttendance,
 	gradesAutomatically,
 	requiresContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
-import { COMPLETION_RULE_LABELS } from "@/modules/courses/utils/course-labels";
+import { accreditationStepsOf } from "@/modules/courses/utils/accreditation";
 import {
 	RETURN_PARAM,
 	RETURN_TO_TEACHING,
 	stepPath,
 } from "@/modules/courses/utils/course-wizard-steps";
-import {
-	ENROLLMENT_RESULT_LABELS,
-	personNameOf,
-} from "@/modules/enrollments/utils/enrollment-labels";
+import { personNameOf } from "@/modules/enrollments/utils/enrollment-labels";
 import {
 	INTENT_FIELD as ENROLLMENT_INTENT_FIELD,
 	ENROLLMENT_INTENTS,
@@ -71,6 +73,12 @@ import type {
 	TeachingDetail,
 	TeachingParticipantView,
 } from "../../../domain/teaching.types";
+import {
+	gapReasonOf,
+	type RequirementState,
+	type RequirementStatus,
+	requirementsOf,
+} from "../../../utils/accreditation-labels";
 import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
@@ -108,7 +116,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 					<p className="text-muted-foreground text-xs">
 						{detail.finishBlocker
 							? finishBlockerMessage(detail.finishBlocker, { opensAt })
-							: "Calcula quién completó, otorga créditos y certificados y abre la valoración."}
+							: "Calcula quién acreditó, otorga créditos y certificados y abre la valoración."}
 					</p>
 				</div>
 				<Button
@@ -125,7 +133,7 @@ function FinishCard({ detail }: { detail: TeachingDetail }) {
 				open={confirming}
 				onOpenChange={setConfirming}
 				title="¿Finalizar la capacitación?"
-				description={`Se otorgan los créditos y se emiten los certificados a quien completó. Después, solo el titular o un auxiliar de la dependencia pueden corregir ${MANUAL_ATTENDANCE_ENABLED ? "asistencia y resultados" : "resultados"}.`}
+				description={`Se otorgan los créditos y se emiten los certificados a quien acreditó. Después, solo el titular o un auxiliar de la dependencia pueden corregir ${MANUAL_ATTENDANCE_ENABLED ? "asistencia y resultados" : "resultados"}.`}
 				confirmLabel="Finalizar"
 				cancelLabel="Volver"
 				onConfirm={() => {
@@ -170,7 +178,7 @@ function EnrollmentWindowCard({ detail }: { detail: TeachingDetail }) {
 					</h3>
 					<p className="text-muted-foreground text-xs">
 						{open
-							? "Una capacitación autogestiva no se finaliza: cada participante la completa al terminarla y recibe su crédito en ese momento."
+							? "Una capacitación autogestiva no se finaliza: cada participante la acredita al cumplir los requisitos y recibe su crédito en ese momento."
 							: `Cerradas el ${formatZonedDate(new Date(closedAt))}. Quien ya está inscrito puede seguir avanzando.`}
 					</p>
 				</div>
@@ -293,8 +301,8 @@ function IssueCertificatesCard({ detail }: { detail: TeachingDetail }) {
 					<h3 className="font-medium text-sm">Certificados pendientes</h3>
 					<p className="text-muted-foreground text-xs">
 						{detail.pendingCertificates === 1
-							? "1 persona completó la capacitación y no tiene certificado."
-							: `${detail.pendingCertificates} personas completaron la capacitación y no tienen certificado.`}
+							? "1 persona acreditó la capacitación y no tiene certificado."
+							: `${detail.pendingCertificates} personas acreditaron la capacitación y no tienen certificado.`}
 					</p>
 				</div>
 				<Button
@@ -358,7 +366,69 @@ function CertificateCell({
 	);
 }
 
-function CompletionList({ detail }: { detail: TeachingDetail }) {
+const REQUIREMENT_ICONS: Record<RequirementState, LucideIcon> = {
+	met: Check,
+	unmet: X,
+	pending: Clock,
+};
+
+const REQUIREMENT_TONES: Record<RequirementState, string> = {
+	met: "text-success-foreground",
+	unmet: "text-destructive",
+	pending: "text-muted-foreground",
+};
+
+const REQUIREMENT_STATES: Record<RequirementState, string> = {
+	met: "Cumple",
+	unmet: "No cumple",
+	pending: "Pendiente",
+};
+
+/** Cada requisito con el valor de la persona junto a su mínimo. */
+function RequirementList({
+	requirements,
+}: {
+	requirements: readonly RequirementStatus[];
+}) {
+	return (
+		<ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+			{requirements.map((requirement) => {
+				const Icon = REQUIREMENT_ICONS[requirement.state];
+				return (
+					<li key={requirement.key} className="flex items-center gap-1">
+						<Icon
+							className={cn(
+								"size-3.5 shrink-0",
+								REQUIREMENT_TONES[requirement.state],
+							)}
+							aria-hidden="true"
+						/>
+						<span className="sr-only">
+							{REQUIREMENT_STATES[requirement.state]}:{" "}
+						</span>
+						<span
+							className={
+								requirement.state === "unmet"
+									? "font-medium text-foreground"
+									: "text-muted-foreground"
+							}
+						>
+							{requirement.label}
+						</span>
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
+function CompletionList({
+	detail,
+	graded,
+}: {
+	detail: TeachingDetail;
+	graded: boolean;
+}) {
 	const { download, pending } = useFileDownload();
 	// La inscripción es de `enrollments`: la baja va a su action, no a la de
 	// impartición.
@@ -378,7 +448,7 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 		<Card>
 			<CardContent className="flex flex-col gap-3">
 				<h3 className="font-medium text-sm">
-					{live ? "Quién completó" : "Avance hacia el cierre"}
+					{live ? "Quién acreditó" : "Avance hacia el cierre"}
 				</h3>
 				<ul className="flex flex-col divide-y divide-border">
 					{detail.participants.map((participant) => {
@@ -391,20 +461,29 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 								key={participant.userDocumentId}
 								className="flex flex-wrap items-center justify-between gap-2 py-2"
 							>
-								<div className="min-w-0">
-									<p className="truncate text-sm">
-										{personNameOf(participant)}
-									</p>
-									<p className="truncate text-muted-foreground text-xs">
-										{participant.dependencyName ?? "Sin dependencia"}
-										{countsAttendance(detail.course.completionRule) &&
-											` · asistencia ${participant.attendancePercent} %`}
-										{requiresContent(detail.course) &&
-											` · contenido ${participant.progressPercent} %`}
-										{detail.course.requiresEvaluation &&
-											` · ${ENROLLMENT_RESULT_LABELS[participant.result]}`}
-										{participant.grade !== null && ` (${participant.grade})`}
-									</p>
+								<div className="flex min-w-0 flex-col gap-1.5">
+									<div className="min-w-0">
+										<p className="truncate text-sm">
+											{personNameOf(participant)}
+										</p>
+										<p className="truncate text-muted-foreground text-xs">
+											{participant.dependencyName ?? "Sin dependencia"}
+										</p>
+									</div>
+									<RequirementList
+										requirements={requirementsOf(
+											detail.course,
+											participant,
+											graded,
+										)}
+									/>
+									{!completed && participant.gaps.length > 0 && (
+										<ul className="flex flex-col gap-0.5 text-sm">
+											{participant.gaps.map((gap) => (
+												<li key={gap.kind}>{gapReasonOf(gap)}</li>
+											))}
+										</ul>
+									)}
 								</div>
 								<div className="flex flex-wrap items-center gap-2">
 									{live && participant.certificate && (
@@ -417,11 +496,11 @@ function CompletionList({ detail }: { detail: TeachingDetail }) {
 									<Badge variant={completed ? "default" : "outline"}>
 										{completed
 											? live
-												? "Completó"
-												: "Completaría"
+												? "Acreditó"
+												: "Acreditaría"
 											: live
-												? "Sin completar"
-												: "No completa"}
+												? "No acreditó"
+												: "No acreditaría"}
 									</Badge>
 									{participant.removable && (
 										<Button
@@ -495,6 +574,20 @@ export default function ImparticionDetallePage({
 	const withAttendance = scheduled || detail.sessions.length > 0;
 	const withContent = requiresContent(course);
 
+	const accreditationSteps = accreditationStepsOf({
+		scheduled,
+		completionRule: course.completionRule,
+		minAttendance: course.minAttendance,
+		requiresEvaluation: course.requiresEvaluation,
+		minPassingGrade: course.minPassingGrade,
+		requiredLessons: null,
+		moduleEvaluations:
+			quizBoard?.quizzes.filter((quiz) => quiz.kind === "MODULE").length ?? 0,
+		countedFollowUps:
+			followUps?.followUps.filter((followUp) => followUp.countsTowardGrade)
+				.length ?? 0,
+	});
+
 	// Editar vuelve aquí al terminar: se entra y se sale desde la impartición.
 	const editHref = (step: number) =>
 		`${stepPath(course.documentId, step, "edit")}?${RETURN_PARAM}=${RETURN_TO_TEACHING}`;
@@ -503,7 +596,7 @@ export default function ImparticionDetallePage({
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title={course.title}
-				description={`Organiza ${course.dependencyName}. Se completa con: ${COMPLETION_RULE_LABELS[course.completionRule].toLowerCase()}${countsAttendance(course.completionRule) ? ` (mínimo ${course.minAttendance} %)` : ""}${course.requiresEvaluation ? ", evaluado con examen en línea" : ""}.`}
+				description={`Organiza ${course.dependencyName}.`}
 				goBack="/dashboard/imparticion"
 				actions={
 					detail.can.editCourse ? (
@@ -525,6 +618,8 @@ export default function ImparticionDetallePage({
 				<CourseFormatBadge format={course.format} />
 				<Badge variant="outline">{detail.participants.length} inscritos</Badge>
 			</div>
+
+			<AccreditationSummary steps={accreditationSteps} />
 
 			{finished && (
 				<Alert>
@@ -562,7 +657,7 @@ export default function ImparticionDetallePage({
 							{withContent ? "Avance" : "Intentos"}
 						</TabsTrigger>
 					)}
-					<TabsTrigger value="completion">Completado</TabsTrigger>
+					<TabsTrigger value="completion">Acreditación</TabsTrigger>
 					{MANUAL_ATTENDANCE_ENABLED && withAttendance && detail.qr && (
 						<TabsTrigger value="qr">Código QR</TabsTrigger>
 					)}
@@ -621,7 +716,7 @@ export default function ImparticionDetallePage({
 					{detail.can.issueCertificates && (
 						<IssueCertificatesCard detail={detail} />
 					)}
-					<CompletionList detail={detail} />
+					<CompletionList detail={detail} graded={gradesAutomatically} />
 				</TabsContent>
 				{MANUAL_ATTENDANCE_ENABLED && withAttendance && detail.qr && (
 					<TabsContent value="qr">

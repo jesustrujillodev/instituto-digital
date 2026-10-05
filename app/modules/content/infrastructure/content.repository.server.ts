@@ -224,11 +224,8 @@ export const createContentRepository = ({
 			await prisma.courseModule.update({ where: { id: moduleId }, data });
 		},
 
-		async archiveModule(moduleId, at, reorder) {
-			await prisma.courseModule.update({
-				where: { id: moduleId },
-				data: { archivedAt: at },
-			});
+		async deleteModule(moduleId, reorder) {
+			await prisma.courseModule.delete({ where: { id: moduleId } });
 			await writeModuleOrder(reorder);
 		},
 
@@ -254,11 +251,8 @@ export const createContentRepository = ({
 			await prisma.lesson.update({ where: { id: lessonId }, data });
 		},
 
-		async archiveLesson(lessonId, at, reorder) {
-			await prisma.lesson.update({
-				where: { id: lessonId },
-				data: { archivedAt: at },
-			});
+		async deleteLesson(lessonId, reorder) {
+			await prisma.lesson.delete({ where: { id: lessonId } });
 			await writeLessonOrder(reorder);
 		},
 

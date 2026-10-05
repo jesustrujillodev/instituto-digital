@@ -52,7 +52,7 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[TEACHING_ERROR_CODES.SELF_PACED_NOT_FINISHABLE]: {
 		message:
-			"Una capacitación autogestiva no se finaliza: cada participante la completa al terminarla. Para dejar de recibir gente, cierra las inscripciones.",
+			"Una capacitación autogestiva no se finaliza: cada participante la acredita al cumplir los requisitos. Para dejar de recibir gente, cierra las inscripciones.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[TEACHING_ERROR_CODES.NOT_SELF_PACED]: {
@@ -62,7 +62,7 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE]: {
 		message:
-			"Los certificados se emiten al finalizar la capacitación: todavía no se sabe quién la completó.",
+			"Los certificados se emiten al finalizar la capacitación: todavía no se sabe quién la acreditó.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

@@ -18,16 +18,17 @@ import {
 	toLessonMaterial,
 } from "../domain/content.mapper";
 import {
+	assertContentDeletable,
 	assertLessonLimit,
 	assertMaterialMatchesLesson,
-	assertModuleArchivable,
+	assertModuleDeletable,
 	assertModuleLimit,
 	assertUploadAllowed,
 	type LessonUploadKind,
 	nextOrderOf,
 	requireUploadedObject,
-	resolveArchiveOrder,
 	resolveContentOrder,
+	resolveDeleteOrder,
 } from "../domain/content.rules";
 import type { IContentService } from "../domain/content.service";
 import type {
@@ -205,23 +206,23 @@ export const createContentService = ({
 				return ok(null);
 			});
 		},
-		async archiveModule(
+		async deleteModule(
 			courseDocumentId: string,
 			moduleDocumentId: string,
 			actor: AuthContext,
 		) {
-			return run("archiveModule", async () => {
+			return run("deleteModule", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
+				assertContentDeletable(course.status);
 				const module = await requireModule(course.id, moduleDocumentId);
-				assertModuleArchivable(module);
+				assertModuleDeletable(module);
 
 				const siblings = await contentRepository.findModuleSiblings(course.id);
 
 				await runInTransaction(() =>
-					contentRepository.archiveModule(
+					contentRepository.deleteModule(
 						module.id,
-						clock.now(),
-						resolveArchiveOrder(moduleDocumentId, siblings),
+						resolveDeleteOrder(moduleDocumentId, siblings),
 					),
 				);
 
@@ -279,29 +280,26 @@ export const createContentService = ({
 				return ok(null);
 			});
 		},
-		async archiveLesson(
+		async deleteLesson(
 			courseDocumentId: string,
 			lessonDocumentId: string,
 			actor: AuthContext,
 		) {
-			return run("archiveLesson", async () => {
+			return run("deleteLesson", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
+				assertContentDeletable(course.status);
 				const lesson = await requireLesson(course.id, lessonDocumentId);
 				const siblings = await contentRepository.findLessonSiblings(
 					lesson.moduleId,
 				);
 				const material = await contentRepository.findMaterialFileUrl(lesson.id);
 
-				const now = clock.now();
-
-				await runInTransaction(async () => {
-					await contentRepository.archiveLesson(
+				await runInTransaction(() =>
+					contentRepository.deleteLesson(
 						lesson.id,
-						now,
-						resolveArchiveOrder(lessonDocumentId, siblings),
-					);
-					await recalculateProgress(course, actor, now);
-				});
+						resolveDeleteOrder(lessonDocumentId, siblings),
+					),
+				);
 
 				discardObject(material);
 

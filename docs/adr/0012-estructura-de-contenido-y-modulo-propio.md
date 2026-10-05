@@ -80,6 +80,9 @@ mismo panel.
 
 ### 2.5 Borrar no existe: se archiva, y el orden se re-empaqueta
 
+> Reemplazada por [ADR 0031](./0031-borrar-temario-solo-en-borrador.md): módulos y
+> lecciones se borran de verdad, y solo mientras el curso está en borrador.
+
 `archived_at` en los dos niveles, porque el avance por lección colgará de estas
 filas y llevárselas dejaría huérfano el historial de quien ya las recorrió.
 

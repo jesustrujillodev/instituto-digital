@@ -27,6 +27,7 @@ const sessionOf = (
 	startsAt: zonedInputToUtc(date, start),
 	endsAt: zonedInputToUtc(date, end),
 	venue: null,
+	link: null,
 });
 
 const codeOf = (fn: () => void): string => {

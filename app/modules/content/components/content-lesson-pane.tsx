@@ -10,6 +10,7 @@ import {
 } from "../domain/content.config";
 import type { ContentLesson } from "../domain/content.types";
 import { useLessonEditor } from "../hooks/use-lesson-editor";
+import { DELETE_LOCKED_REASON } from "../utils/content-labels";
 import {
 	type PaneHandle,
 	PaneHeader,
@@ -32,6 +33,7 @@ export function ContentLessonPane({
 	lesson,
 	trail,
 	canWrite,
+	canDelete,
 	busy,
 	autoFocusTitle,
 	previous,
@@ -39,7 +41,7 @@ export function ContentLessonPane({
 	canMoveUp,
 	canMoveDown,
 	onMove,
-	onArchive,
+	onDelete,
 	onDirtyChange,
 	onTitleChange,
 }: {
@@ -49,6 +51,7 @@ export function ContentLessonPane({
 	/** "Módulo 1 · Lección 2 de 3". */
 	trail: string;
 	canWrite: boolean;
+	canDelete: boolean;
 	busy: boolean;
 	autoFocusTitle: boolean;
 	previous: { label: string; onClick: () => void } | null;
@@ -56,7 +59,7 @@ export function ContentLessonPane({
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	onMove: (delta: number) => void;
-	onArchive: () => void;
+	onDelete: () => void;
 	onDirtyChange: (dirty: boolean) => void;
 	onTitleChange: (title: string) => void;
 }) {
@@ -91,7 +94,11 @@ export function ContentLessonPane({
 								canMoveUp={canMoveUp}
 								canMoveDown={canMoveDown}
 								onMove={onMove}
-								archive={{ label: "Eliminar lección", onClick: onArchive }}
+								remove={{
+									label: "Eliminar lección",
+									disabledReason: canDelete ? undefined : DELETE_LOCKED_REASON,
+									onClick: onDelete,
+								}}
 							/>
 						) : null
 					}

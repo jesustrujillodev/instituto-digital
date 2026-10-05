@@ -54,7 +54,7 @@ dependencia.
 | Corrección que lo devuelve | Se restauran, **con el mismo folio** |
 | Volver a sincronizar sin cambios | Nada: el diff es vacío |
 
-«Emitir certificados», en la pestaña Completado de la impartición, cubre lo completado
+«Emitir certificados», en la pestaña Acreditación de la impartición, cubre lo completado
 **antes** de F-09. Solo aparece si hay pendientes y pide el mismo permiso que corregir: en un
 finalizado, el titular o un auxiliar de la dependencia. En un curso por impartir responde
 `TEACHING_CERTIFICATES_NOT_ISSUABLE`.

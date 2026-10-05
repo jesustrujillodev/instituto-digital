@@ -16,7 +16,7 @@ const NOTICES: Record<
 > = {
 	"never-published": {
 		title: "Certificado sin publicar",
-		body: "Mientras no lo publiques, quien complete la capacitación recibe el diseño por defecto.",
+		body: "Mientras no lo publiques, quien acredite la capacitación recibe el diseño por defecto.",
 		action: "Diseñar y publicar",
 	},
 	"unpublished-changes": {

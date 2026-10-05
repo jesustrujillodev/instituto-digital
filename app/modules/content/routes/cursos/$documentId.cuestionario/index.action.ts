@@ -3,7 +3,7 @@ import { fail, ok, parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
-	validateArchiveModuleQuiz,
+	validateDeleteModuleQuiz,
 	validateFindContentCourse,
 	validateFollowUp,
 	validateRenameQuiz,
@@ -20,7 +20,7 @@ import type { Route } from "./+types/index";
 
 /**
  * POST /dashboard/capacitaciones/:documentId/cuestionario — guardar o renombrar el
- * banco, archivar la evaluación de un módulo, o guardar y quitar una
+ * banco, eliminar la evaluación de un módulo, o guardar y quitar una
  * evaluación de seguimiento.
  */
 export const action = async ({
@@ -69,14 +69,14 @@ export const action = async ({
 			return ok(null, { message: "Título guardado." });
 		}
 
-		case CONTENT_INTENTS.archiveModuleQuiz: {
+		case CONTENT_INTENTS.deleteModuleQuiz: {
 			const input = parseInput(() => ({
 				course: courseDocumentId(),
-				dto: validateArchiveModuleQuiz(form.payload),
+				dto: validateDeleteModuleQuiz(form.payload),
 			}));
 			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
 
-			const result = await context.quizService.archiveModuleQuiz(
+			const result = await context.quizService.deleteModuleQuiz(
 				input.data.course,
 				input.data.dto,
 				auth,

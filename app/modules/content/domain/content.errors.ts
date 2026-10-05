@@ -4,6 +4,7 @@ import { DomainError } from "@/shared/errors/domain-error";
 export const CONTENT_ERROR_CODES = {
 	COURSE_NOT_FOUND: "CONTENT_COURSE_NOT_FOUND",
 	COURSE_NOT_EDITABLE: "CONTENT_COURSE_NOT_EDITABLE",
+	DELETE_LOCKED: "CONTENT_DELETE_LOCKED",
 	MODULE_NOT_FOUND: "CONTENT_MODULE_NOT_FOUND",
 	LESSON_NOT_FOUND: "CONTENT_LESSON_NOT_FOUND",
 	TOO_MANY_MODULES: "CONTENT_TOO_MANY_MODULES",
@@ -61,6 +62,16 @@ export class ContentCourseNotEditableError extends ContentError {
 	}
 }
 
+/** Publicado, el temario solo se edita o crece: borrar se llevaría el avance. */
+export class ContentDeleteLockedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.DELETE_LOCKED;
+	readonly details: { status: CourseStatus };
+	constructor(status: CourseStatus) {
+		super("Modules and lessons can only be deleted in a draft course");
+		this.details = { status };
+	}
+}
+
 /** No existe, está archivado, o no pertenece a este curso. */
 export class ContentModuleNotFoundError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.MODULE_NOT_FOUND;
@@ -95,7 +106,7 @@ export class ContentTooManyLessonsError extends ContentError {
 	}
 }
 
-/** Archivar en cascada escondería lecciones que nadie pidió esconder. */
+/** Borrar en cascada se llevaría lecciones que nadie pidió borrar. */
 export class ContentModuleNotEmptyError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.MODULE_NOT_EMPTY;
 	readonly details: { activeLessons: number };
@@ -105,7 +116,7 @@ export class ContentModuleNotEmptyError extends ContentError {
 	}
 }
 
-/** Archivar el módulo se llevaría su evaluación sin que nadie lo pidiera. */
+/** Borrar el módulo se llevaría su evaluación sin que nadie lo pidiera. */
 export class ContentModuleHasQuizError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.MODULE_HAS_QUIZ;
 	constructor() {

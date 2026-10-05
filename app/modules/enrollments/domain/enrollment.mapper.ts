@@ -43,6 +43,9 @@ export interface EnrollmentCourseRaw {
 	modality: CourseModality;
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;
+	minAttendance: number;
+	requiresEvaluation: boolean;
+	minPassingGrade: number;
 	access: CourseAccessType;
 	status: CourseStatus;
 	capacity: number | null;
@@ -81,6 +84,9 @@ export const toEnrollmentCourse = (
 		modality: raw.modality,
 		format: raw.format,
 		completionRule: raw.completionRule,
+		minAttendance: raw.minAttendance,
+		requiresEvaluation: raw.requiresEvaluation,
+		minPassingGrade: raw.minPassingGrade,
 		access: raw.access,
 		status: raw.status,
 		capacity: raw.capacity,

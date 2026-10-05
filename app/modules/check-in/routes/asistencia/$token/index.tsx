@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
 	Form,
@@ -78,6 +79,14 @@ export default function AsistenciaPage() {
 			</p>
 			{data.session.venue && (
 				<p className="text-sm text-muted-foreground">{data.session.venue}</p>
+			)}
+			{data.session.link && (
+				<Button asChild variant="outline" className="mt-3 w-full">
+					<a href={data.session.link} target="_blank" rel="noreferrer">
+						<ExternalLink aria-hidden="true" />
+						Entrar a la videollamada
+					</a>
+				</Button>
 			)}
 
 			<div className="mt-6" role="status" aria-live="polite">

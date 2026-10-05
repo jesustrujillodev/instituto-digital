@@ -3,6 +3,7 @@ import { zonedInputToUtc } from "@/lib/date-utils";
 import { resolveTeachingScope } from "../teaching.access";
 import { TEACHING_ERROR_CODES } from "../teaching.errors";
 import {
+	accreditationGapsOf,
 	assertCertificatesIssuable,
 	assertFinishable,
 	assertWritable,
@@ -58,6 +59,84 @@ describe("attendancePercent", () => {
 	test("redondea hacia abajo y vale 0 sin sesiones", () => {
 		expect(attendancePercent(2, 3)).toBe(66);
 		expect(attendancePercent(0, 0)).toBe(0);
+	});
+});
+
+describe("accreditationGapsOf", () => {
+	const DONE = new Date("2026-09-03T18:00:00.000Z");
+	const ANA = {
+		attendedSessions: 2,
+		contentCompletedAt: DONE,
+		result: "FAILED" as const,
+		grade: 66,
+	};
+	const both = {
+		...courseOf({
+			completionRule: "BOTH",
+			minAttendance: 40,
+			requiresEvaluation: true,
+			minPassingGrade: 70,
+		}),
+		sessionCount: 3,
+	};
+
+	test("asistencia y temario cumplidos: lo que falta es la calificación", () => {
+		expect(accreditationGapsOf(both, ANA)).toEqual([
+			{ kind: "GRADE", grade: 66, minPassingGrade: 70 },
+		]);
+	});
+
+	test("nombra todos los requisitos que faltan, con su valor y su mínimo", () => {
+		expect(
+			accreditationGapsOf(both, {
+				attendedSessions: 1,
+				contentCompletedAt: null,
+				result: "FAILED",
+				grade: null,
+			}),
+		).toEqual([
+			{ kind: "ATTENDANCE", attended: 1, total: 3, minAttendance: 40 },
+			{ kind: "CONTENT" },
+			{ kind: "EXAM_NOT_TAKEN" },
+		]);
+	});
+
+	test("con examen exigido, una calificación sin calcular también falta", () => {
+		expect(accreditationGapsOf(both, { ...ANA, result: "PENDING" })).toEqual([
+			{ kind: "GRADE_PENDING" },
+		]);
+	});
+
+	test("sin examen exigido, pendiente no es un requisito", () => {
+		expect(
+			accreditationGapsOf(
+				{ ...both, requiresEvaluation: false },
+				{ ...ANA, result: "PENDING", grade: null },
+			),
+		).toEqual([]);
+	});
+
+	test("lo que la regla no cuenta no se pide", () => {
+		expect(
+			accreditationGapsOf(
+				{ ...both, completionRule: "CONTENT" },
+				{ ...ANA, attendedSessions: 0, result: "PASSED" },
+			),
+		).toEqual([]);
+	});
+
+	test("vacío es exactamente acreditar", () => {
+		const participant = participantOf({
+			attendance: attendanceOf(both, [0, 1]),
+			contentCompletedAt: DONE,
+			result: "PASSED",
+			grade: 90,
+		});
+
+		expect(isCompleted(both, participant)).toBe(true);
+		expect(
+			isCompleted(both, { ...participant, result: "FAILED", grade: 66 }),
+		).toBe(false);
 	});
 });
 

@@ -10,7 +10,6 @@ import {
 import { createContentRepository } from "../content.repository.server";
 
 const WHERE = { dependencyId: 3, createdById: 9 };
-const AT = new Date("2026-09-21T18:00:00.000Z");
 
 /** Doble de Prisma que registra cada consulta, sin tocar la base. */
 const createHarness = () => {
@@ -20,10 +19,12 @@ const createHarness = () => {
 		moduleFindFirst: [],
 		moduleUpdate: [],
 		moduleCreate: [],
+		moduleDelete: [],
 		lessonFindMany: [],
 		lessonFindFirst: [],
 		lessonUpdate: [],
 		lessonCreate: [],
+		lessonDelete: [],
 		lessonCount: [],
 	};
 
@@ -42,12 +43,14 @@ const createHarness = () => {
 				findFirst: record("moduleFindFirst"),
 				create: record("moduleCreate"),
 				update: record("moduleUpdate"),
+				delete: record("moduleDelete"),
 			},
 			lesson: {
 				findMany: record("lessonFindMany", []),
 				findFirst: record("lessonFindFirst"),
 				create: record("lessonCreate"),
 				update: record("lessonUpdate"),
+				delete: record("lessonDelete"),
 				count: record("lessonCount", 0),
 			},
 		} as unknown as ICradle["prisma"],
@@ -111,27 +114,35 @@ describe("lecturas del temario", () => {
 });
 
 describe("escrituras de orden", () => {
-	test("archivar escribe la fecha y luego el re-empaque", async () => {
+	test("borrar un módulo borra la fila y luego re-empaqueta", async () => {
 		const { repository, calls } = createHarness();
 
-		await repository.archiveModule(21, AT, [
-			{ documentId: MODULE_B, order: 1 },
-		]);
+		await repository.deleteModule(21, [{ documentId: MODULE_B, order: 1 }]);
 
+		expect(calls.moduleDelete).toEqual([{ where: { id: 21 } }]);
 		expect(calls.moduleUpdate).toEqual([
-			{ where: { id: 21 }, data: { archivedAt: AT } },
 			{ where: { documentId: MODULE_B }, data: { order: 1 } },
 		]);
 	});
 
-	test("sin filas que mover, archivar no escribe orden ninguno", async () => {
+	test("borrar una lección borra la fila, no la archiva", async () => {
 		const { repository, calls } = createHarness();
 
-		await repository.archiveLesson(31, AT, []);
+		await repository.deleteLesson(31, [{ documentId: LESSON_2, order: 1 }]);
 
+		expect(calls.lessonDelete).toEqual([{ where: { id: 31 } }]);
 		expect(calls.lessonUpdate).toEqual([
-			{ where: { id: 31 }, data: { archivedAt: AT } },
+			{ where: { documentId: LESSON_2 }, data: { order: 1 } },
 		]);
+	});
+
+	test("sin filas que mover, borrar no escribe orden ninguno", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.deleteLesson(31, []);
+
+		expect(calls.lessonDelete).toHaveLength(1);
+		expect(calls.lessonUpdate).toEqual([]);
 	});
 
 	test("el reordenamiento escribe una fila por posición y reconecta el módulo", async () => {

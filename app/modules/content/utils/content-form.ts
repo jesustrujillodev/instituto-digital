@@ -10,16 +10,16 @@ export const PAYLOAD_FIELD = "payload";
 export const CONTENT_INTENTS = {
 	createModule: "create-module",
 	updateModule: "update-module",
-	archiveModule: "archive-module",
+	deleteModule: "delete-module",
 	createLesson: "create-lesson",
 	updateLesson: "update-lesson",
-	archiveLesson: "archive-lesson",
+	deleteLesson: "delete-lesson",
 	reorder: "reorder",
 	uploadUrl: "upload-url",
 	saveMaterial: "save-material",
 	saveQuiz: "save-quiz",
 	renameQuiz: "rename-quiz",
-	archiveModuleQuiz: "archive-module-quiz",
+	deleteModuleQuiz: "delete-module-quiz",
 	submitQuiz: "submit-quiz",
 	grantRetake: "grant-retake",
 	saveFollowUp: "save-follow-up",
@@ -36,17 +36,17 @@ export type ContentActionData = AppResponse<ContentCreated | null>;
 
 /**
  * Cada acción revalida los `fetcher.load` montados, y el panel de la lección
- * archivada sigue montado mientras llega la respuesta: pedir otra vez su
+ * borrada sigue montado mientras llega la respuesta: pedir otra vez su
  * material o su práctica devuelve 404, y ese error tira la pantalla entera.
  */
-export const shouldRevalidateAfterArchive = ({
+export const shouldRevalidateAfterDelete = ({
 	formData,
 	defaultShouldRevalidate,
 }: {
 	formData?: FormData;
 	defaultShouldRevalidate: boolean;
 }): boolean =>
-	formData?.get(INTENT_FIELD) === CONTENT_INTENTS.archiveLesson
+	formData?.get(INTENT_FIELD) === CONTENT_INTENTS.deleteLesson
 		? false
 		: defaultShouldRevalidate;
 

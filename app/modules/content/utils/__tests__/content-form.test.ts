@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	CONTENT_INTENTS,
 	INTENT_FIELD,
-	shouldRevalidateAfterArchive,
+	shouldRevalidateAfterDelete,
 } from "../content-form";
 
 const formWith = (intent: string) => {
@@ -11,11 +11,11 @@ const formWith = (intent: string) => {
 	return formData;
 };
 
-describe("shouldRevalidateAfterArchive", () => {
-	it("no vuelve a pedir el material tras archivar una lección", () => {
+describe("shouldRevalidateAfterDelete", () => {
+	it("no vuelve a pedir el material tras borrar una lección", () => {
 		expect(
-			shouldRevalidateAfterArchive({
-				formData: formWith(CONTENT_INTENTS.archiveLesson),
+			shouldRevalidateAfterDelete({
+				formData: formWith(CONTENT_INTENTS.deleteLesson),
 				defaultShouldRevalidate: true,
 			}),
 		).toBe(false);
@@ -23,7 +23,7 @@ describe("shouldRevalidateAfterArchive", () => {
 
 	it("revalida tras cualquier otra acción", () => {
 		expect(
-			shouldRevalidateAfterArchive({
+			shouldRevalidateAfterDelete({
 				formData: formWith(CONTENT_INTENTS.saveMaterial),
 				defaultShouldRevalidate: true,
 			}),
@@ -32,7 +32,7 @@ describe("shouldRevalidateAfterArchive", () => {
 
 	it("respeta el valor por omisión fuera de un envío", () => {
 		expect(
-			shouldRevalidateAfterArchive({ defaultShouldRevalidate: false }),
+			shouldRevalidateAfterDelete({ defaultShouldRevalidate: false }),
 		).toBe(false);
 	});
 });

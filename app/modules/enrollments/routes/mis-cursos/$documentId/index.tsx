@@ -47,6 +47,7 @@ import {
 	OutcomeDetail,
 } from "../../../components/my-course-parts";
 import type { MyCourseDetail } from "../../../domain/enrollment.types";
+import { ownGapReasonOf } from "../../../utils/accreditation-reasons";
 import {
 	ENROLLMENT_ORIGIN_LABELS,
 	ENROLLMENT_RESULT_LABELS,
@@ -130,17 +131,26 @@ function OwnStatus({ entry }: { entry: MyCourseDetail }) {
 	}
 
 	if (isOverFor(entry)) {
-		// Las sesiones ya pasaron pero nadie ha cerrado el curso: el completado
+		// Las sesiones ya pasaron pero nadie ha cerrado el curso: la acreditación
 		// todavía no se calcula.
+		const pending =
+			course.status === "PUBLISHED" && requiresSessions(course.format);
 		const closing: Status = outcome.completed
-			? { icon: CircleCheck, tone: "success", title: "Completado · 1 crédito" }
-			: course.status === "PUBLISHED" && requiresSessions(course.format)
+			? { icon: CircleCheck, tone: "success", title: "Acreditada · 1 crédito" }
+			: pending
 				? { icon: Info, tone: "neutral", title: "Resultado pendiente" }
-				: { icon: CircleMinus, tone: "muted", title: "No completado" };
+				: { icon: CircleMinus, tone: "muted", title: "No acreditada" };
 
 		return (
 			<CourseDetailStatus {...closing}>
 				<OutcomeDetail entry={entry} />
+				{!outcome.completed && !pending && entry.gaps.length > 0 && (
+					<ul className="flex flex-col gap-1 text-foreground">
+						{entry.gaps.map((gap) => (
+							<li key={gap.kind}>{ownGapReasonOf(gap)}</li>
+						))}
+					</ul>
+				)}
 				{!entry.canRate && outcome.myRating !== null && (
 					<p className="text-xs">Lo valoraste con {outcome.myRating} de 5.</p>
 				)}

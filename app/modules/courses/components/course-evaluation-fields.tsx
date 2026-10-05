@@ -1,4 +1,4 @@
-import { Award, ClipboardCheck, Info } from "lucide-react";
+import { ClipboardCheck, Info } from "lucide-react";
 import { memo, type ReactNode } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { Input } from "@/shared/components/ui/input";
@@ -10,6 +10,7 @@ import {
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import { accreditationStepsOf } from "../utils/accreditation";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
+import { AccreditationSummary } from "./accreditation-summary";
 import {
 	type CompletionContentFacts,
 	CourseCompletionChecklist,
@@ -21,24 +22,6 @@ const numberOr = (value: string, fallback: number) => {
 };
 
 /** «Así se acredita»: los requisitos de abajo dichos en frases. */
-function AccreditationSummary({ steps }: { steps: readonly string[] }) {
-	return (
-		<section className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-4">
-			<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success text-success-foreground">
-				<Award className="size-4" aria-hidden="true" />
-			</span>
-			<div className="flex min-w-0 flex-col gap-1.5">
-				<h3 className="font-semibold text-sm">Así se acredita</h3>
-				<ol className="flex list-decimal flex-col gap-1 pl-5 text-sm">
-					{steps.map((step) => (
-						<li key={step}>{step}</li>
-					))}
-				</ol>
-			</div>
-		</section>
-	);
-}
-
 function GradeChip({ children }: { children: ReactNode }) {
 	return (
 		<span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 font-medium text-sm">

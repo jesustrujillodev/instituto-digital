@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import type { CourseStatus } from "@/modules/courses/domain/course.rules";
 import {
 	type UploadCandidate,
 	validateUploadInput,
@@ -16,6 +17,7 @@ import {
 	LESSON_VIDEO,
 } from "./content.config";
 import {
+	ContentDeleteLockedError,
 	ContentInvalidOrderError,
 	ContentMaterialMismatchError,
 	ContentModuleHasQuizError,
@@ -123,7 +125,7 @@ export const updateModuleRule = v.object({
 	description: moduleDescription,
 });
 
-export const archiveModuleRule = v.object({ moduleDocumentId: documentId });
+export const deleteModuleRule = v.object({ moduleDocumentId: documentId });
 
 export const createLessonRule = v.object({
 	moduleDocumentId: documentId,
@@ -141,7 +143,7 @@ export const updateLessonRule = v.object({
 	estimatedMinutes: lessonEstimatedMinutes,
 });
 
-export const archiveLessonRule = v.object({ lessonDocumentId: documentId });
+export const deleteLessonRule = v.object({ lessonDocumentId: documentId });
 
 /**
  * El orden nuevo COMPLETO, nunca "sube uno".
@@ -401,10 +403,10 @@ export const contentRules = {
 	findCourse: findContentCourseRule,
 	createModule: createModuleRule,
 	updateModule: updateModuleRule,
-	archiveModule: archiveModuleRule,
+	deleteModule: deleteModuleRule,
 	createLesson: createLessonRule,
 	updateLesson: updateLessonRule,
-	archiveLesson: archiveLessonRule,
+	deleteLesson: deleteLessonRule,
 	reorder: reorderContentRule,
 	findMaterial: findMaterialRule,
 	uploadUrl: uploadUrlRule,
@@ -417,7 +419,7 @@ export const contentRules = {
  * La posición de la fila nueva: siempre al final de sus hermanas.
  *
  * Vale contar porque el orden es contiguo desde 1 entre los hijos activos, y lo
- * sigue siendo tras archivar: `resolveArchiveOrder` re-empaqueta el hueco.
+ * sigue siendo tras borrar: `resolveDeleteOrder` re-empaqueta el hueco.
  */
 export const nextOrderOf = (siblings: readonly OrderedRow[]): number =>
 	siblings.length + 1;
@@ -434,7 +436,19 @@ export const assertLessonLimit = (current: number): void => {
 	}
 };
 
-export const assertModuleArchivable = (module: {
+/**
+ * Módulos y lecciones solo se borran en borrador (docs/adr/0031): publicado, ya
+ * puede haber avance e intentos colgando de ellos, y el borrado se los llevaría
+ * en cascada. Un curso no vuelve a borrador.
+ */
+export const canDeleteContent = (status: CourseStatus): boolean =>
+	status === "DRAFT";
+
+export const assertContentDeletable = (status: CourseStatus): void => {
+	if (!canDeleteContent(status)) throw new ContentDeleteLockedError(status);
+};
+
+export const assertModuleDeletable = (module: {
 	activeLessons: number;
 	hasActiveQuiz: boolean;
 }): void => {
@@ -445,19 +459,18 @@ export const assertModuleArchivable = (module: {
 };
 
 /**
- * Archivar deja un hueco en el orden: los hermanos que quedan se re-empaquetan
+ * Borrar deja un hueco en el orden: los hermanos que quedan se re-empaquetan
  * a 1..n en la misma escritura.
  *
  * Sin esto, la posición del siguiente hijo —que se calcula contando— chocaría
- * con la de uno que ya existe. La fila archivada conserva su último `order`
- * porque ya no la mira nadie.
+ * con la de uno que ya existe.
  */
-export const resolveArchiveOrder = (
-	archivedDocumentId: string,
+export const resolveDeleteOrder = (
+	deletedDocumentId: string,
 	siblings: readonly OrderedRow[],
 ): ModuleOrderWrite[] =>
 	siblings
-		.filter((row) => row.documentId !== archivedDocumentId)
+		.filter((row) => row.documentId !== deletedDocumentId)
 		.flatMap((row, index) =>
 			row.order === index + 1
 				? []

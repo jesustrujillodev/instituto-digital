@@ -3,10 +3,10 @@ import { fail, ok, parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import {
-	validateArchiveLesson,
-	validateArchiveModule,
 	validateCreateLesson,
 	validateCreateModule,
+	validateDeleteLesson,
+	validateDeleteModule,
 	validateFindContentCourse,
 	validateReorderContent,
 	validateUpdateLesson,
@@ -64,14 +64,14 @@ export const action = async ({
 
 			return ok(null, { message: "Módulo actualizado." });
 		}
-		case CONTENT_INTENTS.archiveModule: {
+		case CONTENT_INTENTS.deleteModule: {
 			const input = parseInput(() => ({
 				course: courseDocumentId(),
-				dto: validateArchiveModule(form.payload),
+				dto: validateDeleteModule(form.payload),
 			}));
 			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
 
-			const result = await context.contentService.archiveModule(
+			const result = await context.contentService.deleteModule(
 				input.data.course,
 				input.data.dto.moduleDocumentId,
 				auth,
@@ -112,14 +112,14 @@ export const action = async ({
 
 			return ok(null, { message: "Lección actualizada." });
 		}
-		case CONTENT_INTENTS.archiveLesson: {
+		case CONTENT_INTENTS.deleteLesson: {
 			const input = parseInput(() => ({
 				course: courseDocumentId(),
-				dto: validateArchiveLesson(form.payload),
+				dto: validateDeleteLesson(form.payload),
 			}));
 			if (!input.success) return localizeError(input, CONTENT_ERROR_MESSAGES);
 
-			const result = await context.contentService.archiveLesson(
+			const result = await context.contentService.deleteLesson(
 				input.data.course,
 				input.data.dto.lessonDocumentId,
 				auth,

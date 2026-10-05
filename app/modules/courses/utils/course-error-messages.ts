@@ -43,12 +43,12 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[COURSE_ERROR_CODES.INCOMPATIBLE_COMPLETION_RULE]: {
 		message:
-			"Una capacitación autogestiva no tiene sesiones, así que no puede completarse por asistencia.",
+			"Una capacitación autogestiva no tiene sesiones, así que no puede acreditarse por asistencia.",
 		fieldErrors: { completionRule: "Elige otra regla" },
 	},
 	[COURSE_ERROR_CODES.COMPLETION_LOCKED]: {
 		message:
-			"La capacitación ya está publicada: la evaluación final y la calificación mínima no se pueden cambiar, ni la regla de completado de una autogestiva.",
+			"La capacitación ya está publicada: la evaluación final y la calificación mínima no se pueden cambiar,ni cómo se acredita una autogestiva.",
 		fieldErrors: {
 			completionRule: "No se puede cambiar",
 			requiresEvaluation: "No se puede cambiar",

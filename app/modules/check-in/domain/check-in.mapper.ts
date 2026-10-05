@@ -1,3 +1,4 @@
+import { acceptsLink } from "@/modules/courses/domain/course.rules";
 import type {
 	CheckInCourse,
 	CheckInCourseView,
@@ -19,6 +20,9 @@ export const toCheckInCourseView = (
  * El ordinal sale de la posición en el curso, no de un campo: las sesiones se
  * leen ya ordenadas por `startsAt` y renumerarlas al editar sería una columna
  * más que mantener sincronizada.
+ *
+ * El enlace se filtra por la modalidad del curso: pasarlo a presencial no
+ * borra el que ya tenían sus sesiones.
  */
 export const toCheckInSessionView = (
 	course: CheckInCourse,
@@ -30,6 +34,7 @@ export const toCheckInSessionView = (
 	startsAt: session.startsAt,
 	endsAt: session.endsAt,
 	venue: session.venue,
+	link: acceptsLink(course.modality) ? session.link : null,
 });
 
 export const toCheckInResult = (

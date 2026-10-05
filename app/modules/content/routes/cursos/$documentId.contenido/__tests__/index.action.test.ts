@@ -39,10 +39,10 @@ const createHarness = (reply: unknown = okReply()) => {
 		contentService: {
 			createModule: record("createModule"),
 			updateModule: record("updateModule"),
-			archiveModule: record("archiveModule"),
+			deleteModule: record("deleteModule"),
 			createLesson: record("createLesson"),
 			updateLesson: record("updateLesson"),
-			archiveLesson: record("archiveLesson"),
+			deleteLesson: record("deleteLesson"),
 			reorder: record("reorder"),
 		},
 	} as unknown as ActionArgs["context"];
@@ -98,15 +98,15 @@ describe("contenido action", () => {
 		});
 	});
 
-	test("archivar un módulo viaja por su documentId", async () => {
+	test("borrar un módulo viaja por su documentId", async () => {
 		const { context, calls } = createHarness();
 
 		await run(context, {
-			intent: "archive-module",
+			intent: "delete-module",
 			payload: JSON.stringify({ moduleDocumentId: MODULE_A }),
 		});
 
-		expect(calls[0].method).toBe("archiveModule");
+		expect(calls[0].method).toBe("deleteModule");
 		expect(calls[0].args.slice(0, 2)).toEqual([COURSE_DOC, MODULE_A]);
 	});
 
@@ -132,15 +132,15 @@ describe("contenido action", () => {
 		});
 	});
 
-	test("archivar una lección despacha a su método", async () => {
+	test("borrar una lección despacha a su método", async () => {
 		const { context, calls } = createHarness();
 
 		await run(context, {
-			intent: "archive-lesson",
+			intent: "delete-lesson",
 			payload: JSON.stringify({ lessonDocumentId: LESSON_1 }),
 		});
 
-		expect(calls[0].method).toBe("archiveLesson");
+		expect(calls[0].method).toBe("deleteLesson");
 		expect(calls[0].args.slice(0, 2)).toEqual([COURSE_DOC, LESSON_1]);
 	});
 
@@ -193,7 +193,7 @@ describe("contenido action", () => {
 		});
 
 		const result = await run(context, {
-			intent: "archive-module",
+			intent: "delete-module",
 			payload: JSON.stringify({ moduleDocumentId: MODULE_A }),
 		});
 
