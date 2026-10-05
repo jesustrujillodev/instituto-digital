@@ -78,7 +78,7 @@ export const action = async ({
 			);
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
-			return ok(null, { message: "Módulo archivado." });
+			return ok(null, { message: "Módulo eliminado." });
 		}
 		case CONTENT_INTENTS.createLesson: {
 			const input = parseInput(() => ({
@@ -126,7 +126,7 @@ export const action = async ({
 			);
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
-			return ok(null, { message: "Lección archivada." });
+			return ok(null, { message: "Lección eliminada." });
 		}
 		case CONTENT_INTENTS.reorder: {
 			const input = parseInput(() => ({

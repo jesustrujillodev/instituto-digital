@@ -83,7 +83,7 @@ export const action = async ({
 			);
 			if (!result.success) return localizeError(result, CONTENT_ERROR_MESSAGES);
 
-			return ok(null, { message: "Cuestionario del módulo archivado." });
+			return ok(null, { message: "Cuestionario del módulo eliminado." });
 		}
 
 		case CONTENT_INTENTS.saveFollowUp: {

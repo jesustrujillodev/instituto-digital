@@ -1,5 +1,4 @@
 import {
-	Archive,
 	ChevronDown,
 	ChevronRight,
 	ChevronUp,
@@ -9,6 +8,7 @@ import {
 	MoreHorizontal,
 	Pencil,
 	Plus,
+	Trash2,
 } from "lucide-react";
 import {
 	type ReactNode,
@@ -373,12 +373,12 @@ export function CourseContentManager({
 										</DropdownMenuItem>
 										<DropdownMenuSeparator />
 										<ArchiveItem
-											label="Archivar módulo"
+											label="Eliminar módulo"
 											disabledReason={
 												module.lessons.length > 0
-													? "Archiva primero sus lecciones"
+													? "Elimina primero sus lecciones"
 													: module.quiz
-														? "Archiva primero su evaluación"
+														? "Elimina primero su evaluación"
 														: undefined
 											}
 											onSelect={() =>
@@ -491,7 +491,7 @@ export function CourseContentManager({
 															</DropdownMenuItem>
 															<DropdownMenuSeparator />
 															<ArchiveItem
-																label="Archivar lección"
+																label="Eliminar lección"
 																onSelect={() =>
 																	archiveLesson(lesson.documentId)
 																}
@@ -538,7 +538,7 @@ export function CourseContentManager({
 															</DropdownMenuItem>
 															<DropdownMenuSeparator />
 															<ArchiveItem
-																label="Archivar evaluación del módulo"
+																label="Eliminar evaluación del módulo"
 																onSelect={() =>
 																	void mutate(
 																		CONTENT_INTENTS.archiveModuleQuiz,
@@ -693,7 +693,7 @@ function ArchiveItem({
 			disabled={Boolean(disabledReason)}
 			onSelect={onSelect}
 		>
-			<Archive aria-hidden="true" />
+			<Trash2 aria-hidden="true" />
 			<span className="flex flex-col">
 				{label}
 				{disabledReason && (

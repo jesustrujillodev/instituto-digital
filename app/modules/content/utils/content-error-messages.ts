@@ -70,12 +70,12 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[CONTENT_ERROR_CODES.MODULE_NOT_EMPTY]: {
 		message:
-			"Archiva primero sus lecciones: un módulo con lecciones activas no se archiva.",
+			"Elimina primero sus lecciones: un módulo con lecciones activas no se puede eliminar.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.MODULE_HAS_QUIZ]: {
 		message:
-			"Archiva primero su cuestionario: un módulo con evaluación activa no se archiva.",
+			"Elimina primero su cuestionario: un módulo con evaluación activa no se puede eliminar.",
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[CONTENT_ERROR_CODES.INVALID_ORDER]: {

@@ -91,7 +91,7 @@ export function ContentLessonPane({
 								canMoveUp={canMoveUp}
 								canMoveDown={canMoveDown}
 								onMove={onMove}
-								archive={{ label: "Archivar lección", onClick: onArchive }}
+								archive={{ label: "Eliminar lección", onClick: onArchive }}
 							/>
 						) : null
 					}
