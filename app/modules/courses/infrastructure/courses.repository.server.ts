@@ -38,6 +38,12 @@ const SUMMARY_SELECT = {
 	dependency: { select: { name: true } },
 	createdBy: { select: { firstName: true, lastName: true } },
 	_count: { select: { sessions: true, trainers: true } },
+	trainers: {
+		select: {
+			user: { select: { firstName: true, lastName: true, email: true } },
+		},
+		orderBy: { assignedAt: "asc" },
+	},
 	sessions: {
 		select: { startsAt: true },
 		orderBy: { startsAt: "asc" },

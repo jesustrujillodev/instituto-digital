@@ -57,6 +57,32 @@ describe("toSummary", () => {
 		expect(summary.createdByName).toBeNull();
 	});
 
+	test("nombra a todos los capacitadores, con el correo si no hay nombre", () => {
+		const row = {
+			...baseRow,
+			dependency: { name: "Recursos Humanos" },
+			createdBy: null,
+			_count: { sessions: 0, trainers: 2 },
+			sessions: [],
+		};
+		const summary = toSummary({
+			...row,
+			trainers: [
+				{
+					user: {
+						firstName: "Luis",
+						lastName: "Ramírez",
+						email: "luis@example.com",
+					},
+				},
+				{ user: { firstName: null, lastName: null, email: "ana@example.com" } },
+			],
+		});
+
+		expect(summary.trainerNames).toEqual(["Luis Ramírez", "ana@example.com"]);
+		expect(toSummary({ ...row, trainers: [] }).trainerNames).toEqual([]);
+	});
+
 	test("una cuenta sin nombre capturado no produce una cadena vacía", () => {
 		expect(
 			toSummary({

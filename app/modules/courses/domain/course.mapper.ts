@@ -31,6 +31,7 @@ type CourseRawBase = {
 /** Al listar basta `startsAt`: el primer y el último elemento son el rango. */
 type SummaryRaw = CourseRawBase & {
 	sessions?: readonly { startsAt: Date }[];
+	trainers?: readonly { user: NamedAccount & { email: string } }[];
 };
 
 /**
@@ -41,7 +42,7 @@ type SummaryRaw = CourseRawBase & {
  * conozca su forma.
  */
 export const toSummary = (raw: SummaryRaw): CourseSummary => {
-	const { _count, dependency, createdBy, sessions, ...rest } = raw;
+	const { _count, dependency, createdBy, sessions, trainers, ...rest } = raw;
 	const ordered = sessions ?? [];
 
 	return v.parse(courseSummarySchema, {
@@ -49,6 +50,9 @@ export const toSummary = (raw: SummaryRaw): CourseSummary => {
 		dependencyName: dependency?.name ?? "",
 		sessionCount: _count?.sessions ?? ordered.length,
 		trainerCount: _count?.trainers ?? 0,
+		trainerNames: (trainers ?? []).map(
+			({ user }) => fullNameOf(user) ?? user.email,
+		),
 		firstSessionAt: ordered.at(0)?.startsAt ?? null,
 		lastSessionAt: ordered.at(-1)?.startsAt ?? null,
 		createdByName: fullNameOf(createdBy),

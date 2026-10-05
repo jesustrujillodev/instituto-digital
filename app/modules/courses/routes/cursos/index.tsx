@@ -412,11 +412,10 @@ const metaOf = (course: CourseCard): CourseMetaItem[] => {
 		{
 			icon: User,
 			label:
-				course.trainerCount === 0
+				course.trainerNames.length === 0
 					? "Sin capacitador"
-					: course.trainerCount === 1
-						? "1 capacitador"
-						: `${course.trainerCount} capacitadores`,
+					: course.trainerNames.join(", "),
+			wide: true,
 		},
 	];
 };

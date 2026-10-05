@@ -137,7 +137,9 @@ function Meta({ item, layout }: { item: CourseMetaItem; layout: ViewMode }) {
 			)}
 		>
 			<Icon className="size-3.5 shrink-0" aria-hidden="true" />
-			<span className="truncate">{item.label}</span>
+			<span className="truncate" title={item.label}>
+				{item.label}
+			</span>
 		</span>
 	);
 }
