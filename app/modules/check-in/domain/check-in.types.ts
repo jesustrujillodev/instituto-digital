@@ -41,6 +41,8 @@ export interface CheckInSessionView {
 	startsAt: Date;
 	endsAt: Date;
 	venue: string | null;
+	/** La videollamada; `null` en un curso presencial aunque la fila guarde una. */
+	link: string | null;
 }
 
 export interface CheckInResult {

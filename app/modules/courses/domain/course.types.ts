@@ -159,6 +159,7 @@ export interface QrCourseSession {
 	startsAt: Date;
 	endsAt: Date;
 	venue: string | null;
+	link: string | null;
 }
 
 /**
@@ -172,6 +173,7 @@ export interface QrCourse {
 	documentId: string;
 	title: string;
 	status: CourseStatus;
+	modality: CourseModality;
 	dependencyName: string;
 	qrOpensBeforeMinutes: number;
 	qrClosesAfterMinutes: number;

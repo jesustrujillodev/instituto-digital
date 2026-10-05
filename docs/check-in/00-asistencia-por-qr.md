@@ -38,7 +38,8 @@ Escaneo del QR
   │ validateCheckInToken            ^[A-Za-z0-9_-]{32}$
   │ ¿authPayload?  ──no──▶ redirect /iniciar-sesion?redirectTo=/asistencia/<token>
   │ checkInService.preview
-  ▼ pantalla "Registrando tu asistencia…"
+  ▼ pantalla "Registrando tu asistencia…"   con la sesión y, en línea o
+  │                                         híbrida, «Entrar a la videollamada»
   │
   ▼ POST /asistencia/<token>         (action, auto-enviado al montar)
   │ checkInService.register
@@ -71,6 +72,12 @@ Los dos rechazos de ventana llevan el intervalo **entero** (`opensAt` y
 las 14:30" se lee como el único momento válido. La copia lo imprime con la
 etiqueta de zona (`INSTITUTE_TIME_ZONE_LABEL`), porque quien abre la plataforma
 desde otra zona horaria ve horas que no son las de su reloj.
+
+La pantalla pinta la sede y, si el curso es en línea o híbrido, el enlace de la
+sesión como botón **Entrar a la videollamada**. Se ve desde que carga, no solo
+tras registrar: la pantalla solo llega a quien está inscrito y dentro de la
+ventana. El mapper descarta el enlace en un curso presencial (`acceptsLink`),
+porque pasar el curso a presencial no borra el que guardaban sus sesiones.
 
 ## 5. Rechazos
 
