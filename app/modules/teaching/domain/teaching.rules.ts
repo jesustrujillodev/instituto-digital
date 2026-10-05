@@ -27,6 +27,7 @@ import {
 	TeachingWithoutSessionsError,
 } from "./teaching.errors";
 import type {
+	AccreditationGap,
 	SaveAttendanceDto,
 	TeachingCourse,
 	TeachingParticipant,
@@ -100,8 +101,15 @@ export const meetsAttendance = (
 	minAttendance: number,
 ): boolean => total > 0 && attended * 100 >= minAttendance * total;
 
+type AccreditationCourse = Pick<
+	TeachingCourse,
+	"minAttendance" | "requiresEvaluation" | "completionRule" | "minPassingGrade"
+> & { sessionCount: number };
+
 /**
- * Qué cuenta como completado, según la regla del curso (docs/adr/0011, 0014).
+ * Los requisitos que la persona no cumple, según la regla del curso
+ * (docs/adr/0011, 0014). Vacío = acredita: `isCompleted` es exactamente eso,
+ * así que lo que se le explica a alguien no puede contradecir el cálculo.
  *
  * Cada regla es una conjunción de términos: asistencia si la cuenta, contenido
  * si lo cuenta, y aprobado si el curso exige evaluación. `ATTENDANCE` queda
@@ -112,31 +120,65 @@ export const meetsAttendance = (
  * Sin «Requiere evaluación» nadie captura resultados: un `FAILED` solo lo
  * escribe el temario cuando su promedio no alcanza la mínima (docs/adr/0024).
  */
-export const isCompleted = (
-	course: Pick<
-		TeachingCourse,
-		"minAttendance" | "requiresEvaluation" | "completionRule"
-	> & {
-		sessionCount: number;
+export const accreditationGapsOf = (
+	course: AccreditationCourse,
+	participant: {
+		attendedSessions: number;
+		contentCompletedAt: Date | null;
+		result: TeachingParticipant["result"];
+		grade: number | null;
 	},
-	participant: TeachingParticipant,
-): boolean => {
-	const attendanceOk =
-		!countsAttendance(course.completionRule) ||
-		meetsAttendance(
-			attendedSessionsOf(participant),
+): AccreditationGap[] => {
+	const gaps: AccreditationGap[] = [];
+
+	if (
+		countsAttendance(course.completionRule) &&
+		!meetsAttendance(
+			participant.attendedSessions,
 			course.sessionCount,
 			course.minAttendance,
-		);
-	const contentOk =
-		!countsContent(course.completionRule) ||
-		participant.contentCompletedAt !== null;
-	const evaluationOk = course.requiresEvaluation
-		? participant.result === "PASSED"
-		: participant.result !== "FAILED";
+		)
+	) {
+		gaps.push({
+			kind: "ATTENDANCE",
+			attended: participant.attendedSessions,
+			total: course.sessionCount,
+			minAttendance: course.minAttendance,
+		});
+	}
 
-	return attendanceOk && contentOk && evaluationOk;
+	if (
+		countsContent(course.completionRule) &&
+		participant.contentCompletedAt === null
+	) {
+		gaps.push({ kind: "CONTENT" });
+	}
+
+	if (participant.result === "FAILED") {
+		gaps.push(
+			participant.grade === null
+				? { kind: "EXAM_NOT_TAKEN" }
+				: {
+						kind: "GRADE",
+						grade: participant.grade,
+						minPassingGrade: course.minPassingGrade,
+					},
+		);
+	} else if (course.requiresEvaluation && participant.result === "PENDING") {
+		gaps.push({ kind: "GRADE_PENDING" });
+	}
+
+	return gaps;
 };
+
+export const isCompleted = (
+	course: AccreditationCourse,
+	participant: TeachingParticipant,
+): boolean =>
+	accreditationGapsOf(course, {
+		...participant,
+		attendedSessions: attendedSessionsOf(participant),
+	}).length === 0;
 
 export const completedParticipantsOf = (
 	course: TeachingCourse,

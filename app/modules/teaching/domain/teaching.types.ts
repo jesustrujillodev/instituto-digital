@@ -59,6 +59,24 @@ export interface TeachingParticipant extends TeachingPerson {
 	certificate: TeachingCertificate | null;
 }
 
+/**
+ * Un requisito que la persona no cumple todavía, con lo que hace falta para
+ * nombrarlo: el valor que tiene y el mínimo que pide el curso.
+ */
+export type AccreditationGap =
+	| {
+			kind: "ATTENDANCE";
+			attended: number;
+			total: number;
+			minAttendance: number;
+	  }
+	| { kind: "CONTENT" }
+	/** Cerró sin presentar el examen final: reprobado sin nota. */
+	| { kind: "EXAM_NOT_TAKEN" }
+	| { kind: "GRADE"; grade: number; minPassingGrade: number }
+	/** Exige examen y la calificación todavía no se calcula. */
+	| { kind: "GRADE_PENDING" };
+
 export interface TeachingCertificate {
 	documentId: string;
 	folio: string;
@@ -136,6 +154,8 @@ export interface TeachingParticipantView extends TeachingPerson {
 	completed: boolean;
 	/** Lo que daría el cálculo con los datos de ahora. */
 	wouldComplete: boolean;
+	/** Lo que le falta con los datos de ahora; vacío si acredita. */
+	gaps: AccreditationGap[];
 	attendedSessions: number;
 	/** Porcentaje entero, 0 si el curso no tiene sesiones. */
 	attendancePercent: number;

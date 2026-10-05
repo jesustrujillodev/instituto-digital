@@ -247,7 +247,7 @@ export const renderNotification = (
 				greeting,
 				{
 					kind: "paragraph",
-					text: `Completaste la capacitación «${event.course.title}», organizada por ${event.course.dependencyName}, y se emitió tu certificado con el folio ${event.folio}.`,
+					text: `Acreditaste la capacitación «${event.course.title}», organizada por ${event.course.dependencyName}, y se emitió tu certificado con el folio ${event.folio}.`,
 				},
 				...(event.message
 					? [{ kind: "paragraph", text: event.message } satisfies Block]

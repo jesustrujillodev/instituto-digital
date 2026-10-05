@@ -43,9 +43,9 @@ function progressNote({
 	withModuleQuizzes: boolean;
 }): string {
 	if (!countsContent) {
-		return "Material de apoyo: recorrerlo no cuenta para completar la capacitación.";
+		return "Material de apoyo: recorrerlo no cuenta para acreditar la capacitación.";
 	}
-	if (completed) return "Completaste la capacitación.";
+	if (completed) return "Acreditaste la capacitación.";
 	if (contentCompletedAt) {
 		return `Terminaste el contenido el ${formatZonedDate(new Date(contentCompletedAt))}.`;
 	}

@@ -6,6 +6,7 @@ import type {
 	CourseModality,
 	CourseStatus,
 } from "@/modules/courses/domain/course.rules";
+import type { AccreditationGap } from "@/modules/teaching/domain/teaching.types";
 import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	EnrollmentOrigin,
@@ -54,6 +55,10 @@ export interface EnrollmentCourse {
 	modality: CourseModality;
 	format: CourseFormat;
 	completionRule: CourseCompletionRule;
+	/** Los mínimos con que se acredita, para explicar qué le falta a alguien. */
+	minAttendance: number;
+	requiresEvaluation: boolean;
+	minPassingGrade: number;
 	access: CourseAccessType;
 	status: CourseStatus;
 	capacity: number | null;
@@ -172,6 +177,8 @@ export interface MyCourseTimeline {
 export interface MyCourseEntry extends MyCourseRecord {
 	canRate: boolean;
 	timeline: MyCourseTimeline;
+	/** Lo que le falta para acreditar con los datos de hoy; vacío si acredita. */
+	gaps: AccreditationGap[];
 }
 
 export interface MyCourses {

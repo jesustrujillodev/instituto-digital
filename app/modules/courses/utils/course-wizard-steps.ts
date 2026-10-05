@@ -64,7 +64,7 @@ export const COURSE_WIZARD_STEPS: readonly CourseStep[] = [
 		key: "rules",
 		number: 4,
 		title: "Evaluación",
-		summary: "Cómo se completa y se evalúa",
+		summary: "Cómo se acredita y se evalúa",
 		fields: [
 			"completionRule",
 			"minAttendance",

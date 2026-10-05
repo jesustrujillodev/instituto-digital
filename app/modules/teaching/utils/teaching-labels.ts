@@ -9,7 +9,7 @@ export const finishBlockerMessage = (
 		case "NOT_PUBLISHED":
 			return "Solo se finaliza una capacitación publicada.";
 		case "SELF_PACED":
-			return "Una capacitación autogestiva no se finaliza: cada participante la completa al terminarla.";
+			return "Una capacitación autogestiva no se finaliza: cada participante la acredita al cumplir los requisitos.";
 		case "WITHOUT_SESSIONS":
 			return "La capacitación no tiene sesiones.";
 		case "TOO_EARLY":

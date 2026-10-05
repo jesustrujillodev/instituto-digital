@@ -1,17 +1,22 @@
-import {
-	ENROLLMENT_RESULT_LABELS,
-	personNameOf,
-} from "@/modules/enrollments/utils/enrollment-labels";
+import { personNameOf } from "@/modules/enrollments/utils/enrollment-labels";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import type { TeachingDetail } from "../domain/teaching.types";
 
-/** Un reprobado sin nota es quien no presentó el examen antes del cierre. */
-const resultLabel = (participant: TeachingDetail["participants"][number]) => {
-	if (participant.result === "PENDING") return "Sin presentar";
+/**
+ * La nota junto a la mínima: sola, «66» se confundía con el 66 % de asistencia.
+ * Un reprobado sin nota es quien no presentó el examen antes del cierre.
+ */
+const gradeLabel = (
+	participant: TeachingDetail["participants"][number],
+	minPassingGrade: number,
+) => {
 	if (participant.result === "FAILED" && participant.grade === null) {
-		return "No presentó";
+		return "No presentó el examen final";
 	}
-	return `${ENROLLMENT_RESULT_LABELS[participant.result]} · ${participant.grade}`;
+	if (participant.grade === null) return "Calificación pendiente";
+	return participant.grade >= minPassingGrade
+		? `Calificación ${participant.grade} · alcanza la mínima de ${minPassingGrade}`
+		: `Calificación ${participant.grade} · no alcanza la mínima de ${minPassingGrade}`;
 };
 
 /**
@@ -21,9 +26,9 @@ const resultLabel = (participant: TeachingDetail["participants"][number]) => {
 export function ResultsPanel({
 	detail,
 }: {
-	detail: Pick<TeachingDetail, "participants">;
+	detail: Pick<TeachingDetail, "participants" | "course">;
 }) {
-	const { participants } = detail;
+	const { participants, course } = detail;
 
 	if (participants.length === 0) {
 		return (
@@ -37,8 +42,9 @@ export function ResultsPanel({
 		<Card>
 			<CardContent className="flex flex-col gap-4">
 				<p className="text-muted-foreground text-sm">
-					La calificación la calcula la plataforma con las evaluaciones en
-					línea; no se captura a mano.
+					La calificación es el promedio de las evaluaciones en línea y la
+					calcula la plataforma; no se captura a mano. Acreditar pide además los
+					demás requisitos: el detalle está en Acreditación.
 				</p>
 				<ul className="flex flex-col divide-y divide-border">
 					{participants.map((participant) => (
@@ -50,12 +56,9 @@ export function ResultsPanel({
 								<span className="block truncate text-sm">
 									{personNameOf(participant)}
 								</span>
-								<span className="block truncate text-muted-foreground text-xs">
-									Asistencia {participant.attendancePercent} %
-								</span>
 							</span>
 							<span className="text-muted-foreground text-sm">
-								{resultLabel(participant)}
+								{gradeLabel(participant, course.minPassingGrade)}
 							</span>
 						</li>
 					))}

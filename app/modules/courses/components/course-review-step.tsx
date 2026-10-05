@@ -169,7 +169,7 @@ export function CourseReviewStep({
 					<ReviewFacts
 						facts={[
 							{
-								term: "Se completa con",
+								term: "Se acredita con",
 								value: COMPLETION_RULE_LABELS[course.completionRule],
 							},
 							...(countsAttendance(course.completionRule)

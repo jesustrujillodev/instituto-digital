@@ -132,8 +132,8 @@ const closingStatusOf = (
 		return { icon: Info, label: "Resultado pendiente", tone: "neutral" };
 	}
 	return outcome.completed
-		? { icon: CircleCheck, label: "Completado · 1 crédito", tone: "success" }
-		: { icon: CircleMinus, label: "No completado", tone: "muted" };
+		? { icon: CircleCheck, label: "Acreditada · 1 crédito", tone: "success" }
+		: { icon: CircleMinus, label: "No acreditada", tone: "muted" };
 };
 
 interface Progress {

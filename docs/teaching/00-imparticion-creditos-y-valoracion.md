@@ -118,6 +118,16 @@ añada una lección obligatoria.
 La rama `ATTENDANCE` es idéntica al comportamiento anterior a la regla, bit a
 bit: gobierna todo el histórico y una prueba la fija.
 
+`isCompleted` es `accreditationGapsOf(...).length === 0`. Esa función devuelve
+los requisitos que faltan, cada uno con su valor y su mínimo: `ATTENDANCE`,
+`CONTENT`, `EXAM_NOT_TAKEN` (cerró sin presentar el examen), `GRADE` (promedio
+por debajo de `min_passing_grade`) y `GRADE_PENDING`. Con ellos, la pestaña
+**Acreditación** muestra cada requisito contra su mínimo y el motivo por el que
+alguien no acredita, y la ficha de «Mis capacitaciones» se lo dice a la persona.
+Como sale del mismo cálculo, lo que se explica no puede contradecir el
+resultado. En la interfaz, completar el curso se nombra **acreditar**; las
+lecciones y el contenido se siguen «completando».
+
 ### 4.2 · El autogestivo no se finaliza
 
 Cada participante lo completa cuando cumple, y en ese momento recibe su crédito.

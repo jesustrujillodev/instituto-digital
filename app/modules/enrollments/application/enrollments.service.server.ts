@@ -13,6 +13,7 @@ import {
 } from "@/modules/notifications/domain/notification.mapper";
 import type { Recipient } from "@/modules/notifications/domain/notification.types";
 import { canRateCourse } from "@/modules/ratings/domain/rating.rules";
+import { accreditationGapsOf } from "@/modules/teaching/domain/teaching.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -182,6 +183,15 @@ export const createEnrollmentService = ({
 	): MyCourseEntry => ({
 		...record,
 		timeline: courseTimelineOf(record.course, now),
+		gaps: accreditationGapsOf(
+			{ ...record.course, sessionCount: record.course.sessions.length },
+			{
+				attendedSessions: record.outcome.attendedSessions,
+				contentCompletedAt: record.outcome.contentCompletedAt,
+				result: record.enrollment.result,
+				grade: record.outcome.grade,
+			},
+		),
 		canRate:
 			record.outcome.myRating === null &&
 			canRateCourse({

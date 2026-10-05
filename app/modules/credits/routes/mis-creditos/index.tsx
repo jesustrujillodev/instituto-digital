@@ -204,7 +204,7 @@ export default function MisCreditosPage({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col gap-6">
 			<PageHeader
 				title="Mis créditos"
-				description="Un crédito por cada capacitación que completas. Cuenta para la dependencia a la que pertenecías al obtenerlo."
+				description="Un crédito por cada capacitación que acreditas. Cuenta para la dependencia a la que pertenecías al obtenerlo."
 				actions={<ViewModeToggle value={layout} onChange={setLayout} />}
 				actionsClassName="items-end *:w-auto"
 			/>

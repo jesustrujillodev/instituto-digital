@@ -63,7 +63,7 @@ export const ENROLLMENT_ERROR_MESSAGES: ErrorMessageMap = {
 	[ENROLLMENT_ERROR_CODES.REMOVE_CLOSED]: {
 		message: (error) =>
 			error.details?.reason === "COMPLETED"
-				? "Esa persona ya completó la capacitación: no se puede dar de baja."
+				? "Esa persona ya acreditó la capacitación: no se puede dar de baja."
 				: "Solo se da de baja en una capacitación publicada.",
 	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",

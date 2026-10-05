@@ -268,7 +268,7 @@ export function CourseSessionsField({
 			</legend>
 			<p className="text-muted-foreground text-sm">
 				{optional
-					? "Encuentros en sede o por videollamada para complementar el contenido, por ejemplo un taller práctico. No cuentan para completar la capacitación."
+					? "Encuentros en sede o por videollamada para complementar el contenido, por ejemplo un taller práctico.No cuentan para acreditar la capacitación."
 					: `Para publicar hace falta al menos una, con fecha, horario y ${PLACE_OF[modality]}.`}
 				{isPublished &&
 					" Si cambias horario o lugar, se avisa por correo a inscritos e invitados."}
