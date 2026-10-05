@@ -36,6 +36,10 @@ lleva dependencia y `INSTITUTIONAL` no.
 - Copiar es leer y escribir (`getFile` + `uploadFile`): sirve igual con S3 y con GCS. Si la
   escritura en base falla después de copiar, quedan huérfanos que detecta el gestor de
   nube, la misma política que las firmas.
+- Las subidas y las copias se nombran por la huella de sus bytes: repetir una subida o
+  aplicar otra vez la misma plantilla reescribe el mismo objeto. La ventana de gracia de
+  huérfanos es de 24 horas para cubrir una edición larga sin guardar, y guardar rechaza
+  (`CERTIFICATE_ASSET_MISSING`) lo que el diseño estrena si ya no está en storage.
 
 ### 2.3 Logos inmutables
 

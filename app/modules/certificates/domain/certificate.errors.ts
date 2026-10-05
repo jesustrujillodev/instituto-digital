@@ -7,6 +7,7 @@ export const CERTIFICATE_ERROR_CODES = {
 	NEVER_PUBLISHED: "CERTIFICATE_NEVER_PUBLISHED",
 	ASSET_INVALID: "CERTIFICATE_ASSET_INVALID",
 	ASSET_NOT_OWNED: "CERTIFICATE_ASSET_NOT_OWNED",
+	ASSET_MISSING: "CERTIFICATE_ASSET_MISSING",
 	BACKGROUND_INVALID: "CERTIFICATE_BACKGROUND_INVALID",
 	LOGO_NOT_FOUND: "CERTIFICATE_LOGO_NOT_FOUND",
 	LOGO_ARCHIVED: "CERTIFICATE_LOGO_ARCHIVED",
@@ -64,6 +65,17 @@ export class CertificateAssetNotOwnedError extends CertificateError {
 	readonly code = CERTIFICATE_ERROR_CODES.ASSET_NOT_OWNED;
 	constructor() {
 		super("Asset does not belong to this course");
+	}
+}
+
+/**
+ * El diseño apunta a una imagen o un fondo que ya no está en storage: se borró
+ * desde la nube mientras el editor seguía abierto sin guardar.
+ */
+export class CertificateAssetMissingError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.ASSET_MISSING;
+	constructor() {
+		super("Asset no longer exists in storage");
 	}
 }
 

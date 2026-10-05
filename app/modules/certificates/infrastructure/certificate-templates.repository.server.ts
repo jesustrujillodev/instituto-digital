@@ -3,6 +3,7 @@ import * as v from "valibot";
 import type { ICradle } from "@/shared/di/container.types";
 import type { CertificateTemplate } from "../domain/certificate.types";
 import type { ICertificateTemplateRepository } from "../domain/certificate-template.repository";
+import { storedDesignRefsOf } from "../domain/design/design.assets";
 import { DEFAULT_CERTIFICATE_DESIGN } from "../domain/design/design.presets";
 import { designV2Schema } from "../domain/design/design-v2.schema";
 
@@ -29,6 +30,11 @@ type Row = Prisma.CertificateTemplateGetPayload<{
 
 const asJson = (value: unknown) => value as Prisma.InputJsonValue;
 
+const readDesign = (blob: unknown) => {
+	const parsed = v.safeParse(designV2Schema, blob);
+	return parsed.success ? parsed.output : null;
+};
+
 export const createCertificateTemplateRepository = ({
 	prisma,
 	logger,
@@ -41,8 +47,8 @@ export const createCertificateTemplateRepository = ({
 		design,
 		...row
 	}: Row): CertificateTemplate => {
-		const parsed = v.safeParse(designV2Schema, design);
-		if (!parsed.success) {
+		const parsed = readDesign(design);
+		if (!parsed) {
 			log.error("template design is unreadable — falling back to default", {
 				template: row.documentId,
 			});
@@ -50,7 +56,7 @@ export const createCertificateTemplateRepository = ({
 		return {
 			...row,
 			dependencyName: dependency?.name ?? null,
-			design: parsed.success ? parsed.output : DEFAULT_CERTIFICATE_DESIGN,
+			design: parsed ?? DEFAULT_CERTIFICATE_DESIGN,
 		};
 	};
 
@@ -87,6 +93,18 @@ export const createCertificateTemplateRepository = ({
 				select: TEMPLATE_SELECT,
 			});
 			return rows.map(toTemplate);
+		},
+
+		async findWithStorageRefs(documentIds) {
+			if (documentIds.length === 0) return [];
+			const rows = await prisma.certificateTemplate.findMany({
+				where: { documentId: { in: [...documentIds] } },
+				select: TEMPLATE_SELECT,
+			});
+			return rows.map((row) => ({
+				template: toTemplate(row),
+				...storedDesignRefsOf([row.design], readDesign),
+			}));
 		},
 
 		async create({ design, ...template }) {

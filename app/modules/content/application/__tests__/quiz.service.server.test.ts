@@ -158,6 +158,7 @@ const createHarness = (
 		participant?: QuizParticipantRef | null;
 		attempts?: QuizAttemptRow[];
 		followUps?: StoredFollowUp[];
+		followUpBanks?: (StoredQuiz & { attemptCount: number })[];
 		/** Sesiones con asistencia de quien presenta. */
 		attended?: number[];
 		/** La sesión del curso que se busca; `null` finge que es de otro. */
@@ -270,6 +271,7 @@ const createHarness = (
 		findBoardQuizzes: async () => [BOARD_ENTRY],
 		findLatestAttempts: async () => options.attempts ?? [],
 		findFollowUps: async () => followUps,
+		findFollowUpBanks: async () => options.followUpBanks ?? [],
 		findFollowUp: async (_courseId: number, documentId: string) =>
 			followUps.find((row) => row.documentId === documentId) ?? null,
 		findSessionId: async () =>
@@ -1029,6 +1031,35 @@ describe("evaluaciones de seguimiento (docs/adr/0027)", () => {
 		questions: bankDto.questions,
 	};
 	const FOLLOW_UP_OWNER = { lessonId: null, moduleId: null, followUpId: 40 };
+
+	test("los bancos de todas se leen juntos, por evaluación", async () => {
+		const { service } = createHarness({
+			editable: SCHEDULED,
+			followUpBanks: [
+				{ ...quizOf({ id: 40, documentId: FOLLOW_UP_DOC }), attemptCount: 2 },
+			],
+		});
+
+		const result = await service.findFollowUpBanks(COURSE_DOC, HEAD);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				[FOLLOW_UP_DOC]: { documentId: FOLLOW_UP_DOC, attemptCount: 2 },
+			},
+		});
+	});
+
+	test("los bancos de un curso que no administra no se leen", async () => {
+		const { service } = createHarness({ editable: null });
+
+		const result = await service.findFollowUpBanks(COURSE_DOC, HEAD);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+	});
 
 	test("crearla desde el modal la deja sin preguntas", async () => {
 		const { service, calls } = createHarness({ editable: SCHEDULED });

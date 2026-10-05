@@ -1,5 +1,6 @@
 import type { AccessScope } from "@/shared/auth/scope.rules";
 import type { CourseScope } from "./course.access";
+import type { CourseStatus } from "./course.rules";
 import type {
 	CourseDetail,
 	CourseSummary,
@@ -21,8 +22,7 @@ export interface CourseReference {
  * El alcance es un PARÁMETRO de cada operación, no un valor inyectado.
  *
  * Fuera de alcance se ve igual que inexistente: las escrituras llevan el filtro
- * junto a la clave única, así que Prisma lanza P2025 y se traduce a
- * `CourseNotFoundError`.
+ * junto a la clave única.
  */
 export interface ICourseRepository {
 	findAll(
@@ -45,18 +45,27 @@ export interface ICourseRepository {
 	create(data: CreateCourseData): Promise<CourseDetail>;
 
 	/**
-	 * Actualización del curso y de sus tres colecciones.
+	 * Actualización del curso y de sus tres colecciones, solo si sigue en
+	 * `expected`; `null` si otra petición cambió su estado.
 	 *
 	 * Las sesiones se DIFERENCIAN por `documentId` —se conservan, se actualizan,
-	 * se borran y se insertan— mientras que capacitadores y audiencia se
-	 * reemplazan enteros. La asimetría es deliberada: desde PRD-06 cada sesión
-	 * cuelga su asistencia, y recrearlas la dejaría huérfana.
+	 * se borran y se insertan—: desde PRD-06 cada sesión cuelga su asistencia, y
+	 * recrearlas la dejaría huérfana.
 	 */
 	update(
 		documentId: string,
 		data: UpdateCourseData,
 		scope: CourseScope,
-	): Promise<CourseDetail>;
+		expected: CourseStatus,
+	): Promise<CourseDetail | null>;
+
+	/** Bloquea la fila del curso hasta el final de la transacción en curso. */
+	lock(documentId: string): Promise<void>;
+
+	/** De entre estas sesiones, las que ya tienen asistencia registrada. */
+	findSessionsWithAttendance(
+		sessionDocumentIds: readonly string[],
+	): Promise<string[]>;
 
 	/**
 	 * Las referencias de storage del material de estas sesiones. Se leen antes de
@@ -64,7 +73,8 @@ export interface ICourseRepository {
 	 */
 	findSessionMaterialRefs(sessionDocumentIds: string[]): Promise<string[]>;
 
-	publish(documentId: string, scope: CourseScope): Promise<CourseDetail>;
+	/** `DRAFT` → `PUBLISHED`; `null` si ya no era borrador. */
+	publish(documentId: string, scope: CourseScope): Promise<CourseDetail | null>;
 	/**
 	 * `PUBLISHED` → `FINISHED`, condicionado al estado. Devuelve `false` si otra
 	 * petición lo cambió antes. Sin alcance: lo llama `teaching` ya autorizado.
@@ -75,8 +85,15 @@ export interface ICourseRepository {
 	 * reabre. Sin alcance, como `finish`: lo llama `teaching` ya autorizado.
 	 */
 	setEnrollmentClosed(courseId: number, at: Date | null): Promise<void>;
-	/** No borra nada: marca el estado y el instante (§6.5). */
-	cancel(documentId: string, scope: CourseScope): Promise<CourseDetail>;
+	/**
+	 * No borra nada: marca el estado y el instante (§6.5). Solo si sigue en
+	 * `expected`; `null` si otra petición cambió su estado.
+	 */
+	cancel(
+		documentId: string,
+		scope: CourseScope,
+		expected: CourseStatus,
+	): Promise<CourseDetail | null>;
 
 	/**
 	 * Cuentas con perfil de capacitador ACTIVO, de entre las pedidas.

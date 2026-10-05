@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
+import { CLOUD_LIMITS } from "../cloud.config";
 import {
+	isOrphanObject,
 	validateCloudKey,
 	validateCloudList,
 	validateCloudPath,
@@ -75,5 +77,32 @@ describe("validateCloudSelection", () => {
 		const keys = Array.from({ length: 501 }, (_, index) => `k/${index}.jpg`);
 
 		expect(() => validateCloudSelection({ keys, prefixes: [] })).toThrow();
+	});
+});
+
+describe("isOrphanObject", () => {
+	const NOW = Date.parse("2026-10-02T12:00:00Z");
+	const ago = (ms: number) => new Date(NOW - ms);
+
+	test("sin referencia y fuera de la ventana de gracia es huérfano", () => {
+		expect(
+			isOrphanObject(ago(CLOUD_LIMITS.orphanGraceMs + 1), false, NOW),
+		).toBe(true);
+	});
+
+	// Una edición de certificado sin guardar dura horas: lo que sube no se
+	// puede borrar mientras tanto.
+	test("dentro de la ventana no lo es, aunque nadie lo use todavía", () => {
+		expect(isOrphanObject(ago(3 * 60 * 60 * 1000), false, NOW)).toBe(false);
+		expect(CLOUD_LIMITS.orphanGraceMs).toBeGreaterThanOrEqual(
+			12 * 60 * 60 * 1000,
+		);
+	});
+
+	test("con referencia o sin fecha nunca lo es", () => {
+		expect(isOrphanObject(ago(30 * 24 * 60 * 60 * 1000), true, NOW)).toBe(
+			false,
+		);
+		expect(isOrphanObject(null, false, NOW)).toBe(false);
 	});
 });

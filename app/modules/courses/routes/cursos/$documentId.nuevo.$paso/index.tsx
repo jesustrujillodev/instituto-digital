@@ -9,11 +9,11 @@ import {
 	stepPosition,
 	stepsFor,
 } from "../../../utils/course-wizard-steps";
-import { shouldRevalidateAfterPublish } from "../../../utils/parse-course-form-data";
+import { shouldRevalidateCourseStep } from "../../../utils/parse-course-form-data";
 import type { Route } from "./+types/index";
 
 export const shouldRevalidate: ShouldRevalidateFunction =
-	shouldRevalidateAfterPublish;
+	shouldRevalidateCourseStep;
 
 const LIST_PATH = "/dashboard/capacitaciones";
 

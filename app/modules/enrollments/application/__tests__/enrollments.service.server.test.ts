@@ -133,6 +133,10 @@ const createHarness = (options: HarnessOptions = {}) => {
 			if (options.managed === false && !("OR" in filter)) return null;
 			return options.course === undefined ? courseOf() : options.course;
 		},
+		countInvited: async (_courseId: number, dependencyId: number | null) => {
+			calls.rosterScopes.push(dependencyId);
+			return 2;
+		},
 		findRoster: async (_courseId: number, dependencyId: number | null) => {
 			calls.rosterScopes.push(dependencyId);
 			return [];
@@ -879,6 +883,40 @@ describe("enrollmentService.listRoster", () => {
 		const { service } = createHarness({ managed: false });
 
 		const result = await service.listRoster(
+			COURSE_ID,
+			actorOf("USER", { isTrainer: true }),
+		);
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+	});
+});
+
+describe("enrollmentService.findRosterSummary", () => {
+	const head = actorOf("DEPENDENCY_HEAD", { dependencyId: 3 });
+
+	test("cuenta las invitaciones con el mismo alcance que la lista", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.findRosterSummary(COURSE_ID, head);
+
+		expect(result).toMatchObject({ success: true, data: { invited: 2 } });
+		expect(calls.rosterScopes).toEqual([null]);
+	});
+
+	test("una dependencia invitada solo cuenta a su personal", async () => {
+		const { service, calls } = createHarness({ managed: false });
+
+		await service.findRosterSummary(COURSE_ID, head);
+
+		expect(calls.rosterScopes).toEqual([3]);
+	});
+
+	test("un capacitador interno no alcanza cursos ajenos", async () => {
+		const { service } = createHarness({ managed: false });
+
+		const result = await service.findRosterSummary(
 			COURSE_ID,
 			actorOf("USER", { isTrainer: true }),
 		);

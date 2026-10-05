@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import type { ICradle } from "@/shared/di/container.types";
 import { contentTypeForKey } from "@/shared/storage/mime";
-import { buildObjectKey } from "@/shared/storage/object-key";
+import { buildContentObjectKey } from "@/shared/storage/object-key";
 import { toProxyRef } from "@/shared/storage/public-url";
 import { bucketForKey } from "@/shared/storage/storage.policy";
 import { getKeyFromUrl } from "@/shared/storage/storage.utils";
@@ -26,6 +27,10 @@ import { inspectImage } from "./inspect-image.server";
 // Las comparten el certificado de un curso y las plantillas de la biblioteca;
 // solo cambia la carpeta. Reciben sus dependencias explícitas: no guardan
 // estado ni se inyectan.
+//
+// La key lleva la huella de los bytes: volver a subir el mismo archivo o
+// aplicar dos veces la misma plantilla reescribe el mismo objeto en vez de
+// dejar otra copia huérfana.
 
 export type UploadDeps = Pick<
 	ICradle,
@@ -42,12 +47,22 @@ const bucketOf = (deps: UploadDeps, key: string) => {
 	});
 };
 
-/** Guarda bytes en una key y devuelve su referencia del proxy. */
+/** Lo bastante largo para no chocar nunca dentro de una carpeta. */
+const digestOf = (bytes: Uint8Array) =>
+	createHash("sha256").update(bytes).digest("hex").slice(0, 32);
+
+/**
+ * Guarda bytes con la huella en la key y devuelve su referencia del proxy.
+ * Si ya existe, se reescribe igual: así su fecha se renueva y el gestor de
+ * nube no lo toma por huérfano mientras el diseño que lo usa no se guarda.
+ */
 export const storeBytes = async (
 	deps: UploadDeps,
-	key: string,
+	folder: string,
+	name: string,
 	bytes: Uint8Array,
 ): Promise<string> => {
+	const key = buildContentObjectKey(folder, name, digestOf(bytes));
 	await deps.storageProvider.uploadFile(
 		bucketOf(deps, key),
 		key,
@@ -56,6 +71,12 @@ export const storeBytes = async (
 	);
 	return toProxyRef(key);
 };
+
+/** El nombre de una key sin la marca de tiempo ni la huella que se le añadió. */
+const baseNameOf = (key: string) =>
+	key
+		.slice(key.lastIndexOf("/") + 1)
+		.replace(/-(?:\d{13}|[0-9a-f]{32})(\.[^.]+)$/, "$1");
 
 /**
  * Copia un objeto de una carpeta a otra y devuelve la referencia de la copia.
@@ -70,10 +91,24 @@ export const copyObject = async (
 	const key = getKeyFromUrl(ref);
 	if (!key) throw new Error(`referencia de storage ilegible: ${ref}`);
 	const bytes = await deps.storageProvider.getFile(bucketOf(deps, key), key);
-	const name = key
-		.slice(key.lastIndexOf("/") + 1)
-		.replace(/-\d+(\.[^.]+)$/, "$1");
-	return storeBytes(deps, buildObjectKey(folder, name), bytes);
+	return storeBytes(deps, folder, baseNameOf(key), bytes);
+};
+
+/** Las referencias cuyo objeto ya no está en storage. */
+export const missingRefsOf = async (
+	deps: UploadDeps,
+	refs: readonly string[],
+): Promise<string[]> => {
+	const checked = await Promise.all(
+		refs.map(async (ref) => {
+			const key = getKeyFromUrl(ref);
+			const exists =
+				key !== null &&
+				(await deps.storageProvider.fileExists(bucketOf(deps, key), key));
+			return exists ? null : ref;
+		}),
+	);
+	return checked.filter((ref): ref is string => ref !== null);
 };
 
 /** Una imagen o firma: se reconoce por sus bytes y se guarda con su tipo real. */
@@ -90,7 +125,8 @@ export const storeCertificateImage = async (
 
 	const ref = await storeBytes(
 		deps,
-		buildObjectKey(folder, assetFileNameOf(file.name, inspected.type)),
+		folder,
+		assetFileNameOf(file.name, inspected.type),
 		bytes,
 	);
 	return { ref, widthPx: inspected.widthPx, heightPx: inspected.heightPx };
@@ -134,10 +170,11 @@ export const storeCertificateBackground = async (
 	}
 
 	const [pdfRef, rasterRef] = await Promise.all([
-		storeBytes(deps, buildObjectKey(folder, "fondo.pdf"), sanitized.bytes),
+		storeBytes(deps, folder, "fondo.pdf", sanitized.bytes),
 		storeBytes(
 			deps,
-			buildObjectKey(folder, assetFileNameOf("fondo", inspected.type)),
+			folder,
+			assetFileNameOf("fondo", inspected.type),
 			rasterBytes,
 		),
 	]);

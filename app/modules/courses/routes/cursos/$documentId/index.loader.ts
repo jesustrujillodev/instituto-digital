@@ -12,9 +12,9 @@ import {
 	canPublish,
 	publishChecklist,
 } from "../../../domain/course.rules";
-import { validateFindCourse } from "../../../domain/course.validators";
 import { COURSE_ERROR_MESSAGES } from "../../../utils/course-error-messages";
 import { toEnrollmentSummary } from "../../../utils/to-enrollment-summary";
+import { requireCourseParam } from "../../require-course-param";
 import { requireCourseScope } from "../../require-course-scope.server";
 import type { Route } from "./+types/index";
 
@@ -31,11 +31,11 @@ export const loader = async ({
 }: Route.LoaderArgs) => {
 	const { auth, scope } = await requireCourseScope(request, context);
 
-	const { documentId } = validateFindCourse({ documentId: params.documentId });
+	const documentId = requireCourseParam(params.documentId);
 
 	const [course, roster] = await Promise.all([
 		context.courseService.findById(documentId, scope),
-		context.enrollmentService.listRoster(documentId, auth),
+		context.enrollmentService.findRosterSummary(documentId, auth),
 	]);
 
 	if (!course.success) throw toRouteError(course.error, COURSE_ERROR_MESSAGES);

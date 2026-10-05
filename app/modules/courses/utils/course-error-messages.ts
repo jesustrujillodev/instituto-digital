@@ -57,7 +57,7 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 	[COURSE_ERROR_CODES.INVALID_TRANSITION]:
 		"La capacitación ya no está en un estado que permita esta acción.",
 	[COURSE_ERROR_CODES.WITHOUT_SESSIONS]:
-		"Para publicar, la capacitación necesita al menos una sesión.",
+		"Una capacitación publicada necesita al menos una sesión.",
 	[COURSE_ERROR_CODES.WITHOUT_LESSONS]:
 		"Para publicar, una capacitación autogestiva necesita al menos una lección.",
 	[COURSE_ERROR_CODES.WITHOUT_QUIZ]:
@@ -66,8 +66,15 @@ export const COURSE_ERROR_MESSAGES: ErrorMessageMap = {
 		"Para publicar, cada evaluación de seguimiento necesita al menos una pregunta.",
 	[COURSE_ERROR_CODES.SESSION_HAS_ATTEMPTS]:
 		"No se puede quitar una sesión cuya evaluación de seguimiento ya presentó alguien.",
+	[COURSE_ERROR_CODES.SESSION_HAS_ATTENDANCE]:
+		"No se puede quitar una sesión que ya tiene asistencia registrada.",
+	[COURSE_ERROR_CODES.STATE_CHANGED]: {
+		message:
+			"La capacitación cambió de estado mientras se guardaba. Recarga la página para ver cómo quedó.",
+		status: HTTP_STATUS.CONFLICT,
+	},
 	[COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER]:
-		"Para publicar, la capacitación necesita al menos un capacitador con el perfil activo.",
+		"Una capacitación publicada necesita al menos un capacitador con el perfil activo.",
 	[COURSE_ERROR_CODES.SESSION_MISSING_VENUE]: {
 		message: (error) =>
 			`La sesión ${sessionNumberOf(error)} no tiene sede, y la modalidad la exige.`,

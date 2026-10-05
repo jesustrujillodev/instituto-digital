@@ -47,6 +47,8 @@ import {
 	CourseOrganizerRequiredError,
 	CoursePlanLineNotFoundError,
 	CourseSessionHasAttemptsError,
+	CourseSessionHasAttendanceError,
+	CourseStateChangedError,
 	CourseUnknownAudienceError,
 	CourseUnknownTrainerError,
 } from "../domain/course.errors";
@@ -61,6 +63,7 @@ import {
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
+	assertStaysPublishable,
 	type CourseContentFacts,
 	canCancel,
 	canEdit,
@@ -237,7 +240,6 @@ export const createCourseService = ({
 	 * organizadora del curso; en el alta del superadministrador, los de todas,
 	 * y la pantalla filtra por la que elija.
 	 */
-	/** Los planes vigentes que el formulario puede ofrecer, sin mapear. */
 	const findOfferablePlans = async (
 		scope: CourseScope,
 		course?: Pick<CourseDetail, "dependencyId">,
@@ -392,10 +394,6 @@ export const createCourseService = ({
 			audienceGroupIds: groups.map((entry) => entry.id),
 		};
 	};
-
-	// ===============================================================
-	// Portada
-	// ===============================================================
 
 	/**
 	 * Dependencias de la transacción de storage, armadas una vez.
@@ -630,6 +628,17 @@ export const createCourseService = ({
 				}
 
 				const data = await buildWriteData(dto, scope);
+				if (course.status === "PUBLISHED") {
+					assertStaysPublishable({
+						...data,
+						// `findEligibleTrainers` ya descartó a los inactivos.
+						trainers: data.trainerIds.map(() => ({ isActive: true })),
+						audience: {
+							dependencies: data.audienceDependencyIds,
+							groups: data.audienceGroupIds,
+						},
+					});
+				}
 				// Quitar una sesión borra su material con ella (docs/adr/0026): la
 				// fila cae en cascada y el objeto se suelta tras el commit.
 				const keptSessions = new Set(
@@ -640,21 +649,24 @@ export const createCourseService = ({
 				const removedSessions = course.sessions
 					.map((session) => session.documentId)
 					.filter((sessionDocumentId) => !keptSessions.has(sessionDocumentId));
-				// Su seguimiento caería con ella, y sus intentos son notas que ya
-				// cuentan (docs/adr/0027).
-				const withAttempts =
+				// Su seguimiento y su asistencia caerían con ella, y los dos ya
+				// cuentan para acreditar (docs/adr/0027).
+				const [withAttempts, withAttendance, orphanedMaterials] =
 					removedSessions.length > 0
-						? await contentRepository.findSessionsWithFollowUpAttempts(
-								removedSessions,
-							)
-						: [];
+						? await Promise.all([
+								contentRepository.findSessionsWithFollowUpAttempts(
+									removedSessions,
+								),
+								courseRepository.findSessionsWithAttendance(removedSessions),
+								courseRepository.findSessionMaterialRefs(removedSessions),
+							])
+						: [[], [], []];
 				if (withAttempts.length > 0) {
 					throw new CourseSessionHasAttemptsError(withAttempts);
 				}
-				const orphanedMaterials =
-					removedSessions.length > 0
-						? await courseRepository.findSessionMaterialRefs(removedSessions)
-						: [];
+				if (withAttendance.length > 0) {
+					throw new CourseSessionHasAttendanceError(withAttendance);
+				}
 				// Tres estados, no dos: archivo nuevo sustituye, `removeCover` quita,
 				// y no mandar nada conserva la que ya tenía.
 				const replaces = Boolean(cover) || dto.removeCover === true;
@@ -678,7 +690,9 @@ export const createCourseService = ({
 								}),
 							},
 							scope,
+							course.status,
 						);
+						if (!saved) throw new CourseStateChangedError();
 						if (
 							course.status === "PUBLISHED" &&
 							hasScheduleChanges(course.sessions, data.sessions)
@@ -706,13 +720,23 @@ export const createCourseService = ({
 		async publish(documentId: string, actor: AuthContext) {
 			return run("publish", async () => {
 				const scope = requireWriteScope(actor);
-				const course = await requireCourse(documentId, scope);
 
-				// Falla con el código de la condición que faltó, no con uno genérico:
-				// es lo que permite decir QUÉ sesión se quedó sin sede.
-				assertPublishable(course, await contentFactsOf(course));
+				// Con la fila bloqueada: una edición simultánea no puede quitarle
+				// sesiones entre la comprobación y la escritura.
+				return ok(
+					await runInTransaction(async () => {
+						await courseRepository.lock(documentId);
+						const course = await requireCourse(documentId, scope);
 
-				return ok(await courseRepository.publish(documentId, scope));
+						// Falla con el código de la condición que faltó, no con uno
+						// genérico: es lo que permite decir QUÉ sesión se quedó sin sede.
+						assertPublishable(course, await contentFactsOf(course));
+
+						const published = await courseRepository.publish(documentId, scope);
+						if (!published) throw new CourseStateChangedError();
+						return published;
+					}),
+				);
 			});
 		},
 		async cancel(documentId: string, actor: AuthContext) {
@@ -726,7 +750,12 @@ export const createCourseService = ({
 
 				return ok(
 					await runInTransaction(async () => {
-						const cancelled = await courseRepository.cancel(documentId, scope);
+						const cancelled = await courseRepository.cancel(
+							documentId,
+							scope,
+							course.status,
+						);
+						if (!cancelled) throw new CourseStateChangedError();
 						// Un borrador no tiene inscritos ni invitados a quienes avisar.
 						if (course.status === "PUBLISHED") {
 							await notifyEnrolled(course.id, (to) => ({

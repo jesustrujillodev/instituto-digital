@@ -16,6 +16,7 @@ import {
 	assertPublishable,
 	assertSessionLimit,
 	assertSessionRange,
+	assertStaysPublishable,
 	COURSE_COMPLETION_RULES,
 	type CourseCompletionRule,
 	type CourseContentFacts,
@@ -176,6 +177,51 @@ describe("assertSessionLimit", () => {
 
 	test("cero sesiones es válido: el borrador se completa después", () => {
 		expect(() => assertSessionLimit(0)).not.toThrow();
+	});
+});
+
+describe("assertStaysPublishable", () => {
+	const published = (overrides: Partial<PublishableCourse> = {}) =>
+		courseOf({ status: "PUBLISHED", ...overrides });
+
+	test("un publicado completo se puede guardar", () => {
+		expect(() => assertStaysPublishable(published())).not.toThrow();
+	});
+
+	test.each([
+		["sin sesiones", { sessions: [] }, COURSE_ERROR_CODES.WITHOUT_SESSIONS],
+		[
+			"sin capacitador activo",
+			{ trainers: [{ isActive: false }] },
+			COURSE_ERROR_CODES.WITHOUT_ACTIVE_TRAINER,
+		],
+		[
+			"con una sesión sin sede",
+			{ sessions: [sessionOf({ venue: null })] },
+			COURSE_ERROR_CODES.SESSION_MISSING_VENUE,
+		],
+		[
+			"restringido sin audiencia",
+			{ access: "RESTRICTED" as const },
+			COURSE_ERROR_CODES.AUDIENCE_REQUIRED,
+		],
+	])("no deja un publicado %s", (_, overrides, code) => {
+		expect(() => assertStaysPublishable(published(overrides))).toThrowError(
+			codeOf(code),
+		);
+	});
+
+	test("un autogestivo en línea no necesita sesiones ni capacitador", () => {
+		expect(() =>
+			assertStaysPublishable(
+				published({
+					format: "SELF_PACED",
+					modality: "ONLINE",
+					sessions: [],
+					trainers: [],
+				}),
+			),
+		).not.toThrow();
 	});
 });
 

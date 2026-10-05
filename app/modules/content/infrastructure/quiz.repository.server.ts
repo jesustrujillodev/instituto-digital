@@ -325,6 +325,17 @@ export const createQuizRepository = ({
 		return toStoredFollowUps(rows);
 	},
 
+	async findFollowUpBanks(courseId) {
+		const rows = await prisma.quiz.findMany({
+			where: { courseId, sessionId: { not: null } },
+			select: { ...QUIZ_SELECT, _count: { select: { attempts: true } } },
+		});
+		return rows.map(({ _count, ...quiz }) => ({
+			...quiz,
+			attemptCount: _count.attempts,
+		}));
+	},
+
 	async findFollowUp(courseId, documentId) {
 		const row = await prisma.quiz.findFirst({
 			where: { courseId, documentId, sessionId: { not: null } },

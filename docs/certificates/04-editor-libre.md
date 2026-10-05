@@ -67,6 +67,7 @@ y `publish` reciben el diseño en pantalla. El servidor comprueba, además del e
 | Comprobación | Rechazo |
 | --- | --- |
 | Toda imagen y fondo es del propio curso (`isOwnCertificateAssetRef`) | `CERTIFICATE_ASSET_NOT_OWNED` |
+| Lo que el diseño estrena sigue en storage (pudo borrarse desde la nube) | `CERTIFICATE_ASSET_MISSING` |
 | Los logos subidos existen | `CERTIFICATE_LOGO_NOT_FOUND` |
 | No se elige un logo archivado (sí se conserva uno que ya estaba) | `CERTIFICATE_LOGO_ARCHIVED` |
 
@@ -78,6 +79,12 @@ Un borrador v1 abre convertido al editor libre con un aviso y se puede guardar t
 | --- | --- |
 | `upload-image` | El navegador reduce lo grande (2400 px; firmas 1200 px en PNG). El servidor reconoce el tipo por sus bytes, guarda con esa extensión y mide la imagen |
 | `upload-background` | Ver [ADR 0029](../adr/0029-fondo-pdf-vectorial.md). La página adopta el tamaño del PDF; «Quitar formas y logos» deja ver su diseño |
+
+Cada archivo se guarda con la huella de sus bytes en el nombre (`fondo-<sha256>.pdf`,
+`buildContentObjectKey`): volver a subir el mismo archivo o aplicar otra vez la misma
+plantilla reescribe el mismo objeto en vez de dejar otra copia. Lo que se sube y nunca
+se guarda queda huérfano y lo detecta el gestor de nube pasadas 24 horas
+([cloud §5](../cloud/00-gestor-nube.md)).
 
 Rechazos de imagen (`CERTIFICATE_ASSET_INVALID`, con el motivo): vacía, más de 2 MB, tipo
 no admitido, SVG de más de 512 KB o con scripts, manejadores, `javascript:`,

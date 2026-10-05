@@ -1,5 +1,6 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type {
+	FollowUpBanksResponse,
 	FollowUpBoardResponse,
 	FollowUpDto,
 	FollowUpListResponse,
@@ -82,6 +83,11 @@ export interface IQuizService {
 		courseDocumentId: string,
 		actor: AuthContext,
 	): Promise<FollowUpListResponse>;
+	/** El banco de cada evaluación de seguimiento, en una sola lectura. */
+	findFollowUpBanks(
+		courseDocumentId: string,
+		actor: AuthContext,
+	): Promise<FollowUpBanksResponse>;
 	/**
 	 * Crea o cambia la configuración de una evaluación de seguimiento, sin sus
 	 * preguntas. Con intentos, solo cambian el nombre y la ventana.

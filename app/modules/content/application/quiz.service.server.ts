@@ -578,6 +578,22 @@ export const createQuizService = ({
 			});
 		},
 
+		async findFollowUpBanks(courseDocumentId: string, actor: AuthContext) {
+			return run("findFollowUpBanks", async () => {
+				const course = await requireCourse(courseDocumentId, actor);
+
+				const quizzes = await quizRepository.findFollowUpBanks(course.id);
+				return ok(
+					Object.fromEntries(
+						quizzes.map(({ attemptCount, ...quiz }) => [
+							quiz.documentId,
+							toQuizBank(quiz, attemptCount),
+						]),
+					),
+				);
+			});
+		},
+
 		async saveFollowUp(
 			courseDocumentId: string,
 			dto: SaveFollowUpDto,

@@ -110,7 +110,7 @@ describe("capacitaciones action — intenciones", () => {
 		);
 
 		expect(!result.success && result.error.message).toBe(
-			"Para publicar, la capacitación necesita al menos una sesión.",
+			"Una capacitación publicada necesita al menos una sesión.",
 		);
 	});
 });

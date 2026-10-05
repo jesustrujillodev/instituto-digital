@@ -1,9 +1,14 @@
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
+import type { ShouldRevalidateFunction } from "react-router";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { CourseWizardScreen } from "../../../components/course-wizard-screen";
+import { shouldRevalidateCourseStep } from "../../../utils/parse-course-form-data";
 import type { Route } from "./+types/index";
+
+export const shouldRevalidate: ShouldRevalidateFunction =
+	shouldRevalidateCourseStep;
 
 const LIST_PATH = "/dashboard/capacitaciones";
 

@@ -31,12 +31,16 @@ export const COURSE_INTENTS = {
 	cancel: "cancel",
 } as const;
 
+/** Marca el guardado tras el que el asistente sale del paso. */
+export const LEAVING_FIELD = "leaving";
+
 /**
- * Tras publicar, el paso del alta no se vuelve a cargar: el curso ya no es
- * borrador y su loader mandaría a la edición antes de que el wizard llegue a
- * la lista. Un fallo sí recarga, para enseñar el estado real.
+ * Un guardado o una publicación tras los que el asistente sale del paso no lo
+ * vuelven a cargar: el destino carga lo suyo, y tras publicar el loader del
+ * alta mandaría a la edición antes de llegar a la lista. Un fallo sí recarga,
+ * para enseñar el estado real.
  */
-export const shouldRevalidateAfterPublish = ({
+export const shouldRevalidateCourseStep = ({
 	formData,
 	actionResult,
 	defaultShouldRevalidate,
@@ -45,11 +49,14 @@ export const shouldRevalidateAfterPublish = ({
 	actionResult?: unknown;
 	defaultShouldRevalidate: boolean;
 }): boolean => {
-	const published =
-		formData?.get(INTENT_FIELD) === COURSE_INTENTS.publish &&
+	const intent = formData?.get(INTENT_FIELD);
+	const leaves =
+		intent === COURSE_INTENTS.publish ||
+		formData?.get(LEAVING_FIELD) === "true";
+	const succeeded =
 		(actionResult as { success?: unknown } | undefined)?.success === true;
 
-	return published ? false : defaultShouldRevalidate;
+	return leaves && succeeded ? false : defaultShouldRevalidate;
 };
 
 export type CourseIntent = (typeof COURSE_INTENTS)[keyof typeof COURSE_INTENTS];

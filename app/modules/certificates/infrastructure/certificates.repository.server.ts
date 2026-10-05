@@ -15,6 +15,7 @@ import type {
 } from "../domain/certificate.types";
 import {
 	issuedAssetRefsOf,
+	storedDesignRefsOf,
 	withoutAssetRefs,
 } from "../domain/design/design.assets";
 import { DEFAULT_CERTIFICATE_DESIGN } from "../domain/design/design.presets";
@@ -183,8 +184,8 @@ export const createCertificateRepository = ({
 			const rows = await prisma.courseCertificate.findMany({
 				where: { course: { documentId: { in: [...courseDocumentIds] } } },
 				select: {
-					...RECORD_SELECT,
-					courseId: true,
+					draftDesign: true,
+					publishedDesign: true,
 					course: {
 						select: {
 							documentId: true,
@@ -198,7 +199,10 @@ export const createCertificateRepository = ({
 			return rows.map((row) => ({
 				courseDocumentId: row.course.documentId,
 				courseTitle: row.course.title,
-				record: toRecord(row, row.courseId),
+				...storedDesignRefsOf(
+					[row.draftDesign, row.publishedDesign],
+					toCertificateDesign,
+				),
 				issuedAssetRefs: [
 					...new Set(
 						row.course.certificateIssues.flatMap(({ assetRefs }) => assetRefs),

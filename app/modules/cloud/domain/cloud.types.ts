@@ -34,6 +34,8 @@ export interface CloudObject {
 	previewUrl: string | null;
 	/** `null` = ninguna fila de la base lo usa. */
 	reference: ObjectReference | null;
+	/** Sin referencia y fuera de la ventana de gracia: lo que el escaneo borraría. */
+	orphan: boolean;
 }
 
 /** Un escalón de las migas: la carpeta y su nombre legible si se conoce. */

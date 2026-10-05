@@ -17,8 +17,8 @@ import { createCloudService } from "../cloud.service.server";
 const PRIVATE = "privado";
 const PUBLIC = "publico";
 const NOW = Date.parse("2026-09-14T12:00:00Z");
-const OLD = new Date(NOW - 24 * 60 * 60 * 1000);
-const FRESH = new Date(NOW - 60 * 1000);
+const OLD = new Date(NOW - 2 * 24 * 60 * 60 * 1000);
+const FRESH = new Date(NOW - 3 * 60 * 60 * 1000);
 
 const silentLogger: Logger = {
 	debug: () => {},
@@ -299,6 +299,35 @@ describe("list — árbol unificado", () => {
 		).toEqual(["Ana Ruiz", undefined]);
 	});
 
+	// "Sin uso" en el listado tiene que ser lo mismo que el escaneo borraría.
+	test("marca como huérfano con el mismo criterio que el escaneo", async () => {
+		const storage = createMemoryStorage({
+			[PRIVATE]: {},
+			[PUBLIC]: {
+				"media/cursos/en-uso.jpg": { size: 1, lastModified: OLD },
+				"media/cursos/resto.jpg": { size: 1, lastModified: OLD },
+				"media/cursos/subiendo.jpg": { size: 1, lastModified: FRESH },
+				"media/cursos/sin-fecha.jpg": { size: 1, lastModified: null },
+			},
+		});
+		const { source } = createSource([photoOf("media/cursos/en-uso.jpg")]);
+		const { service } = createHarness({ storage, sources: [source] });
+
+		const result = await service.list({ path: "media/cursos/" });
+		if (!result.success) throw new Error("debía listar");
+
+		expect(
+			Object.fromEntries(
+				result.data.objects.map((object) => [object.name, object.orphan]),
+			),
+		).toEqual({
+			"en-uso.jpg": false,
+			"resto.jpg": true,
+			"sin-fecha.jpg": false,
+			"subiendo.jpg": false,
+		});
+	});
+
 	test("pagina con un cursor que recuerda cada bucket", async () => {
 		const many = Object.fromEntries(
 			Array.from({ length: CLOUD_LIMITS.listPageSize + 5 }, (_, index) => [
@@ -570,7 +599,7 @@ describe("scanOrphans", () => {
 			[PUBLIC]: {
 				"media/cursos/en-uso.jpg": { size: 1, lastModified: OLD },
 				"media/resto-de-prueba.jpg": { size: 1, lastModified: OLD },
-				// Subida hace un minuto: puede ser un guardado en curso.
+				// Subida hace unas horas: puede ser una edición aún sin guardar.
 				"media/cursos/subiendo.jpg": { size: 1, lastModified: FRESH },
 				"media/sin-fecha.jpg": { size: 1, lastModified: null },
 			},

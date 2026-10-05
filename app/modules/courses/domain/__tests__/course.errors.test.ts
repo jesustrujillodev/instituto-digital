@@ -19,9 +19,11 @@ import {
 	CourseOrganizerRequiredError,
 	CoursePlanLineLockedError,
 	CourseSessionHasAttemptsError,
+	CourseSessionHasAttendanceError,
 	CourseSessionInvalidRangeError,
 	CourseSessionMissingLinkError,
 	CourseSessionMissingVenueError,
+	CourseStateChangedError,
 	CourseTooManySessionsError,
 	CourseUnknownAudienceError,
 	CourseUnknownTrainerError,
@@ -66,6 +68,13 @@ describe("códigos estables", () => {
 			]),
 			COURSE_ERROR_CODES.SESSION_HAS_ATTEMPTS,
 		],
+		[
+			new CourseSessionHasAttendanceError([
+				"33333333-3333-4333-8333-333333333333",
+			]),
+			COURSE_ERROR_CODES.SESSION_HAS_ATTENDANCE,
+		],
+		[new CourseStateChangedError(), COURSE_ERROR_CODES.STATE_CHANGED],
 		[new CourseCompletionLockedError(), COURSE_ERROR_CODES.COMPLETION_LOCKED],
 		[
 			new CourseWithoutActiveTrainerError(),
@@ -122,6 +131,12 @@ describe("details", () => {
 		expect(new CourseSessionInvalidRangeError(1).details).toEqual({
 			sessionNumber: 1,
 		});
+	});
+
+	test("la asistencia que impide quitar sesiones dice de cuáles", () => {
+		expect(new CourseSessionHasAttendanceError(["s-1", "s-2"]).details).toEqual(
+			{ sessionDocumentIds: ["s-1", "s-2"] },
+		);
 	});
 
 	test("la transición inválida dice desde dónde y hacia dónde", () => {

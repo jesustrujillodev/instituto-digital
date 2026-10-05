@@ -16,12 +16,14 @@ Las decisiones están en [ADR 0030](../adr/0030-biblioteca-de-plantillas-y-logos
 | Plantilla inexistente, ajena o archivada al aplicar | `CERTIFICATE_TEMPLATE_NOT_FOUND` | 404 |
 | La ve pero no la administra, o no puede crear | `CERTIFICATE_FORBIDDEN` | 403 |
 | El diseño trae recursos de otra carpeta | `CERTIFICATE_ASSET_NOT_OWNED` | 400 |
+| Un recurso que estrena o copia ya no está en storage | `CERTIFICATE_ASSET_MISSING` | 400 |
 | Logo inexistente o archivado en una plantilla | `CERTIFICATE_LOGO_NOT_FOUND` / `_ARCHIVED` | 400 |
 
 - Una plantilla nueva nace con el diseño institucional en el alcance de quien la crea:
   institucional para SUPERADMIN, de su dependencia para titular y auxiliar.
 - Aplicar copia sus recursos a `documentos/certificados/<curso>/`; guardar como plantilla
-  copia los del curso a `documentos/plantillas-certificado/<plantilla>/`.
+  copia los del curso a `documentos/plantillas-certificado/<plantilla>/`. La copia lleva
+  la huella de los bytes en el nombre: aplicar dos veces la misma plantilla no duplica.
 - La fuente de referencias `certificate-template` nombra esas carpetas con el nombre de la
   plantilla; soltar una imagen la quita del diseño de la plantilla.
 

@@ -39,6 +39,7 @@ const createHarness = (
 		courseCertificate: {
 			findUnique: async () => row,
 			findFirst: async () => row,
+			findMany: async () => (row ? [row] : []),
 			upsert: async (args: unknown) => {
 				writes.push({ upsert: args });
 			},
@@ -160,6 +161,47 @@ describe("saveDraft y publish", () => {
 				},
 			},
 		});
+	});
+});
+
+describe("findByCourseDocumentIds", () => {
+	const course = {
+		documentId: "c",
+		title: "Seguridad en obra",
+		certificateIssues: [{ assetRefs: [REF_A] }, { assetRefs: [REF_A] }],
+	};
+
+	test("lo que nombran el borrador y el publicado, y lo emitido", async () => {
+		const { repository } = createHarness({
+			draftDesign: withRefs(REF_A, null),
+			publishedDesign: withRefs(null, REF_B),
+			course,
+		});
+
+		expect(await repository.findByCourseDocumentIds(["c"])).toEqual([
+			{
+				courseDocumentId: "c",
+				courseTitle: "Seguridad en obra",
+				designRefs: [REF_A, REF_B],
+				unreadableRefs: [],
+				issuedAssetRefs: [REF_A],
+			},
+		]);
+	});
+
+	test("de un borrador ilegible se rescatan sus referencias", async () => {
+		const { repository } = createHarness({
+			draftDesign: { templateId: "clasica", firma: REF_B },
+			publishedDesign: null,
+			course,
+		});
+
+		expect(await repository.findByCourseDocumentIds(["c"])).toEqual([
+			expect.objectContaining({
+				designRefs: [REF_B],
+				unreadableRefs: [REF_B],
+			}),
+		]);
 	});
 });
 

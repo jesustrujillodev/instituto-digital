@@ -96,12 +96,19 @@ de borrar carpetas.
 ## 5. Huérfanos
 
 Un objeto es huérfano si **ninguna fuente lo referencia y su `lastModified` tiene
-más de 15 minutos**. La ventana existe porque `withStorageTransaction` sube antes
-de escribir en la base: sin ella, un escaneo durante un guardado marcaría como
-huérfanas las fotos que se están guardando. Un objeto sin fecha no se considera
-huérfano. El escaneo recorre hasta 5000 objetos y avisa si se truncó.
+más de 24 horas** (`isOrphanObject`, `cloud.rules.ts`). La ventana existe porque se
+sube antes de escribir en la base: `withStorageTransaction` por unos instantes, y el
+editor de certificados durante toda la edición sin guardar (imágenes, fondos y copias
+de plantillas). Sin ella, borrar esos objetos rompería el guardado. Un objeto sin fecha
+no se considera huérfano. El escaneo recorre hasta 5000 objetos y avisa si se truncó.
 
-El listado normal muestra "Sin uso" y no "Huérfano", porque no aplica la ventana.
+El listado aplica el mismo criterio (`CloudObject.orphan`): "Sin uso" es exactamente
+lo que el escaneo daría por huérfano, y un objeto sin dueño dentro de la ventana sale
+como "Reciente".
+
+Las fuentes no deben dar por libre lo que no pueden leer: la de certificados y la de
+plantillas sacan las referencias del JSON crudo cuando el diseño no pasa su esquema, y
+bloquean su borrado (`STORAGE_OBJECT_LOCKED`) porque no se pueden quitar de él.
 
 ## 6. ZIP en el navegador
 
@@ -132,7 +139,7 @@ navegador → fetch(url) × N                directo al bucket: 0 bytes por el s
 | `folderOperationMaxObjects` | 2000 | borrado y ZIP cargan la lista en memoria |
 | `zipMaxBytes` | 2 GB | Firefox/Safari arman el ZIP en memoria |
 | `downloadUrlTtlS` / `zipUrlTtlS` | 300 s / 900 s | ver §6 |
-| `orphanGraceMs` | 15 min | ver §5 |
+| `orphanGraceMs` | 24 h | ver §5 |
 | `orphanScanMaxObjects` | 5000 | tope del escaneo |
 | `maxSelection` | 500 | keys + carpetas por petición |
 
@@ -145,7 +152,7 @@ navegador → fetch(url) × N                directo al bucket: 0 bytes por el s
 | Borrar el bucket entero de un clic | la raíz no es seleccionable; carpetas exigen escribir su nombre |
 | Borrado a medias de una carpeta enorme | la selección se rechaza entera si pasa del tope |
 | Fichas con imágenes rotas | la base se suelta **antes** de borrar objetos; si falla, no se borra nada |
-| Borrar una subida en curso como "huérfana" | ventana de gracia de 15 min |
+| Borrar una subida en curso o de una edición sin guardar como "huérfana" | ventana de gracia de 24 h |
 | Revalidar el listado en cada consulta | `shouldRevalidate` solo revalida tras `delete` |
 
 ## 9. Añadir un módulo con archivos

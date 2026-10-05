@@ -23,7 +23,7 @@ visibilidad de §5.
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `org.courses` | El curso. Organizadora, horas opcionales, modalidad, formato, regla de completado, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, estado, autor, `plan_line_id` y `cover_image_url` |
+| `org.courses` | El curso. Organizadora, horas opcionales, modalidad, formato, regla de completado, acceso, cupo y fecha límite opcionales, asistencia mínima (80 por defecto), si requiere evaluación, calificación mínima (`min_passing_grade`, 70 por defecto), las columnas de los dos QR, estado con sus instantes (`published_at`, `cancelled_at`, `finished_at`), autor, `plan_line_id` y `cover_image_url` |
 | `org.course_sessions` | Fecha y horario concretos: `starts_at`, `ends_at`, sede y enlace |
 | `org.course_trainers` | Quién imparte. PK `(course_id, user_id)` |
 | `org.course_dependency_audience` | Audiencia por dependencia completa. PK `(course_id, dependency_id)` |
@@ -56,10 +56,25 @@ Decisiones que el schema no dice por sí solo:
   algo, no avanza y dice qué (`quizProblemsOf`, las mismas reglas que
   `saveQuizRule`). Fuera del wizard —la práctica de una lección y la evaluación
   de un módulo— el editor conserva su botón.
-- **En un autogestivo publicado se congelan la regla y la evaluación.** Sus
-  créditos se otorgan conforme cada quien completa, así que cambiar el criterio
-  a mitad dejaría medidos a unos con una regla y a otros con otra.
+- **`min_passing_grade` es el promedio con el que se acredita** cuando la nota
+  se calcula sola (`gradesAutomatically`: examen final, temario que cuenta o un
+  seguimiento que cuenta). Va de 0 a 100 y compensa: reprobar una evaluación no
+  impide acreditar si el promedio alcanza
+  ([ADR 0024](../adr/0024-intentos-configurables-y-calificacion-minima-del-curso.md)).
+- **Al publicar se congelan la evaluación final y la calificación mínima**, en
+  cualquier formato: cambiarlas a mitad dejaría resultados medidos de dos
+  formas. En un autogestivo se congela además la regla de completado, porque
+  sus créditos se otorgan conforme cada quien completa.
   `assertCompletionSettingsEditable` lo rechaza con `COURSE_COMPLETION_LOCKED`.
+- **Las columnas del QR son dos pares independientes.** `qr_token` y
+  `qr_token_rotated_at` son el QR de asistencia: nulo mientras nadie lo genere, y
+  rotarlo invalida el impreso. `qr_opens_before_minutes` y
+  `qr_closes_after_minutes` (15 y 15 por defecto) son la tolerancia de la
+  ventana de escaneo alrededor de cada sesión
+  ([ADR 0009](../adr/0009-asistencia-por-qr.md)). `enrollment_qr_token` y
+  `enrollment_qr_token_rotated_at` son el QR de inscripción del póster, que se
+  regenera por separado. Los dos tokens son únicos y los escriben
+  `rotateQrToken` y `rotateEnrollmentQrToken`.
 - **`enrollment_closed_at` es el cierre del autogestivo**, que no se finaliza:
   con valor, nadie nuevo se inscribe y quien ya estaba sigue avanzando. Lo abre y
   lo cierra la impartición.
@@ -216,7 +231,7 @@ capacitador o sin sede. Lo que §6.5 exige se comprueba al **publicar**
 | Al menos una sesión (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_SESSIONS` |
 | Al menos una lección (solo si el curso pide temario: `SELF_PACED` o regla `BOTH`) | `COURSE_WITHOUT_LESSONS` |
 | Un examen con al menos una pregunta (solo si se evalúa con examen en línea) | `COURSE_WITHOUT_QUIZ` |
-| Al menos un capacitador con perfil activo (solo si el formato es `SCHEDULED`) | `COURSE_WITHOUT_ACTIVE_TRAINER` |
+| Al menos un capacitador con perfil activo (si el curso admite sesiones: `SCHEDULED` o híbrido autogestivo) | `COURSE_WITHOUT_ACTIVE_TRAINER` |
 | Sede en cada sesión (presencial, híbrida) | `COURSE_SESSION_MISSING_VENUE` + `sessionNumber` |
 | Enlace en cada sesión (en línea, híbrida) | `COURSE_SESSION_MISSING_LINK` + `sessionNumber` |
 | Audiencia si es restringido | `COURSE_AUDIENCE_REQUIRED` |
@@ -235,6 +250,13 @@ solo cuando el curso pide temario (`requiresContent`)
 `requiresContent` recibe el curso y no el formato: también decide si el alta
 enseña el paso Contenido (`stepsFor`).
 
+**Un publicado sigue cumpliendo.** Editarlo no puede dejarlo sin sesiones, sin
+capacitador, con una sesión sin sede o enlace, ni restringido sin audiencia:
+`update` comprueba lo que va a escribir con `assertStaysPublishable`, que son
+las condiciones de `assertPublishable` que el formulario del curso puede
+deshacer, con los mismos códigos. El temario y los exámenes se editan en
+`content` y no entran.
+
 El número de sesión viaja en `details` porque es lo único accionable del
 mensaje. Al guardar sí se comprueban el rango de cada sesión, el tope de sesiones
 y que la fecha límite no sea posterior a la primera sesión.
@@ -248,11 +270,18 @@ sola `runInTransaction`. Dentro, las colecciones se tratan distinto:
 
 | Colección | Estrategia | Por qué |
 | --- | --- | --- |
-| Capacitadores y audiencia | Se reemplazan enteras | Tablas de unión: ninguna fila tiene hijos |
+| Capacitadores y audiencia | Se diferencian: se borra lo quitado y se inserta lo añadido | Guardar un paso que no las toca no escribe nada; un capacitador que sigue conserva su `assigned_at` |
 | Sesiones | Se **diferencian** por `documentId` | Desde PRD-06 cada sesión cuelga su asistencia; recrearlas cambiaría su identidad |
 
-Una sesión solo se actualiza si su `documentId` pertenece a **ese** curso: uno
-ajeno enviado a mano se trata como sesión nueva.
+Una sesión solo se actualiza si su `documentId` pertenece a **ese** curso y si
+cambió su horario, sede o enlace: uno ajeno enviado a mano se trata como sesión
+nueva. Las nuevas entran en un solo `createMany`, y `create` escribe el curso con
+sus cuatro colecciones en una sola llamada.
+
+Quitar una sesión borra en cascada su material, su seguimiento y su asistencia.
+Por eso `update` rechaza quitar una cuyo seguimiento ya presentó alguien
+(`COURSE_SESSION_HAS_ATTEMPTS`) o que ya tiene asistencia registrada
+(`COURSE_SESSION_HAS_ATTENDANCE`): las dos cosas cuentan para acreditar.
 
 ### 7.1 · La portada entra en la misma unidad de trabajo
 
@@ -265,7 +294,8 @@ withStorageTransaction            ← sube la portada y la registra para rollbac
 ```
 
 Si la fila falla —el cupo por debajo de los inscritos, la línea del plan ocupada,
-el alcance— el objeto recién subido se borra y se re-lanza el error original. Sin
+el alcance, el estado— el objeto recién subido se borra y se re-lanza el error
+original. Sin
 esa composición, cada guardado fallido dejaría una portada que ninguna fila
 referencia.
 
@@ -289,6 +319,22 @@ es un `DomainError` y llegaría al cliente como error inesperado.
 `infrastructure/course-cover.references.server.ts` publica la fuente
 `IObjectReferenceSource` del módulo, registrada en `objectReferenceSources`. Sin
 ella el gestor de nube marcaría toda portada como huérfana y la borraría.
+
+### 7.2 · Peticiones simultáneas
+
+Cada transición escribe condicionada al estado, y una condición que ya no se
+cumple falla con `COURSE_STATE_CHANGED` (409) en vez de pisar el cambio ajeno:
+
+| Escritura | Condición |
+| --- | --- |
+| `publish` | Bloquea la fila (`courseRepository.lock`), lee el curso y comprueba sus requisitos dentro de la transacción, y escribe solo si sigue en `DRAFT` |
+| `cancel` | Escribe solo si el curso sigue en el estado que se leyó: un borrador que alguien publicó entretanto no se cancela sin avisar a sus inscritos |
+| `update` | Igual que `cancel`, con la fila bloqueada por `lockCourseSeats` |
+| `finish` (teaching) | Solo desde `PUBLISHED` |
+
+Sin esto, cancelar mientras otra persona publicaba podía dejar publicado un curso
+cancelado, y una edición simultánea podía quitarle las sesiones a un curso entre
+la comprobación de `publish` y su escritura.
 
 ## 8. El formulario
 
@@ -353,6 +399,21 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
   doce portadas: sin esto, doce fotos de teléfono.
 - Publicar y cancelar van por su propio `fetcher` en la ficha, y publicar usa lo
   último **guardado**.
+- **Guardar y salir no recarga el paso.** El envío lleva `leaving=true` cuando
+  el asistente va a navegar después, y `shouldRevalidateCourseStep` evita la
+  recarga del paso que se abandona: el destino carga lo suyo. Guardar y
+  quedarse, un fallo, o sesiones nuevas con material pendiente sí recargan,
+  porque el paso necesita la identidad de lo recién guardado.
+
+### 8.1 · Lo que lee cada pantalla
+
+| Pantalla | Lee |
+| --- | --- |
+| Ficha | El curso y `enrollmentService.findRosterSummary`: inscritos e invitaciones pendientes contados, nunca la lista. Los conteos de contenido solo en borrador |
+| Paso del asistente | El curso y, en una sola fase, lo que el paso pinta: las opciones de los selectores solo en General, Programa e Inscripción; el temario en Contenido, Evaluación y Revisión; el banco del examen y los de todo el seguimiento (`quizService.findFollowUpBanks`, una consulta) solo en Evaluación |
+
+Un `documentId` malformado en la URL responde 404, igual que uno inexistente
+(`requireCourseParam`).
 
 ## 9. Amenazas → defensas
 
@@ -375,6 +436,9 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
 | Un guardado fallido deja una portada huérfana | `withStorageTransaction` envuelve a la transacción de base y revierte la subida (§7.1) |
 | El gestor de nube borra una portada en uso | `createCourseCoverReferenceSource` registrada en `objectReferenceSources` |
 | Bajar el cupo deja fuera a inscritos | `assertCapacityCovers` dentro de la transacción, con la fila bloqueada |
+| Editar un publicado lo deja sin sesiones, capacitador o audiencia | `assertStaysPublishable` en `update` |
+| Quitar una sesión borra la asistencia con la que se acredita | `COURSE_SESSION_HAS_ATTENDANCE` antes de escribir |
+| Publicar y cancelar a la vez deja publicado un curso cancelado | Escrituras condicionadas al estado y `COURSE_STATE_CHANGED` (§7.2) |
 
 ## 10. Lo que queda enganchado
 
@@ -385,8 +449,8 @@ orden en que se llena un curso (`utils/course-wizard-steps.ts`):
   (`docs/notifications/00-notificaciones.md`).
 - **PRD-05** tiene su índice: `course_sessions(starts_at)`.
 - **PRD-06** ya escribe `FINISHED` desde `teaching` por `ICourseRepository.finish`,
-  condicionado a `PUBLISHED`. La asistencia cuelga de las sesiones y se borra en
-  cascada con ellas.
+  condicionado a `PUBLISHED`. La asistencia cuelga de las sesiones y se borraría
+  en cascada con ellas: `update` no quita una sesión que ya la tiene.
 - **PRD-07** ya declaró la relación de `plan_line_id`: `create` y `update`
   reciben `planLine` y la reclaman con `claimPlanLine`. En `update`, ausente
   conserva y `null` suelta. Cancelar y finalizar no tocan el plan porque el

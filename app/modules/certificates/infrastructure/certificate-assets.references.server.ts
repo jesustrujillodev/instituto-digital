@@ -6,12 +6,10 @@ import type {
 import { toProxyRef } from "@/shared/storage/public-url";
 import { StorageObjectLockedError } from "@/shared/storage/storage.errors";
 import { CERTIFICATE_SIGNATURE } from "../domain/certificate.config";
-import type { CertificateRecord } from "../domain/certificate.types";
 import {
 	CERTIFICATE_ASSETS,
 	courseOfCertificateAssetKey,
 } from "../domain/certificate-assets.rules";
-import { storageRefsOf } from "../domain/design/design.assets";
 
 // ===============================================================
 // Imágenes, firmas y fondos de certificados como referencias de storage
@@ -19,7 +17,8 @@ import { storageRefsOf } from "../domain/design/design.assets";
 // No tienen columna propia: viven dentro del diseño (borrador y publicado) y
 // en el snapshot de cada emisión. La key lleva el curso, y de ahí se sabe qué
 // certificados cargar sin recorrerlos todos. Lo que imprime una emisión queda
-// en `asset_refs` y no se suelta: un snapshot emitido no se reescribe.
+// en `asset_refs` y no se suelta: un snapshot emitido no se reescribe. Tampoco
+// se suelta lo que nombra un diseño ilegible: no se puede quitar de él.
 
 type Dependencies = {
 	certificateRepository: ICradle["certificateRepository"];
@@ -35,12 +34,6 @@ const ROOTS = [
 		label: "Imágenes de certificados",
 	},
 ];
-
-const refsOf = (record: CertificateRecord): Set<string> =>
-	new Set([
-		...storageRefsOf(record.draft),
-		...(record.published ? storageRefsOf(record.published) : []),
-	]);
 
 const keysByCourse = (keys: readonly string[]) => {
 	const grouped = new Map<string, string[]>();
@@ -79,7 +72,7 @@ export const createCertificateAssetReferenceSource = ({
 		]);
 
 		return owners.flatMap((owner): ObjectReference[] => {
-			const inDesign = refsOf(owner.record);
+			const inDesign = new Set(owner.designRefs);
 			const inIssues = new Set(owner.issuedAssetRefs);
 
 			return (grouped.get(owner.courseDocumentId) ?? []).flatMap((key) => {
@@ -104,7 +97,8 @@ export const createCertificateAssetReferenceSource = ({
 
 	/**
 	 * Suelta las referencias del diseño. Si alguna la imprime un certificado
-	 * emitido, lanza sin soltar nada: borrarla dejaría ese documento incompleto.
+	 * emitido o la nombra un diseño ilegible, lanza sin soltar nada: borrarla
+	 * dejaría ese documento incompleto.
 	 */
 	async release(keys) {
 		const grouped = keysByCourse(keys);
@@ -112,9 +106,9 @@ export const createCertificateAssetReferenceSource = ({
 			...grouped.keys(),
 		]);
 		const locked = owners.flatMap((owner) => {
-			const issued = new Set(owner.issuedAssetRefs);
+			const kept = new Set([...owner.issuedAssetRefs, ...owner.unreadableRefs]);
 			return (grouped.get(owner.courseDocumentId) ?? []).filter((key) =>
-				issued.has(toProxyRef(key)),
+				kept.has(toProxyRef(key)),
 			);
 		});
 		if (locked.length > 0) throw new StorageObjectLockedError(locked);

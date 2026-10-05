@@ -4,6 +4,12 @@ import type {
 	NewCertificateTemplate,
 } from "./certificate.types";
 import type { TemplateVisibility } from "./certificate-template.access";
+import type { StoredDesignRefs } from "./design/design.assets";
+
+/** Una plantilla con lo que nombra su diseño tal como está en la base. */
+export interface CertificateTemplateAssets extends StoredDesignRefs {
+	template: CertificateTemplate;
+}
 
 export interface ICertificateTemplateRepository {
 	/** Las que el alcance ve, de la más reciente a la más vieja. */
@@ -15,6 +21,10 @@ export interface ICertificateTemplateRepository {
 	findByDocumentIds(
 		documentIds: readonly string[],
 	): Promise<CertificateTemplate[]>;
+	/** Para la fuente de referencias de storage: aun con el diseño ilegible. */
+	findWithStorageRefs(
+		documentIds: readonly string[],
+	): Promise<CertificateTemplateAssets[]>;
 	/** Con `documentId` propio: sus imágenes se copian antes de crear la fila. */
 	create(
 		template: NewCertificateTemplate & { documentId: string },

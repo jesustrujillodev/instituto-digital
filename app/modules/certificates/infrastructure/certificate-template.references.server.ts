@@ -4,14 +4,12 @@ import type {
 	ObjectReference,
 } from "@/shared/storage/object-reference.port";
 import { toProxyRef } from "@/shared/storage/public-url";
+import { StorageObjectLockedError } from "@/shared/storage/storage.errors";
 import {
 	CERTIFICATE_TEMPLATE,
 	templateOfAssetKey,
 } from "../domain/certificate-template.rules";
-import {
-	storageRefsOf,
-	withoutAssetRefs,
-} from "../domain/design/design.assets";
+import { withoutAssetRefs } from "../domain/design/design.assets";
 
 type Dependencies = {
 	certificateTemplateRepository: ICradle["certificateTemplateRepository"];
@@ -40,11 +38,11 @@ export const createCertificateTemplateReferenceSource = ({
 	async findByKeys(keys) {
 		const grouped = keysByTemplate(keys);
 		if (grouped.size === 0) return [];
-		const templates = await certificateTemplateRepository.findByDocumentIds([
+		const owners = await certificateTemplateRepository.findWithStorageRefs([
 			...grouped.keys(),
 		]);
-		return templates.flatMap((template): ObjectReference[] => {
-			const used = new Set(storageRefsOf(template.design));
+		return owners.flatMap(({ template, designRefs }): ObjectReference[] => {
+			const used = new Set(designRefs);
 			return (grouped.get(template.documentId) ?? [])
 				.filter((key) => used.has(toProxyRef(key)))
 				.map((key) => ({
@@ -57,13 +55,22 @@ export const createCertificateTemplateReferenceSource = ({
 		});
 	},
 
+	/** Lo que nombra un diseño ilegible no se suelta: no se puede quitar de él. */
 	async release(keys) {
 		const grouped = keysByTemplate(keys);
-		const templates = await certificateTemplateRepository.findByDocumentIds([
+		const owners = await certificateTemplateRepository.findWithStorageRefs([
 			...grouped.keys(),
 		]);
+		const locked = owners.flatMap(({ template, unreadableRefs }) => {
+			const kept = new Set(unreadableRefs);
+			return (grouped.get(template.documentId) ?? []).filter((key) =>
+				kept.has(toProxyRef(key)),
+			);
+		});
+		if (locked.length > 0) throw new StorageObjectLockedError(locked);
+
 		let released = 0;
-		for (const template of templates) {
+		for (const { template } of owners) {
 			const refs = new Set(
 				(grouped.get(template.documentId) ?? []).map(toProxyRef),
 			);

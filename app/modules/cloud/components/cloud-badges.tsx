@@ -30,21 +30,30 @@ export function VisibilityBadge({
 /**
  * A quién pertenece el archivo, con enlace a su pantalla.
  *
- * "Sin uso" y no "Huérfano": el listado no aplica la ventana de gracia, así que
- * una foto que se está guardando ahora mismo sale aquí sin dueño todavía. El
- * veredicto de huérfano lo da el escaneo.
+ * Sin dueño, "Sin uso" es lo mismo que el escaneo daría por huérfano; uno
+ * reciente puede ser de una edición que aún no se guarda.
  */
 export function UsageCell({
 	reference,
+	orphan,
 	compact = false,
 }: {
 	reference: ObjectReference | null;
+	orphan: boolean;
 	compact?: boolean;
 }) {
 	if (!reference) {
-		return (
+		return orphan ? (
 			<Badge variant="outline" className="text-muted-foreground">
 				Sin uso
+			</Badge>
+		) : (
+			<Badge
+				variant="outline"
+				className="text-muted-foreground"
+				title="Aún nadie lo usa: puede ser de algo que se está editando sin guardar."
+			>
+				Reciente
 			</Badge>
 		);
 	}

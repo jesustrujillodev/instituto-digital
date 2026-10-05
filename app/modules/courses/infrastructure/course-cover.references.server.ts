@@ -3,9 +3,6 @@ import type { IObjectReferenceSource } from "@/shared/storage/object-reference.p
 import { toProxyRef } from "@/shared/storage/public-url";
 import { COURSE_COVER } from "../domain/course.config";
 
-// ===============================================================
-// Portadas de cursos como referencias de storage
-// ===============================================================
 // `Course` no guarda la key sino la referencia del proxy (`/api/storage?key=…`),
 // así que se compara contra `toProxyRef(key)`: produce exactamente lo que
 // persistió `getPublicUrl` al subir la portada.

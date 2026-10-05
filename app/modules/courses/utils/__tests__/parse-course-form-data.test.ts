@@ -5,7 +5,7 @@ import {
 	INTENT_FIELD,
 	PAYLOAD_FIELD,
 	parseCourseFormData,
-	shouldRevalidateAfterPublish,
+	shouldRevalidateCourseStep,
 } from "../parse-course-form-data";
 
 const formDataOf = (entries: Record<string, string>) => {
@@ -90,10 +90,11 @@ describe("la portada", () => {
 	});
 });
 
-describe("shouldRevalidateAfterPublish", () => {
-	const formOf = (intent: string) => {
+describe("shouldRevalidateCourseStep", () => {
+	const formOf = (intent: string, leaving?: boolean) => {
 		const form = new FormData();
 		form.set("intent", intent);
+		if (leaving !== undefined) form.set("leaving", String(leaving));
 		return form;
 	};
 
@@ -101,7 +102,7 @@ describe("shouldRevalidateAfterPublish", () => {
 	// edición antes de que el wizard llegue a la lista.
 	test("publicar con éxito no recarga el paso", () => {
 		expect(
-			shouldRevalidateAfterPublish({
+			shouldRevalidateCourseStep({
 				formData: formOf("publish"),
 				actionResult: { success: true },
 				defaultShouldRevalidate: true,
@@ -111,7 +112,7 @@ describe("shouldRevalidateAfterPublish", () => {
 
 	test("un fallo al publicar sí recarga, para enseñar el estado real", () => {
 		expect(
-			shouldRevalidateAfterPublish({
+			shouldRevalidateCourseStep({
 				formData: formOf("publish"),
 				actionResult: { success: false },
 				defaultShouldRevalidate: true,
@@ -119,13 +120,42 @@ describe("shouldRevalidateAfterPublish", () => {
 		).toBe(true);
 	});
 
-	test("guardar un paso sigue el criterio de siempre", () => {
+	test.each(["update", "create"])(
+		"%s con éxito y saliendo del paso no lo recarga",
+		(intent) => {
+			expect(
+				shouldRevalidateCourseStep({
+					formData: formOf(intent, true),
+					actionResult: { success: true },
+					defaultShouldRevalidate: true,
+				}),
+			).toBe(false);
+		},
+	);
+
+	test("guardar y quedarse recarga: el paso enseña lo guardado", () => {
 		expect(
-			shouldRevalidateAfterPublish({
-				formData: formOf("update"),
+			shouldRevalidateCourseStep({
+				formData: formOf("update", false),
 				actionResult: { success: true },
 				defaultShouldRevalidate: true,
 			}),
 		).toBe(true);
+	});
+
+	test("un guardado fallido recarga aunque fuera a salir", () => {
+		expect(
+			shouldRevalidateCourseStep({
+				formData: formOf("update", true),
+				actionResult: { success: false },
+				defaultShouldRevalidate: true,
+			}),
+		).toBe(true);
+	});
+
+	test("una navegación sigue el criterio de siempre", () => {
+		expect(shouldRevalidateCourseStep({ defaultShouldRevalidate: true })).toBe(
+			true,
+		);
 	});
 });

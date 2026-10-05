@@ -324,6 +324,8 @@ export interface ParticipantFollowUp {
 }
 
 export type QuizBankResponse = AppResponse<QuizBank | null>;
+/** Por `documentId` de la evaluación de seguimiento. */
+export type FollowUpBanksResponse = AppResponse<Record<string, QuizBank>>;
 export type QuizViewResponse = AppResponse<QuizView | null>;
 export type QuizOutcomeResponse = AppResponse<QuizOutcome>;
 export type QuizMutationResponse = AppResponse<null>;

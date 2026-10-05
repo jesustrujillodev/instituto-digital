@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { toCertificateDesign } from "../certificate.mapper";
 import {
 	assetManifestOf,
 	backgroundPdfRefOf,
@@ -7,6 +8,7 @@ import {
 	logoIdsOf,
 	pageBoxOf,
 	storageRefsOf,
+	storedDesignRefsOf,
 	withoutAssetRefs,
 } from "../design/design.assets";
 import { PRESETS } from "../design/design.presets";
@@ -169,5 +171,30 @@ describe("withoutAssetRefs", () => {
 
 	test("sin coincidencias no quita nada", () => {
 		expect(withoutAssetRefs(design, new Set(["x"])).removed).toBe(0);
+	});
+});
+
+describe("storedDesignRefsOf", () => {
+	test("un diseño legible aporta sus referencias, sin bloquearlas", () => {
+		expect(storedDesignRefsOf([design, null], toCertificateDesign)).toEqual({
+			designRefs: storageRefsOf(design),
+			unreadableRefs: [],
+		});
+	});
+
+	// Leído como el diseño por defecto no nombraría nada: todo lo suyo
+	// parecería huérfano.
+	test("de uno ilegible salen las referencias del proxy de su JSON", () => {
+		const broken = {
+			version: 99,
+			nested: [{ src: { ref: IMAGE } }, "texto", 3, null],
+			other: SIGNATURE,
+			external: "https://cdn.example.com/a.png",
+		};
+
+		expect(storedDesignRefsOf([broken, design], toCertificateDesign)).toEqual({
+			designRefs: [...storageRefsOf(design), SIGNATURE],
+			unreadableRefs: [IMAGE, SIGNATURE],
+		});
 	});
 });

@@ -219,6 +219,13 @@ export interface CourseRoster {
 	reach: RosterReach;
 }
 
+/** Lo que la ficha del curso enseña de sus inscripciones, sin la lista. */
+export interface CourseRosterSummary {
+	course: CourseRoster["course"];
+	/** Con el mismo alcance que `CourseRoster.entries`. */
+	invited: number;
+}
+
 export interface ParticipantCandidate {
 	documentId: string;
 	firstName: string | null;
@@ -340,6 +347,7 @@ export type MyCoursesResponse = AppResponse<MyCourses>;
 /** `null`: la persona no tiene una inscripción que enseñar en su ficha. */
 export type MyCourseDetailResponse = AppResponse<MyCourseDetail | null>;
 export type CourseRosterResponse = AppResponse<CourseRoster>;
+export type CourseRosterSummaryResponse = AppResponse<CourseRosterSummary>;
 export type RosterOptionsResponse = AppResponse<RosterOptions>;
 export type EnrollmentMutationResponse = AppResponse<null>;
 export type BatchResultResponse = AppResponse<BatchResult>;

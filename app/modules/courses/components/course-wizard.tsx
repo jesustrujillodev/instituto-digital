@@ -51,6 +51,7 @@ import {
 	COVER_FIELD,
 	type CourseCreateActionData,
 	INTENT_FIELD,
+	LEAVING_FIELD,
 	PAYLOAD_FIELD,
 } from "../utils/parse-course-form-data";
 import {
@@ -100,7 +101,8 @@ interface CourseWizardProps {
 	step: CourseStep;
 	/** El alta de un borrador, o la edición de un curso publicado. */
 	mode?: CourseWizardMode;
-	options: CourseFormOptions;
+	/** Solo en los pasos con selectores: General, Programa e Inscripción. */
+	options: CourseFormOptions | null;
 	/** `null` en el paso 1 del alta: el borrador todavía no existe. */
 	course?: CourseDetail | null;
 	checklist?: PublishChecklist | null;
@@ -437,13 +439,19 @@ export function CourseWizard({
 		const values = getValues();
 		const { dependency, ...rest } = buildCoursePayload(values);
 		const payload = isCreate ? { dependency, ...rest } : rest;
-		pendingMaterialsRef.current = pendingSessionMaterialsOf(values.sessions);
+		const pendingMaterials = pendingSessionMaterialsOf(values.sessions);
+		pendingMaterialsRef.current = pendingMaterials;
+		// Con material pendiente puede quedarse en el paso, y entonces necesita la
+		// identidad de las sesiones recién creadas.
+		const leaving =
+			isCreate || (target !== "stay" && pendingMaterials.entries.length === 0);
 
 		fetcher.submit(
 			toFormData({
 				[INTENT_FIELD]: isCreate
 					? COURSE_INTENTS.create
 					: COURSE_INTENTS.update,
+				[LEAVING_FIELD]: String(leaving),
 				[PAYLOAD_FIELD]: JSON.stringify({
 					...payload,
 					removeCover: coverRemoved,
@@ -656,7 +664,7 @@ function StepFields({
 }: {
 	step: CourseStep;
 	ids: CourseFormIds;
-	options: CourseFormOptions;
+	options: CourseFormOptions | null;
 	course?: CourseDetail | null;
 	isPublished: boolean;
 	checklist: PublishChecklist;
@@ -675,7 +683,7 @@ function StepFields({
 }) {
 	switch (step.key) {
 		case "identity":
-			return (
+			return options ? (
 				<CourseIdentityFields
 					ids={ids}
 					organizers={
@@ -686,16 +694,16 @@ function StepFields({
 					plans={options.plans}
 					course={course}
 				/>
-			);
+			) : null;
 		case "program":
-			return (
+			return options ? (
 				<CourseProgramFields
 					ids={ids}
 					options={options}
 					isPublished={isPublished}
 					courseDocumentId={course?.documentId ?? null}
 				/>
-			);
+			) : null;
 		case "content":
 			return course && content ? (
 				<CourseContentPanel
@@ -728,13 +736,13 @@ function StepFields({
 				/>
 			);
 		case "access":
-			return (
+			return options ? (
 				<CourseEnrollmentFields
 					ids={ids}
 					options={options}
 					isPublished={isPublished}
 				/>
-			);
+			) : null;
 		case "review":
 			return course ? (
 				<CourseReviewStep

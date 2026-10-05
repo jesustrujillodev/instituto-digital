@@ -12,6 +12,7 @@ import { CourseNotFoundError } from "../domain/course.errors";
 import { toDetail, toSummary } from "../domain/course.mapper";
 import type { ICourseRepository } from "../domain/course.repository";
 import type {
+	CourseSessionData,
 	CourseWriteData,
 	CreateCourseData,
 	ListCoursesDto,
@@ -122,14 +123,18 @@ const QR_SELECT = {
 const SEARCHABLE_FIELDS = ["title", "description"] as const;
 
 // ÚNICA capa que puede importar tipos del ORM ⇒ única que traduce sus códigos.
-const translatePrismaError = (error: unknown): never => {
-	if (
-		error instanceof Prisma.PrismaClientKnownRequestError &&
-		error.code === "P2025"
-	) {
-		throw new CourseNotFoundError();
+const isMissingRow = (error: unknown): boolean =>
+	error instanceof Prisma.PrismaClientKnownRequestError &&
+	error.code === "P2025";
+
+/** Una escritura condicionada que ya no encuentra su fila devuelve `null`. */
+const unlessMissing = async <T>(write: Promise<T>): Promise<T | null> => {
+	try {
+		return await write;
+	} catch (error) {
+		if (isMissingRow(error)) return null;
+		throw error;
 	}
-	throw error;
 };
 
 const toFilters = (
@@ -174,6 +179,48 @@ const writeWhere = (
 	return { documentId, ...filter };
 };
 
+const SYNC_SELECT = {
+	id: true,
+	sessions: {
+		select: {
+			id: true,
+			documentId: true,
+			startsAt: true,
+			endsAt: true,
+			venue: true,
+			link: true,
+		},
+	},
+	trainers: { select: { userId: true } },
+	dependencyAudience: { select: { dependencyId: true } },
+	groupAudience: { select: { groupId: true } },
+} satisfies Prisma.CourseSelect;
+
+type StoredCollections = Prisma.CourseGetPayload<{
+	select: typeof SYNC_SELECT;
+}>;
+
+type SessionFields = Omit<CourseSessionData, "documentId">;
+
+const sameSession = (
+	stored: StoredCollections["sessions"][number],
+	next: SessionFields,
+): boolean =>
+	stored.startsAt.getTime() === next.startsAt.getTime() &&
+	stored.endsAt.getTime() === next.endsAt.getTime() &&
+	stored.venue === next.venue &&
+	stored.link === next.link;
+
+const diffIds = (current: readonly number[], next: readonly number[]) => {
+	const before = new Set(current);
+	const after = new Set(next);
+
+	return {
+		added: [...after].filter((id) => !before.has(id)),
+		removed: [...before].filter((id) => !after.has(id)),
+	};
+};
+
 const scalarsOf = (data: CourseWriteData) => ({
 	title: data.title,
 	description: data.description,
@@ -205,44 +252,73 @@ const coverOf = (data: UpdateCourseData) =>
 export const createCourseRepository = ({
 	prisma,
 }: Dependencies): ICourseRepository => {
-	/** Reemplaza enteras las tablas de unión: ninguna fila tiene hijos. */
-	const replaceJoins = async (courseId: number, data: CourseWriteData) => {
-		await prisma.courseTrainer.deleteMany({ where: { courseId } });
-		await prisma.courseDependencyAudience.deleteMany({ where: { courseId } });
-		await prisma.courseGroupAudience.deleteMany({ where: { courseId } });
+	/** Toca solo las filas de unión que cambiaron: ninguna tiene hijos. */
+	const syncJoins = async (
+		courseId: number,
+		stored: StoredCollections,
+		data: CourseWriteData,
+	) => {
+		const trainers = diffIds(
+			stored.trainers.map((row) => row.userId),
+			data.trainerIds,
+		);
+		const dependencies = diffIds(
+			stored.dependencyAudience.map((row) => row.dependencyId),
+			data.audienceDependencyIds,
+		);
+		const groups = diffIds(
+			stored.groupAudience.map((row) => row.groupId),
+			data.audienceGroupIds,
+		);
 
-		if (data.trainerIds.length > 0) {
-			await prisma.courseTrainer.createMany({
-				data: data.trainerIds.map((userId) => ({ courseId, userId })),
+		if (trainers.removed.length > 0) {
+			await prisma.courseTrainer.deleteMany({
+				where: { courseId, userId: { in: trainers.removed } },
 			});
 		}
-		if (data.audienceDependencyIds.length > 0) {
+		if (trainers.added.length > 0) {
+			await prisma.courseTrainer.createMany({
+				data: trainers.added.map((userId) => ({ courseId, userId })),
+			});
+		}
+		if (dependencies.removed.length > 0) {
+			await prisma.courseDependencyAudience.deleteMany({
+				where: { courseId, dependencyId: { in: dependencies.removed } },
+			});
+		}
+		if (dependencies.added.length > 0) {
 			await prisma.courseDependencyAudience.createMany({
-				data: data.audienceDependencyIds.map((dependencyId) => ({
+				data: dependencies.added.map((dependencyId) => ({
 					courseId,
 					dependencyId,
 				})),
 			});
 		}
-		if (data.audienceGroupIds.length > 0) {
+		if (groups.removed.length > 0) {
+			await prisma.courseGroupAudience.deleteMany({
+				where: { courseId, groupId: { in: groups.removed } },
+			});
+		}
+		if (groups.added.length > 0) {
 			await prisma.courseGroupAudience.createMany({
-				data: data.audienceGroupIds.map((groupId) => ({ courseId, groupId })),
+				data: groups.added.map((groupId) => ({ courseId, groupId })),
 			});
 		}
 	};
 
 	/**
-	 * Diferencia las sesiones por `documentId` en vez de recrearlas.
+	 * Diferencia las sesiones por `documentId` en vez de recrearlas, y solo
+	 * escribe las que cambiaron.
 	 *
 	 * Solo se actualiza una sesión si su `documentId` pertenece a ESTE curso: uno
 	 * ajeno enviado a mano se trata como sesión nueva y nunca toca la otra fila.
 	 */
 	const syncSessions = async (
 		courseId: number,
-		existing: readonly { id: number; documentId: string }[],
+		existing: StoredCollections["sessions"],
 		sessions: CourseWriteData["sessions"],
 	) => {
-		const owned = new Map(existing.map((row) => [row.documentId, row.id]));
+		const owned = new Map(existing.map((row) => [row.documentId, row]));
 		const kept = new Set(
 			sessions.flatMap((session) =>
 				session.documentId && owned.has(session.documentId)
@@ -261,14 +337,24 @@ export const createCourseRepository = ({
 			});
 		}
 
+		const created: SessionFields[] = [];
 		for (const { documentId, ...fields } of sessions) {
-			const id = documentId ? owned.get(documentId) : undefined;
+			const stored = documentId ? owned.get(documentId) : undefined;
 
-			if (id !== undefined) {
-				await prisma.courseSession.update({ where: { id }, data: fields });
-			} else {
-				await prisma.courseSession.create({ data: { courseId, ...fields } });
+			if (!stored) {
+				created.push(fields);
+			} else if (!sameSession(stored, fields)) {
+				await prisma.courseSession.update({
+					where: { id: stored.id },
+					data: fields,
+				});
 			}
+		}
+
+		if (created.length > 0) {
+			await prisma.courseSession.createMany({
+				data: created.map((fields) => ({ courseId, ...fields })),
+			});
 		}
 	};
 
@@ -301,6 +387,10 @@ export const createCourseRepository = ({
 			return course ? toDetail(course) : null;
 		},
 		async create(data: CreateCourseData) {
+			const sessions = data.sessions.map(
+				({ documentId: _ignored, ...fields }) => fields,
+			);
+
 			const course = await prisma.course.create({
 				data: {
 					...scalarsOf(data),
@@ -308,23 +398,53 @@ export const createCourseRepository = ({
 					dependencyId: data.dependencyId,
 					createdById: data.createdById,
 					planLineId: data.planLineId,
-					sessions: {
-						create: data.sessions.map(
-							({ documentId: _ignored, ...fields }) => fields,
-						),
-					},
+					...(sessions.length > 0 && {
+						sessions: { createMany: { data: sessions } },
+					}),
+					...(data.trainerIds.length > 0 && {
+						trainers: {
+							createMany: {
+								data: data.trainerIds.map((userId) => ({ userId })),
+							},
+						},
+					}),
+					...(data.audienceDependencyIds.length > 0 && {
+						dependencyAudience: {
+							createMany: {
+								data: data.audienceDependencyIds.map((dependencyId) => ({
+									dependencyId,
+								})),
+							},
+						},
+					}),
+					...(data.audienceGroupIds.length > 0 && {
+						groupAudience: {
+							createMany: {
+								data: data.audienceGroupIds.map((groupId) => ({ groupId })),
+							},
+						},
+					}),
 				},
-				select: { id: true, documentId: true },
-			});
-
-			await replaceJoins(course.id, data);
-
-			const created = await prisma.course.findUniqueOrThrow({
-				where: { id: course.id },
 				select: DETAIL_SELECT,
 			});
 
-			return toDetail(created);
+			return toDetail(course);
+		},
+		async lock(documentId) {
+			await prisma.$queryRaw`SELECT id FROM "org"."courses" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;
+		},
+		async findSessionsWithAttendance(sessionDocumentIds) {
+			if (sessionDocumentIds.length === 0) return [];
+
+			const rows = await prisma.courseSession.findMany({
+				where: {
+					documentId: { in: [...sessionDocumentIds] },
+					attendance: { some: {} },
+				},
+				select: { documentId: true },
+			});
+
+			return rows.map((row) => row.documentId);
 		},
 		async findSessionMaterialRefs(sessionDocumentIds) {
 			const rows = await prisma.sessionMaterial.findMany({
@@ -337,10 +457,10 @@ export const createCourseRepository = ({
 
 			return rows.flatMap((row) => (row.fileUrl ? [row.fileUrl] : []));
 		},
-		async update(documentId: string, data: UpdateCourseData, scope) {
-			try {
-				const course = await prisma.course.update({
-					where: writeWhere(documentId, scope),
+		async update(documentId: string, data: UpdateCourseData, scope, expected) {
+			const stored = await unlessMissing(
+				prisma.course.update({
+					where: { ...writeWhere(documentId, scope), status: expected },
 					data: {
 						...scalarsOf(data),
 						...coverOf(data),
@@ -348,37 +468,31 @@ export const createCourseRepository = ({
 							planLineId: data.planLineId,
 						}),
 					},
-					select: {
-						id: true,
-						sessions: { select: { id: true, documentId: true } },
-					},
-				});
+					select: SYNC_SELECT,
+				}),
+			);
+			if (!stored) return null;
 
-				await syncSessions(course.id, course.sessions, data.sessions);
-				await replaceJoins(course.id, data);
+			await syncSessions(stored.id, stored.sessions, data.sessions);
+			await syncJoins(stored.id, stored, data);
 
-				const updated = await prisma.course.findUniqueOrThrow({
-					where: { id: course.id },
-					select: DETAIL_SELECT,
-				});
+			const updated = await prisma.course.findUniqueOrThrow({
+				where: { id: stored.id },
+				select: DETAIL_SELECT,
+			});
 
-				return toDetail(updated);
-			} catch (error) {
-				return translatePrismaError(error);
-			}
+			return toDetail(updated);
 		},
 		async publish(documentId, scope) {
-			try {
-				const course = await prisma.course.update({
-					where: writeWhere(documentId, scope),
+			const course = await unlessMissing(
+				prisma.course.update({
+					where: { ...writeWhere(documentId, scope), status: "DRAFT" },
 					data: { status: "PUBLISHED", publishedAt: new Date() },
 					select: DETAIL_SELECT,
-				});
+				}),
+			);
 
-				return toDetail(course);
-			} catch (error) {
-				return translatePrismaError(error);
-			}
+			return course ? toDetail(course) : null;
 		},
 		async finish(courseId, at) {
 			const { count } = await prisma.course.updateMany({
@@ -394,18 +508,16 @@ export const createCourseRepository = ({
 				data: { enrollmentClosedAt: at },
 			});
 		},
-		async cancel(documentId, scope) {
-			try {
-				const course = await prisma.course.update({
-					where: writeWhere(documentId, scope),
+		async cancel(documentId, scope, expected) {
+			const course = await unlessMissing(
+				prisma.course.update({
+					where: { ...writeWhere(documentId, scope), status: expected },
 					data: { status: "CANCELLED", cancelledAt: new Date() },
 					select: DETAIL_SELECT,
-				});
+				}),
+			);
 
-				return toDetail(course);
-			} catch (error) {
-				return translatePrismaError(error);
-			}
+			return course ? toDetail(course) : null;
 		},
 		async findEligibleTrainers(userDocumentIds) {
 			if (userDocumentIds.length === 0) return [];

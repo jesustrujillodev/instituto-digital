@@ -54,6 +54,8 @@ const createHarness = (
 		facts: 0,
 		followUps: 0,
 		followUpBanks: 0,
+		options: 0,
+		courseLookups: 0,
 	};
 
 	const context = {
@@ -65,13 +67,15 @@ const createHarness = (
 			},
 		},
 		quizService: {
-			findBank: async (
-				_courseDocumentId: string,
-				owner: { followUpDocumentId: string | null },
-			) => {
-				if (owner.followUpDocumentId) calls.followUpBanks += 1;
-				else calls.banks += 1;
+			findBank: async () => {
+				calls.banks += 1;
 				return okReply(null);
+			},
+			findFollowUpBanks: async () => {
+				calls.followUpBanks += 1;
+				return okReply({
+					"44444444-4444-4444-8444-444444444444": { questions: [] },
+				});
 			},
 			findFollowUps: async () => {
 				calls.followUps += 1;
@@ -98,23 +102,27 @@ const createHarness = (
 					countedFollowUps: 0,
 				});
 			},
-			findById: async () =>
-				options.findFails
+			findById: async () => {
+				calls.courseLookups += 1;
+				return options.findFails
 					? failReply(options.findFails)
 					: okReply(
 							courseOf(
 								options.status ?? "DRAFT",
 								options.format ?? "SCHEDULED",
 							),
-						),
-			listFormOptions: async () =>
-				okReply({
+						);
+			},
+			listFormOptions: async () => {
+				calls.options += 1;
+				return okReply({
 					trainers: [],
 					organizers: [],
 					audienceDependencies: [],
 					audienceGroups: [],
 					canChooseOrganizer: false,
-				}),
+				});
+			},
 		},
 	} as unknown as LoaderArgs["context"];
 
@@ -234,17 +242,47 @@ describe("capacitaciones/alta loader", () => {
 		expect(calls.followUps).toBe(1);
 	});
 
-	// Sus preguntas se editan en el paso, como las del examen.
+	// Sus preguntas se editan en el paso, como las del examen: todas en una
+	// sola lectura y en la misma fase que el resto.
 	test("el paso de evaluación trae las preguntas de cada una", async () => {
 		const { context, calls } = createHarness();
 
 		const { data } = await run(context, { paso: "4" });
 
 		expect(calls.followUpBanks).toBe(1);
+		expect(calls.banks).toBe(1);
 		expect(data.followUpBanks).toEqual({
-			"44444444-4444-4444-8444-444444444444": null,
+			"44444444-4444-4444-8444-444444444444": { questions: [] },
 		});
 	});
+
+	test("la revisión enseña el seguimiento pero no lee sus preguntas", async () => {
+		const { context, calls } = createHarness();
+
+		const { data } = await run(context, { paso: "6" });
+
+		expect(calls.followUps).toBe(1);
+		expect(calls.followUpBanks).toBe(0);
+		expect(data.followUpBanks).toEqual({});
+	});
+
+	test.each([
+		["1", 1],
+		["2", 1],
+		["4", 0],
+		["5", 1],
+		["6", 0],
+	])(
+		"el paso %s lee las opciones de los selectores %i vez",
+		async (paso, reads) => {
+			const { context, calls } = createHarness();
+
+			const { data } = await run(context, { paso });
+
+			expect(calls.options).toBe(reads);
+			expect(data.options === null).toBe(reads === 0);
+		},
+	);
 
 	test("los pasos que no las muestran no las leen", async () => {
 		const { context, calls } = createHarness();
@@ -288,6 +326,17 @@ describe("capacitaciones/alta loader", () => {
 		const thrown = await run(context).catch((e) => e);
 
 		expect(thrown.init.status).toBe(404);
+	});
+
+	test("un id malformado responde 404 sin consultar nada", async () => {
+		const { context, calls } = createHarness();
+
+		const thrown = await run(context, { documentId: "no-es-un-uuid" }).catch(
+			(e) => e,
+		);
+
+		expect(thrown.init.status).toBe(404);
+		expect(calls.courseLookups).toBe(0);
 	});
 
 	test("un participante recibe 403 antes de buscar nada", async () => {

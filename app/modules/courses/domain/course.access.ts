@@ -255,8 +255,6 @@ export const toAudienceScope = (scope: CourseScope): AccessScope => {
 	}
 };
 
-// ── Visibilidad ───────────────────────────────────────────────────────────────
-
 /**
  * Estados que una audiencia ajena al organizador puede ver.
  *

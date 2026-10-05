@@ -5,6 +5,7 @@ import type {
 	AvailableCourseListResponse,
 	BatchResultResponse,
 	CourseRosterResponse,
+	CourseRosterSummaryResponse,
 	EnrollmentMutationResponse,
 	InviteParticipantsDto,
 	ListAvailableCoursesDto,
@@ -42,6 +43,11 @@ export interface IEnrollmentService {
 		courseDocumentId: string,
 		actor: AuthContext,
 	): Promise<CourseRosterResponse>;
+	/** Lo que `listRoster` cuenta, con el mismo alcance y sin leer la lista. */
+	findRosterSummary(
+		courseDocumentId: string,
+		actor: AuthContext,
+	): Promise<CourseRosterSummaryResponse>;
 	listRosterOptions(
 		courseDocumentId: string,
 		search: string | undefined,
