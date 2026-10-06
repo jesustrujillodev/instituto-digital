@@ -219,5 +219,10 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "Esta evaluación ya se cerró.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[CONTENT_ERROR_CODES.QUIZ_RATE_LIMITED]: {
+		message:
+			"Enviaste demasiadas respuestas seguidas. Espera un minuto e inténtalo de nuevo.",
+		status: HTTP_STATUS.TOO_MANY_REQUESTS,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

@@ -5,9 +5,12 @@ export interface RateLimitDecision {
 	retryAfterMs: number;
 }
 
+export interface RateLimitPolicy {
+	limit: number;
+	windowMs: number;
+}
+
 export interface RateLimiter {
-	consume(
-		key: string,
-		opts: { limit: number; windowMs: number },
-	): RateLimitDecision;
+	/** Nunca lanza: un adaptador que pueda fallar se envuelve con el fallback. */
+	consume(key: string, opts: RateLimitPolicy): Promise<RateLimitDecision>;
 }

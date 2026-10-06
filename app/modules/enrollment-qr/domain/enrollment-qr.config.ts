@@ -9,6 +9,9 @@ export const ENROLLMENT_QR_RATE_LIMIT = {
 	windowMs: 60_000,
 } as const;
 
+export const enrollmentQrRateKeyOf = (ip: string | undefined): string =>
+	`enrollment-qr:${ip ?? "unknown"}`;
+
 /** La ruta pública que codifica el QR, relativa al origen. */
 export const enrollmentQrPathOf = (token: string): string =>
 	`/inscripcion/${token}`;

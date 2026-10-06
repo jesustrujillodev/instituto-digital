@@ -18,6 +18,7 @@ export const ENROLLMENT_ERROR_CODES = {
 	REMOVED: "ENROLLMENT_REMOVED",
 	PARTICIPANT_NOT_ENROLLED: "ENROLLMENT_PARTICIPANT_NOT_ENROLLED",
 	REMOVE_CLOSED: "ENROLLMENT_REMOVE_CLOSED",
+	RATE_LIMITED: "ENROLLMENT_RATE_LIMITED",
 } as const;
 
 export abstract class EnrollmentError extends DomainError {}
@@ -155,5 +156,14 @@ export class EnrollmentRemoveClosedError extends EnrollmentError {
 	constructor(reason: RemovalBlocker) {
 		super("Participant can no longer be removed");
 		this.details = { reason };
+	}
+}
+
+export class EnrollmentRateLimitedError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.RATE_LIMITED;
+	readonly details: { retryAfterMs: number };
+	constructor(retryAfterMs: number) {
+		super("Too many enrollment changes");
+		this.details = { retryAfterMs };
 	}
 }

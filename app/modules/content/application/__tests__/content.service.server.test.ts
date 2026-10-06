@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 import type { CourseStatus } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
+import type { ThrottledLog } from "@/shared/logging/throttled-log";
+import { createMemorySignedUrlCache } from "@/shared/storage/signed-url-cache.memory";
+import { createUrlSigner } from "@/shared/storage/url-signer.server";
 import {
 	actorOf,
 	COURSE_DOC,
@@ -239,7 +242,11 @@ const createHarness = (
 			storagePublicBucket: null,
 			// La real: estas pruebas miden qué URL firmada sale, no que se llame.
 			lessonMaterialReader: createLessonMaterialReader({
-				storageProvider,
+				urlSigner: createUrlSigner({
+					storageProvider,
+					cache: createMemorySignedUrlCache(),
+					log: { warn: () => {} } as unknown as ThrottledLog,
+				}),
 				storageBucket: "instituto",
 				storagePublicBucket: null,
 			}),

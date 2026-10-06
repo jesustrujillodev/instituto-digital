@@ -11,6 +11,7 @@ import {
 import {
 	CHECK_IN_RATE_LIMIT,
 	checkInPathOf,
+	checkInRateKeyOf,
 } from "../../../domain/check-in.config";
 import {
 	CheckInInvalidTokenError,
@@ -33,8 +34,8 @@ export const loader = async ({
 	context,
 	params,
 }: Route.LoaderArgs) => {
-	const decision = context.rateLimiter.consume(
-		`check-in:${getClientIp(request) ?? "unknown"}`,
+	const decision = await context.rateLimiter.consume(
+		checkInRateKeyOf(getClientIp(request)),
 		CHECK_IN_RATE_LIMIT,
 	);
 	if (!decision.allowed) {

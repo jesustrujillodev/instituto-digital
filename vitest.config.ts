@@ -46,6 +46,7 @@ export default defineConfig({
 				"app/shared/di/container.server.ts",
 				"app/shared/storage/s3.adapter.ts",
 				"app/shared/storage/gcs.adapter.ts",
+				"app/shared/redis/redis.client.server.ts",
 				"app/modules/*/infrastructure/*.repository.server.ts",
 			],
 			// Umbrales por DEBAJO de lo alcanzado hoy (98.5 / 95.7 / 98.9 / 99.1): el

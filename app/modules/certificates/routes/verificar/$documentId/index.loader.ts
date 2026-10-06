@@ -5,7 +5,10 @@ import {
 	parseInput,
 	toResponseError,
 } from "@/shared/response/response.helpers";
-import { CERTIFICATE_VERIFY_RATE_LIMIT } from "../../../domain/certificate.config";
+import {
+	CERTIFICATE_VERIFY_RATE_LIMIT,
+	certificateVerifyRateKeyOf,
+} from "../../../domain/certificate.config";
 import {
 	CertificateIssueNotFoundError,
 	CertificateVerifyRateLimitedError,
@@ -28,8 +31,8 @@ export const loader = async ({
 	params,
 }: Route.LoaderArgs) => {
 	// Antes que nada, también antes de validar: un UUID malformado cuenta igual.
-	const decision = context.rateLimiter.consume(
-		`certificate-verify:${getClientIp(request) ?? "unknown"}`,
+	const decision = await context.rateLimiter.consume(
+		certificateVerifyRateKeyOf(getClientIp(request)),
 		CERTIFICATE_VERIFY_RATE_LIMIT,
 	);
 	if (!decision.allowed) {

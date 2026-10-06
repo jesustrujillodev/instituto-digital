@@ -110,6 +110,8 @@ interface HarnessOptions {
 	existing?: { userId: number; status: EnrollmentStatus }[];
 	mine?: MyCourseRecord[];
 	available?: EnrollmentCourse[];
+	/** El limitador niega el siguiente cambio propio. */
+	rateLimited?: boolean;
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -126,6 +128,7 @@ const createHarness = (options: HarnessOptions = {}) => {
 		organizerFilters: [] as unknown[],
 		rosterScopes: [] as (number | null)[],
 		candidateScopes: [] as (number | null)[],
+		rateKeys: [] as string[],
 	};
 	let inTransaction = false;
 
@@ -264,8 +267,18 @@ const createHarness = (options: HarnessOptions = {}) => {
 		},
 	} as unknown as ICradle["notificationService"];
 
+	const rateLimiter = {
+		consume: async (key: string) => {
+			calls.rateKeys.push(key);
+			return options.rateLimited
+				? { allowed: false, retryAfterMs: 90_000 }
+				: { allowed: true, retryAfterMs: 0 };
+		},
+	} as unknown as ICradle["rateLimiter"];
+
 	const service = createEnrollmentService({
 		notificationService,
+		rateLimiter,
 		enrollmentRepository,
 		courseRepository,
 		groupRepository,
@@ -582,6 +595,47 @@ describe("enrollmentService.accept y decline", () => {
 		expect(result).toMatchObject({
 			error: { code: ENROLLMENT_ERROR_CODES.INVITATION_NOT_FOUND },
 		});
+	});
+});
+
+describe("límite de cambios propios sobre la inscripción", () => {
+	test.each([
+		["enroll", {}],
+		["withdraw", { own: "ENROLLED" }],
+		["accept", { own: "INVITED" }],
+		["decline", { own: "INVITED" }],
+	] as const)(
+		"%s respeta el límite por persona y curso",
+		async (operation, options) => {
+			const { service, calls } = createHarness({
+				...options,
+				rateLimited: true,
+			});
+
+			const result = await service[operation](COURSE_ID, actorOf());
+
+			expect(result).toMatchObject({
+				success: false,
+				error: {
+					code: ENROLLMENT_ERROR_CODES.RATE_LIMITED,
+					details: { retryAfterMs: 90_000 },
+				},
+			});
+			expect(calls.rateKeys).toEqual([`enrollment-intent:50:${COURSE_ID}`]);
+			// Se corta antes de leer el curso y de bloquear el cupo.
+			expect(calls.courseFilters).toEqual([]);
+			expect(calls.locks).toEqual([]);
+			expect(calls.saved).toEqual([]);
+		},
+	);
+
+	test("con cupo en el límite, la operación sigue su curso", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.enroll(COURSE_ID, actorOf());
+
+		expect(result.success).toBe(true);
+		expect(calls.rateKeys).toHaveLength(1);
 	});
 });
 

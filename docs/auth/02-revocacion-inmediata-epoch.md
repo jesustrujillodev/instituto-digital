@@ -150,7 +150,23 @@ dial del mecanismo:
 5 segundos deja el corte 60 veces más rápido que la ventana anterior de 5
 minutos manteniendo el coste del caso normal en cero. El proceso que **ejecuta**
 la revocación invalida su propia caché al escribir, así que para él el corte es
-inmediato aunque los demás nodos tarden hasta el TTL.
+inmediato.
+
+**Con Redis, el TTL deja de ser la ventana entre nodos.** Toda escritura publica
+un aviso por el `InvalidationBus` y los demás nodos releen en la siguiente
+petición: el corte llega en ≈ 1 RTT. El TTL sigue siendo el tope si un aviso se
+pierde o Redis está caído, y al reconectar se relee por si hubo alguno perdido
+([redis/00 §4](../redis/00-redis.md)).
+
+| Situación | Propagación a los demás nodos |
+|---|---|
+| Con Redis | ≈ 1 RTT |
+| Sin Redis o con Redis caído | ≤ TTL |
+
+El aviso remoto **conserva el último valor conocido** (relee, pero si la base
+falla sigue sirviendo el corte que ya conocía); la escritura propia lo descarta,
+como antes. Un contador de generación impide que una lectura en vuelo durante el
+aviso deje cacheado el estado viejo.
 
 ## 7. Los dos puntos donde es fácil equivocarse
 
@@ -269,9 +285,9 @@ login con contraseña también. Eso es lo que añade el **lockdown**
   cerraría con introspección por petición, descartada por diseño.
 - **Auditoría persistida:** las revocaciones se registran en el log, pero no hay
   tabla de eventos separada (pendiente general del proyecto).
-- **Multi-nodo real:** la caché es por proceso. Es correcto (propaga en ≤ TTL) y
-  no requiere Redis; un store compartido no lo haría instantáneo, solo movería
-  la caché de sitio.
+- **Multi-nodo real:** resuelto. La caché sigue siendo por proceso, pero cada
+  escritura avisa por pub/sub de Redis y los demás nodos releen al instante
+  (§6). Mover la caché a Redis no lo habría hecho instantáneo; avisar sí.
 - **Multi-tenancy:** con una base por tenant, el epoch resulta naturalmente por
   tenant. Un corte de *toda* la plataforma exigiría iterar tenants — decisión a
   tomar el día que se aborde multi-tenancy, no hoy.

@@ -2,9 +2,8 @@ import type { RateLimiter } from "./rate-limiter";
 
 type Window = { count: number; resetAt: number };
 
-// Adaptador en memoria (ventana fija) — suficiente para un solo proceso.
-// Con varios nodos, implementar el mismo puerto sobre Redis (INCR + EXPIRE).
-// Registrar como singleton de MÓDULO, no por petición.
+// Adaptador en memoria (ventana fija), por proceso. Es el limitador sin Redis y
+// el respaldo cuando Redis no responde. Registrar como singleton de MÓDULO.
 export const createMemoryRateLimiter = (): RateLimiter => {
 	const windows = new Map<string, Window>();
 
@@ -16,7 +15,7 @@ export const createMemoryRateLimiter = (): RateLimiter => {
 	};
 
 	return {
-		consume(key, { limit, windowMs }) {
+		async consume(key, { limit, windowMs }) {
 			sweep();
 
 			const now = Date.now();

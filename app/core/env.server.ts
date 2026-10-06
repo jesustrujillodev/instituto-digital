@@ -95,6 +95,27 @@ const baseEnvSchema = v.object({
 	CHROMIUM_PATH: v.optional(v.pipe(v.string(), v.minLength(1))),
 	/** Solo dentro del contenedor, que no tiene privilegios para el sandbox. */
 	CHROMIUM_NO_SANDBOX: v.optional(v.picklist(["true", "false"]), "false"),
+
+	// ── Redis (docs/redis/00-redis.md) ──────────────────────────────────────────
+	// Opcional: sin él, cada pieza usa su adaptador de proceso. Lleva la
+	// contraseña, así que nunca se escribe en el log.
+	REDIS_URL: v.optional(
+		v.pipe(
+			v.string(),
+			v.regex(
+				/^rediss?:\/\/.+/,
+				"REDIS_URL debe empezar con redis:// o rediss://",
+			),
+		),
+	),
+	/** Separa entornos que compartan instancia; ioredis lo antepone a cada clave. */
+	REDIS_KEY_PREFIX: v.optional(
+		v.pipe(
+			v.string(),
+			v.regex(/^[a-z0-9_-]+:$/, "REDIS_KEY_PREFIX debe terminar en «:»"),
+		),
+		"idc:",
+	),
 });
 
 // Validación condicional al proveedor: fail-fast al boot si el proveedor está
@@ -251,6 +272,9 @@ const result = v.safeParse(envSchema, {
 
 	CHROMIUM_PATH: process.env.CHROMIUM_PATH,
 	CHROMIUM_NO_SANDBOX: process.env.CHROMIUM_NO_SANDBOX,
+
+	REDIS_URL: process.env.REDIS_URL,
+	REDIS_KEY_PREFIX: process.env.REDIS_KEY_PREFIX,
 });
 
 if (!result.success) {

@@ -51,3 +51,18 @@ export const ENROLLMENT_CANDIDATES_LIMIT = 20;
 
 /** Tope de personas por envío de asignación o invitación. */
 export const ENROLLMENT_BATCH_LIMIT = 200;
+
+/**
+ * Por persona y curso, sumando inscribirse, darse de baja, aceptar y declinar.
+ * Cada inscripción bloquea el cupo y encola un correo: alternar sin freno
+ * llenaría la cola de avisos.
+ */
+export const ENROLLMENT_INTENT_RATE_LIMIT = {
+	limit: 10,
+	windowMs: 10 * 60_000,
+} as const;
+
+export const enrollmentIntentRateKeyOf = (
+	userId: number,
+	courseDocumentId: string,
+): string => `enrollment-intent:${userId}:${courseDocumentId}`;

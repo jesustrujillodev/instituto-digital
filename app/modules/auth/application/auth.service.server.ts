@@ -1,6 +1,7 @@
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import type { ICradle } from "../../../shared/di/container.types";
+import { loginEmailRateKeyOf, loginIpRateKeyOf } from "../domain/auth.config";
 import {
 	InvalidCredentialsError,
 	InvalidSessionError,
@@ -102,20 +103,20 @@ export const createAuthService = ({
 		// Rate limiting por email y por IP (la IP es informativa/espoofable sin
 		// proxy de confianza; por eso el límite por email es el estricto).
 		const windowMs = authConfig.loginWindowS * 1000;
-		const decisions = [
-			rateLimiter.consume(`auth:login:email:${dto.email}`, {
+		const decisions = await Promise.all([
+			rateLimiter.consume(loginEmailRateKeyOf(dto.email), {
 				limit: authConfig.loginMaxPerEmail,
 				windowMs,
 			}),
 			...(meta.ipAddress
 				? [
-						rateLimiter.consume(`auth:login:ip:${meta.ipAddress}`, {
+						rateLimiter.consume(loginIpRateKeyOf(meta.ipAddress), {
 							limit: authConfig.loginMaxPerIp,
 							windowMs,
 						}),
 					]
 				: []),
-		];
+		]);
 		const blocked = decisions.find((d) => !d.allowed);
 		if (blocked) {
 			log.warn("login rate limit exceeded");

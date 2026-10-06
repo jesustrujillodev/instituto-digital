@@ -163,6 +163,8 @@ const createHarness = (
 		attended?: number[];
 		/** La sesión del curso que se busca; `null` finge que es de otro. */
 		sessionId?: number | null;
+		/** El limitador niega el siguiente envío. */
+		rateLimited?: boolean;
 	} = {},
 ) => {
 	let inTransaction = false;
@@ -181,6 +183,7 @@ const createHarness = (
 		followUpsDeleted: [] as number[],
 		opened: [] as number[],
 		closed: [] as number[],
+		rateKeys: [] as string[],
 	};
 	const followUps = options.followUps ?? [];
 	const quiz = options.quiz === undefined ? quizOf() : options.quiz;
@@ -333,6 +336,14 @@ const createHarness = (
 				return [];
 			},
 		} as unknown as ICradle["progressSync"],
+		rateLimiter: {
+			consume: async (key: string) => {
+				calls.rateKeys.push(key);
+				return options.rateLimited
+					? { allowed: false, retryAfterMs: 40_000 }
+					: { allowed: true, retryAfterMs: 0 };
+			},
+		} as unknown as ICradle["rateLimiter"],
 		runInTransaction,
 		clock: { now: () => NOW },
 		logger: silentLogger,
@@ -539,6 +550,37 @@ describe("submit: examen final", () => {
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.QUIZ_NOT_EVALUATED },
 		});
+	});
+});
+
+describe("submit: límite de envíos", () => {
+	const submitDto = {
+		...FINAL_QUIZ_OWNER,
+		answers: [{ questionDocumentId: Q1, optionDocumentId: RIGHT }],
+	};
+
+	test("al rebasarlo falla sin bloquear el curso ni guardar el intento", async () => {
+		const { service, calls } = createHarness({ rateLimited: true });
+
+		const result = await service.submit(COURSE_DOC, submitDto, ANA);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: {
+				code: CONTENT_ERROR_CODES.QUIZ_RATE_LIMITED,
+				details: { retryAfterMs: 40_000 },
+			},
+		});
+		expect(calls.lockedInTransaction).toEqual([]);
+		expect(calls.attempts).toEqual([]);
+	});
+
+	test("cuenta por persona y curso", async () => {
+		const { service, calls } = createHarness();
+
+		await service.submit(COURSE_DOC, submitDto, ANA);
+
+		expect(calls.rateKeys).toEqual([`quiz-submit:50:${COURSE_DOC}`]);
 	});
 });
 
