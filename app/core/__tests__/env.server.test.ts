@@ -159,6 +159,22 @@ describe("env.server — defaults", () => {
 
 		expect(env.AUTH_ACCESS_TOKEN_TTL_S).toBe(900);
 	});
+
+	test("el pool de la base conserva el tope de pg y la espera de Prisma", async () => {
+		const { env } = await importEnv({
+			DATABASE_POOL_MAX: undefined,
+			DATABASE_POOL_WAIT_MS: undefined,
+		});
+
+		expect(env.DATABASE_POOL_MAX).toBe(10);
+		expect(env.DATABASE_POOL_WAIT_MS).toBe(2000);
+	});
+
+	test("lanza con un tope de pool que no es un entero positivo", async () => {
+		await expect(importEnv({ DATABASE_POOL_MAX: "0" })).rejects.toThrow(
+			"Invalid environment configuration",
+		);
+	});
 });
 
 /**

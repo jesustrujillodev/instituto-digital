@@ -1,12 +1,21 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { type Prisma, PrismaClient } from "@prisma/client";
+import { env } from "./env.server";
 
 const transactionContext = new AsyncLocalStorage<PrismaClient>();
 
-// Crear el adapter de PostgreSQL
+/**
+ * Cada transacción retiene su conexión de principio a fin, así que el tope del
+ * pool decide cuántos guardados caben a la vez por proceso
+ * (docs/database/00-pool-de-conexiones.md). La espera por conexión se acota
+ * igual para consultas sueltas y para transacciones: sin tope, una consulta
+ * suelta esperaría para siempre con el pool lleno.
+ */
 const adapter = new PrismaPg({
-	connectionString: process.env.DATABASE_URL as string,
+	connectionString: env.DATABASE_URL,
+	max: env.DATABASE_POOL_MAX,
+	connectionTimeoutMillis: env.DATABASE_POOL_WAIT_MS,
 });
 
 /**
@@ -33,7 +42,10 @@ const queryStatsContext = new AsyncLocalStorage<QueryStats>();
 const prismaClientSingleton = () => {
 	const client = new PrismaClient({
 		adapter,
-		transactionOptions: { timeout: TRANSACTION_TIMEOUT_MS },
+		transactionOptions: {
+			timeout: TRANSACTION_TIMEOUT_MS,
+			maxWait: env.DATABASE_POOL_WAIT_MS,
+		},
 		log: COUNT_QUERIES ? [{ level: "query", emit: "event" }] : [],
 	});
 

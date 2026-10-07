@@ -22,6 +22,11 @@ const secret = (name: string) =>
 
 const baseEnvSchema = v.object({
 	DATABASE_URL: v.pipe(v.string("DATABASE_URL is required"), v.minLength(1)),
+	// Conexiones por proceso: réplicas × tope debe caber en la base o en su
+	// pooler (docs/database/00-pool-de-conexiones.md).
+	DATABASE_POOL_MAX: positiveInt(10),
+	// Cuánto espera una consulta o una transacción por una conexión libre.
+	DATABASE_POOL_WAIT_MS: positiveInt(2000),
 	JWT_SECRET: secret("JWT_SECRET"),
 	COOKIE_SECRET: secret("COOKIE_SECRET"),
 	NODE_ENV: v.optional(
@@ -211,6 +216,8 @@ const railwayPublicUrl = (): string | undefined =>
 
 const result = v.safeParse(envSchema, {
 	DATABASE_URL: process.env.DATABASE_URL,
+	DATABASE_POOL_MAX: process.env.DATABASE_POOL_MAX,
+	DATABASE_POOL_WAIT_MS: process.env.DATABASE_POOL_WAIT_MS,
 	JWT_SECRET: process.env.JWT_SECRET,
 	COOKIE_SECRET: process.env.COOKIE_SECRET,
 	NODE_ENV: process.env.NODE_ENV,
