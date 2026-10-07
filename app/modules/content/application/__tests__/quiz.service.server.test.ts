@@ -670,6 +670,36 @@ describe("submit: práctica (docs/adr/0021, 0024)", () => {
 });
 
 describe("findView", () => {
+	// La página de un seguimiento que no abre dice cuándo se abre; si es manual,
+	// solo lo sabe quien imparte.
+	test("un seguimiento automático trae cuándo se abre; el manual sin abrir, no", async () => {
+		const owner = followUpOwnerOf(FOLLOW_UP_DOC);
+		const tomorrow = {
+			...SESSION,
+			startsAt: new Date(NOW.getTime() + 24 * 3_600_000),
+			endsAt: new Date(NOW.getTime() + 26 * 3_600_000),
+		};
+		const automatic = createHarness({
+			followUps: [followUpOf({ session: tomorrow })],
+		});
+		const manual = createHarness({
+			followUps: [followUpOf({ availability: "MANUAL" })],
+		});
+
+		expect(
+			await automatic.service.findView(COURSE_DOC, owner, ANA),
+		).toMatchObject({
+			success: true,
+			data: { availability: "NOT_YET", opensAt: tomorrow.startsAt },
+		});
+		expect(await manual.service.findView(COURSE_DOC, owner, ANA)).toMatchObject(
+			{ success: true, data: { availability: "NOT_YET", opensAt: null } },
+		);
+		expect(
+			await automatic.service.findView(COURSE_DOC, FINAL_QUIZ_OWNER, ANA),
+		).toMatchObject({ success: true, data: { opensAt: null } });
+	});
+
 	test("la hoja no contiene la respuesta correcta", async () => {
 		const { service } = createHarness();
 

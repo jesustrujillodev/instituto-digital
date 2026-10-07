@@ -1,4 +1,5 @@
 import { Clock, QrCode } from "lucide-react";
+import { formatZonedDate, formatZonedTime } from "@/lib/date-utils";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -18,11 +19,13 @@ export function meta({ data }: Route.MetaArgs) {
 	return [{ title: data?.data.view?.title ?? "Evaluación de seguimiento" }];
 }
 
+/** Con fecha, se abre sola; sin ella, es manual y la abre quien imparte. */
+const notYetText = (opensAt: Date | null) =>
+	opensAt
+		? `Esta evaluación se abre el ${formatZonedDate(opensAt)} a las ${formatZonedTime(opensAt)}.`
+		: "Esta evaluación todavía no se abre. Vuelve cuando lo indique quien imparte la sesión.";
+
 const UNAVAILABLE_COPY = {
-	NOT_YET: {
-		icon: Clock,
-		text: "Esta evaluación todavía no se abre. Vuelve cuando lo indique quien imparte la sesión.",
-	},
 	NOT_ATTENDED: {
 		icon: QrCode,
 		text: "Para presentarla, registra tu asistencia a la sesión escaneando su código QR.",
@@ -38,13 +41,16 @@ export default function SeguimientoPage({
 	params,
 }: Route.ComponentProps) {
 	const { courseDocumentId, view } = loaderData.data;
-	const unavailable =
-		view &&
-		(view.availability === "NOT_YET" ||
-			view.availability === "NOT_ATTENDED" ||
-			view.availability === "CLOSED")
-			? UNAVAILABLE_COPY[view.availability]
-			: null;
+	const unavailable = !view
+		? null
+		: view.availability === "NOT_YET"
+			? {
+					icon: Clock,
+					text: notYetText(view.opensAt && new Date(view.opensAt)),
+				}
+			: view.availability === "NOT_ATTENDED" || view.availability === "CLOSED"
+				? UNAVAILABLE_COPY[view.availability]
+				: null;
 
 	return (
 		<div className="flex flex-col gap-4">

@@ -431,6 +431,9 @@ export const createQuizService = ({
 						course.status === "PUBLISHED" &&
 						!(course.enrollment && isAccredited(course.enrollment)) &&
 						canGrantRetakeOn(attempt, quiz.maxAttempts),
+					opensAt: followUp
+						? followUpWindowOf(followUp, followUp.session).opensAt
+						: null,
 				});
 			});
 		},

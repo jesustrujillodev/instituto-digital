@@ -221,6 +221,11 @@ export interface QuizView {
 	outcome: QuizOutcome | null;
 	/** Reprobó, agotó sus intentos y no ha acreditado: puede pedir otro. */
 	canRequestRetake: boolean;
+	/**
+	 * Cuándo se abre una evaluación de seguimiento. `null` fuera del seguimiento
+	 * y en el modo manual mientras nadie la abra: ahí solo lo sabe quien imparte.
+	 */
+	opensAt: Date | null;
 }
 
 // ── Lo que ve quien imparte ───────────────────────────────────────────────────
