@@ -2,6 +2,7 @@ import type {
 	CreateDependencyDto,
 	Dependency,
 	DependencyMember,
+	DependencyRef,
 	HeadCandidate,
 	ListDependenciesDto,
 	UpdateDependencyDto,
@@ -29,6 +30,11 @@ export interface IDependencyRepository {
 	 * personal adscrito y nombre que mostrar.
 	 */
 	findCatalog(): Promise<Dependency[]>;
+	/**
+	 * Activas sin titular activo, por nombre. `excludeName` deja fuera la de
+	 * acogida, que no opera y por eso no lo necesita.
+	 */
+	findWithoutHead(excludeName: string): Promise<DependencyRef[]>;
 	create(dto: CreateDependencyDto): Promise<Dependency>;
 	update(documentId: string, dto: UpdateDependencyDto): Promise<Dependency>;
 	/** Soft-delete: marca `archivedAt` con el instante actual. */

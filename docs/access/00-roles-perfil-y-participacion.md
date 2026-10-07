@@ -210,14 +210,15 @@ El perfil de capacitador **no interviene**: ni lo da ni lo quita.
 
 ### 5.5 · Dos detalles que confunden
 
-1. **El menú usa una aproximación por rol.** Los enlaces "Catálogo de capacitaciones" y
-   "Mis capacitaciones" se muestran a `USER`, `DEPENDENCY_HEAD` y `DEPENDENCY_DEPUTY`
-   ([`app/shared/layout/navigation.config.ts:86-97`](../../app/shared/layout/navigation.config.ts)).
-   El menú no conoce la dependencia, así que el capacitador externo (rol `USER`)
-   ve los enlaces y al entrar recibe 403. La lista `PARTICIPANT_ROLES`
-   ([`require-participant.server.ts:9-13`](../../app/modules/enrollments/routes/require-participant.server.ts))
-   solo se usa para redactar ese mensaje de 403; la decisión la toma
-   `canParticipate`.
+1. **El menú filtra por rol y por dependencia.** Los enlaces de cursar
+   («Catálogo de capacitaciones», «Mis capacitaciones», «Mis créditos») llevan
+   `requiresDependency` en
+   [`navigation.config.ts`](../../app/shared/layout/navigation.config.ts), así que
+   el capacitador externo (rol `USER` sin dependencia) ya no los ve. Sigue siendo
+   UX: la decisión la toma `canParticipate` en cada loader. La lista
+   `PARTICIPANT_ROLES`
+   ([`require-participant.server.ts`](../../app/modules/enrollments/routes/require-participant.server.ts))
+   solo redacta el mensaje de 403.
 2. **"Participante" en pantalla es el nombre del rol `USER`, no de la
    participación.** Un titular aparece como "Titular" y aun así participa.
 

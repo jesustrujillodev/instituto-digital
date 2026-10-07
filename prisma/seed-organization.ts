@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { UNASSIGNED_DEPENDENCY } from "@/modules/dependencies/domain/dependency.config";
 
 /**
  * Estructura organizativa de prueba.
@@ -21,9 +22,6 @@ import type { PrismaClient } from "@prisma/client";
  *   porque hace falta poder mover a alguien entre dependencias sin dejar una sin
  *   personal.
  */
-
-/** Nombre de la dependencia de acogida. Lo comparte la migración inicial. */
-export const UNASSIGNED_DEPENDENCY = "Sin asignar";
 
 type Seeded = {
 	unassignedId: number;

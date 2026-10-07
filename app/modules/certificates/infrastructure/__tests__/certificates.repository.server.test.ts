@@ -432,6 +432,16 @@ describe("entrega al participante", () => {
 		expect(mine).toEqual([{ documentId: "c", data, downloadable: false }]);
 	});
 
+	test("findMine con tope lo pasa como take", async () => {
+		const { repository, writes } = createHarness(null, { issues: [] });
+
+		await repository.findMine(42, 3);
+
+		expect(writes[0]).toMatchObject({
+			findMany: { orderBy: { issuedAt: "desc" }, take: 3 },
+		});
+	});
+
 	test("findMyIssue exige que sea de esa persona y vigente", async () => {
 		const { repository, writes } = createHarness(null, {
 			issue: {

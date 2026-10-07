@@ -172,3 +172,31 @@ describe("assignHead — candidato no elegible", () => {
 		).resolves.toBeUndefined();
 	});
 });
+
+describe("findWithoutHead", () => {
+	test("activas, sin titular vigente y sin la de acogida, por nombre", async () => {
+		const calls: Record<string, unknown>[] = [];
+		const repository = createDependencyRepository({
+			prisma: {
+				dependency: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.push(args);
+						return [];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		await repository.findWithoutHead("Sin asignar");
+
+		expect(calls[0]).toEqual({
+			where: {
+				archivedAt: null,
+				name: { not: "Sin asignar" },
+				users: { none: { role: "DEPENDENCY_HEAD", archivedAt: null } },
+			},
+			orderBy: { name: "asc" },
+			select: { documentId: true, name: true },
+		});
+	});
+});

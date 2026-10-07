@@ -12,6 +12,7 @@ import {
 	MonitorSmartphone,
 	NotebookPen,
 	ScrollText,
+	ServerCog,
 	Stamp,
 	Users,
 	UsersRound,
@@ -225,6 +226,12 @@ export const footerNavigationConfig: readonly NavItem[] = [
 		label: "Sesiones",
 		path: "/dashboard/sesiones",
 		icon: MonitorSmartphone,
+		roles: ["SUPERADMIN"],
+	},
+	{
+		label: "Operación",
+		path: "/dashboard/operacion",
+		icon: ServerCog,
 		roles: ["SUPERADMIN"],
 	},
 ];

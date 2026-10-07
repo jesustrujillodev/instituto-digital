@@ -52,3 +52,54 @@ describe("jobFailureRepository", () => {
 		expect(log.deleted).toEqual([{ where: { failedAt: { lt: before } } }]);
 	});
 });
+
+describe("lecturas de Operación", () => {
+	const createReader = () => {
+		const calls = {
+			findMany: [] as Record<string, unknown>[],
+			count: [] as unknown[],
+		};
+		const repository = createJobFailureRepository({
+			prisma: {
+				jobFailure: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.findMany.push(args);
+						return [];
+					},
+					count: async (args?: unknown) => {
+						calls.count.push(args);
+						return 0;
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+		return { repository, calls };
+	};
+
+	test("findPage nunca lee el payload, que puede llevar datos personales", async () => {
+		const { repository, calls } = createReader();
+
+		await repository.findPage({ skip: 0, take: 20 });
+
+		const select = calls.findMany[0].select as Record<string, unknown>;
+		expect(select).not.toHaveProperty("payload");
+		expect(calls.findMany[0]).toMatchObject({
+			orderBy: [{ failedAt: "desc" }, { id: "desc" }],
+			skip: 0,
+			take: 20,
+		});
+	});
+
+	test("cuenta todos o solo los recientes", async () => {
+		const { repository, calls } = createReader();
+		const since = new Date("2026-09-30T18:00:00.000Z");
+
+		await repository.count();
+		await repository.countSince(since);
+
+		expect(calls.count).toEqual([
+			undefined,
+			{ where: { failedAt: { gte: since } } },
+		]);
+	});
+});

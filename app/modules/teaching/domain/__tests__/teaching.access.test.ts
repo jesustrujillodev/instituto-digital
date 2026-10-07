@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
 	canCorrect,
 	canTeach,
+	ownTeachingScope,
 	resolveTeachingScope,
 	teachingCourseWhere,
 } from "../teaching.access";
@@ -86,5 +87,32 @@ describe("canCorrect", () => {
 		expect(canCorrect(head, 3)).toBe(true);
 		expect(canCorrect(head, 4)).toBe(false);
 		expect(canCorrect(superadmin, 4)).toBe(true);
+	});
+});
+
+describe("ownTeachingScope", () => {
+	test("quita el alcance global y el de autor, y conserva dependencia y capacitador", () => {
+		expect(
+			ownTeachingScope(actorOf({ role: "DEPENDENCY_DEPUTY", isTrainer: true })),
+		).toEqual({ global: false, dependencyId: 3, trainerId: 9, creator: null });
+		expect(
+			ownTeachingScope(
+				actorOf({ role: "SUPERADMIN", dependencyId: null, isTrainer: false }),
+			),
+		).toEqual({
+			global: false,
+			dependencyId: null,
+			trainerId: null,
+			creator: null,
+		});
+	});
+
+	test("el capacitador interno conserva lo que imparte y pierde lo que solo creó", () => {
+		expect(ownTeachingScope(actorOf())).toEqual({
+			global: false,
+			dependencyId: null,
+			trainerId: 9,
+			creator: null,
+		});
 	});
 });

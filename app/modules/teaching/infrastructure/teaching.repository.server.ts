@@ -187,6 +187,43 @@ export const createTeachingRepository = ({
 		return course ? toTeachingCourse(course) : null;
 	},
 
+	async findAwaitingFinish(where, { now, viewerId, take }) {
+		const rows = await prisma.course.findMany({
+			where: {
+				AND: [
+					asWhere(where),
+					{
+						status: "PUBLISHED",
+						format: "SCHEDULED",
+						sessions: { some: {}, none: { endsAt: { gt: now } } },
+					},
+				],
+			},
+			orderBy: { id: "asc" },
+			take,
+			select: {
+				documentId: true,
+				title: true,
+				dependencyId: true,
+				sessions: {
+					orderBy: { endsAt: "desc" },
+					take: 1,
+					select: { endsAt: true },
+				},
+				trainers: { where: { userId: viewerId }, select: { userId: true } },
+				_count: { select: { enrollments: { where: { status: "ENROLLED" } } } },
+			},
+		});
+
+		// `sessions: { some: {} }` garantiza la última sesión.
+		return rows.map(({ sessions, trainers, _count, ...course }) => ({
+			...course,
+			lastSessionEndsAt: sessions[0].endsAt,
+			enrolledCount: _count.enrollments,
+			viewerTeaches: trainers.length > 0,
+		}));
+	},
+
 	async findCourseById(courseId) {
 		const course = await prisma.course.findUniqueOrThrow({
 			where: { id: courseId },

@@ -83,6 +83,35 @@ export const createAnnualPlanRepository = ({
 		return plans.map(({ lines, ...plan }) => ({ ...toPlanRef(plan), lines }));
 	},
 
+	async findCoverage(fiscalYear, excludeName) {
+		const rows = await prisma.dependency.findMany({
+			where: { archivedAt: null, name: { not: excludeName } },
+			orderBy: { name: "asc" },
+			select: {
+				documentId: true,
+				name: true,
+				annualPlans: {
+					where: { fiscalYear },
+					select: {
+						documentId: true,
+						lines: {
+							select: {
+								cancelledAt: true,
+								courses: { select: { status: true, format: true } },
+							},
+						},
+					},
+				},
+			},
+		});
+
+		// Un plan por dependencia y ejercicio: lo garantiza la base.
+		return rows.map(({ annualPlans, ...dependency }) => ({
+			...dependency,
+			plan: annualPlans[0] ?? null,
+		}));
+	},
+
 	async findPlan(documentId, where) {
 		const plan = await prisma.annualPlan.findFirst({
 			where: { AND: [{ documentId }, asWhere(where)] },

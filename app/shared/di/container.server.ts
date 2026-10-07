@@ -54,7 +54,9 @@ import { createLessonMaterialReferenceSource } from "@/modules/content/infrastru
 import { createQuizRepository } from "@/modules/content/infrastructure/quiz.repository.server";
 import { createSessionMaterialReferenceSource } from "@/modules/content/infrastructure/session-material.references.server";
 import { createSessionMaterialRepository } from "@/modules/content/infrastructure/session-material.repository.server";
+import { createCourseAttentionService } from "@/modules/courses/application/course-attention.service.server";
 import { createCourseService } from "@/modules/courses/application/courses.service.server";
+import { createCourseAttentionRepository } from "@/modules/courses/infrastructure/course-attention.repository.server";
 import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
 import { createCreditService } from "@/modules/credits/application/credits.service.server";
@@ -64,7 +66,9 @@ import { createDependencyService } from "@/modules/dependencies/application/depe
 import { createDependencyRepositoryWithInvalidation } from "@/modules/dependencies/infrastructure/dependencies.repository.cache.server";
 import { createDependencyRepository } from "@/modules/dependencies/infrastructure/dependencies.repository.server";
 import { createEnrollmentQrService } from "@/modules/enrollment-qr/application/enrollment-qr.service.server";
+import { createEnrollmentSummaryService } from "@/modules/enrollments/application/enrollment-summary.service.server";
 import { createEnrollmentService } from "@/modules/enrollments/application/enrollments.service.server";
+import { createEnrollmentSummaryRepository } from "@/modules/enrollments/infrastructure/enrollment-summary.repository.server";
 import { createEnrollmentRepository } from "@/modules/enrollments/infrastructure/enrollments.repository.server";
 import { createGroupService } from "@/modules/groups/application/groups.service.server";
 import { createGroupRepository } from "@/modules/groups/infrastructure/groups.repository.server";
@@ -74,6 +78,7 @@ import {
 } from "@/modules/notifications/application/email-outbox.worker.server";
 import { createNotificationService } from "@/modules/notifications/application/notifications.service.server";
 import { createNotificationRepository } from "@/modules/notifications/infrastructure/notifications.repository.server";
+import { createOperationsService } from "@/modules/operations/application/operations.service.server";
 import { createRatingService } from "@/modules/ratings/application/ratings.service.server";
 import { createRatingRepository } from "@/modules/ratings/infrastructure/ratings.repository.server";
 import { createCompletionSync } from "@/modules/teaching/application/completion-sync.server";
@@ -285,6 +290,8 @@ const createAppContainer = () => {
 		groupService: asSingleton(createGroupService),
 		courseRepository: asSingleton(createCourseRepository),
 		courseService: asSingleton(createCourseService),
+		courseAttentionRepository: asSingleton(createCourseAttentionRepository),
+		courseAttentionService: asSingleton(createCourseAttentionService),
 		contentRepository: asSingleton(createContentRepository),
 		contentService: asSingleton(createContentService),
 		lessonMaterialReader: asSingleton(createLessonMaterialReader),
@@ -309,6 +316,8 @@ const createAppContainer = () => {
 		certificateTemplateService: asSingleton(createCertificateTemplateService),
 		enrollmentRepository: asSingleton(createEnrollmentRepository),
 		enrollmentService: asSingleton(createEnrollmentService),
+		enrollmentSummaryRepository: asSingleton(createEnrollmentSummaryRepository),
+		enrollmentSummaryService: asSingleton(createEnrollmentSummaryService),
 		calendarRepository: asSingleton(createCalendarRepository),
 		calendarService: asSingleton(createCalendarService),
 		teachingRepository: asSingleton(createTeachingRepository),
@@ -346,6 +355,7 @@ const createAppContainer = () => {
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
 		jobFailureRepository: asSingleton(createJobFailureRepository),
+		operationsService: asSingleton(createOperationsService),
 		jobDispatcher: asSingleton((cradle) =>
 			createJobDispatcher({
 				queues: queueClient,

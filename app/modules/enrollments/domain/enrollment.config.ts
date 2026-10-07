@@ -66,3 +66,16 @@ export const enrollmentIntentRateKeyOf = (
 	userId: number,
 	courseDocumentId: string,
 ): string => `enrollment-intent:${userId}:${courseDocumentId}`;
+
+/**
+ * Cuándo un curso con la inscripción abierta se señala por poca inscripción:
+ * empieza dentro de `startsWithinDays` y no llega a `minFillRatio` del cupo. Sin
+ * cupo no hay proporción, así que solo se señala si nadie se ha inscrito.
+ */
+export const LOW_ENROLLMENT = {
+	startsWithinDays: 7,
+	minFillRatio: 0.5,
+} as const;
+
+/** Tope de cursos abiertos que se leen para ordenarlos por cierre. */
+export const OPEN_ENROLLMENT_SCAN_CAP = 100;

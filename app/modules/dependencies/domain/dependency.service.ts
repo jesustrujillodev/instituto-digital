@@ -2,6 +2,7 @@ import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	CreateDependencyDto,
 	DependencyListResponse,
+	DependencyRef,
 	DependencyResponse,
 	HeadCandidate,
 	ListDependenciesDto,
@@ -32,6 +33,8 @@ export interface IDependencyService {
 	 * filtrar por una dependencia ya desactivada que todavía tiene personal.
 	 */
 	listCatalog(): Promise<DependencyListResponse>;
+	/** Las activas que nadie encabeza: no pueden operar hasta tener titular. */
+	listWithoutHead(): Promise<AppResponse<DependencyRef[]>>;
 	/** Falla con `DEPENDENCY_NOT_FOUND` si no existe — no devuelve un dato nulo. */
 	findById(documentId: string): Promise<DependencyResponse>;
 	/**

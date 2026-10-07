@@ -1,8 +1,11 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	CreatePlanDto,
+	CurrentPlanSummary,
 	LineForCourseResponse,
 	ListPlansDto,
+	PlanCoverage,
 	PlanCreatedResponse,
 	PlanDetailResponse,
 	PlanLineDto,
@@ -17,6 +20,20 @@ import type {
  */
 export interface IAnnualPlanService {
 	listPlans(query: ListPlansDto, actor: AuthContext): Promise<PlanListResponse>;
+	/**
+	 * El plan del ejercicio en curso de la dependencia y las líneas que ya
+	 * deberían tener curso. Falla con `ANNUAL_PLAN_FORBIDDEN_SCOPE` fuera del
+	 * alcance de dependencia.
+	 */
+	summarizeCurrent(
+		actor: AuthContext,
+		options: { limit: number },
+	): Promise<AppResponse<CurrentPlanSummary>>;
+	/**
+	 * El avance del ejercicio en curso de cada dependencia activa. Solo el
+	 * alcance global; si no, `ANNUAL_PLAN_FORBIDDEN_SCOPE`.
+	 */
+	summarizeCoverage(actor: AuthContext): Promise<AppResponse<PlanCoverage>>;
 	findPlan(documentId: string, actor: AuthContext): Promise<PlanDetailResponse>;
 	createPlan(
 		dto: CreatePlanDto,

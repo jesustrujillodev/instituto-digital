@@ -202,3 +202,58 @@ describe("listSessions", () => {
 		expect(result.error.code).toBe(RESPONSE_ERROR_CODES.UNEXPECTED);
 	});
 });
+
+describe("listWeek", () => {
+	test("lee de hoy a siete días en Tijuana y pide una fila de más", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.listWeek(actorOf(), { limit: 5 });
+
+		expect(result.success).toBe(true);
+		if (!result.success) return;
+		expect(result.data.today).toBe("2026-09-30");
+		expect(result.data.days).toHaveLength(7);
+		expect(calls.find[0]).toMatchObject({
+			from: new Date("2026-09-30T07:00:00.000Z"),
+			to: new Date("2026-10-07T07:00:00.000Z"),
+			staffDependencyId: null,
+			limit: 6,
+		});
+	});
+
+	test("recorta al tope y avisa que había más", async () => {
+		const { service } = createHarness([rowOf("s1"), rowOf("s2"), rowOf("s3")]);
+
+		const result = await service.listWeek(actorOf(), { limit: 2 });
+
+		expect(result.success).toBe(true);
+		if (!result.success) return;
+		expect(result.data.sessions.map((session) => session.documentId)).toEqual([
+			"s1",
+			"s2",
+		]);
+		expect(result.data.truncated).toBe(true);
+	});
+
+	test("etiqueta las sesiones igual que el calendario", async () => {
+		const { service } = createHarness();
+
+		const result = await service.listWeek(actorOf(), { limit: 5 });
+
+		expect(result.success && result.data.sessions[0]).toMatchObject({
+			lenses: ["enrolled"],
+			courseHref: "/dashboard/mis-capacitaciones/c-s1",
+		});
+		expect(result.success && result.data.truncated).toBe(false);
+	});
+
+	test("un fallo del repositorio llega como error inesperado", async () => {
+		const { service } = createHarness(new Error("connection refused"));
+
+		const result = await service.listWeek(actorOf(), { limit: 5 });
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.error.code).toBe(RESPONSE_ERROR_CODES.UNEXPECTED);
+	});
+});

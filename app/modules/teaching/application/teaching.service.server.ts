@@ -9,11 +9,15 @@ import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import {
 	canTeach,
+	ownTeachingScope,
 	resolveTeachingScope,
 	type TeachingScope,
 	teachingCourseWhere,
 } from "../domain/teaching.access";
-import { TEACHING_LIST_DEFAULTS } from "../domain/teaching.config";
+import {
+	TEACHING_LIST_DEFAULTS,
+	TEACHING_PENDING_SCAN_CAP,
+} from "../domain/teaching.config";
 import {
 	TeachingCourseNotFoundError,
 	TeachingForbiddenScopeError,
@@ -39,6 +43,7 @@ import type {
 	SetEnrollmentOpenDto,
 	TeachingCourse,
 } from "../domain/teaching.types";
+import { toTeachingPending } from "../domain/teaching-pending.rules";
 
 type Dependencies = {
 	teachingRepository: ICradle["teachingRepository"];
@@ -93,6 +98,24 @@ export const createTeachingService = ({
 	};
 
 	return {
+		async summarizePending(actor: AuthContext, { limit }: { limit: number }) {
+			return run("summarizePending", async () => {
+				const scope = ownTeachingScope(actor);
+				if (!canTeach(scope)) throw new TeachingForbiddenScopeError();
+
+				const records = await teachingRepository.findAwaitingFinish(
+					teachingCourseWhere(scope),
+					{
+						now: clock.now(),
+						viewerId: actor.userId,
+						take: TEACHING_PENDING_SCAN_CAP,
+					},
+				);
+
+				return ok(toTeachingPending(records, scope, limit));
+			});
+		},
+
 		async listCourses(filters: ListTeachingCoursesDto, actor: AuthContext) {
 			return run("listCourses", async () => {
 				const where = teachingCourseWhere(requireScope(actor));

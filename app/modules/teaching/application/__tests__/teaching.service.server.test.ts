@@ -22,6 +22,7 @@ import {
 import { TEACHING_ERROR_CODES } from "../../domain/teaching.errors";
 import type {
 	AttendanceMark,
+	PendingFinishRecord,
 	TeachingCourse,
 } from "../../domain/teaching.types";
 import { createCompletionSync } from "../completion-sync.server";
@@ -601,5 +602,116 @@ describe("curso evaluado con examen en línea", () => {
 		expect(result.success).toBe(true);
 		expect(log.markedFailed).toBe(1);
 		expect(course().participants[0]?.result).toBe("FAILED");
+	});
+});
+
+describe("summarizePending", () => {
+	const NOW = new Date("2026-09-16T18:00:00.000Z");
+	const recordOf = (
+		documentId: string,
+		lastSessionEndsAt: string,
+		overrides: Partial<PendingFinishRecord> = {},
+	): PendingFinishRecord => ({
+		documentId,
+		title: `Curso ${documentId}`,
+		dependencyId: 3,
+		lastSessionEndsAt: new Date(lastSessionEndsAt),
+		enrolledCount: 12,
+		viewerTeaches: false,
+		...overrides,
+	});
+
+	const pendingHarness = (records: PendingFinishRecord[] = []) => {
+		const calls: { where: unknown; params: Record<string, unknown> }[] = [];
+		const teachingRepository = {
+			findAwaitingFinish: async (
+				where: unknown,
+				params: Record<string, unknown>,
+			) => {
+				calls.push({ where, params });
+				return records;
+			},
+		} as unknown as ICradle["teachingRepository"];
+
+		const service = createTeachingService({
+			teachingRepository,
+			courseRepository: {} as ICradle["courseRepository"],
+			enrollmentRepository: {} as ICradle["enrollmentRepository"],
+			completionSync: {} as ICradle["completionSync"],
+			progressSync: {} as ICradle["progressSync"],
+			runInTransaction: (async () => {
+				throw new Error("sin transacción");
+			}) as unknown as ICradle["runInTransaction"],
+			clock: { now: () => NOW },
+			logger: silentLogger,
+		});
+
+		return { service, calls };
+	};
+
+	test("el titular capacitador ve lo de su dependencia y lo que imparte, sin alcance de autor", async () => {
+		const { service, calls } = pendingHarness();
+
+		await service.summarizePending(
+			actorOf({ role: "DEPENDENCY_HEAD", isTrainer: true }),
+			{ limit: 5 },
+		);
+
+		expect(calls[0].where).toEqual({
+			OR: [{ dependencyId: 3 }, { trainers: { some: { userId: 9 } } }],
+		});
+		expect(calls[0].params).toMatchObject({ now: NOW, viewerId: 9 });
+	});
+
+	test("ordena por antigüedad, recorta y dice desde qué lado le toca", async () => {
+		const { service } = pendingHarness([
+			recordOf("reciente", "2026-09-15T18:00:00.000Z", { viewerTeaches: true }),
+			recordOf("viejo", "2026-09-01T18:00:00.000Z", { dependencyId: 8 }),
+			recordOf("medio", "2026-09-10T18:00:00.000Z"),
+		]);
+
+		const result = await service.summarizePending(HEAD, { limit: 2 });
+
+		expect(result.success).toBe(true);
+		if (!result.success) return;
+		expect(result.data.awaitingFinish).toEqual([
+			expect.objectContaining({
+				documentId: "viejo",
+				teaching: false,
+				organizing: false,
+			}),
+			expect.objectContaining({
+				documentId: "medio",
+				teaching: false,
+				organizing: true,
+			}),
+		]);
+		expect(result.data.truncated).toBe(true);
+	});
+
+	test("quien no imparte ni organiza recibe FORBIDDEN_SCOPE sin tocar la base", async () => {
+		const { service, calls } = pendingHarness();
+
+		const result = await service.summarizePending(
+			actorOf({ isTrainer: false }),
+			{ limit: 5 },
+		);
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.error.code).toBe(TEACHING_ERROR_CODES.FORBIDDEN_SCOPE);
+		expect(calls).toEqual([]);
+	});
+
+	test("el superadministrador no recibe el trabajo de toda la plataforma", async () => {
+		const { service, calls } = pendingHarness();
+
+		const result = await service.summarizePending(
+			actorOf({ role: "SUPERADMIN", dependencyId: null, isTrainer: false }),
+			{ limit: 5 },
+		);
+
+		expect(result.success).toBe(false);
+		expect(calls).toEqual([]);
 	});
 });

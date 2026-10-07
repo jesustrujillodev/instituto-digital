@@ -11,7 +11,14 @@ type Dependencies = {
 export const createCalendarRepository = ({
 	prisma,
 }: Dependencies): ICalendarRepository => ({
-	async findSessions({ from, to, courseFilter, viewerId, staffDependencyId }) {
+	async findSessions({
+		from,
+		to,
+		courseFilter,
+		viewerId,
+		staffDependencyId,
+		limit,
+	}) {
 		const rows = await prisma.courseSession.findMany({
 			where: {
 				startsAt: { gte: from, lt: to },
@@ -19,6 +26,7 @@ export const createCalendarRepository = ({
 				course: courseFilter as unknown as Prisma.CourseWhereInput,
 			},
 			orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+			take: limit,
 			select: {
 				documentId: true,
 				startsAt: true,

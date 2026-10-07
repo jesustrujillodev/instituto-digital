@@ -2,7 +2,10 @@ import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { canBeHead } from "../domain/dependency.access";
-import { DEPENDENCY_LIST_DEFAULTS } from "../domain/dependency.config";
+import {
+	DEPENDENCY_LIST_DEFAULTS,
+	UNASSIGNED_DEPENDENCY,
+} from "../domain/dependency.config";
 import {
 	DependencyInactiveError,
 	DependencyNotFoundError,
@@ -81,6 +84,11 @@ export const createDependencyService = ({
 			// una meta de paginación inventada mentiría sobre lo que se consultó.
 			return run("listActive", async () =>
 				ok(await dependencyRepository.findActive()),
+			);
+		},
+		async listWithoutHead() {
+			return run("listWithoutHead", async () =>
+				ok(await dependencyRepository.findWithoutHead(UNASSIGNED_DEPENDENCY)),
 			);
 		},
 		async findById(documentId: string) {

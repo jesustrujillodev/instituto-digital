@@ -221,6 +221,7 @@ const createHarness = (
 		overlays: 0,
 		deliveries: [] as { courseId: number; delivery: CertificateDelivery }[],
 		mineFor: [] as number[],
+		mineTake: [] as (number | undefined)[],
 		myIssueFor: [] as { documentId: string; userId: number }[],
 	};
 
@@ -234,8 +235,9 @@ const createHarness = (
 		saveDelivery: async (courseId: number, delivery: CertificateDelivery) => {
 			calls.deliveries.push({ courseId, delivery });
 		},
-		findMine: async (userId: number) => {
+		findMine: async (userId: number, take?: number) => {
 			calls.mineFor.push(userId);
+			calls.mineTake.push(take);
 			return [
 				{ documentId: ISSUE_DOC, data: issueOf().data, downloadable: true },
 			];
@@ -1257,6 +1259,15 @@ describe("certificateService.listMine", () => {
 				},
 			],
 		});
+		expect(calls.mineTake).toEqual([undefined]);
+	});
+
+	test("con límite, pide solo los más recientes", async () => {
+		const { service, calls } = createHarness();
+
+		await service.listMine(actorOf({ userId: 42 }), { limit: 3 });
+
+		expect(calls.mineTake).toEqual([3]);
 	});
 });
 

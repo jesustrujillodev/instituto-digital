@@ -18,6 +18,7 @@ import type {
 	CalendarFilters,
 	CalendarQueryDto,
 } from "../domain/calendar.types";
+import { upcomingWeekOf } from "../domain/calendar-week.rules";
 
 type Dependencies = {
 	calendarRepository: ICradle["calendarRepository"];
@@ -67,6 +68,27 @@ export const createCalendarService = ({
 						canToggleStaff: canToggleStaff(plan),
 					},
 				});
+			});
+		},
+
+		async listWeek(actor: AuthContext, { limit }: { limit: number }) {
+			return run("listWeek", async () => {
+				const plan = resolveCalendarPlan(actor, false);
+				const { today, days, from, to } = upcomingWeekOf(clock.now());
+
+				// Una fila de más dice si hubo recorte sin un conteo aparte.
+				const rows = await calendarRepository.findSessions({
+					from,
+					to,
+					courseFilter: calendarCourseWhere(plan),
+					viewerId: plan.viewerId,
+					staffDependencyId: null,
+					limit: limit + 1,
+				});
+
+				const sessions = toCalendarSessions(plan, rows.slice(0, limit));
+
+				return ok({ today, days, sessions, truncated: rows.length > limit });
 			});
 		},
 	};

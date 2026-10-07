@@ -32,3 +32,24 @@ export const catalogAccessWhere = (userId: number): CatalogAccessWhere => ({
 		},
 	],
 });
+
+/**
+ * Cursos con la inscripción abierta en `now`, en términos de consulta: lo mismo
+ * que `isEnrollmentOpen` decide sobre un curso ya leído. Un calendarizado lo
+ * está mientras tenga sesiones y ninguna haya empezado; un autogestivo no tiene
+ * ninguna que mirar (docs/adr/0011).
+ */
+export const openEnrollmentWhere = (now: Date) =>
+	[
+		{ status: "PUBLISHED" },
+		{
+			OR: [
+				{ format: "SELF_PACED" },
+				{ sessions: { some: {}, none: { startsAt: { lte: now } } } },
+			],
+		},
+		{ OR: [{ enrollmentDeadline: null }, { enrollmentDeadline: { gt: now } }] },
+		{ enrollmentClosedAt: null },
+	] as const;
+
+export type OpenEnrollmentWhere = ReturnType<typeof openEnrollmentWhere>;

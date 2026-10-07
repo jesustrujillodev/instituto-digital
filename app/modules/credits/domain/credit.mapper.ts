@@ -3,7 +3,13 @@ import {
 	courseHoursOf,
 } from "@/modules/courses/domain/course.rules";
 import type { CoverResolver } from "@/modules/enrollments/domain/enrollment.mapper";
-import type { CreditTally, MyCredit, MyCredits } from "./credit.types";
+import type {
+	CreditedCourseHours,
+	CreditTally,
+	MyCredit,
+	MyCredits,
+	YearCredits,
+} from "./credit.types";
 
 export interface MyCreditRaw {
 	documentId: string;
@@ -97,3 +103,16 @@ export const summarizeMine = (
 		credits: ofYear,
 	};
 };
+
+/** Mismas horas que `summarizeMine`: las de `courseHoursOf`, y 0 si no hay. */
+export const toYearCredits = (
+	fiscalYear: number,
+	courses: readonly CreditedCourseHours[],
+): YearCredits => ({
+	fiscalYear,
+	total: courses.length,
+	hours: courses.reduce(
+		(total, course) => total + (courseHoursOf(course) ?? 0),
+		0,
+	),
+});

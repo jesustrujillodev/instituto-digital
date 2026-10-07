@@ -16,3 +16,10 @@ export const DEPENDENCY_LIST_DEFAULTS = {
  * (nombre, estado). Toda escritura de una dependencia lo invalida.
  */
 export const DEPENDENCIES_CACHE_SCOPE = "dependencies";
+
+/**
+ * Nombre de la dependencia de acogida: la crea la migración inicial para
+ * reubicar las cuentas anteriores al modelo. No es una unidad que opere, así que
+ * lo que le pide a una dependencia —titular, plan anual— no se le reclama.
+ */
+export const UNASSIGNED_DEPENDENCY = "Sin asignar";

@@ -20,6 +20,31 @@ export const createJobFailureRepository = ({
 		});
 	},
 
+	async findPage({ skip, take }) {
+		return prisma.jobFailure.findMany({
+			orderBy: [{ failedAt: "desc" }, { id: "desc" }],
+			skip,
+			take,
+			select: {
+				id: true,
+				queue: true,
+				name: true,
+				jobId: true,
+				attempts: true,
+				error: true,
+				failedAt: true,
+			},
+		});
+	},
+
+	async count() {
+		return prisma.jobFailure.count();
+	},
+
+	async countSince(since) {
+		return prisma.jobFailure.count({ where: { failedAt: { gte: since } } });
+	},
+
 	async purgeBefore(before) {
 		const { count } = await prisma.jobFailure.deleteMany({
 			where: { failedAt: { lt: before } },

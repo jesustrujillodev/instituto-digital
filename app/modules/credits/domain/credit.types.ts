@@ -135,3 +135,16 @@ export interface StaffQuery {
 
 export type MyCreditsResponse = AppResponse<MyCredits>;
 export type CreditsOverviewResponse = AppResponse<CreditsOverview>;
+
+/** Lo que cuenta el ejercicio en curso, sin el detalle de cada crédito. */
+export interface YearCredits {
+	fiscalYear: number;
+	total: number;
+	hours: number;
+}
+
+/** Lo que hace falta de un curso acreditado para sumar sus horas. */
+export interface CreditedCourseHours {
+	hours: number | null;
+	sessions: { startsAt: Date; endsAt: Date }[];
+}

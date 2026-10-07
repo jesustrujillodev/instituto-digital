@@ -227,3 +227,24 @@ describe("summarizeByDependency", () => {
 		]);
 	});
 });
+
+describe("findYearCourses", () => {
+	test("lee solo los vigentes de la persona en ese ejercicio, con lo que suma horas", async () => {
+		const { repository, calls } = createHarness();
+
+		const courses = await repository.findYearCourses(50, 2026);
+
+		expect(calls.creditFindMany[0]).toEqual({
+			where: { userId: 50, fiscalYear: 2026, revokedAt: null },
+			select: {
+				course: {
+					select: {
+						hours: true,
+						sessions: { select: { startsAt: true, endsAt: true } },
+					},
+				},
+			},
+		});
+		expect(courses).toEqual([MINE_ROW.course]);
+	});
+});

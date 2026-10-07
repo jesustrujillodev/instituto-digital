@@ -120,3 +120,42 @@ describe("annualPlanRepository", () => {
 		expect(referenced.code).toBe(ANNUAL_PLAN_ERROR_CODES.LINE_HAS_COURSES);
 	});
 });
+
+describe("findCoverage", () => {
+	test("dependencias activas sin la de acogida, con su plan del ejercicio", async () => {
+		const calls: Record<string, unknown>[] = [];
+		const repository = createAnnualPlanRepository({
+			prisma: {
+				dependency: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.push(args);
+						return [
+							{
+								documentId: "d1",
+								name: "Obras Públicas",
+								annualPlans: [{ documentId: "p1", lines: [] }],
+							},
+							{ documentId: "d2", name: "Desarrollo Social", annualPlans: [] },
+						];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		const records = await repository.findCoverage(2026, "Sin asignar");
+
+		expect(calls[0]).toMatchObject({
+			where: { archivedAt: null, name: { not: "Sin asignar" } },
+			orderBy: { name: "asc" },
+			select: { annualPlans: { where: { fiscalYear: 2026 } } },
+		});
+		expect(records).toEqual([
+			{
+				documentId: "d1",
+				name: "Obras Públicas",
+				plan: { documentId: "p1", lines: [] },
+			},
+			{ documentId: "d2", name: "Desarrollo Social", plan: null },
+		]);
+	});
+});

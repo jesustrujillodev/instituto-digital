@@ -55,6 +55,7 @@ const createHarness = (
 		findAll: [] as unknown[],
 		findByInternalId: [] as number[],
 		deleteExpired: 0,
+		count: [] as unknown[],
 	};
 
 	const sessionRepository = {
@@ -68,7 +69,10 @@ const createHarness = (
 			calls.findAll.push(filters);
 			return options.sessions ?? [];
 		},
-		count: async () => options.total ?? 0,
+		count: async (filters: unknown) => {
+			calls.count.push(filters);
+			return options.total ?? 0;
+		},
 		deleteById: async (id: string) => {
 			calls.deleteById.push(id);
 		},
@@ -322,5 +326,16 @@ describe("createSessionMonitorService — cleanupExpired", () => {
 		const result = await service.cleanupExpired();
 
 		expect(result.success && result.data.revokedCount).toBe(0);
+	});
+});
+
+describe("countActive", () => {
+	test("cuenta con el filtro por defecto, que es el de las vigentes", async () => {
+		const { service, calls } = createHarness({ total: 42 });
+
+		const result = await service.countActive();
+
+		expect(calls.count).toEqual([{}]);
+		expect(result).toMatchObject({ success: true, data: 42 });
 	});
 });

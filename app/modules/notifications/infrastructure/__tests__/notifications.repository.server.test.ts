@@ -167,3 +167,60 @@ describe("notificationRepository.findDispatchable", () => {
 		});
 	});
 });
+
+describe("lecturas de Operación", () => {
+	const createReader = () => {
+		const calls = {
+			findMany: [] as Record<string, unknown>[],
+			count: [] as Record<string, unknown>[],
+		};
+		const repository = createNotificationRepository({
+			prisma: {
+				emailOutbox: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.findMany.push(args);
+						return [];
+					},
+					count: async (args: Record<string, unknown>) => {
+						calls.count.push(args);
+						return 0;
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+		return { repository, calls };
+	};
+
+	test("findFailed nunca lee el asunto ni el cuerpo", async () => {
+		const { repository, calls } = createReader();
+
+		await repository.findFailed({ skip: 20, take: 10 });
+
+		expect(calls.findMany[0]).toEqual({
+			where: { status: "FAILED" },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			skip: 20,
+			take: 10,
+			select: {
+				id: true,
+				template: true,
+				recipient: true,
+				attempts: true,
+				lastError: true,
+				createdAt: true,
+			},
+		});
+	});
+
+	test("cuenta los fallidos y los pendientes que se quedaron atrás", async () => {
+		const { repository, calls } = createReader();
+
+		await repository.countFailed();
+		await repository.countStuck(NOW);
+
+		expect(calls.count).toEqual([
+			{ where: { status: "FAILED" } },
+			{ where: { status: "PENDING", nextAttemptAt: { lt: NOW } } },
+		]);
+	});
+});

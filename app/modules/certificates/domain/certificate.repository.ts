@@ -102,8 +102,11 @@ export interface ICertificateRepository {
 	findDelivery(courseId: number): Promise<CertificateDelivery>;
 	saveDelivery(courseId: number, delivery: CertificateDelivery): Promise<void>;
 
-	/** Las emisiones VIGENTES de una persona, de la más reciente a la más vieja. */
-	findMine(userId: number): Promise<MyCertificateRow[]>;
+	/**
+	 * Las emisiones VIGENTES de una persona, de la más reciente a la más vieja;
+	 * con `take`, solo las primeras.
+	 */
+	findMine(userId: number, take?: number): Promise<MyCertificateRow[]>;
 
 	/** Una emisión vigente de esa persona; ajena, revocada o inexistente da null. */
 	findMyIssue(

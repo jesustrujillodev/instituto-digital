@@ -101,6 +101,34 @@ export const createNotificationRepository = ({
 		});
 	},
 
+	async findFailed({ skip, take }) {
+		// Nunca el asunto ni el cuerpo: Operación revisa por qué falló, no qué decía.
+		return prisma.emailOutbox.findMany({
+			where: { status: "FAILED" },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			skip,
+			take,
+			select: {
+				id: true,
+				template: true,
+				recipient: true,
+				attempts: true,
+				lastError: true,
+				createdAt: true,
+			},
+		});
+	},
+
+	async countFailed() {
+		return prisma.emailOutbox.count({ where: { status: "FAILED" } });
+	},
+
+	async countStuck(before) {
+		return prisma.emailOutbox.count({
+			where: { status: "PENDING", nextAttemptAt: { lt: before } },
+		});
+	},
+
 	async purgeSent(before) {
 		const { count } = await prisma.emailOutbox.deleteMany({
 			where: { status: "SENT", sentAt: { lt: before } },

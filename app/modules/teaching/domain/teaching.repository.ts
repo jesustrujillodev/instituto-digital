@@ -2,6 +2,7 @@ import type { TeachingCourseWhere } from "./teaching.access";
 import type {
 	AttendanceMark,
 	ListTeachingCoursesDto,
+	PendingFinishRecord,
 	TeachingCourse,
 	TeachingCourseSummary,
 } from "./teaching.types";
@@ -21,6 +22,15 @@ export interface ITeachingRepository {
 		filters: ListTeachingCoursesDto,
 		where: TeachingCourseWhere,
 	): Promise<number>;
+
+	/**
+	 * Calendarizados publicados dentro del filtro con todas sus sesiones ya
+	 * terminadas en `now`: lo que falta finalizar. Los más antiguos primero.
+	 */
+	findAwaitingFinish(
+		where: TeachingCourseWhere,
+		params: { now: Date; viewerId: number; take: number },
+	): Promise<PendingFinishRecord[]>;
 
 	/** Publicado o finalizado dentro del filtro; si no, `null`. */
 	findCourse(

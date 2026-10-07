@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { catalogAccessWhere } from "../enrollment.access";
+import { catalogAccessWhere, openEnrollmentWhere } from "../enrollment.access";
 import { ACTIVE_ENROLLMENT_STATUSES } from "../enrollment.config";
 
 describe("catalogAccessWhere", () => {
@@ -18,5 +18,25 @@ describe("catalogAccessWhere", () => {
 			},
 		});
 		expect(ACTIVE_ENROLLMENT_STATUSES).toEqual(["INVITED", "ENROLLED"]);
+	});
+});
+
+describe("openEnrollmentWhere", () => {
+	test("publicado, sin sesión empezada, antes del límite y sin cierre a mano", () => {
+		const now = new Date("2026-09-16T18:00:00.000Z");
+
+		expect(openEnrollmentWhere(now)).toEqual([
+			{ status: "PUBLISHED" },
+			{
+				OR: [
+					{ format: "SELF_PACED" },
+					{ sessions: { some: {}, none: { startsAt: { lte: now } } } },
+				],
+			},
+			{
+				OR: [{ enrollmentDeadline: null }, { enrollmentDeadline: { gt: now } }],
+			},
+			{ enrollmentClosedAt: null },
+		]);
 	});
 });

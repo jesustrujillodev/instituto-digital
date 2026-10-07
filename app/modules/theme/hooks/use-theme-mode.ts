@@ -1,4 +1,5 @@
 import { useFetcher, useRouteLoaderData } from "react-router";
+import { THEME_PREFERENCE_PATH } from "../domain/theme.config";
 import { isThemeMode } from "../domain/theme.rules";
 import type { ThemeMode } from "../domain/theme.types";
 
@@ -28,7 +29,7 @@ export function useThemeMode(): {
 		setMode: (next) =>
 			fetcher.submit(
 				{ mode: next },
-				{ method: "post", action: "/preferencia-tema" },
+				{ method: "post", action: THEME_PREFERENCE_PATH },
 			),
 	};
 }

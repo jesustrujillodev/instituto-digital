@@ -1,6 +1,6 @@
 import { LogOut, UserRound } from "lucide-react";
 import { Link, useSubmit } from "react-router";
-import { ROLE_LABELS } from "@/shared/auth/role-labels";
+import { accountLabelOf } from "@/shared/auth/role-labels";
 import type { SessionUser } from "@/shared/auth/session-user";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Button } from "@/shared/components/ui/button";
@@ -17,15 +17,6 @@ import {
 function initialsFromEmail(email: string): string {
 	return email.slice(0, 2).toUpperCase();
 }
-
-/**
- * El externo lleva `USER` en la base sin ser participante; es el único rol sin
- * dependencia además del de plataforma (CHECK `users_type_coherence`).
- */
-const accountLabelOf = (user: SessionUser) =>
-	user.role === "USER" && !user.hasDependency
-		? "Capacitador externo"
-		: ROLE_LABELS[user.role];
 
 /**
  * Menú de cuenta, en la esquina superior derecha del header del dashboard.

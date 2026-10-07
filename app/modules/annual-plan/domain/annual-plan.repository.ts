@@ -1,5 +1,6 @@
 import type { PlanScopeWhere } from "./annual-plan.access";
 import type {
+	DependencyPlanRecord,
 	LockedPlanLine,
 	PlanLineDto,
 	PlanWriteData,
@@ -18,6 +19,14 @@ export interface IAnnualPlanRepository {
 			fromYear?: number;
 		},
 	): Promise<StoredPlan[]>;
+	/**
+	 * Las dependencias activas, por nombre, con su plan de ese ejercicio si lo
+	 * tienen. `excludeName` deja fuera la de acogida.
+	 */
+	findCoverage(
+		fiscalYear: number,
+		excludeName: string,
+	): Promise<DependencyPlanRecord[]>;
 	findPlan(
 		documentId: string,
 		where: PlanScopeWhere,

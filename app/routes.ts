@@ -21,6 +21,7 @@ import { enrollmentQrRoutes } from "./modules/enrollment-qr/routes/routes.config
 import { enrollmentsRoutes } from "./modules/enrollments/routes/routes.config";
 import { groupsRoutes } from "./modules/groups/routes/routes.config";
 import { homeRoutes } from "./modules/home/routes/routes.config";
+import { operationsRoutes } from "./modules/operations/routes/routes.config";
 import { ratingsRoutes } from "./modules/ratings/routes/routes.config";
 import { teachingRoutes } from "./modules/teaching/routes/routes.config";
 import { themeRoutes } from "./modules/theme/routes/routes.config";
@@ -75,6 +76,7 @@ export default [
 					...annualPlanRoutes, // /dashboard/plan-anual  (alcance por dependencia; el global consulta)
 					...cloudAdminRoutes, // /dashboard/nube  (SUPERADMIN)
 					...authAdminRoutes, // /dashboard/sesiones  (SUPERADMIN)
+					...operationsRoutes, // /dashboard/operacion  (SUPERADMIN)
 				]),
 			]),
 		],

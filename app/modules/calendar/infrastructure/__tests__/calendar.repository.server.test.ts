@@ -104,3 +104,22 @@ describe("findSessions", () => {
 		});
 	});
 });
+
+describe("findSessions con tope", () => {
+	test("el tope llega como take; sin tope, se leen todas", async () => {
+		const { repository, calls } = createHarness();
+		const params = {
+			from: FROM,
+			to: TO,
+			courseFilter: COURSE_FILTER,
+			viewerId: 50,
+			staffDependencyId: null,
+		};
+
+		await repository.findSessions({ ...params, limit: 61 });
+		await repository.findSessions(params);
+
+		expect(calls[0].take).toBe(61);
+		expect(calls[1].take).toBeUndefined();
+	});
+});

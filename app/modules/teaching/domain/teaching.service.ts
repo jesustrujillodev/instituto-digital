@@ -1,4 +1,5 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	CompletionSyncResult,
 	FinishResponse,
@@ -8,6 +9,7 @@ import type {
 	SetEnrollmentOpenDto,
 	TeachingCourseListResponse,
 	TeachingDetailResponse,
+	TeachingPending,
 	TeachingWriteResponse,
 } from "./teaching.types";
 
@@ -22,6 +24,14 @@ export interface ITeachingService {
 		filters: ListTeachingCoursesDto,
 		actor: AuthContext,
 	): Promise<TeachingCourseListResponse>;
+	/**
+	 * Lo que la persona imparte u organiza por su dependencia y falta finalizar.
+	 * Falla con `TEACHING_FORBIDDEN_SCOPE` si no imparte ni organiza nada.
+	 */
+	summarizePending(
+		actor: AuthContext,
+		options: { limit: number },
+	): Promise<AppResponse<TeachingPending>>;
 	/** Falla con `TEACHING_COURSE_NOT_FOUND` si no lo imparte ni lo organiza. */
 	findById(
 		documentId: string,

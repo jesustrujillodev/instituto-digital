@@ -230,3 +230,71 @@ describe("checkIn", () => {
 		expect(calls.upsert).toHaveLength(0);
 	});
 });
+
+describe("findAwaitingFinish", () => {
+	const NOW = new Date("2026-09-16T18:00:00.000Z");
+
+	test("calendarizados publicados con todas sus sesiones ya terminadas", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findAwaitingFinish(WHERE, {
+			now: NOW,
+			viewerId: 9,
+			take: 50,
+		});
+
+		expect(calls.findMany[0]).toMatchObject({
+			where: {
+				AND: [
+					WHERE,
+					{
+						status: "PUBLISHED",
+						format: "SCHEDULED",
+						sessions: { some: {}, none: { endsAt: { gt: NOW } } },
+					},
+				],
+			},
+			take: 50,
+			select: {
+				sessions: { orderBy: { endsAt: "desc" }, take: 1 },
+				trainers: { where: { userId: 9 } },
+				_count: { select: { enrollments: { where: { status: "ENROLLED" } } } },
+			},
+		});
+	});
+
+	test("proyecta la última sesión, los inscritos y si quien consulta imparte", async () => {
+		const repository = createTeachingRepository({
+			prisma: {
+				course: {
+					findMany: async () => [
+						{
+							documentId: "c",
+							title: "Archivo",
+							dependencyId: 3,
+							sessions: [{ endsAt: new Date("2026-09-03T20:00:00.000Z") }],
+							trainers: [{ userId: 9 }],
+							_count: { enrollments: 14 },
+						},
+					],
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => key,
+		});
+
+		const [record] = await repository.findAwaitingFinish(WHERE, {
+			now: NOW,
+			viewerId: 9,
+			take: 50,
+		});
+
+		expect(record).toEqual({
+			documentId: "c",
+			title: "Archivo",
+			dependencyId: 3,
+			lastSessionEndsAt: new Date("2026-09-03T20:00:00.000Z"),
+			enrolledCount: 14,
+			viewerTeaches: true,
+		});
+	});
+});
