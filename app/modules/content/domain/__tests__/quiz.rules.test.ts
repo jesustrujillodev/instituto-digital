@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { describe, expect, test } from "vitest";
+import { toFieldErrors } from "@/shared/rules/format-vali-error";
 import { CONTENT_ERROR_CODES } from "../content.errors";
 import {
 	assertBankEditable,
@@ -773,6 +774,27 @@ describe("contratos del seguimiento", () => {
 			v.safeParse(saveFollowUpRule, { ...base, availability: "SESSION_END" })
 				.success,
 		).toBe(false);
+	});
+
+	test("el minuto que falta se reporta en su campo, con su mensaje", () => {
+		const range = v.safeParse(saveFollowUpRule, {
+			...base,
+			availability: "RANGE",
+			closesAfterMinutes: 10,
+		});
+		const sessionEnd = v.safeParse(saveFollowUpRule, {
+			...base,
+			availability: "SESSION_END",
+		});
+
+		expect(toFieldErrors(range.issues ?? [])).toEqual({
+			opensBeforeMinutes:
+				"Indica cuántos minutos antes del inicio se abre la evaluación.",
+		});
+		expect(toFieldErrors(sessionEnd.issues ?? [])).toEqual({
+			closesAfterMinutes:
+				"Indica cuántos minutos después del fin queda abierta la evaluación.",
+		});
 	});
 
 	test("la configuración pide nombre", () => {
