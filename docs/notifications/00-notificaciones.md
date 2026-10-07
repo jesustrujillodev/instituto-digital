@@ -61,6 +61,121 @@ una reserva de un worker caído. La purga de enviados pasa a un trabajo diario. 
 web **no** sondea el outbox, así que el worker es obligatorio
 ([queues/00-colas.md](../queues/00-colas.md), [ADR 0033](../adr/0033-colas-bullmq-sobre-el-outbox.md)).
 
+### Reintentos
+
+Si un correo no sale a la primera, el sistema lo vuelve a intentar solo, con
+esperas cada vez más largas. Así, una caída breve del servicio de correo no hace
+que se pierdan avisos.
+
+```plantuml
+@startuml
+title ¿Qué pasa cuando se envía un correo?
+
+start
+:Algo ocurre en la plataforma
+(por ejemplo, una inscripción a un curso);
+:El aviso se guarda en la
+**lista de correos por enviar**;
+note right
+  Solo se guarda si la operación
+  terminó bien. Si la inscripción
+  falla, no sale ningún aviso.
+end note
+
+repeat
+  :El encargado de envíos revisa la lista
+  (cada 15 segundos a 1 minuto);
+  :Aparta el correo para que nadie
+  más lo envíe al mismo tiempo;
+  :Lo entrega al servicio de correo
+  (Resend u otro);
+  if (¿El servicio lo aceptó?) then (sí)
+    #d1fae5:Correo **enviado**;
+    :Se borra del registro
+    a los 30 días;
+    stop
+  else (no)
+    #fef3c7:Se anota el motivo del fallo;
+  endif
+backward:Se espera y se vuelve a intentar;
+repeat while (¿Quedan intentos? Máximo 6) is (sí) not (no)
+
+#fee2e2:Correo **fallido**
+Queda registrado para revisarlo;
+stop
+@enduml
+```
+
+```plantuml
+@startuml
+title Estados de un correo
+hide empty description
+
+state "Por enviar" as Pendiente
+state "Enviándose" as Enviandose
+state "Enviado" as Enviado #d1fae5
+state "Fallido" as Fallido #fee2e2
+
+[*] --> Pendiente : ocurre algo que\nmerece un aviso
+Pendiente --> Enviandose : llega su turno
+Enviandose --> Enviado : el servicio de\ncorreo lo aceptó
+Enviandose --> Pendiente : falló, pero quedan intentos:\nse espera y se vuelve a probar
+Enviandose --> Pendiente : el envío se interrumpió:\na los 5 minutos vuelve a la lista
+Enviandose --> Fallido : falló 6 veces
+Enviado --> [*] : se borra a los 30 días
+Fallido --> Pendiente : alguien corrige el problema\ny lo reactiva
+@enduml
+```
+
+```plantuml
+@startuml
+title Cómo se reintenta un correo
+autonumber
+
+participant "Plataforma" as App
+database "Lista de correos\npor enviar" as DB
+participant "Encargado\nde envíos" as W
+participant "Servicio de correo\n(Resend u otro)" as P
+
+App -> DB : guarda el aviso
+note right of App : Solo si la operación\nterminó bien
+
+loop hasta que se envíe o se agoten los 6 intentos
+  W -> DB : ¿hay correos listos para enviar?
+  DB --> W : este; queda apartado\npara que nadie más lo tome
+  W -> P : envía el correo
+
+  alt el servicio lo acepta
+    P --> W : recibido
+    W -> DB : lo marca como enviado
+  else falla y quedan intentos
+    P --> W : error o sin respuesta
+    W -> DB : anota el motivo y programa\nel siguiente intento
+    ... espera 1 min, 5 min, 30 min, 2 h o 12 h ...
+  else falla en el 6.º intento
+    P --> W : error o sin respuesta
+    W -> DB : lo marca como fallido
+  end
+end
+@enduml
+```
+
+| Intento | Espera desde el anterior | Tiempo desde el primero |
+| --- | --- | --- |
+| 1 | — | 0 |
+| 2 | 1 min | 1 min |
+| 3 | 5 min | 6 min |
+| 4 | 30 min | 36 min |
+| 5 | 2 h | 2 h 36 min |
+| 6 | 12 h | 14 h 36 min |
+
+- Si el sexto intento falla, el correo queda como fallido. No se pierde: queda
+  registrado con el motivo y se puede reactivar (§5).
+- Cada correo se reintenta por su cuenta: uno que falla no frena a los demás.
+- Si el envío se interrumpe a la mitad (por ejemplo, porque se reinició el
+  servidor), el correo vuelve a la lista a los 5 minutos. Ese intento cuenta
+  como uno de los seis.
+
 ## 4. Configuración
 
 | Variable | Por defecto | Qué hace |
