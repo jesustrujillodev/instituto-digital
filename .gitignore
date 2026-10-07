@@ -23,6 +23,8 @@ coverage/
 # misc
 graphify-out/
 .impeccable/
+.docs/
 
 # Archivos locales generados (renders de certificados)
 /.cache/
+
