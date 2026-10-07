@@ -429,10 +429,11 @@ tienen su adaptador de Redis ([redis/00](../redis/00-redis.md)).
 
 Por planear en sesión aparte:
 
-- **Limpieza automatizada de expiradas:** ya existe un disparador **manual** en
-  el monitor (§6.5), pero nada la ejecuta sola. Opciones evaluadas en el plan:
-  oportunista / scheduler / pg_cron. Nota: es higiene de datos, no seguridad —
-  las sesiones expiradas ya se rechazan en el caso de uso.
+- **Limpieza automatizada de expiradas:** resuelta con Redis. El worker de colas
+  corre `purge-expired-sessions` a diario, a las 03:00 de Tijuana
+  ([queues/00](../queues/00-colas.md)). Sin Redis sigue solo el disparador manual
+  del monitor (§6.5). Es higiene de datos, no seguridad: las sesiones expiradas ya
+  se rechazan en el caso de uso.
 - **Desalojo del cap por uso reciente:** `deleteOldestExceeding` ordena por
   `createdAt`, así que el cap es por antigüedad absoluta. Una sesión vieja pero
   activa puede caer antes que una nueva y ociosa. Si se quiere LRU, el cambio es

@@ -13,6 +13,7 @@ import {
 } from "@/modules/notifications/domain/notification.mapper";
 import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { bucketForKey } from "@/shared/storage/storage.policy";
@@ -105,6 +106,7 @@ type Dependencies = {
 	storageProvider: ICradle["storageProvider"];
 	storageBucket: ICradle["storageBucket"];
 	storagePublicBucket: ICradle["storagePublicBucket"];
+	jobDispatcher: ICradle["jobDispatcher"];
 };
 
 /** Sin repetidos: un id duplicado desajustaría el conteo de elegibles. */
@@ -125,6 +127,7 @@ export const createCourseService = ({
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
+	jobDispatcher,
 }: Dependencies): ICourseService => {
 	const log = logger.child({ module: "courses" });
 	const run = createOperationRunner(log);
@@ -439,28 +442,25 @@ export const createCourseService = ({
 
 	/**
 	 * Borra un objeto que ya nadie referencia —la portada anterior, el material
-	 * de una sesión quitada—, best-effort y DESPUÉS del commit.
+	 * de una sesión quitada— DESPUÉS del commit, con reintentos en la cola.
 	 *
 	 * Un objeto que ya no está no puede tumbar un guardado que ya ocurrió; si el
-	 * borrado falla queda un huérfano, que el gestor de nube sabe detectar.
+	 * borrado agota sus intentos queda un huérfano, que el gestor de nube sabe
+	 * detectar.
 	 */
-	const discardObject = (previous: string | null) => {
+	const discardObject = async (previous: string | null) => {
 		if (!previous || !storageBucket) return;
 
 		const key = getKeyFromUrl(previous);
 		if (!key) return;
 
-		void storageProvider
-			.deleteFile(
-				bucketForKey(key, {
-					defaultBucket: storageBucket,
-					publicBucket: storagePublicBucket,
-				}),
-				key,
-			)
-			.catch((error) => {
-				log.warn("[courses] objeto anterior no borrado", { key, error });
-			});
+		await jobDispatcher.dispatch(JOB_NAMES.deleteObject, {
+			bucket: bucketForKey(key, {
+				defaultBucket: storageBucket,
+				publicBucket: storagePublicBucket,
+			}),
+			key,
+		});
 	};
 
 	/**
@@ -711,8 +711,8 @@ export const createCourseService = ({
 
 				// Fuera de las dos transacciones a propósito: el objeto viejo ya no lo
 				// referencia nadie, y su borrado no puede revertir lo ya guardado.
-				if (replaces) discardObject(course.coverImageUrl);
-				orphanedMaterials.forEach(discardObject);
+				if (replaces) await discardObject(course.coverImageUrl);
+				await Promise.all(orphanedMaterials.map(discardObject));
 
 				return ok(updated);
 			});

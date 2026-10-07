@@ -96,6 +96,12 @@ const baseEnvSchema = v.object({
 	APP_BASE_URL: v.optional(v.pipe(v.string(), v.minLength(1))),
 	EMAIL_WORKER_ENABLED: v.optional(v.picklist(["true", "false"])),
 	EMAIL_WORKER_INTERVAL_S: positiveInt(15),
+
+	// ── Colas (docs/queues/00-colas.md) ─────────────────────────────────────────
+	// Trabajos en paralelo por cola en cada proceso worker.
+	QUEUE_EMAIL_CONCURRENCY: positiveInt(5),
+	QUEUE_COURSE_SYNC_CONCURRENCY: positiveInt(2),
+	QUEUE_STORAGE_CONCURRENCY: positiveInt(5),
 	/** Chromium con el que se exportan los certificados; sin él no hay descarga. */
 	CHROMIUM_PATH: v.optional(v.pipe(v.string(), v.minLength(1))),
 	/** Solo dentro del contenedor, que no tiene privilegios para el sandbox. */
@@ -276,6 +282,9 @@ const result = v.safeParse(envSchema, {
 	APP_BASE_URL: process.env.APP_BASE_URL ?? railwayPublicUrl(),
 	EMAIL_WORKER_ENABLED: process.env.EMAIL_WORKER_ENABLED,
 	EMAIL_WORKER_INTERVAL_S: process.env.EMAIL_WORKER_INTERVAL_S,
+	QUEUE_EMAIL_CONCURRENCY: process.env.QUEUE_EMAIL_CONCURRENCY,
+	QUEUE_COURSE_SYNC_CONCURRENCY: process.env.QUEUE_COURSE_SYNC_CONCURRENCY,
+	QUEUE_STORAGE_CONCURRENCY: process.env.QUEUE_STORAGE_CONCURRENCY,
 
 	CHROMIUM_PATH: process.env.CHROMIUM_PATH,
 	CHROMIUM_NO_SANDBOX: process.env.CHROMIUM_NO_SANDBOX,

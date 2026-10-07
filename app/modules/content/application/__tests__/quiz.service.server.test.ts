@@ -3,6 +3,7 @@ import type { CourseStatus } from "@/modules/courses/domain/course.rules";
 import type { ResultWrite } from "@/modules/enrollments/domain/enrollment.types";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import {
 	actorOf,
 	COURSE_DOC,
@@ -336,6 +337,15 @@ const createHarness = (
 				return [];
 			},
 		} as unknown as ICradle["progressSync"],
+		// El recálculo de todo el curso sale por la cola: sin `userIds`, como el
+		// de `progressSync` al que sustituye.
+		jobDispatcher: {
+			dispatch: async (name: string) => {
+				if (name === JOB_NAMES.recalculateProgress) {
+					calls.recalculated.push(undefined);
+				}
+			},
+		} as unknown as ICradle["jobDispatcher"],
 		rateLimiter: {
 			consume: async (key: string) => {
 				calls.rateKeys.push(key);

@@ -1,5 +1,6 @@
 import type { ICradle } from "@/shared/di/container.types";
 import type { INotificationRepository } from "../domain/notification.repository";
+import type { ClaimedMessage } from "../domain/notification.types";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
@@ -9,10 +10,38 @@ export const createNotificationRepository = ({
 	prisma,
 }: Dependencies): INotificationRepository => ({
 	async enqueue(messages) {
-		if (messages.length === 0) return;
+		if (messages.length === 0) return [];
 
-		await prisma.emailOutbox.createMany({
+		return prisma.emailOutbox.createManyAndReturn({
 			data: messages.map((message) => ({ ...message })),
+			select: { id: true, attempts: true },
+		});
+	},
+
+	async claimById({ id, now, leaseUntil }) {
+		// Un solo UPDATE condicional: reservar y comprobar que sigue pendiente es
+		// atómico, así que dos workers con el mismo trabajo no envían dos veces.
+		const [message] = await prisma.$queryRaw<ClaimedMessage[]>`
+			UPDATE "org"."email_outbox"
+			SET locked_until = ${leaseUntil}, attempts = attempts + 1
+			WHERE id = ${id}
+				AND status::text = 'PENDING'
+				AND next_attempt_at <= ${now}
+				AND (locked_until IS NULL OR locked_until < ${now})
+			RETURNING id, recipient, subject, text, html, attempts`;
+		return message ?? null;
+	},
+
+	async findDispatchable({ now, limit }) {
+		return prisma.emailOutbox.findMany({
+			where: {
+				status: "PENDING",
+				nextAttemptAt: { lte: now },
+				OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
+			},
+			orderBy: { id: "asc" },
+			take: limit,
+			select: { id: true, attempts: true },
 		});
 	},
 

@@ -58,11 +58,13 @@ export const describeRateLimiterContract = (
 		// Lo que hace que un bloqueo sea temporal y no una expulsión permanente.
 		test("allows again once the window has passed", async () => {
 			const limiter = createLimiter();
-			const opts = { limit: 1, windowMs: 30 };
+			// Ventana holgada: con la suite completa en paralelo, dos llamadas
+			// seguidas pueden separarse decenas de ms y la ventana pasaría sola.
+			const opts = { limit: 1, windowMs: 500 };
 			await limiter.consume("k", opts);
 			expect((await limiter.consume("k", opts)).allowed).toBe(false);
 
-			await sleep(60);
+			await sleep(700);
 
 			expect((await limiter.consume("k", opts)).allowed).toBe(true);
 		});

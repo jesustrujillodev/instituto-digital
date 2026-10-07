@@ -53,6 +53,7 @@ entrado. Además se excluyen a propósito:
 | `app/core/db.server.ts`, `app/shared/di/container.server.ts` | Composition root y cliente de Prisma: exigen integración real. |
 | `app/shared/storage/{s3,gcs}.adapter.ts` | Adaptadores de SDK: se prueban contra el proveedor, no con dobles. |
 | `app/shared/redis/redis.client.server.ts` | Abre las conexiones reales de ioredis; los adaptadores que las usan sí se prueban (contra `ioredis-mock`). |
+| `app/shared/queue/queue.client.server.ts`, `app/worker.server.ts` | Conexiones y procesos de BullMQ: se prueban contra un Redis real con `REDIS_TEST_URL` (`ioredis-mock` no ejecuta sus scripts). |
 | `app/modules/*/infrastructure/*.repository.server.ts` | Repositorios Prisma: exigen una base de datos. |
 
 Cada exclusión es una decisión visible, no un truco para inflar el porcentaje: lo
@@ -449,6 +450,7 @@ el temario de un curso que no administra.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `content.service.server.test.ts` | 15 | Envelope en éxito y fallo de las siete mutaciones; que un curso fuera de alcance responda igual que inexistente y que sin alcance de administración ni se consulte; que un finalizado ya no cambie de temario; que la fila nueva nazca al final; que un módulo con lecciones activas no se archive; que archivar escriba la fecha del reloj inyectado y el re-empaque **dentro** de una transacción; y que un orden inválido no escriba nada. |
+| `progress-recalculation.server.test.ts` | 4 | El trabajo `recalculate-progress` recalcula un curso publicado en su transacción y con la fecha del cambio; **un curso que ya no está publicado no se recalcula**. |
 
 ### `infrastructure/__tests__/` — 7 tests
 
@@ -513,8 +515,9 @@ falla**.
 |---|---:|---|
 | `domain/…/notification.templates.test.ts` | 10 | Las ocho plantillas renderizan, ninguna de cuenta lleva una contraseña, horas en la zona del instituto en verano e invierno, escape de HTML, enlaces con el origen configurado y lista de sesiones vacía. Desde F-11: `CERTIFICATE_ISSUED` con curso, folio y enlace a «Mis certificados», el mensaje del curso escapado, y sin botón con la descarga apagada. |
 | `domain/…/notification.rules.test.ts` | 6 | Backoff y fallo definitivo, corte de purga, recorte del error, destinatario válido y mensaje de la cola. |
-| `application/…/notifications.service.server.test.ts` | 6 | `notify` encola ya redactado, omite inválidos y no lanza; `drainOutbox` envía, reintenta sin detener el lote y marca `FAILED`. |
-| `infrastructure/…/notifications.repository.server.test.ts` | 3 | `SKIP LOCKED` con reserva e intento contados en una transacción, y lotes vacíos que no tocan la base. |
+| `application/…/notifications.service.server.test.ts` | 7 | `notify` encola ya redactado, **pide la entrega de cada fila con su intento**, omite inválidos y no lanza; `drainOutbox` envía, reintenta sin detener el lote y marca `FAILED`. |
+| `application/…/email-delivery.server.test.ts` | 5 | Reserva por id con lease y envía; **si otro la tomó o ya salió, no envía**; un fallo deja el reintento en la fila; agotado queda `FAILED`; el barrido reencola con el `jobId` de cada intento. |
+| `infrastructure/…/notifications.repository.server.test.ts` | 7 | `SKIP LOCKED` con reserva e intento contados en una transacción; lotes vacíos que no tocan la base; `enqueue` devuelve id e intentos; **`claimById` reserva en un solo `UPDATE` condicional**; el barrido busca pendientes vencidos sin reserva vigente. |
 
 `app/shared/mail/__tests__/mailer.test.ts` (4 tests) comprueba el adaptador SMTP,
 que el de log no escribe el cuerpo y la elección del factory, y
@@ -754,6 +757,23 @@ ventana, claves independientes, el acceso vuelve al pasar la ventana.
 
 `logging/__tests__/throttled-log.test.ts` (3): una entrada por intervalo y clave,
 con el número de avisos callados.
+
+### `queue/__tests__/` — 30 tests (+5 contra Redis real)
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `queue.config.test.ts` | 4 | Todo trabajo tiene cola y esquema; **el correo se intenta una sola vez en la cola** (su horario es el de la fila); ninguna cola retiene para siempre. |
+| `queue.payloads.test.ts` | 5 | Payloads válidos pasan; ids, fechas y keys inválidos se rechazan; solo los nombres declarados son trabajos. |
+| `queue.job-options.test.ts` | 4 | `jobId` del correo determinista por fila e intento y sin `:`; recálculo agrupado por curso con espera. |
+| `job-dispatcher.queued.server.test.ts` | 5 | **Encola tras el commit, no antes; un rollback no deja trabajo**; si encolar falla, el recálculo corre ya y el correo queda al barrido. |
+| `job-dispatcher.inline.test.ts` | 3 | Sin Redis el correo lo entrega el poller; **el error del recálculo llega al caso de uso**; un borrado fallido solo se registra. |
+| `job-dispatcher.factory.server.test.ts` | 2 | Con colas encola; sin ellas corre donde corría antes. |
+| `queue.processor.server.test.ts` | 7 | Enruta con payload validado; **nombre o payload inválido no se reintentan**; qué fallo va a `job_failure` (nunca el correo). |
+| `job-failure.repository.server.test.ts` | 2 | Error recortado; purga por fecha. |
+| `queue.client.server.test.ts` | +5 | Con `REDIS_TEST_URL`: entrega; **la misma fila e intento se encola una vez**; ediciones seguidas dejan un recálculo con la última fecha; **una edición durante un recálculo activo produce otro al terminar, nunca dos a la vez**; scheduler idempotente. |
+
+`storage/__tests__/delete-object.job.server.test.ts` (3): borra; **un objeto que ya
+no existe cuenta como borrado**; si sigue ahí, lanza para reintentar.
 
 ### `html/__tests__/` — 4 tests
 

@@ -119,6 +119,20 @@ export const createContentRepository = ({
 			});
 		},
 
+		async findCourseRef(courseId) {
+			return prisma.course.findUnique({
+				where: { id: courseId },
+				select: {
+					id: true,
+					status: true,
+					format: true,
+					completionRule: true,
+					requiresEvaluation: true,
+					minPassingGrade: true,
+				},
+			});
+		},
+
 		async findTree(courseId): Promise<ContentModuleRaw[]> {
 			return prisma.courseModule.findMany({
 				where: { courseId, ...ACTIVE },

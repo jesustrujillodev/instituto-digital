@@ -1,16 +1,19 @@
 # Redis — Referencia de punta a punta
 
-**Última actualización:** 2026-10-05 · Este documento describe el uso de Redis
+**Última actualización:** 2026-10-06 · Este documento describe el uso de Redis
 **como está implementado**. La decisión y lo que se descartó están en
-[ADR 0032](../adr/0032-redis-opcional-cache-y-coordinacion.md).
+[ADR 0032](../adr/0032-redis-opcional-cache-y-coordinacion.md); las colas, en
+[ADR 0033](../adr/0033-colas-bullmq-sobre-el-outbox.md) y
+[queues/00-colas.md](../queues/00-colas.md).
 
 ---
 
 ## 1. Qué es y qué no es
 
-Redis coordina varios procesos de la app y guarda copias de lectura con TTL.
-**Nada de lo que guarda es dato de negocio**: Postgres sigue siendo la única
-fuente de verdad y todo lo que hay en Redis se reconstruye solo.
+Redis coordina varios procesos de la app, guarda copias de lectura con TTL y
+transporta los trabajos de fondo (BullMQ). **Nada de lo que guarda es dato de
+negocio**: Postgres sigue siendo la única fuente de verdad. La caché se
+reconstruye sola; un trabajo perdido lo rescata su fila en la base o su respaldo.
 
 Es **opcional**. Sin `REDIS_URL`, cada pieza usa su adaptador de proceso, el mismo
 que existía antes, y la app funciona igual en un solo nodo. Ningún fallo de Redis
@@ -22,6 +25,7 @@ tumba una petición ni abre un acceso que debía negarse.
 | Corte de sesión | Los demás nodos releen el estado en ≈1 RTT | Cada nodo relee al vencer su TTL (5 s) | Vuelve a ≤ TTL; al reconectar, relee |
 | URLs firmadas | La misma URL entre nodos y cargas | La misma URL dentro del proceso | Se firma directo |
 | Resumen de créditos | Se sirve de caché hasta que cambia | Se calcula siempre | Se calcula siempre |
+| Colas (BullMQ) | Correo, recálculo, borrado y mantenimiento en el worker | Cada trabajo corre donde corría antes | Su respaldo: el correo espera en el outbox, el resto corre en el momento |
 
 ## 2. Conexión
 
@@ -259,15 +263,18 @@ mano. ioredis antepone `REDIS_KEY_PREFIX` (por defecto `idc:`).
 | `vc:v1:ver:<alcance>` | String | Ninguno | Caché versionada |
 | `vc:v1:val:<lectura>:<sha256>` | String (JSON) | 300 s | Caché versionada |
 | `inv:v1:<canal>` (canal, no clave) | Pub/sub | — | Corte de sesión |
+| `bull:<cola>:*` | Varios (de BullMQ) | Retención por cola | Colas ([queues/00](../queues/00-colas.md)) |
 
-Cambiar la forma de un valor es subir su `v1`: las claves viejas mueren solas.
+Cambiar la forma de un valor es subir su `v1`: las claves viejas mueren solas. Las
+de BullMQ no pasan por `redis.keys.server.ts`: las arma BullMQ con su `prefix`
+(`<REDIS_KEY_PREFIX>bull`), en conexiones propias.
 
 ## 8. Operación
 
 ### Desarrollo
 
 ```bash
-docker compose up -d redis          # redis:7-alpine, sin persistencia, 64 MB, allkeys-lru
+docker compose up -d redis          # redis:7-alpine, AOF cada segundo, 256 MB, noeviction
 REDIS_URL="redis://localhost:6379"  # en .env
 ```
 
@@ -275,12 +282,16 @@ REDIS_URL="redis://localhost:6379"  # en .env
 
 1. Crear el servicio Redis y apuntar `REDIS_URL` a su URL **privada** por referencia
    de variable. Nunca a la pública.
-2. Política de memoria: `maxmemory` en torno al 75 % del plan, con
-   `--maxmemory-policy allkeys-lru` y sin persistencia (`--save "" --appendonly no`).
-   - Expulsar cualquier clave solo provoca un fallo de caché o reinicia un contador.
-   - `noeviction`, que es el default sin límite, haría fallar las escrituras al
-     llenarse.
-   - Nunca se encolan trabajos en Redis, así que no hay nada que no se pueda perder.
+2. Política de memoria y persistencia: `--maxmemory-policy noeviction`,
+   `--appendonly yes --appendfsync everysec` y un **volumen persistente**.
+   - Caché y colas comparten la instancia (ADR 0033). Expulsar claves podría
+     borrar un trabajo o el candado de uno en curso, y BullMQ lo procesaría dos
+     veces o nunca.
+   - Con `noeviction`, al llenarse la memoria fallan las escrituras. Cada pieza de
+     caché ya degrada sin lanzar (calcula, firma directo o cuenta en memoria) y
+     encolar cae en su respaldo, así que nada se rompe, pero hay que **vigilar
+     `used_memory`** y dar un `maxmemory` holgado: la caché cabe en pocos MB y las
+     colas guardan solo ids con retención acotada.
 3. Desplegar con una réplica, comprobar `redis ready` en el log y luego escalar.
 4. En una VPS es la misma configuración, con Redis escuchando solo en la red
    privada.
@@ -310,7 +321,6 @@ redis-cli INFO commandstats                               # carga por comando
 
 Ver [ADR 0032 §3](../adr/0032-redis-opcional-cache-y-coordinacion.md):
 
-- no hay cola de trabajos (BullMQ);
 - no hay single-flight distribuido;
 - no hay sesiones en Redis;
 - no se cachean PDFs de certificados.

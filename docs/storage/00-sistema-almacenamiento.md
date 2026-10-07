@@ -243,6 +243,12 @@ Nueva foto llega
 El borrado del objeto viejo es **best-effort** (`.catch` + `logger.warn`): no debe
 bloquear la actualización si el objeto ya no existe.
 
+La portada de un curso y el material de lecciones y sesiones van más allá: su
+`discardObject` encola `delete-object` tras el commit. Con Redis se reintenta 5
+veces con backoff, y un objeto que ya no existe cuenta como borrado; agotado, queda
+en `org.job_failure` y como huérfano en el gestor de nube. Sin Redis corre en el
+momento, best-effort como el resto ([queues/00](../queues/00-colas.md)).
+
 ### 5.4 Subida en lote y transacción compensatoria
 
 `shared/storage/storage.transaction.ts` provee un **unit-of-work** que hace la

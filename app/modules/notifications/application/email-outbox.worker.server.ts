@@ -6,12 +6,9 @@ import {
 	OUTBOX_LEASE_MS,
 } from "../domain/notification.config";
 import type { INotificationRepository } from "../domain/notification.repository";
-import {
-	describeSendError,
-	nextAttemptAfter,
-	purgeCutoff,
-} from "../domain/notification.rules";
+import { purgeCutoff } from "../domain/notification.rules";
 import type { DrainSummary } from "../domain/notification.types";
+import { sendClaimed } from "./email-delivery.server";
 
 interface DrainDependencies {
 	notificationRepository: INotificationRepository;
@@ -44,35 +41,13 @@ export const drainOutbox = async ({
 	});
 
 	for (const message of messages) {
-		try {
-			await mailer.send({
-				to: message.recipient,
-				subject: message.subject,
-				text: message.text,
-				html: message.html,
-			});
-			await notificationRepository.markSent(message.id, clock.now());
-			summary.sent += 1;
-		} catch (error) {
-			const description = describeSendError(error);
-			const retryAt = nextAttemptAfter(message.attempts, clock.now());
-
-			if (retryAt) {
-				await notificationRepository.markRetry(
-					message.id,
-					description,
-					retryAt,
-				);
-				summary.retried += 1;
-			} else {
-				await notificationRepository.markFailed(message.id, description);
-				summary.failed += 1;
-				logger.error("email delivery failed permanently", {
-					id: message.id,
-					error: description,
-				});
-			}
-		}
+		const outcome = await sendClaimed(message, {
+			notificationRepository,
+			mailer,
+			clock,
+			logger,
+		});
+		summary[outcome] += 1;
 	}
 
 	summary.purged = await notificationRepository.purgeSent(purgeCutoff(now));

@@ -34,6 +34,8 @@ export interface IContentRepository {
 		courseDocumentId: string,
 		where: CourseScopeWriteWhere,
 	): Promise<ContentCourseRef | null>;
+	/** El curso por id, sin alcance: solo para trabajos del sistema. */
+	findCourseRef(courseId: number): Promise<ContentCourseRef | null>;
 	/** El temario activo del curso, módulos y lecciones en su orden. */
 	findTree(courseId: number): Promise<ContentModuleRaw[]>;
 	/** Lo que el checklist de publicación necesita, sin traer el árbol entero. */

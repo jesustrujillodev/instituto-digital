@@ -1,6 +1,7 @@
 # ADR 0032 · Redis opcional: coordinación entre nodos y cachés de lectura
 
-**Estado:** aceptado · 2026-10-05
+**Estado:** aceptado · 2026-10-05 · §2.4 y la fila "BullMQ para el correo" de §3
+reemplazadas por [ADR 0033](./0033-colas-bullmq-sobre-el-outbox.md) (2026-10-06)
 
 ## 1. Contexto
 

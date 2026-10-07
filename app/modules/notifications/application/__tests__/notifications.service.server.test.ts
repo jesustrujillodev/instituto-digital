@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import type {
 	ClaimedMessage,
 	OutboxMessage,
@@ -27,17 +28,24 @@ const recipient = (email: string) => ({
 describe("notificationService.notify", () => {
 	const createHarness = (enqueueFails?: Error) => {
 		const enqueued: OutboxMessage[][] = [];
+		const dispatched: { name: string; payload: unknown }[] = [];
 		const service = createNotificationService({
 			notificationRepository: {
 				enqueue: async (messages: OutboxMessage[]) => {
 					if (enqueueFails) throw enqueueFails;
 					enqueued.push(messages);
+					return messages.map((_, index) => ({ id: 40 + index, attempts: 0 }));
 				},
 			} as unknown as ICradle["notificationRepository"],
+			jobDispatcher: {
+				dispatch: async (name: string, payload: unknown) => {
+					dispatched.push({ name, payload });
+				},
+			} as unknown as ICradle["jobDispatcher"],
 			appBaseUrl: "https://app.example.com",
 			logger: silentLogger,
 		});
-		return { service, enqueued };
+		return { service, enqueued, dispatched };
 	};
 
 	test("encola el correo ya redactado", async () => {
@@ -57,8 +65,23 @@ describe("notificationService.notify", () => {
 		]);
 	});
 
+	// La fila es el aviso; la cola solo la entrega antes que el barrido.
+	test("pide la entrega de cada fila con su intento", async () => {
+		const { service, dispatched } = createHarness();
+
+		await service.notify([
+			{ template: "PASSWORD_RESET", to: recipient("ana@instituto.gob.mx") },
+			{ template: "PASSWORD_RESET", to: recipient("luis@instituto.gob.mx") },
+		]);
+
+		expect(dispatched).toEqual([
+			{ name: JOB_NAMES.deliverEmail, payload: { outboxId: 40, attempt: 0 } },
+			{ name: JOB_NAMES.deliverEmail, payload: { outboxId: 41, attempt: 0 } },
+		]);
+	});
+
 	test("omite destinatarios inválidos y no llama a la base si no queda nadie", async () => {
-		const { service, enqueued } = createHarness();
+		const { service, enqueued, dispatched } = createHarness();
 
 		const result = await service.notify([
 			{ template: "PASSWORD_RESET", to: recipient("") },
@@ -66,6 +89,7 @@ describe("notificationService.notify", () => {
 
 		expect(result).toMatchObject({ success: true, data: { queued: 0 } });
 		expect(enqueued).toEqual([]);
+		expect(dispatched).toEqual([]);
 	});
 
 	test("un fallo al encolar se devuelve en el envelope, no se lanza", async () => {

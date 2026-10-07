@@ -42,13 +42,24 @@ caso de uso ── runInTransaction ──────────────�
     renderNotification → email_outbox (PENDING, attempts 0)    │
   commit ◀─────────────────────────────────────────────────────┘
                      │
-worker (cada 15 s)   ▼
-  claimDue: FOR UPDATE SKIP LOCKED, locked_until = +5 min, attempts + 1
+                     │  sin REDIS_URL: poller del web (cada 15 s)
+                     │    claimDue: FOR UPDATE SKIP LOCKED
+                     │  con REDIS_URL: tras el commit, trabajo deliver-email
+                     │    (jobId outbox-<id>-<intento>) en el worker de colas;
+                     ▼    claimById: UPDATE condicional por id
+  reserva: locked_until = +5 min, attempts + 1
   mailer.send
     ok     → SENT (sent_at)                    → purga a los 30 días
     falla  → PENDING, next_attempt_at = +1 m / 5 m / 30 m / 2 h / 12 h
     falla tras el reintento de 12 h → FAILED (last_error)
 ```
+
+**Con Redis**, el horario de reintentos sigue siendo el de la fila: el trabajo va
+con un solo intento, y un barrido cada 60 s (`sweep-outbox`) vuelve a encolar lo
+vencido, sea un reintento cuyo horario llegó, un correo que no alcanzó la cola o
+una reserva de un worker caído. La purga de enviados pasa a un trabajo diario. El
+web **no** sondea el outbox, así que el worker es obligatorio
+([queues/00-colas.md](../queues/00-colas.md), [ADR 0033](../adr/0033-colas-bullmq-sobre-el-outbox.md)).
 
 ## 4. Configuración
 
@@ -60,10 +71,13 @@ worker (cada 15 s)   ▼
 | `SMTP_USER`, `SMTP_PASSWORD` | — | Autenticación, si el servidor la pide |
 | `MAIL_FROM` | — | Remitente. Obligatorio con `SMTP_HOST` |
 | `APP_BASE_URL` | `RAILWAY_PUBLIC_DOMAIN`, si lo hay | Origen de los enlaces, sin barra final. Obligatorio con `SMTP_HOST`; `https` en producción. En Railway se deriva del dominio público del servicio, y solo se declara con dominio propio |
-| `EMAIL_WORKER_ENABLED` | Sí, salvo en `test` | `false` para un proceso que no debe enviar |
-| `EMAIL_WORKER_INTERVAL_S` | 15 | Periodo del worker |
+| `EMAIL_WORKER_ENABLED` | Sí, salvo en `test` | `false` para un proceso que no debe enviar. Solo aplica sin `REDIS_URL` |
+| `EMAIL_WORKER_INTERVAL_S` | 15 | Periodo del poller sin Redis |
+| `QUEUE_EMAIL_CONCURRENCY` | 5 | Correos en paralelo por worker de colas, con Redis |
 
-**Desarrollo con Mailpit:** `docker compose up -d mailpit`, luego `SMTP_HOST=localhost`,
+**Desarrollo con Mailpit:** `docker compose up -d mailpit`, luego `SMTP_HOST=127.0.0.1`
+(con `localhost`, si WSL reenvía también el puerto 1025 por IPv6, el correo puede
+acabar en otro servidor),
 `SMTP_PORT=1025`, `MAIL_FROM` y `APP_BASE_URL`. La bandeja queda en
 `http://localhost:8025`.
 

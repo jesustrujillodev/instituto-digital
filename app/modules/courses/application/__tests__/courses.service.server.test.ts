@@ -8,6 +8,7 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import type { Role } from "@/shared/rules/atoms.rules";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import { toProxyRef } from "@/shared/storage/public-url";
@@ -370,9 +371,23 @@ const createHarness = (
 			options.sessionsWithAttempts ?? [],
 	} as unknown as ICradle["contentRepository"];
 
+	// Borrar lo que ya nadie referencia sale por la cola; deshacer una subida
+	// fallida sigue yendo directo al storage. Las dos cosas acaban en `deleted`.
+	const jobDispatcher = {
+		dispatch: async (
+			name: string,
+			payload: { bucket: string; key: string },
+		) => {
+			if (name === JOB_NAMES.deleteObject) {
+				calls.deleted.push({ bucket: payload.bucket, key: payload.key });
+			}
+		},
+	} as unknown as ICradle["jobDispatcher"];
+
 	const service = createCourseService({
 		notificationService,
 		storageProvider,
+		jobDispatcher,
 		contentRepository,
 		storageBucket: options.noBucket ? null : "instituto-storage",
 		storagePublicBucket: null,

@@ -78,6 +78,12 @@ export interface ClaimedMessage extends RenderedEmail {
 	attempts: number;
 }
 
+/** Una fila del outbox y cuántos intentos lleva: con eso se arma su `jobId`. */
+export interface OutboxRef {
+	id: number;
+	attempts: number;
+}
+
 export interface DrainSummary {
 	sent: number;
 	retried: number;

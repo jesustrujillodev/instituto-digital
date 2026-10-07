@@ -43,6 +43,7 @@ type Dependencies = {
 	storageProvider: ICradle["storageProvider"];
 	storageBucket: ICradle["storageBucket"];
 	storagePublicBucket: ICradle["storagePublicBucket"];
+	jobDispatcher: ICradle["jobDispatcher"];
 };
 
 export const createSessionMaterialService = ({
@@ -53,14 +54,14 @@ export const createSessionMaterialService = ({
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
+	jobDispatcher,
 }: Dependencies): ISessionMaterialService => {
 	const log = logger.child({ module: "content" });
 	const run = createOperationRunner(log);
 	const { requireBucketOf, discardObject } = createMaterialStorage({
-		storageProvider,
+		jobDispatcher,
 		storageBucket,
 		storagePublicBucket,
-		log,
 	});
 
 	/**
@@ -280,7 +281,7 @@ export const createSessionMaterialService = ({
 				if (!material) throw new ContentSessionMaterialNotFoundError();
 
 				await sessionMaterialRepository.remove(material.id);
-				discardObject(material.fileUrl);
+				await discardObject(material.fileUrl);
 
 				return ok(null);
 			});

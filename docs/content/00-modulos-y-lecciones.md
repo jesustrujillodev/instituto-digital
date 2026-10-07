@@ -255,9 +255,16 @@ escribe, porque precargar un enlace no es haberlo abierto. No se desmarca:
   vacío: 0, y nunca completa.
 - Entero y hacia abajo (`progressPercentOf`): solo vale 100 cuando no falta nada.
 - `enrollments.progress_percent` es **caché**. Solo lo escribe
-  `progressSync.recalculate` (`application/progress-sync.server.ts`), dentro de la
-  transacción de quien escribe y con la fila del curso bloqueada. El aula
-  recalcula en vivo; el caché es para los listados.
+  `progressSync.recalculate` (`application/progress-sync.server.ts`), siempre con
+  la fila del curso bloqueada. El aula recalcula en vivo; el caché es para los
+  listados.
+  - El avance propio (lección completada, envío de un cuestionario) y el cierre del
+    curso recalculan en la transacción de quien escribe.
+  - Lo que cambia el avance de **todos** (lección obligatoria, evaluación de
+    módulo, seguimiento cerrado) se encola tras el commit cuando hay Redis
+    (`recalculate-progress`, [queues/00](../queues/00-colas.md)). Se pone al día
+    unos 2 s después, con varias ediciones seguidas agrupadas en un recálculo; sin
+    Redis va en la misma transacción ([ADR 0033](../adr/0033-colas-bullmq-sobre-el-outbox.md)).
 - La primera vez que llega a 100 fija `enrollments.content_completed_at`, que
   **no se borra**: una lección obligatoria añadida después baja el porcentaje pero
   no quita el completado a quien ya terminó.
@@ -311,7 +318,7 @@ dueño decide cuál:
 - **Se borra solo en borrador** ([ADR 0031](../adr/0031-borrar-temario-solo-en-borrador.md));
   publicado, `CONTENT_DELETE_LOCKED`. Un módulo con evaluación activa no se borra
   (`CONTENT_MODULE_HAS_QUIZ`). Crearla en un curso publicado recalcula a todo
-  inscrito.
+  inscrito (en la cola si hay Redis, §8.3).
 
 ### 9.2 Rutas
 

@@ -73,6 +73,8 @@ import type { VersionedCache } from "@/shared/cache/versioned-cache";
 import type { SingleFlight } from "@/shared/concurrency/single-flight";
 import type { Logger } from "@/shared/logging/logger";
 import type { IMailer } from "@/shared/mail/mailer.port";
+import type { JobDispatcher } from "@/shared/queue/job-dispatcher";
+import type { IJobFailureRepository } from "@/shared/queue/job-failure.port";
 import type { RateLimiter } from "@/shared/rate-limit/rate-limiter";
 import type { ISpreadsheetWriter } from "@/shared/spreadsheet/spreadsheet.port";
 import type { IObjectReferenceSource } from "@/shared/storage/object-reference.port";
@@ -191,6 +193,10 @@ export interface ICradle {
 	spreadsheetWriter: ISpreadsheetWriter;
 	notificationRepository: INotificationRepository;
 	notificationService: INotificationService;
+	// Trabajo de fondo (docs/queues/00-colas.md). Por petición: su respaldo sin
+	// cola ejecuta los trabajos con los servicios de este mismo cradle.
+	jobDispatcher: JobDispatcher;
+	jobFailureRepository: IJobFailureRepository;
 	// Preferencia de modo claro/oscuro por usuario. El loader raíz la resuelve en
 	// TODA petición, así que `resolveMode` evita bajar a la base salvo en el caso
 	// de dispositivo nuevo (docs/theme/00-modo-oscuro.md).

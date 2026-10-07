@@ -3,6 +3,7 @@ import type { CourseStatus } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
 import type { ThrottledLog } from "@/shared/logging/throttled-log";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { toProxyRef } from "@/shared/storage/public-url";
 import { createMemorySignedUrlCache } from "@/shared/storage/signed-url-cache.memory";
 import { createUrlSigner } from "@/shared/storage/url-signer.server";
@@ -125,10 +126,14 @@ const createHarness = (
 			options.stat === undefined
 				? { key, size: 1024, lastModified: NOW }
 				: options.stat,
-		deleteFile: async (_bucket: string, key: string) => {
-			calls.deleted.push(key);
-		},
 	} as unknown as ICradle["storageProvider"];
+
+	// El borrado sale por la cola, que lo reintenta.
+	const jobDispatcher = {
+		dispatch: async (name: string, payload: { key: string }) => {
+			if (name === JOB_NAMES.deleteObject) calls.deleted.push(payload.key);
+		},
+	} as unknown as ICradle["jobDispatcher"];
 
 	const memoryCache = createMemorySignedUrlCache();
 	const urlSigner = createUrlSigner({
@@ -157,6 +162,7 @@ const createHarness = (
 			storageProvider,
 			storageBucket: "instituto",
 			storagePublicBucket: null,
+			jobDispatcher,
 		}),
 		calls,
 	};
