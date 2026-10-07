@@ -78,6 +78,28 @@ describe("renderNotification", () => {
 		expect(text).toContain("Sede: Aula 2 · Enlace: https://meet.example.com/x");
 	});
 
+	test("el HTML lleva el logo absoluto, el asunto como título y la vista previa", () => {
+		const email = render({ template: "COURSE_CANCELLED", to, course });
+
+		expect(email.html).toContain(`src="${APP_URL}/assets/aytoBco.png"`);
+		expect(email.html).toContain(`>${email.subject}</h1>`);
+		// La vista previa es el primer párrafo tras el saludo, no el saludo.
+		expect(email.html).toMatch(/display:none[^>]*>Se canceló la capacitación/);
+	});
+
+	test("la primera dependencia se anuncia como asignación, no como cambio", () => {
+		const first = render({
+			template: "DEPENDENCY_CHANGED",
+			to,
+			fromDependency: null,
+			toDependency: "Desarrollo Social",
+		});
+
+		expect(first.subject).toBe("Te asignaron a una dependencia");
+		expect(first.text).toContain("te asignó a Desarrollo Social");
+		expect(render(ALL_EVENTS[2]).subject).toBe("Cambiaste de dependencia");
+	});
+
 	test("escapa lo capturado en el HTML y no en el texto", () => {
 		const hostile = { ...course, title: '<script>alert("x")</script>' };
 		const email = render({ template: "COURSE_CANCELLED", to, course: hostile });
