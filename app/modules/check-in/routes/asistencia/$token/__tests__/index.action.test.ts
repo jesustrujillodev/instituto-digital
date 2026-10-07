@@ -37,7 +37,7 @@ const createContext = (
 	({
 		authPayload,
 		rateLimiter: {
-			consume: () => ({ allowed, retryAfterMs: allowed ? 0 : 30_000 }),
+			consume: async () => ({ allowed, retryAfterMs: allowed ? 0 : 30_000 }),
 		},
 		checkInService: { register },
 	}) as unknown as ActionArgs["context"];

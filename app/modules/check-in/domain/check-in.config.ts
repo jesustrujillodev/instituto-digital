@@ -17,5 +17,9 @@ export const QR_WINDOW_LIMITS = { min: 0, max: 240 } as const;
 /** Por IP: el token es opaco, pero nadie necesita probar 20 veces por minuto. */
 export const CHECK_IN_RATE_LIMIT = { limit: 20, windowMs: 60_000 } as const;
 
+/** Loader y action comparten la cubeta: escanear y confirmar cuentan juntos. */
+export const checkInRateKeyOf = (ip: string | undefined): string =>
+	`check-in:${ip ?? "unknown"}`;
+
 /** La ruta pública que codifica el QR, relativa al origen. */
 export const checkInPathOf = (token: string): string => `/asistencia/${token}`;

@@ -66,5 +66,10 @@ export const ENROLLMENT_ERROR_MESSAGES: ErrorMessageMap = {
 				? "Esa persona ya acreditó la capacitación: no se puede dar de baja."
 				: "Solo se da de baja en una capacitación publicada.",
 	},
+	[ENROLLMENT_ERROR_CODES.RATE_LIMITED]: {
+		message:
+			"Hiciste demasiados cambios en esta inscripción. Espera unos minutos e inténtalo de nuevo.",
+		status: HTTP_STATUS.TOO_MANY_REQUESTS,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

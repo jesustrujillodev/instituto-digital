@@ -10,6 +10,7 @@ import {
 	ENROLLMENT_QR_RATE_LIMIT,
 	enrollmentLandingPathOf,
 	enrollmentQrPathOf,
+	enrollmentQrRateKeyOf,
 } from "../../../domain/enrollment-qr.config";
 import {
 	EnrollmentQrInvalidTokenError,
@@ -29,8 +30,8 @@ export const loader = async ({
 	context,
 	params,
 }: Route.LoaderArgs) => {
-	const decision = context.rateLimiter.consume(
-		`enrollment-qr:${getClientIp(request) ?? "unknown"}`,
+	const decision = await context.rateLimiter.consume(
+		enrollmentQrRateKeyOf(getClientIp(request)),
 		ENROLLMENT_QR_RATE_LIMIT,
 	);
 	if (!decision.allowed) {

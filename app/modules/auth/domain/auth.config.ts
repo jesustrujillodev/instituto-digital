@@ -26,6 +26,11 @@ export interface AuthConfig {
 	securityStateCacheTtlS: number;
 }
 
+export const loginEmailRateKeyOf = (email: string): string =>
+	`auth:login:email:${email}`;
+
+export const loginIpRateKeyOf = (ip: string): string => `auth:login:ip:${ip}`;
+
 /**
  * Valores por defecto del listado del monitor de sesiones.
  *

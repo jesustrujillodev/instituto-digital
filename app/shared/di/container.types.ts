@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { createContext } from "react-router";
-import type { RunInTransaction } from "@/core/db.server";
+import type { AfterCommit, RunInTransaction } from "@/core/db.server";
 import type { Env } from "@/core/env.server";
 import type { IAnnualPlanRepository } from "@/modules/annual-plan/domain/annual-plan.repository";
 import type { IAnnualPlanService } from "@/modules/annual-plan/domain/annual-plan.service";
@@ -69,6 +69,7 @@ import type { ITrainerRepository } from "@/modules/trainers/domain/trainer.repos
 import type { ITrainerService } from "@/modules/trainers/domain/trainer.service";
 import type { IUserRepository } from "@/modules/users/domain/user.repository";
 import type { IUserService } from "@/modules/users/domain/user.service";
+import type { VersionedCache } from "@/shared/cache/versioned-cache";
 import type { SingleFlight } from "@/shared/concurrency/single-flight";
 import type { Logger } from "@/shared/logging/logger";
 import type { IMailer } from "@/shared/mail/mailer.port";
@@ -77,12 +78,17 @@ import type { ISpreadsheetWriter } from "@/shared/spreadsheet/spreadsheet.port";
 import type { IObjectReferenceSource } from "@/shared/storage/object-reference.port";
 import type { AssetUrlResolver } from "@/shared/storage/public-url";
 import type { IStorageProvider } from "@/shared/storage/storage.port";
+import type { UrlSigner } from "@/shared/storage/url-signer.port";
 import type { Clock } from "@/shared/time/clock";
 
 export interface ICradle {
 	prisma: PrismaClient;
 	/** Frontera transaccional ambiental: los repositorios que reciben `prisma` entran sin saberlo. */
 	runInTransaction: RunInTransaction;
+	afterCommit: AfterCommit;
+	// Caché versionada de agregados caros (docs/redis/00-redis.md). Singleton de
+	// proceso; sin Redis no cachea nada.
+	aggregateCache: VersionedCache;
 	clock: Clock;
 	authConfig: AuthConfig;
 	// Entorno YA validado. Se resuelve por el cradle y nunca por import directo:
@@ -112,6 +118,9 @@ export interface ICradle {
 	// Proveedor de almacenamiento de objetos (S3/GCS según STORAGE_PROVIDER).
 	// Singleton de proceso: cierra sobre el cliente del SDK — ver container.server.ts.
 	storageProvider: IStorageProvider;
+	// Firmas de lectura reutilizables (en Redis si hay, si no en el proceso).
+	// Singleton de proceso por la caché que lleva dentro.
+	urlSigner: UrlSigner;
 	// Quién usa cada objeto de storage. Cada módulo que guarda keys en sus tablas
 	// aporta su fuente; el gestor de nube las consulta sin conocer los módulos.
 	objectReferenceSources: IObjectReferenceSource[];

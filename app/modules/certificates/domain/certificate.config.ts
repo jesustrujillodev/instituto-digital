@@ -78,6 +78,9 @@ export const CERTIFICATE_VERIFY_RATE_LIMIT = {
 	windowMs: 60_000,
 } as const;
 
+export const certificateVerifyRateKeyOf = (ip: string | undefined): string =>
+	`certificate-verify:${ip ?? "unknown"}`;
+
 /** Lado del QR en el lienzo: ~2 cm impreso, legible con cualquier teléfono. */
 export const CERTIFICATE_QR_SIZE = 80;
 

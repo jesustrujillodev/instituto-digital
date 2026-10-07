@@ -10,3 +10,9 @@ export const DEPENDENCY_LIST_DEFAULTS = {
 	page: 1,
 	pageSize: 10,
 } as const;
+
+/**
+ * Alcance de caché de los datos de dependencias que otros módulos agregan
+ * (nombre, estado). Toda escritura de una dependencia lo invalida.
+ */
+export const DEPENDENCIES_CACHE_SCOPE = "dependencies";

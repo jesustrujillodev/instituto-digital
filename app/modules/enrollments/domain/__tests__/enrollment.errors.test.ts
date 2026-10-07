@@ -14,6 +14,7 @@ import {
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
 	EnrollmentParticipantNotEnrolledError,
+	EnrollmentRateLimitedError,
 	EnrollmentRemoveClosedError,
 	EnrollmentRemovedError,
 	EnrollmentStateChangedError,
@@ -71,6 +72,7 @@ describe("códigos estables", () => {
 			new EnrollmentRemoveClosedError("COMPLETED"),
 			ENROLLMENT_ERROR_CODES.REMOVE_CLOSED,
 		],
+		[new EnrollmentRateLimitedError(1000), ENROLLMENT_ERROR_CODES.RATE_LIMITED],
 	])("$constructor.name expone su código", (error, code) => {
 		expect(error.code).toBe(code);
 		expect(isDomainError(error)).toBe(true);
@@ -79,6 +81,12 @@ describe("códigos estables", () => {
 });
 
 describe("details serializables", () => {
+	test("el límite lleva cuánto falta para volver a intentar", () => {
+		expect(new EnrollmentRateLimitedError(90_000).details).toEqual({
+			retryAfterMs: 90_000,
+		});
+	});
+
 	test("el cierre viaja como ISO", () => {
 		const closesAt = new Date("2026-10-10T06:59:00.000Z");
 

@@ -21,6 +21,8 @@ import { catalogAccessWhere } from "../domain/enrollment.access";
 import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	AVAILABLE_LIST_DEFAULTS,
+	ENROLLMENT_INTENT_RATE_LIMIT,
+	enrollmentIntentRateKeyOf,
 } from "../domain/enrollment.config";
 import {
 	EnrollmentAlreadyEnrolledError,
@@ -32,6 +34,7 @@ import {
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
 	EnrollmentParticipantNotEnrolledError,
+	EnrollmentRateLimitedError,
 	EnrollmentStateChangedError,
 	EnrollmentUnknownGroupError,
 	EnrollmentUnknownParticipantError,
@@ -79,6 +82,7 @@ type Dependencies = {
 	courseRepository: ICradle["courseRepository"];
 	groupRepository: ICradle["groupRepository"];
 	notificationService: ICradle["notificationService"];
+	rateLimiter: ICradle["rateLimiter"];
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -108,11 +112,23 @@ export const createEnrollmentService = ({
 	courseRepository,
 	groupRepository,
 	notificationService,
+	rateLimiter,
 	runInTransaction,
 	clock,
 	logger,
 }: Dependencies): IEnrollmentService => {
 	const run = createOperationRunner(logger.child({ module: "enrollments" }));
+
+	/** Lo que la propia persona hace sobre su inscripción; lo administrativo no cuenta. */
+	const guardIntent = async (courseDocumentId: string, actor: AuthContext) => {
+		const decision = await rateLimiter.consume(
+			enrollmentIntentRateKeyOf(actor.userId, courseDocumentId),
+			ENROLLMENT_INTENT_RATE_LIMIT,
+		);
+		if (!decision.allowed) {
+			throw new EnrollmentRateLimitedError(decision.retryAfterMs);
+		}
+	};
 
 	const requireParticipant = (actor: AuthContext): number => {
 		if (!canParticipate(actor) || actor.dependencyId === null) {
@@ -527,6 +543,7 @@ export const createEnrollmentService = ({
 		async enroll(courseDocumentId: string, actor: AuthContext) {
 			return run("enroll", async () => {
 				const dependencyId = requireParticipant(actor);
+				await guardIntent(courseDocumentId, actor);
 				const course = await requireCourse(
 					courseDocumentId,
 					await visibilityOf(actor),
@@ -572,6 +589,7 @@ export const createEnrollmentService = ({
 		async withdraw(courseDocumentId: string, actor: AuthContext) {
 			return run("withdraw", async () => {
 				const dependencyId = requireParticipant(actor);
+				await guardIntent(courseDocumentId, actor);
 				const course = await requireCourse(
 					courseDocumentId,
 					await visibilityOf(actor),
@@ -610,6 +628,7 @@ export const createEnrollmentService = ({
 		async accept(courseDocumentId: string, actor: AuthContext) {
 			return run("accept", async () => {
 				const dependencyId = requireParticipant(actor);
+				await guardIntent(courseDocumentId, actor);
 				const course = await requireCourse(
 					courseDocumentId,
 					await visibilityOf(actor),
@@ -654,6 +673,7 @@ export const createEnrollmentService = ({
 		async decline(courseDocumentId: string, actor: AuthContext) {
 			return run("decline", async () => {
 				const dependencyId = requireParticipant(actor);
+				await guardIntent(courseDocumentId, actor);
 				const course = await requireCourse(
 					courseDocumentId,
 					await visibilityOf(actor),

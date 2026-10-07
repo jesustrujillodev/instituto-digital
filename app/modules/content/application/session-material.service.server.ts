@@ -91,14 +91,17 @@ export const createSessionMaterialService = ({
 		return course;
 	};
 
-	const sign = async (raw: SessionMaterialRaw): Promise<SessionMaterial> => {
-		const signed = raw.fileUrl
-			? await lessonMaterialReader.signReference(raw.fileUrl)
-			: null;
-
-		return signed
-			? { ...raw, ...signed }
-			: { ...raw, fileUrl: null, downloadUrl: null };
+	/** Todo el material que se va a pintar, firmado en un solo lote. */
+	const signAll = async (materials: readonly SessionMaterialRaw[]) => {
+		const signed = await lessonMaterialReader.signReferences(
+			materials.flatMap((raw) => (raw.fileUrl ? [raw.fileUrl] : [])),
+		);
+		return (raw: SessionMaterialRaw): SessionMaterial => {
+			const urls = raw.fileUrl ? signed.get(raw.fileUrl) : null;
+			return urls
+				? { ...raw, ...urls }
+				: { ...raw, fileUrl: null, downloadUrl: null };
+		};
 	};
 
 	/** Cada tipo deja en `null` las columnas de los otros. */
@@ -140,17 +143,18 @@ export const createSessionMaterialService = ({
 				const sessions = await sessionMaterialRepository.findSessions(
 					course.id,
 				);
+				const sign = await signAll(
+					sessions.flatMap((session) => session.materials),
+				);
 
 				return ok({
 					editable: canEdit(course.status),
-					sessions: await Promise.all(
-						sessions.map(async (session) => ({
-							documentId: session.documentId,
-							startsAt: session.startsAt,
-							endsAt: session.endsAt,
-							materials: await Promise.all(session.materials.map(sign)),
-						})),
-					),
+					sessions: sessions.map((session) => ({
+						documentId: session.documentId,
+						startsAt: session.startsAt,
+						endsAt: session.endsAt,
+						materials: session.materials.map(sign),
+					})),
 				});
 			});
 		},
@@ -166,27 +170,31 @@ export const createSessionMaterialService = ({
 				if (!sessions) return ok([]);
 
 				const now = clock.now();
+				// Lo bloqueado no se firma: su URL no debe existir todavía.
+				const sign = await signAll(
+					sessions.flatMap((session) =>
+						session.materials.filter((raw) =>
+							isSessionMaterialAvailable(raw, session.startsAt, now),
+						),
+					),
+				);
 
 				return ok(
-					await Promise.all(
-						sessions.map(async (session) => ({
-							sessionDocumentId: session.documentId,
-							materials: await Promise.all(
-								session.materials.map(
-									async (raw): Promise<ParticipantSessionMaterial> =>
-										isSessionMaterialAvailable(raw, session.startsAt, now)
-											? { state: "available", ...(await sign(raw)) }
-											: {
-													state: "locked",
-													documentId: raw.documentId,
-													type: raw.type,
-													title: raw.title,
-													availableAt: session.startsAt,
-												},
-								),
-							),
-						})),
-					),
+					sessions.map((session) => ({
+						sessionDocumentId: session.documentId,
+						materials: session.materials.map(
+							(raw): ParticipantSessionMaterial =>
+								isSessionMaterialAvailable(raw, session.startsAt, now)
+									? { state: "available", ...sign(raw) }
+									: {
+											state: "locked",
+											documentId: raw.documentId,
+											type: raw.type,
+											title: raw.title,
+											availableAt: session.startsAt,
+										},
+						),
+					})),
 				);
 			});
 		},

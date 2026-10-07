@@ -115,7 +115,7 @@ const createHarness = (
 	} as unknown as ICradle["tokenService"];
 
 	const rateLimiter = {
-		consume: (key: string, opts: { limit: number; windowMs: number }) => {
+		consume: async (key: string, opts: { limit: number; windowMs: number }) => {
 			calls.consumed.push({ key, ...opts });
 			return (
 				options.limiterDecisions?.[key] ?? { allowed: true, retryAfterMs: 0 }

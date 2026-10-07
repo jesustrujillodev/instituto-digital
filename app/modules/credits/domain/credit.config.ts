@@ -17,3 +17,15 @@ export const CREDIT_MANAGER_ROLES: readonly Role[] = [
 	"DEPENDENCY_HEAD",
 	"DEPENDENCY_DEPUTY",
 ];
+
+/** Alcance de caché que invalida toda escritura de créditos. */
+export const CREDITS_CACHE_SCOPE = "credits";
+
+/**
+ * El resumen por dependencia es la vista más cara de "Créditos": dos consultas
+ * en serie sobre todo el ejercicio. El TTL solo acota un aviso perdido.
+ */
+export const CREDITS_SUMMARY_CACHE = {
+	name: "credits-summary",
+	ttlS: 300,
+} as const;

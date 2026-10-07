@@ -1,10 +1,15 @@
 import { describe, expect, test } from "vitest";
+import type { InvalidationBus } from "@/shared/cache/invalidation-bus";
+import { createMemoryInvalidationBus } from "@/shared/cache/invalidation-bus.memory";
 import type { LogData, Logger } from "@/shared/logging/logger";
 import type {
 	SecuritySnapshot,
 	SecurityStateRepository,
 } from "../../domain/security-state.repository";
-import { createCachedSecurityStateRepository } from "../security-state.cache.server";
+import {
+	createCachedSecurityStateRepository,
+	SECURITY_STATE_INVALIDATION_CHANNEL,
+} from "../security-state.cache.server";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -90,6 +95,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 10_000,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		const first = await cache.get();
@@ -108,6 +114,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 10_000,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		await Promise.all([cache.get(), cache.get(), cache.get(), cache.get()]);
@@ -122,6 +129,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 5,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		await cache.get();
@@ -143,6 +151,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 5,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		const warm = await cache.get();
@@ -165,6 +174,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 10_000,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		fake.failWith(new Error("database is down"));
@@ -179,6 +189,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 10_000,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		fake.failWith(new Error("transient"));
@@ -197,6 +208,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 10_000,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		await cache.get();
@@ -216,6 +228,7 @@ describe("createCachedSecurityStateRepository", () => {
 			inner: fake.inner,
 			ttlMs: 10_000,
 			logger,
+			bus: createMemoryInvalidationBus(),
 		});
 
 		await cache.get();
@@ -237,6 +250,7 @@ describe("createCachedSecurityStateRepository — lockdown invalidation", () => 
 				inner: fake.inner,
 				ttlMs: 10_000,
 				logger,
+				bus: createMemoryInvalidationBus(),
 			}),
 		};
 	};
@@ -267,5 +281,121 @@ describe("createCachedSecurityStateRepository — lockdown invalidation", () => 
 
 		expect(fake.calls.lift).toBe(1);
 		expect(fake.calls.get).toBe(2);
+	});
+});
+
+describe("createCachedSecurityStateRepository — aviso entre nodos", () => {
+	/** Bus que registra lo publicado y deja disparar el aviso de "otro nodo". */
+	const createSpyBus = () => {
+		const published: string[] = [];
+		const handlers = new Map<string, () => void>();
+		const bus: InvalidationBus = {
+			async publish(channel) {
+				published.push(channel);
+			},
+			subscribe(channel, onInvalidate) {
+				handlers.set(channel, onInvalidate);
+			},
+		};
+		const remoteInvalidation = () =>
+			handlers.get(SECURITY_STATE_INVALIDATION_CHANNEL)?.();
+		return { bus, published, remoteInvalidation };
+	};
+
+	const cacheOf = () => {
+		const fake = createFakeInner();
+		const spy = createSpyBus();
+		const { logger } = createSpyLogger();
+		const cache = createCachedSecurityStateRepository({
+			inner: fake.inner,
+			ttlMs: 60_000,
+			logger,
+			bus: spy.bus,
+		});
+		return { fake, cache, ...spy };
+	};
+
+	test("tras el aviso de otro nodo relee sin esperar el TTL", async () => {
+		const { fake, cache, remoteInvalidation } = cacheOf();
+		await cache.get();
+		const moved = snapshotOf(new Date("2026-07-30T13:00:00.000Z"));
+		fake.setSnapshot(moved);
+
+		remoteInvalidation();
+		const after = await cache.get();
+
+		expect(fake.calls.get).toBe(2);
+		expect(after.tokensValidAfter).toEqual(moved.tokensValidAfter);
+	});
+
+	// El aviso no borra el respaldo: si la base cae justo después, el corte que
+	// ya se conocía sigue en pie en vez de denegar a todos.
+	test("tras el aviso, con la base caída, sirve el último valor conocido", async () => {
+		const { fake, cache, remoteInvalidation } = cacheOf();
+		const warm = await cache.get();
+
+		remoteInvalidation();
+		fake.failWith(new Error("database is down"));
+
+		expect(await cache.get()).toBe(warm);
+	});
+
+	// La escritura propia sí deja la caché en frío: el estado de antes del corte
+	// no puede servir de respaldo del estado de después.
+	test("tras una escritura propia, con la base caída, deniega", async () => {
+		const { fake, cache } = cacheOf();
+		await cache.get();
+
+		await cache.revokeAllTokens();
+		fake.failWith(new Error("database is down"));
+
+		await expect(cache.get()).rejects.toThrow("database is down");
+	});
+
+	test("una lectura en vuelo durante el aviso no deja cacheado el estado viejo", async () => {
+		const { fake, cache, remoteInvalidation } = cacheOf();
+		let release: (snapshot: SecuritySnapshot) => void = () => {};
+		const stale = snapshotOf(new Date("2026-07-30T12:00:00.000Z"));
+		const original = fake.inner.get;
+		fake.inner.get = () =>
+			new Promise<SecuritySnapshot>((resolve) => {
+				release = resolve;
+			});
+
+		const pending = cache.get();
+		remoteInvalidation();
+		release(stale);
+		await pending;
+
+		fake.inner.get = original;
+		const fresh = snapshotOf(new Date("2026-07-30T14:00:00.000Z"));
+		fake.setSnapshot(fresh);
+
+		expect((await cache.get()).tokensValidAfter).toEqual(
+			fresh.tokensValidAfter,
+		);
+	});
+
+	test.each([
+		[
+			"revokeAllTokens",
+			(cache: SecurityStateRepository) => cache.revokeAllTokens(),
+		],
+		[
+			"revokeUserTokens",
+			(cache: SecurityStateRepository) => cache.revokeUserTokens(7),
+		],
+		[
+			"lockdown",
+			(cache: SecurityStateRepository) =>
+				cache.lockdown({ scope: "all", by: 7 }),
+		],
+		["lift", (cache: SecurityStateRepository) => cache.lift()],
+	] as const)("%s avisa a los demás nodos", async (_name, write) => {
+		const { cache, published } = cacheOf();
+
+		await write(cache);
+
+		expect(published).toEqual([SECURITY_STATE_INVALIDATION_CHANNEL]);
 	});
 });

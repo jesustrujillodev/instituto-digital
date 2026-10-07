@@ -17,7 +17,11 @@ import {
 	nextProgressStatus,
 } from "../domain/classroom.rules";
 import type { ClassroomCourse } from "../domain/classroom.types";
-import { FOLLOW_UPS_PER_COURSE_LIMIT } from "../domain/content.config";
+import {
+	FOLLOW_UPS_PER_COURSE_LIMIT,
+	QUIZ_SUBMIT_RATE_LIMIT,
+	quizSubmitRateKeyOf,
+} from "../domain/content.config";
 import {
 	ContentCourseNotFoundError,
 	ContentFollowUpClosedError,
@@ -33,6 +37,7 @@ import {
 	ContentQuizNotEvaluatedError,
 	ContentQuizNotFoundError,
 	ContentQuizParticipantNotFoundError,
+	ContentQuizRateLimitedError,
 	ContentQuizRetakeNotAllowedError,
 	ContentSessionNotFoundError,
 	ContentTooManyFollowUpsError,
@@ -85,6 +90,7 @@ type Dependencies = {
 	enrollmentRepository: ICradle["enrollmentRepository"];
 	teachingRepository: ICradle["teachingRepository"];
 	progressSync: ICradle["progressSync"];
+	rateLimiter: ICradle["rateLimiter"];
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -105,6 +111,7 @@ export const createQuizService = ({
 	enrollmentRepository,
 	teachingRepository,
 	progressSync,
+	rateLimiter,
 	runInTransaction,
 	clock,
 	logger,
@@ -426,6 +433,13 @@ export const createQuizService = ({
 			actor: AuthContext,
 		) {
 			return run("submit", async () => {
+				const decision = await rateLimiter.consume(
+					quizSubmitRateKeyOf(actor.userId, courseDocumentId),
+					QUIZ_SUBMIT_RATE_LIMIT,
+				);
+				if (!decision.allowed) {
+					throw new ContentQuizRateLimitedError(decision.retryAfterMs);
+				}
 				const course = await requireClassroomCourse(courseDocumentId, actor);
 				assertCanProgress(course);
 				const kind = quizKindOf(dto);

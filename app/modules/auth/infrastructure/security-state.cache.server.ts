@@ -1,3 +1,4 @@
+import type { InvalidationBus } from "@/shared/cache/invalidation-bus";
 import type { Logger } from "@/shared/logging/logger";
 import type {
 	SecuritySnapshot,
@@ -9,7 +10,10 @@ type Dependencies = {
 	/** Ventana de propagación del corte entre nodos. Ver AuthConfig. */
 	ttlMs: number;
 	logger: Logger;
+	bus: InvalidationBus;
 };
+
+export const SECURITY_STATE_INVALIDATION_CHANNEL = "security-state:invalidate";
 
 /**
  * Decorador con caché sobre el mismo puerto.
@@ -23,35 +27,59 @@ type Dependencies = {
  * instancia nueva en cada request, que no cachearía nada. Misma forma que
  * `createMemorySingleFlight` y `createMemoryRateLimiter`.
  *
- * Con varios nodos cada proceso tiene su propia copia: el corte propaga en
- * `ttlMs` como máximo. Un store compartido (Redis) no lo haría instantáneo,
- * solo movería la caché de sitio.
+ * Con varios nodos cada proceso tiene su propia copia. Toda escritura avisa por
+ * el bus y los demás nodos releen en cuanto llega el aviso; si el aviso se
+ * pierde (Redis caído), el TTL sigue siendo la ventana máxima.
  */
 export const createCachedSecurityStateRepository = ({
 	inner,
 	ttlMs,
 	logger,
+	bus,
 }: Dependencies): SecurityStateRepository => {
 	let cached: SecuritySnapshot | null = null;
 	let expiresAt = 0;
 	// Colapsa las lecturas concurrentes: al expirar el TTL bajo carga, mil
 	// peticiones simultáneas deben producir UNA consulta, no mil.
 	let inFlight: Promise<SecuritySnapshot> | null = null;
+	// Una lectura que empezó antes de una invalidación trae el estado de antes:
+	// puede responder a quien la esperaba, pero no queda cacheada.
+	let generation = 0;
 
+	// Escritura de este proceso: sin último valor conocido, para que en frío se
+	// deniegue en vez de servir el estado de antes del corte.
 	const invalidate = () => {
 		cached = null;
 		expiresAt = 0;
+		generation += 1;
+		inFlight = null;
 	};
+
+	// Aviso de otro nodo: se relee ya, pero el último valor conocido se queda
+	// como respaldo, igual que cuando vence el TTL.
+	const expire = () => {
+		expiresAt = 0;
+		generation += 1;
+		inFlight = null;
+	};
+
+	bus.subscribe(SECURITY_STATE_INVALIDATION_CHANNEL, expire);
+
+	const announce = () => bus.publish(SECURITY_STATE_INVALIDATION_CHANNEL);
 
 	return {
 		async get() {
 			if (cached && expiresAt > Date.now()) return cached;
+			if (inFlight) return inFlight;
 
-			inFlight ??= inner
+			const readGeneration = generation;
+			const read: Promise<SecuritySnapshot> = inner
 				.get()
 				.then((fresh) => {
-					cached = fresh;
-					expiresAt = Date.now() + ttlMs;
+					if (readGeneration === generation) {
+						cached = fresh;
+						expiresAt = Date.now() + ttlMs;
+					}
 					return fresh;
 				})
 				.catch((error: unknown) => {
@@ -75,34 +103,39 @@ export const createCachedSecurityStateRepository = ({
 					throw error;
 				})
 				.finally(() => {
-					inFlight = null;
+					if (inFlight === read) inFlight = null;
 				});
+			inFlight = read;
 
-			return inFlight;
+			return read;
 		},
 
-		// Toda escritura invalida la caché LOCAL para que la respuesta del proceso
-		// que ejecuta el corte sea inmediata, aunque los demás nodos tarden el TTL.
+		// Toda escritura invalida la caché LOCAL, para que el proceso que ejecuta el
+		// corte lo vea al instante, y avisa a los demás nodos.
 		async revokeAllTokens() {
 			const snapshot = await inner.revokeAllTokens();
 			invalidate();
+			await announce();
 			return snapshot;
 		},
 
 		async revokeUserTokens(userId) {
 			await inner.revokeUserTokens(userId);
 			invalidate();
+			await announce();
 		},
 
 		async lockdown(input) {
 			const result = await inner.lockdown(input);
 			invalidate();
+			await announce();
 			return result;
 		},
 
 		async lift() {
 			const snapshot = await inner.lift();
 			invalidate();
+			await announce();
 			return snapshot;
 		},
 	};
