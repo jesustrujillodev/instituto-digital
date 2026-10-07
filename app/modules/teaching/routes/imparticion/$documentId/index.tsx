@@ -226,7 +226,9 @@ function ProgressList({
 		<Card>
 			<CardContent className="flex flex-col gap-3">
 				<h3 className="font-medium text-sm">
-					{withContent ? "Avance en el contenido" : "Intentos del examen"}
+					{withContent
+						? "Avance en el contenido"
+						: "Intentos de las evaluaciones"}
 				</h3>
 				{quizBoard && (
 					<p className="text-muted-foreground text-xs">
