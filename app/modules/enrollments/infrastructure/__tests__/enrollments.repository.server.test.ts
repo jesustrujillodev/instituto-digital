@@ -163,3 +163,59 @@ describe("countInvited", () => {
 		]);
 	});
 });
+
+describe("pertenencia a grupos", () => {
+	const person = (id: number, dependencyId: number) => ({
+		id,
+		documentId: `doc-${id}`,
+		dependencyId,
+		email: `p${id}@instituto.gob.mx`,
+		firstName: "Ana",
+		lastName: "López",
+	});
+
+	const repositoryWith = (rows: unknown[]) =>
+		createEnrollmentRepository({
+			prisma: {
+				groupMember: { findMany: async () => rows },
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
+		});
+
+	// §6.4: invitar o asignar un grupo no alcanza a quien se trasladó a otra
+	// dependencia después de entrar.
+	test("findGroupParticipants omite a los trasladados y cuenta una vez a cada persona", async () => {
+		const repository = repositoryWith([
+			{ group: { dependencyId: 3 }, user: person(50, 3) },
+			{ group: { dependencyId: 3 }, user: person(51, 4) },
+			{ group: { dependencyId: 3 }, user: person(50, 3) },
+		]);
+
+		const participants = await repository.findGroupParticipants([1, 2]);
+
+		expect(participants.map((participant) => participant.id)).toEqual([50]);
+	});
+
+	test("findGroupEnrollable omite a los trasladados", async () => {
+		const repository = repositoryWith([
+			{
+				groupId: 1,
+				group: { dependencyId: 3 },
+				user: { documentId: "doc-50", dependencyId: 3 },
+			},
+			{
+				groupId: 1,
+				group: { dependencyId: 3 },
+				user: { documentId: "doc-51", dependencyId: 4 },
+			},
+		]);
+
+		await expect(
+			repository.findGroupEnrollable({
+				courseId: 7,
+				groupIds: [1],
+				dependencyId: null,
+			}),
+		).resolves.toEqual([{ groupId: 1, userDocumentId: "doc-50" }]);
+	});
+});

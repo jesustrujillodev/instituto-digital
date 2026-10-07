@@ -40,6 +40,7 @@ export const CONTENT_ERROR_CODES = {
 	FOLLOW_UP_NOT_ATTENDED: "CONTENT_FOLLOW_UP_NOT_ATTENDED",
 	FOLLOW_UP_NOT_MANUAL: "CONTENT_FOLLOW_UP_NOT_MANUAL",
 	FOLLOW_UP_CLOSED: "CONTENT_FOLLOW_UP_CLOSED",
+	QUIZ_RATE_LIMITED: "CONTENT_QUIZ_RATE_LIMITED",
 } as const;
 
 export abstract class ContentError extends DomainError {}
@@ -369,5 +370,14 @@ export class ContentFollowUpClosedError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.FOLLOW_UP_CLOSED;
 	constructor() {
 		super("Follow-up evaluation is already closed");
+	}
+}
+
+export class ContentQuizRateLimitedError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_RATE_LIMITED;
+	readonly details: { retryAfterMs: number };
+	constructor(retryAfterMs: number) {
+		super("Too many quiz submissions");
+		this.details = { retryAfterMs };
 	}
 }

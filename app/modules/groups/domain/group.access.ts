@@ -92,6 +92,16 @@ export const groupScopeWriteWhere = (
 };
 
 /**
+ * ¿La pertenencia cuenta hoy? Solo mientras la persona siga en la dependencia
+ * del grupo. Quien se traslada no sale de la lista (§6.4): su pertenencia se
+ * evalúa al usarla y no vale estando en otra dependencia.
+ */
+export const isEffectiveMembership = (
+	member: { dependencyId: number | null },
+	group: { dependencyId: number },
+): boolean => member.dependencyId === group.dependencyId;
+
+/**
  * ¿Este alcance puede escribir grupos?
  *
  * Solo el de dependencia. Un grupo pertenece a una unidad concreta, así que un

@@ -1,4 +1,5 @@
 import type { ICradle } from "@/shared/di/container.types";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { toOutboxMessage } from "../domain/notification.mapper";
@@ -9,12 +10,14 @@ import { isDeliverable } from "../domain/notification.validators";
 
 type Dependencies = {
 	notificationRepository: ICradle["notificationRepository"];
+	jobDispatcher: ICradle["jobDispatcher"];
 	appBaseUrl: ICradle["appBaseUrl"];
 	logger: ICradle["logger"];
 };
 
 export const createNotificationService = ({
 	notificationRepository,
+	jobDispatcher,
 	appBaseUrl,
 	logger,
 }: Dependencies): INotificationService => {
@@ -32,12 +35,22 @@ export const createNotificationService = ({
 				}
 				if (deliverable.length === 0) return ok({ queued: 0 });
 
-				await notificationRepository.enqueue(
+				const queued = await notificationRepository.enqueue(
 					deliverable.map((event) =>
 						toOutboxMessage(
 							event,
 							renderNotification(event, { appUrl: appBaseUrl }),
 						),
+					),
+				);
+				// La fila ya es el aviso; la cola solo lo entrega antes que el
+				// barrido, y solo si la transacción se confirma.
+				await Promise.all(
+					queued.map(({ id, attempts }) =>
+						jobDispatcher.dispatch(JOB_NAMES.deliverEmail, {
+							outboxId: id,
+							attempt: attempts,
+						}),
 					),
 				);
 

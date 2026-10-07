@@ -8,7 +8,10 @@ import {
 } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
 import type { AppResponse } from "@/shared/response/response.types";
-import { CHECK_IN_RATE_LIMIT } from "../../../domain/check-in.config";
+import {
+	CHECK_IN_RATE_LIMIT,
+	checkInRateKeyOf,
+} from "../../../domain/check-in.config";
 import {
 	CheckInInvalidTokenError,
 	CheckInRateLimitedError,
@@ -34,8 +37,8 @@ export const action = async ({
 	context,
 	params,
 }: Route.ActionArgs): Promise<CheckInActionData> => {
-	const decision = context.rateLimiter.consume(
-		`check-in:${getClientIp(request) ?? "unknown"}`,
+	const decision = await context.rateLimiter.consume(
+		checkInRateKeyOf(getClientIp(request)),
 		CHECK_IN_RATE_LIMIT,
 	);
 	if (!decision.allowed) {

@@ -42,7 +42,7 @@ const createHarness = (
 	const context = {
 		authPayload: options.anonymous ? null : authPayload,
 		rateLimiter: {
-			consume: () => ({
+			consume: async () => ({
 				allowed: options.allowed ?? true,
 				retryAfterMs: options.allowed === false ? 30_000 : 0,
 			}),
@@ -184,7 +184,9 @@ describe("escaneo loader", () => {
 	test("un rechazo del servicio viaja con su código estable", async () => {
 		const context = {
 			authPayload,
-			rateLimiter: { consume: () => ({ allowed: true, retryAfterMs: 0 }) },
+			rateLimiter: {
+				consume: async () => ({ allowed: true, retryAfterMs: 0 }),
+			},
 			checkInService: {
 				preview: async () => ({
 					success: false,

@@ -58,8 +58,10 @@ import { createCourseService } from "@/modules/courses/application/courses.servi
 import { createCourseCoverReferenceSource } from "@/modules/courses/infrastructure/course-cover.references.server";
 import { createCourseRepository } from "@/modules/courses/infrastructure/courses.repository.server";
 import { createCreditService } from "@/modules/credits/application/credits.service.server";
+import { createCachedCreditRepository } from "@/modules/credits/infrastructure/credits.repository.cache.server";
 import { createCreditRepository } from "@/modules/credits/infrastructure/credits.repository.server";
 import { createDependencyService } from "@/modules/dependencies/application/dependencies.service.server";
+import { createDependencyRepositoryWithInvalidation } from "@/modules/dependencies/infrastructure/dependencies.repository.cache.server";
 import { createDependencyRepository } from "@/modules/dependencies/infrastructure/dependencies.repository.server";
 import { createEnrollmentQrService } from "@/modules/enrollment-qr/application/enrollment-qr.service.server";
 import { createEnrollmentService } from "@/modules/enrollments/application/enrollments.service.server";
@@ -84,17 +86,27 @@ import { createTrainerRepository } from "@/modules/trainers/infrastructure/train
 import { createUserService } from "@/modules/users/application/users.service.server";
 import { createUserPhotoReferenceSource } from "@/modules/users/infrastructure/user-photo.references.server";
 import { createUserRepository } from "@/modules/users/infrastructure/users.repository.server";
+import { createInvalidationBus } from "@/shared/cache/invalidation-bus.factory.server";
+import { createVersionedCache } from "@/shared/cache/versioned-cache.factory.server";
 import { createMemorySingleFlight } from "@/shared/concurrency/single-flight.memory";
 import { createConsoleLogger } from "@/shared/logging/logger.console";
+import { createThrottledLog } from "@/shared/logging/throttled-log";
 import { createMailerFromEnv } from "@/shared/mail/mailer.factory.server";
-import { createMemoryRateLimiter } from "@/shared/rate-limit/rate-limiter.memory";
+import { createJobDispatcher } from "@/shared/queue/job-dispatcher.factory.server";
+import { createJobFailureRepository } from "@/shared/queue/job-failure.repository.server";
+import { createQueueClientFromEnv } from "@/shared/queue/queue.client.server";
+import { createRateLimiter } from "@/shared/rate-limit/rate-limiter.factory.server";
+import { createRedisConnectionsFromEnv } from "@/shared/redis/redis.client.server";
+import { REDIS_ERROR_LOG_INTERVAL_MS } from "@/shared/redis/redis.config";
 import { createExcelSpreadsheetWriter } from "@/shared/spreadsheet/exceljs.spreadsheet-writer.server";
 import { createAssetUrlResolver } from "@/shared/storage/public-url";
 import { createStorageProviderFromEnv } from "@/shared/storage/storage.factory";
+import { createUrlSignerFromEnv } from "@/shared/storage/url-signer.factory.server";
 import { systemClock } from "@/shared/time/clock";
-import prisma, { runInTransaction } from "../../core/db.server";
+import prisma, { afterCommit, runInTransaction } from "../../core/db.server";
 import type { ApiContext } from "../types";
 import type { ICradle } from "./container.types";
+import { createJobHandlers } from "./job-handlers.server";
 
 // ── Singletons de PROCESO ──────────────────────────────────────────────────────
 // Viven entre peticiones. El single-flight y el rate limiter serían inútiles
@@ -114,14 +126,35 @@ const authConfig: AuthConfig = {
 };
 
 const singleFlight = createMemorySingleFlight();
-const rateLimiter = createMemoryRateLimiter();
 const logger = createConsoleLogger({
 	level: env.NODE_ENV === "production" ? "info" : "debug",
+});
+// Opcional (docs/redis/00-redis.md): sin REDIS_URL es `null` y cada pieza usa su
+// adaptador de proceso. Las conexiones no van al cradle: nadie fuera de la
+// composición habla con Redis directamente.
+const redis = createRedisConnectionsFromEnv(env, logger);
+// Las colas usan el mismo Redis con conexiones propias (docs/queues/00-colas.md).
+const queueClient = createQueueClientFromEnv(env, logger);
+const queueLog = createThrottledLog(logger, {
+	intervalMs: REDIS_ERROR_LOG_INTERVAL_MS,
+});
+const rateLimiter = createRateLimiter({
+	redis: redis?.command ?? null,
+	logger,
+});
+const aggregateCache = createVersionedCache({
+	redis: redis?.command ?? null,
+	logger,
 });
 // El provider cierra sobre el cliente del SDK (S3Client/Storage): se construye
 // UNA sola vez a nivel de módulo y se comparte entre peticiones. Registrarlo con
 // asFunction lo recrearía en cada request (el contenedor es por-petición).
 const storageProvider = createStorageProviderFromEnv(env, logger);
+const urlSigner = createUrlSignerFromEnv({
+	redis: redis?.command ?? null,
+	storageProvider,
+	logger,
+});
 // Puro y sin estado, pero se construye una vez por la misma razón: es una
 // clausura sobre el dominio público, no algo que dependa de la petición.
 const assetUrlResolver = createAssetUrlResolver(env.STORAGE_PUBLIC_DOMAIN);
@@ -146,7 +179,9 @@ const certificateAssetSource = createCertificateAssetSource({
 });
 const certificatePdfTools = createPdfLibTools();
 
-if (isEmailWorkerEnabled(env)) {
+// Con colas, el correo lo entrega el worker de BullMQ y su barrido; el poller
+// solo existe sin Redis (docs/notifications/00-notificaciones.md).
+if (isEmailWorkerEnabled(env) && !queueClient) {
 	const notificationRepository = createNotificationRepository({ prisma });
 	startEmailOutboxWorker({
 		drain: () =>
@@ -168,6 +203,7 @@ const securityState = createCachedSecurityStateRepository({
 	inner: createSecurityStateRepository({ prisma, authConfig }),
 	ttlMs: authConfig.securityStateCacheTtlS * 1000,
 	logger,
+	bus: createInvalidationBus({ redis, logger }),
 });
 
 /**
@@ -198,26 +234,23 @@ const isStillValid = async (payload: VerifiedAccessTokenPayload) => {
 	}
 };
 
-// ── configureContainer ─────────────────────────────────────────────────────────
-// Creates a fresh Awilix container per request and runs silent token-refresh:
-//   1. Valid access token → return immediately, nothing to refresh
-//   2. Missing/expired access token → try refresh token:
-//      a. Success → apiContext.newCookies set (middleware appends Set-Cookie)
-//      b. Failure → apiContext.shouldRedirectToLogin set (middleware redirects)
-export const configureContainer = async (
-	request: Request,
-	apiContext: ApiContext,
-) => {
-	const freshContainer = createContainer<ICradle>({
+/**
+ * Un contenedor con todos los servicios y sin identidad. Lo usan cada petición
+ * (que luego registra su `authPayload`) y el worker de colas.
+ */
+const createAppContainer = () => {
+	const container = createContainer<ICradle>({
 		injectionMode: InjectionMode.PROXY,
 	});
 
 	const asSingleton = <T>(fn: Parameters<typeof asFunction<T>>[0]) =>
 		asFunction(fn, { lifetime: Lifetime.SINGLETON });
 
-	freshContainer.register({
+	container.register({
 		prisma: asValue(prisma),
 		runInTransaction: asValue(runInTransaction),
+		afterCommit: asValue(afterCommit),
+		aggregateCache: asValue(aggregateCache),
 		clock: asValue(systemClock),
 		authConfig: asValue(authConfig),
 		env: asValue(env),
@@ -228,6 +261,7 @@ export const configureContainer = async (
 		rateLimiter: asValue(rateLimiter),
 		logger: asValue(logger),
 		storageProvider: asValue(storageProvider),
+		urlSigner: asValue(urlSigner),
 		securityStateRepository: asValue(securityState),
 		tokenService: asSingleton(createTokenService),
 		passwordService: asSingleton(createPasswordService),
@@ -237,7 +271,13 @@ export const configureContainer = async (
 		securityStateService: asSingleton(createSecurityStateService),
 		userRepository: asSingleton(createUserRepository),
 		userService: asSingleton(createUserService),
-		dependencyRepository: asSingleton(createDependencyRepository),
+		dependencyRepository: asSingleton((cradle) =>
+			createDependencyRepositoryWithInvalidation({
+				inner: createDependencyRepository(cradle),
+				aggregateCache: cradle.aggregateCache,
+				afterCommit: cradle.afterCommit,
+			}),
+		),
 		dependencyService: asSingleton(createDependencyService),
 		trainerRepository: asSingleton(createTrainerRepository),
 		trainerService: asSingleton(createTrainerService),
@@ -276,7 +316,13 @@ export const configureContainer = async (
 		completionSync: asSingleton(createCompletionSync),
 		checkInService: asSingleton(createCheckInService),
 		enrollmentQrService: asSingleton(createEnrollmentQrService),
-		creditRepository: asSingleton(createCreditRepository),
+		creditRepository: asSingleton((cradle) =>
+			createCachedCreditRepository({
+				inner: createCreditRepository(cradle),
+				aggregateCache: cradle.aggregateCache,
+				afterCommit: cradle.afterCommit,
+			}),
+		),
 		creditService: asSingleton(createCreditService),
 		ratingRepository: asSingleton(createRatingRepository),
 		ratingService: asSingleton(createRatingService),
@@ -299,9 +345,40 @@ export const configureContainer = async (
 			createCertificateTemplateReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
+		jobFailureRepository: asSingleton(createJobFailureRepository),
+		jobDispatcher: asSingleton((cradle) =>
+			createJobDispatcher({
+				queues: queueClient,
+				handlers: createJobHandlers(cradle),
+				afterCommit: cradle.afterCommit,
+				log: queueLog,
+				logger,
+			}),
+		),
 		themeRepository: asSingleton(createThemeRepository),
 		themeService: asSingleton(createThemeService),
 	});
+	return container;
+};
+
+/** El contenedor del worker: los mismos servicios, sin petición ni sesión. */
+export const createSystemContainer = () => {
+	const container = createAppContainer();
+	container.register({ authPayload: asValue(null) });
+	return container;
+};
+
+// ── configureContainer ─────────────────────────────────────────────────────────
+// Creates a fresh Awilix container per request and runs silent token-refresh:
+//   1. Valid access token → return immediately, nothing to refresh
+//   2. Missing/expired access token → try refresh token:
+//      a. Success → apiContext.newCookies set (middleware appends Set-Cookie)
+//      b. Failure → apiContext.shouldRedirectToLogin set (middleware redirects)
+export const configureContainer = async (
+	request: Request,
+	apiContext: ApiContext,
+) => {
+	const freshContainer = createAppContainer();
 
 	const cookieHeader = request.headers.get("Cookie");
 	const { accessToken, refreshToken } = await parseTokenCookies(cookieHeader);

@@ -128,9 +128,10 @@ quien no puede escribir. Si se reactiva el pase de lista manual
 | El QR se filtra a quien no puede escribir | El mapper solo lo expone si `canWrite` |
 | Enumerar cursos probando tokens | `INVALID_TOKEN` idéntico en los dos casos |
 
-**Limitación conocida:** `rateLimiter` es en memoria **por proceso**, así que con
-N instancias el límite efectivo es N×límite. Es defensa en profundidad; la real
-es la entropía del token.
+**Limitación conocida:** sin `REDIS_URL`, o con Redis caído, `rateLimiter` cuenta
+**por proceso** y con N instancias el límite efectivo es N×límite
+([redis/00 §3.3](../redis/00-redis.md)). Es defensa en profundidad; la real es la
+entropía del token.
 
 ## 8. Añadir una operación
 

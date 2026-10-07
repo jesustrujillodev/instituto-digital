@@ -52,6 +52,8 @@ entrado. Además se excluyen a propósito:
 | `app/**/hooks/**` | Hooks de React. Ejercitarlos exige jsdom y Testing Library, que no están en el proyecto. |
 | `app/core/db.server.ts`, `app/shared/di/container.server.ts` | Composition root y cliente de Prisma: exigen integración real. |
 | `app/shared/storage/{s3,gcs}.adapter.ts` | Adaptadores de SDK: se prueban contra el proveedor, no con dobles. |
+| `app/shared/redis/redis.client.server.ts` | Abre las conexiones reales de ioredis; los adaptadores que las usan sí se prueban (contra `ioredis-mock`). |
+| `app/shared/queue/queue.client.server.ts`, `app/worker.server.ts` | Conexiones y procesos de BullMQ: se prueban contra un Redis real con `REDIS_TEST_URL` (`ioredis-mock` no ejecuta sus scripts). |
 | `app/modules/*/infrastructure/*.repository.server.ts` | Repositorios Prisma: exigen una base de datos. |
 
 Cada exclusión es una decisión visible, no un truco para inflar el porcentaje: lo
@@ -448,6 +450,7 @@ el temario de un curso que no administra.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `content.service.server.test.ts` | 15 | Envelope en éxito y fallo de las siete mutaciones; que un curso fuera de alcance responda igual que inexistente y que sin alcance de administración ni se consulte; que un finalizado ya no cambie de temario; que la fila nueva nazca al final; que un módulo con lecciones activas no se archive; que archivar escriba la fecha del reloj inyectado y el re-empaque **dentro** de una transacción; y que un orden inválido no escriba nada. |
+| `progress-recalculation.server.test.ts` | 4 | El trabajo `recalculate-progress` recalcula un curso publicado en su transacción y con la fecha del cambio; **un curso que ya no está publicado no se recalcula**. |
 
 ### `infrastructure/__tests__/` — 7 tests
 
@@ -512,8 +515,9 @@ falla**.
 |---|---:|---|
 | `domain/…/notification.templates.test.ts` | 10 | Las ocho plantillas renderizan, ninguna de cuenta lleva una contraseña, horas en la zona del instituto en verano e invierno, escape de HTML, enlaces con el origen configurado y lista de sesiones vacía. Desde F-11: `CERTIFICATE_ISSUED` con curso, folio y enlace a «Mis certificados», el mensaje del curso escapado, y sin botón con la descarga apagada. |
 | `domain/…/notification.rules.test.ts` | 6 | Backoff y fallo definitivo, corte de purga, recorte del error, destinatario válido y mensaje de la cola. |
-| `application/…/notifications.service.server.test.ts` | 6 | `notify` encola ya redactado, omite inválidos y no lanza; `drainOutbox` envía, reintenta sin detener el lote y marca `FAILED`. |
-| `infrastructure/…/notifications.repository.server.test.ts` | 3 | `SKIP LOCKED` con reserva e intento contados en una transacción, y lotes vacíos que no tocan la base. |
+| `application/…/notifications.service.server.test.ts` | 7 | `notify` encola ya redactado, **pide la entrega de cada fila con su intento**, omite inválidos y no lanza; `drainOutbox` envía, reintenta sin detener el lote y marca `FAILED`. |
+| `application/…/email-delivery.server.test.ts` | 5 | Reserva por id con lease y envía; **si otro la tomó o ya salió, no envía**; un fallo deja el reintento en la fila; agotado queda `FAILED`; el barrido reencola con el `jobId` de cada intento. |
+| `infrastructure/…/notifications.repository.server.test.ts` | 7 | `SKIP LOCKED` con reserva e intento contados en una transacción; lotes vacíos que no tocan la base; `enqueue` devuelve id e intentos; **`claimById` reserva en un solo `UPDATE` condicional**; el barrido busca pendientes vencidos sin reserva vigente. |
 
 `app/shared/mail/__tests__/mailer.test.ts` (4 tests) comprueba el adaptador SMTP,
 que el de log no escribe el cuerpo y la elección del factory, y
@@ -692,6 +696,9 @@ cliente**—, `localizeError`/`failFrom`, y el runner que registra los conocidos
 | `mime.test.ts` | 7 | Tipo por extensión; fail-safe a `application/octet-stream` (adivinar `text/html` sobre un archivo subido sería un XSS almacenado). |
 | `storage.utils.test.ts` | 7 | `getKeyFromUrl` con el formato proxy, la key cruda y el rechazo de una URL completa del proveedor. |
 | `storage.policy.test.ts` | 5 | Prefijos públicos con `startsWith`; **fail-closed** por defecto. |
+| `url-signer.server.test.ts` | 10 | Reutiliza la firma vigente; **no entrega una con menos margen del que pide la política**; un lote cuesta una lectura y una escritura de la caché; duplicados firmados una vez; con la caché caída firma directo; la factory reutiliza la firma con y sin Redis. |
+| `signed-url-cache.{memory,redis.server}.test.ts` | 8 | Orden y ausentes; TTL por entrada; LRU con tope; un valor ilegible cuenta como ausente. |
+| `signed-url.policy.test.ts` | 3 | El margen exacto en el que una firma deja de entregarse. |
 
 ### `http/__tests__/` — 31 tests
 
@@ -721,11 +728,52 @@ arrastra los claims crudos.
 que se queda sin hijos desaparece entero; el gate del layout es **estructural**; la
 proyección al cliente no incluye la PK interna.
 
-### `concurrency/` y `rate-limit/__tests__/` — 14 tests
+### `concurrency/` y `rate-limit/__tests__/` — 35 tests (+5 contra Redis real)
 
 `single-flight.memory.test.ts` (7): dedup dentro del TTL y **los rechazos no se
-cachean**. `rate-limiter.memory.test.ts` (7): bloqueo en `limit + 1`, ventana que
-se reinicia, claves independientes.
+cachean**. El rate limiter se prueba con un contrato compartido
+(`rate-limiter.contract.ts`, no es un `*.test.ts`) que cumplen los dos
+adaptadores: pasan `limit` intentos y el siguiente no, `retryAfterMs` dentro de la
+ventana, claves independientes, el acceso vuelve al pasar la ventana.
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `rate-limiter.memory.test.ts` | 7 | El contrato, más el barrido que no se lleva ventanas vivas y el límite 0. |
+| `rate-limiter.redis.server.test.ts` | 10 (+5) | El contrato sobre `ioredis-mock`; **un rechazo no se registra** (el bloqueo termina); la ventana caduca sola; el email no queda en claro; intentos simultáneos cuentan por separado. Con `REDIS_TEST_URL`, el contrato corre contra un Redis real. |
+| `rate-limiter.fallback.test.ts` | 3 | Con Redis caído **decide el de memoria, nunca deja pasar**; cada intento vuelve a probar Redis. |
+| `rate-limiter.factory.server.test.ts` | 3 | Sin Redis limita en memoria; con Redis el límite se comparte entre instancias; caído sigue limitando. |
+
+### `redis/__tests__/` y `cache/__tests__/` — 35 tests
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `redis.retry.test.ts` | 4 | Backoff con tope y mitad aleatoria; **nunca devuelve `null`** (ioredis dejaría de reintentar). |
+| `redis.keys.server.test.ts` | 7 | Claves deterministas y versionadas; **el identificador nunca queda en claro**; la tupla de la firma no admite colisiones fabricadas; el canal lleva el prefijo del entorno. |
+| `invalidation-bus.memory.test.ts` | 3 | Entrega local; resuscribirse reemplaza el handler. |
+| `invalidation-bus.redis.server.test.ts` | 6 | El aviso cruza nodos y **no cruza entornos**; recrear el bus (recarga en caliente) no duplica; al reconectar avisa a todos; publicar o suscribirse con Redis caído no lanza. |
+| `versioned-cache.redis.server.test.ts` | 9 | Acierto, invalidación por cualquier alcance, **lo calculado durante una invalidación no se sirve**, una versión perdida no resucita el valor viejo, esquema inválido, Redis caído. |
+| `versioned-cache.passthrough.test.ts` | 2 | Sin Redis siempre calcula. |
+| `{invalidation-bus,versioned-cache}.factory.server.test.ts` | 4 | Sin `REDIS_URL` el adaptador de proceso; con Redis, el compartido. |
+
+`logging/__tests__/throttled-log.test.ts` (3): una entrada por intervalo y clave,
+con el número de avisos callados.
+
+### `queue/__tests__/` — 30 tests (+5 contra Redis real)
+
+| Archivo | Tests | Qué protege |
+|---|---:|---|
+| `queue.config.test.ts` | 4 | Todo trabajo tiene cola y esquema; **el correo se intenta una sola vez en la cola** (su horario es el de la fila); ninguna cola retiene para siempre. |
+| `queue.payloads.test.ts` | 5 | Payloads válidos pasan; ids, fechas y keys inválidos se rechazan; solo los nombres declarados son trabajos. |
+| `queue.job-options.test.ts` | 4 | `jobId` del correo determinista por fila e intento y sin `:`; recálculo agrupado por curso con espera. |
+| `job-dispatcher.queued.server.test.ts` | 5 | **Encola tras el commit, no antes; un rollback no deja trabajo**; si encolar falla, el recálculo corre ya y el correo queda al barrido. |
+| `job-dispatcher.inline.test.ts` | 3 | Sin Redis el correo lo entrega el poller; **el error del recálculo llega al caso de uso**; un borrado fallido solo se registra. |
+| `job-dispatcher.factory.server.test.ts` | 2 | Con colas encola; sin ellas corre donde corría antes. |
+| `queue.processor.server.test.ts` | 7 | Enruta con payload validado; **nombre o payload inválido no se reintentan**; qué fallo va a `job_failure` (nunca el correo). |
+| `job-failure.repository.server.test.ts` | 2 | Error recortado; purga por fecha. |
+| `queue.client.server.test.ts` | +5 | Con `REDIS_TEST_URL`: entrega; **la misma fila e intento se encola una vez**; ediciones seguidas dejan un recálculo con la última fecha; **una edición durante un recálculo activo produce otro al terminar, nunca dos a la vez**; scheduler idempotente. |
+
+`storage/__tests__/delete-object.job.server.test.ts` (3): borra; **un objeto que ya
+no existe cuenta como borrado**; si sigue ahí, lanza para reintentar.
 
 ### `html/__tests__/` — 4 tests
 
@@ -744,6 +792,7 @@ mensaje de un error de infraestructura viajaría al cliente.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
+| `after-commit.server.test.ts` | 6 | La tarea espera al commit, **se descarta en un rollback**, corre ya fuera de una transacción, una anidada se suma a la de fuera, una que falla no tumba las demás y dos transacciones concurrentes no comparten cola. |
 | `env.server.test.ts` | 12 | El proceso **no arranca** con un secreto ausente o débil; el mensaje enumera todas las variables incumplidas; la validación condicional al proveedor de storage; los defaults. |
 | `cookies.server.test.ts` | 20 | Round-trip serializar/parsear; `refreshToken: null` emite **una sola** cookie (el hit de gracia); `HttpOnly` y `SameSite=Lax` en ambas; una cookie manipulada no se acepta; **el refresco silencioso no pisa las cookies que fijó el handler** (logout con el access caducado no resucita la sesión). |
 

@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 import type { CourseStatus } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
+import type { ThrottledLog } from "@/shared/logging/throttled-log";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
+import { createMemorySignedUrlCache } from "@/shared/storage/signed-url-cache.memory";
+import { createUrlSigner } from "@/shared/storage/url-signer.server";
 import {
 	actorOf,
 	COURSE_DOC,
@@ -206,9 +210,6 @@ const createHarness = (
 			options.stat === undefined
 				? { key, size: 1024, lastModified: NOW }
 				: options.stat,
-		deleteFile: async (_bucket: string, key: string) => {
-			calls.deleted.push(key);
-		},
 	} as unknown as ICradle["storageProvider"];
 
 	const runInTransaction = (async <T>(work: () => Promise<T>) => {
@@ -221,12 +222,21 @@ const createHarness = (
 		}
 	}) as unknown as ICradle["runInTransaction"];
 
-	const progressSync = {
-		recalculate: async (course: { id: number }) => {
-			calls.recalculated.push({ courseId: course.id, inTransaction });
-			return [];
+	// El recálculo y el borrado salen por la cola: se comprueba qué se encola y
+	// si se encola dentro de la transacción, donde `afterCommit` lo difiere.
+	const jobDispatcher = {
+		dispatch: async (name: string, payload: Record<string, unknown>) => {
+			if (name === JOB_NAMES.recalculateProgress) {
+				calls.recalculated.push({
+					courseId: payload.courseId as number,
+					inTransaction,
+				});
+			}
+			if (name === JOB_NAMES.deleteObject) {
+				calls.deleted.push(payload.key as string);
+			}
 		},
-	} as unknown as ICradle["progressSync"];
+	} as unknown as ICradle["jobDispatcher"];
 
 	return {
 		service: createContentService({
@@ -239,11 +249,15 @@ const createHarness = (
 			storagePublicBucket: null,
 			// La real: estas pruebas miden qué URL firmada sale, no que se llame.
 			lessonMaterialReader: createLessonMaterialReader({
-				storageProvider,
+				urlSigner: createUrlSigner({
+					storageProvider,
+					cache: createMemorySignedUrlCache(),
+					log: { warn: () => {} } as unknown as ThrottledLog,
+				}),
 				storageBucket: "instituto",
 				storagePublicBucket: null,
 			}),
-			progressSync,
+			jobDispatcher,
 		}),
 		calls,
 	};

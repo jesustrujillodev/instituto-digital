@@ -1,5 +1,6 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { ICradle } from "@/shared/di/container.types";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { buildObjectKey } from "@/shared/storage/object-key";
@@ -54,7 +55,7 @@ type Dependencies = {
 	storageBucket: ICradle["storageBucket"];
 	storagePublicBucket: ICradle["storagePublicBucket"];
 	lessonMaterialReader: ICradle["lessonMaterialReader"];
-	progressSync: ICradle["progressSync"];
+	jobDispatcher: ICradle["jobDispatcher"];
 };
 
 export const createContentService = ({
@@ -66,16 +67,15 @@ export const createContentService = ({
 	storageBucket,
 	storagePublicBucket,
 	lessonMaterialReader,
-	progressSync,
+	jobDispatcher,
 }: Dependencies): IContentService => {
 	const log = logger.child({ module: "content" });
 	const run = createOperationRunner(log);
 
 	const { requireBucketOf, discardObject } = createMaterialStorage({
-		storageProvider,
+		jobDispatcher,
 		storageBucket,
 		storagePublicBucket,
-		log,
 	});
 
 	const { requireCourse, requireEditableCourse } =
@@ -100,9 +100,10 @@ export const createContentService = ({
 	};
 
 	/**
-	 * Un cambio en qué lecciones cuentan mueve el porcentaje de todo inscrito:
-	 * se recalcula en la misma transacción, o el caché mentiría. Solo en un
-	 * curso publicado, que es el único que tiene avance en curso.
+	 * Un cambio en qué lecciones cuentan mueve el porcentaje de todo inscrito.
+	 * Con cola se recalcula tras el commit, unos segundos después; sin ella, en
+	 * la misma transacción (docs/adr/0033). Solo en un curso publicado, que es
+	 * el único que tiene avance en curso.
 	 */
 	const recalculateProgress = async (
 		course: ContentCourseRef,
@@ -110,7 +111,11 @@ export const createContentService = ({
 		at: Date,
 	) => {
 		if (course.status !== "PUBLISHED") return;
-		await progressSync.recalculate(course, actor.userId, at);
+		await jobDispatcher.dispatch(JOB_NAMES.recalculateProgress, {
+			courseId: course.id,
+			actorId: actor.userId,
+			at: at.toISOString(),
+		});
 	};
 
 	const readTree = async (courseId: number) =>
@@ -301,7 +306,7 @@ export const createContentService = ({
 					),
 				);
 
-				discardObject(material);
+				await discardObject(material);
 
 				return ok(null);
 			});
@@ -379,7 +384,7 @@ export const createContentService = ({
 				const write = await resolveMaterialWrite(dto);
 
 				await contentRepository.saveMaterial(lesson.id, write);
-				if (previous !== write.fileUrl) discardObject(previous);
+				if (previous !== write.fileUrl) await discardObject(previous);
 
 				return ok(null);
 			});

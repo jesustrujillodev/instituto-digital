@@ -1,9 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { type Prisma, PrismaClient } from "@prisma/client";
+import { createAfterCommitQueue } from "./after-commit.server";
 import { env } from "./env.server";
 
 const transactionContext = new AsyncLocalStorage<PrismaClient>();
+const afterCommitQueue = createAfterCommitQueue();
 
 /**
  * Cada transacción retiene su conexión de principio a fin, así que el tope del
@@ -102,18 +104,23 @@ export async function runInTransaction<T>(
 		return await callback();
 	}
 
-	return await prismaInstance.$transaction(
-		async (transactionalClient: Prisma.TransactionClient) => {
-			return await transactionContext.run(
-				transactionalClient as PrismaClient,
-				async () => {
-					return await callback();
-				},
-			);
-		},
-		options,
+	return await afterCommitQueue.track(() =>
+		prismaInstance.$transaction(
+			async (transactionalClient: Prisma.TransactionClient) => {
+				return await transactionContext.run(
+					transactionalClient as PrismaClient,
+					async () => {
+						return await callback();
+					},
+				);
+			},
+			options,
+		),
 	);
 }
+
+/** Lo ejecuta tras el commit de la transacción en curso, o ya si no hay una. */
+export const afterCommit = afterCommitQueue.afterCommit;
 
 export default prisma;
 export { prisma };
@@ -121,3 +128,5 @@ export { prisma };
 export type PrismaClientType = typeof prisma;
 
 export type RunInTransaction = typeof runInTransaction;
+
+export type AfterCommit = typeof afterCommit;

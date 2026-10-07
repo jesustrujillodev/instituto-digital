@@ -9,6 +9,7 @@ import {
 	teachingCourseWhere,
 } from "@/modules/teaching/domain/teaching.access";
 import type { ICradle } from "@/shared/di/container.types";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import {
@@ -17,7 +18,11 @@ import {
 	nextProgressStatus,
 } from "../domain/classroom.rules";
 import type { ClassroomCourse } from "../domain/classroom.types";
-import { FOLLOW_UPS_PER_COURSE_LIMIT } from "../domain/content.config";
+import {
+	FOLLOW_UPS_PER_COURSE_LIMIT,
+	QUIZ_SUBMIT_RATE_LIMIT,
+	quizSubmitRateKeyOf,
+} from "../domain/content.config";
 import {
 	ContentCourseNotFoundError,
 	ContentFollowUpClosedError,
@@ -33,6 +38,7 @@ import {
 	ContentQuizNotEvaluatedError,
 	ContentQuizNotFoundError,
 	ContentQuizParticipantNotFoundError,
+	ContentQuizRateLimitedError,
 	ContentQuizRetakeNotAllowedError,
 	ContentSessionNotFoundError,
 	ContentTooManyFollowUpsError,
@@ -85,6 +91,8 @@ type Dependencies = {
 	enrollmentRepository: ICradle["enrollmentRepository"];
 	teachingRepository: ICradle["teachingRepository"];
 	progressSync: ICradle["progressSync"];
+	jobDispatcher: ICradle["jobDispatcher"];
+	rateLimiter: ICradle["rateLimiter"];
 	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -105,6 +113,8 @@ export const createQuizService = ({
 	enrollmentRepository,
 	teachingRepository,
 	progressSync,
+	jobDispatcher,
+	rateLimiter,
 	runInTransaction,
 	clock,
 	logger,
@@ -263,7 +273,8 @@ export const createQuizService = ({
 
 	/**
 	 * Una evaluación de módulo que aparece o desaparece mueve el porcentaje de
-	 * todo inscrito, igual que una lección obligatoria (docs/adr/0016).
+	 * todo inscrito, igual que una lección obligatoria (docs/adr/0016). Con cola
+	 * se recalcula tras el commit (docs/adr/0033).
 	 */
 	const recalculateProgress = async (
 		course: ContentCourseRef,
@@ -271,7 +282,11 @@ export const createQuizService = ({
 		at: Date,
 	) => {
 		if (course.status !== "PUBLISHED") return;
-		await progressSync.recalculate(course, actor.userId, at);
+		await jobDispatcher.dispatch(JOB_NAMES.recalculateProgress, {
+			courseId: course.id,
+			actorId: actor.userId,
+			at: at.toISOString(),
+		});
 	};
 
 	return {
@@ -426,6 +441,13 @@ export const createQuizService = ({
 			actor: AuthContext,
 		) {
 			return run("submit", async () => {
+				const decision = await rateLimiter.consume(
+					quizSubmitRateKeyOf(actor.userId, courseDocumentId),
+					QUIZ_SUBMIT_RATE_LIMIT,
+				);
+				if (!decision.allowed) {
+					throw new ContentQuizRateLimitedError(decision.retryAfterMs);
+				}
 				const course = await requireClassroomCourse(courseDocumentId, actor);
 				assertCanProgress(course);
 				const kind = quizKindOf(dto);
@@ -769,7 +791,7 @@ export const createQuizService = ({
 					await quizRepository.closeFollowUp(followUp.id, now);
 					// Quien no la presentó y cuenta acaba de sacar 0.
 					if (followUp.countsTowardGrade) {
-						await progressSync.recalculate(course, actor.userId, now);
+						await recalculateProgress(course, actor, now);
 					}
 				});
 

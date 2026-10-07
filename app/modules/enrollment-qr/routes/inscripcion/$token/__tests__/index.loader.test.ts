@@ -25,7 +25,7 @@ const createHarness = (
 	const context = {
 		authPayload: options.anonymous ? null : authPayload,
 		rateLimiter: {
-			consume: () => ({
+			consume: async () => ({
 				allowed: options.allowed ?? true,
 				retryAfterMs: options.allowed === false ? 30_000 : 0,
 			}),

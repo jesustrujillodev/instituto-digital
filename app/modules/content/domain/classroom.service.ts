@@ -50,6 +50,10 @@ export interface ILessonMaterialReader {
 	signReference(
 		reference: string,
 	): Promise<{ fileUrl: string; downloadUrl: string } | null>;
+	/** Varias referencias en un solo lote; `null` donde no hay objeto que firmar. */
+	signReferences(
+		references: readonly string[],
+	): Promise<Map<string, { fileUrl: string; downloadUrl: string } | null>>;
 }
 
 /**

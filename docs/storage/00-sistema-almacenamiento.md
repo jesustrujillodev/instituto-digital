@@ -219,6 +219,18 @@ assetUrlResolver: el navegador va directo al dominio público, sin pasar por
 nuestro servidor y con caché normal (la firma rotatoria la impedía)
 ```
 
+### 5.2.1 Firmas reutilizables del material
+
+El material de lección y de sesión no pasa por el proxy: sus loaders reciben la
+URL firmada (6 h) a través de `urlSigner.signMany`, que firma **todo lo que pinta
+la vista en un lote** y reutiliza las firmas que siguen vigentes (en Redis si
+hay, si no en el proceso). La misma URL entre cargas deja que el navegador sirva
+el video o el PDF de su caché. Es seguro porque la key de un objeto nunca cambia
+de contenido (`object-key.ts` le pone marca de tiempo). La autorización ocurre
+antes de firmar, igual que sin caché: una URL reutilizada es la misma credencial
+temporal que una recién firmada. El proxy (5 min), las subidas y el gestor de
+nube no se cachean; el porqué está en [redis/00 §5](../redis/00-redis.md).
+
 ### 5.3 Reemplazo / borrado (best-effort)
 
 ```
@@ -230,6 +242,12 @@ Nueva foto llega
 
 El borrado del objeto viejo es **best-effort** (`.catch` + `logger.warn`): no debe
 bloquear la actualización si el objeto ya no existe.
+
+La portada de un curso y el material de lecciones y sesiones van más allá: su
+`discardObject` encola `delete-object` tras el commit. Con Redis se reintenta 5
+veces con backoff, y un objeto que ya no existe cuenta como borrado; agotado, queda
+en `org.job_failure` y como huérfano en el gestor de nube. Sin Redis corre en el
+momento, best-effort como el resto ([queues/00](../queues/00-colas.md)).
 
 ### 5.4 Subida en lote y transacción compensatoria
 

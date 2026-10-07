@@ -21,6 +21,7 @@ import {
 	ContentQuizNotEvaluatedError,
 	ContentQuizNotFoundError,
 	ContentQuizParticipantNotFoundError,
+	ContentQuizRateLimitedError,
 	ContentQuizRetakeNotAllowedError,
 	ContentTooManyLessonsError,
 	ContentTooManyModulesError,
@@ -66,6 +67,10 @@ describe("errores de contenido", () => {
 				CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND,
 			],
 			[new ContentModuleHasQuizError(), CONTENT_ERROR_CODES.MODULE_HAS_QUIZ],
+			[
+				new ContentQuizRateLimitedError(1000),
+				CONTENT_ERROR_CODES.QUIZ_RATE_LIMITED,
+			],
 		] as const) {
 			expect(error.code).toBe(code);
 		}
@@ -133,5 +138,13 @@ describe("errores del material", () => {
 		expect(new ContentLinkInvalidError().code).toBe(
 			CONTENT_ERROR_CODES.LINK_INVALID,
 		);
+	});
+});
+
+describe("ContentQuizRateLimitedError", () => {
+	test("lleva cuánto falta para volver a enviar", () => {
+		expect(new ContentQuizRateLimitedError(40_000).details).toEqual({
+			retryAfterMs: 40_000,
+		});
 	});
 });

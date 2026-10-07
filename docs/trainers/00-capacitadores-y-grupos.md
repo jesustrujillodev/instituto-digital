@@ -181,6 +181,13 @@ pertenencia al ver el curso o al inscribirse, nunca antes, así que la fila no
 depende de que la persona siga ahí. La lista lo muestra con su dependencia
 ACTUAL: mostrar la de entonces sería inventar un dato que la tabla no guarda.
 
+Evaluarla al usarla significa que **no cuenta mientras la persona esté en otra
+dependencia** (`isEffectiveMembership`, `domain/group.access.ts`). Las tres lecturas
+que usan la pertenencia aplican esa regla: `findGroupIdsOfUser` (ver un curso
+restringido e inscribirse, también por QR), `findGroupParticipants` (invitar al
+grupo) y `findGroupEnrollable` (asignar al grupo). Si la persona vuelve a la
+dependencia del grupo, su pertenencia vuelve a contar.
+
 `group_members` no tiene soft delete por el mismo motivo: dar de baja a alguien
 es un `DELETE`.
 

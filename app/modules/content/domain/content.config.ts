@@ -60,6 +60,15 @@ export const LESSON_UPLOAD_TTL_S = 15 * 60;
 /** Una jornada de trabajo: la firma no puede morir a mitad de un video largo. */
 export const LESSON_PLAYBACK_TTL_S = 6 * 60 * 60;
 
+/**
+ * Se reutiliza hasta 2 h y siempre se entrega con 4 h por delante: nadie se
+ * queda sin firma a mitad de un video largo.
+ */
+export const LESSON_PLAYBACK_URL_POLICY = {
+	signTtlS: LESSON_PLAYBACK_TTL_S,
+	minRemainingS: 4 * 60 * 60,
+} as const;
+
 /** Una lección más larga que esto es un módulo mal partido, no un texto. */
 export const LESSON_BODY_MAX_BYTES = 256 * 1024;
 
@@ -88,6 +97,18 @@ export const QUIZ_DEFAULT_PASSING_SCORE = 70;
 
 /** Tope de intentos por persona; «sin límite» se guarda como nulo (docs/adr/0024). */
 export const QUIZ_ATTEMPTS_RANGE = { min: 1, max: 10 } as const;
+
+/**
+ * Por persona y curso, sumando todos los cuestionarios. Cada envío bloquea la
+ * fila del curso y los intentos pueden ser ilimitados: sin freno, una sola
+ * persona haría esperar a todo el curso.
+ */
+export const QUIZ_SUBMIT_RATE_LIMIT = { limit: 10, windowMs: 60_000 } as const;
+
+export const quizSubmitRateKeyOf = (
+	userId: number,
+	courseDocumentId: string,
+): string => `quiz-submit:${userId}:${courseDocumentId}`;
 
 // ── Evaluaciones de seguimiento (docs/adr/0027) ──────────────────────────────
 

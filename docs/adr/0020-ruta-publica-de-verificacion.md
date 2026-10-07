@@ -53,9 +53,8 @@ sobre esa persona.
 - **`noindex`** en cabecera y en `<meta>`, y **`Cache-Control: private, no-store`**. Un
   buscador o una caché compartida no deben quedarse con nombres de personas.
 
-El rate limiter es en memoria y por proceso. Con un solo contenedor basta; con varias
-réplicas, cada una llevaría su cuenta y el límite efectivo se multiplicaría. Hará falta un
-limitador compartido si se escala horizontalmente.
+Con `REDIS_URL` el límite se comparte entre réplicas ([ADR 0032](./0032-redis-opcional-cache-y-coordinacion.md));
+sin él, o con Redis caído, cada proceso lleva su cuenta y el límite efectivo se multiplica.
 
 ### 2.4 El QR va siempre y no se congela
 

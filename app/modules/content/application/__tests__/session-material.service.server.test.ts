@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 import type { CourseStatus } from "@/modules/courses/domain/course.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
+import type { ThrottledLog } from "@/shared/logging/throttled-log";
+import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { toProxyRef } from "@/shared/storage/public-url";
+import { createMemorySignedUrlCache } from "@/shared/storage/signed-url-cache.memory";
+import { createUrlSigner } from "@/shared/storage/url-signer.server";
 import { actorOf, COURSE_DOC } from "../../domain/__tests__/content.fixtures";
 import {
 	SESSION_MATERIAL_MAX_PER_SESSION,
@@ -73,6 +77,8 @@ const createHarness = (
 		updated: [] as { id: number; patch: unknown }[],
 		removed: [] as number[],
 		deleted: [] as string[],
+		signatureLookups: 0,
+		presigned: [] as string[],
 	};
 
 	const sessionMaterialRepository = {
@@ -112,23 +118,42 @@ const createHarness = (
 	const storageProvider = {
 		getUploadUrl: async (_bucket: string, key: string) =>
 			`https://bucket.example/${key}?signature=write`,
-		getPresignedUrl: async (_bucket: string, key: string) =>
-			`https://bucket.example/${key}?signature=read`,
+		getPresignedUrl: async (_bucket: string, key: string) => {
+			calls.presigned.push(key);
+			return `https://bucket.example/${key}?signature=read`;
+		},
 		statObject: async (_bucket: string, key: string) =>
 			options.stat === undefined
 				? { key, size: 1024, lastModified: NOW }
 				: options.stat,
-		deleteFile: async (_bucket: string, key: string) => {
-			calls.deleted.push(key);
-		},
 	} as unknown as ICradle["storageProvider"];
+
+	// El borrado sale por la cola, que lo reintenta.
+	const jobDispatcher = {
+		dispatch: async (name: string, payload: { key: string }) => {
+			if (name === JOB_NAMES.deleteObject) calls.deleted.push(payload.key);
+		},
+	} as unknown as ICradle["jobDispatcher"];
+
+	const memoryCache = createMemorySignedUrlCache();
+	const urlSigner = createUrlSigner({
+		storageProvider,
+		cache: {
+			getMany: async (keys) => {
+				calls.signatureLookups += 1;
+				return memoryCache.getMany(keys);
+			},
+			setMany: (entries) => memoryCache.setMany(entries),
+		},
+		log: { warn: () => {} } as unknown as ThrottledLog,
+	});
 
 	return {
 		service: createSessionMaterialService({
 			sessionMaterialRepository,
-			// La real: lo que se mide es qué URL firmada sale.
+			// Los reales: lo que se mide es qué URL firmada sale.
 			lessonMaterialReader: createLessonMaterialReader({
-				storageProvider,
+				urlSigner,
 				storageBucket: "instituto",
 				storagePublicBucket: null,
 			}),
@@ -137,6 +162,7 @@ const createHarness = (
 			storageProvider,
 			storageBucket: "instituto",
 			storagePublicBucket: null,
+			jobDispatcher,
 		}),
 		calls,
 	};
@@ -174,6 +200,34 @@ describe("findBoard", () => {
 				],
 			},
 		});
+	});
+
+	// Un tablero con muchas sesiones no paga un viaje a la caché por archivo.
+	test("firma todo el tablero en un solo lote", async () => {
+		const other = `${SESSION_MATERIAL_PREFIX}/guia-1700000001.pdf`;
+		const { service, calls } = createHarness({
+			sessions: [
+				sessionOf(NOW),
+				sessionOf(NOW, [
+					materialOf({ documentId: "m2", fileUrl: toProxyRef(other) }),
+				]),
+			],
+		});
+
+		await service.findBoard(COURSE_DOC, actorOf());
+
+		expect(calls.signatureLookups).toBe(1);
+		expect(calls.presigned.sort()).toEqual([KEY, KEY, other, other].sort());
+	});
+
+	test("la segunda carga reutiliza las URL firmadas", async () => {
+		const { service, calls } = createHarness({ sessions: [sessionOf(NOW)] });
+
+		const first = await service.findBoard(COURSE_DOC, actorOf());
+		const second = await service.findBoard(COURSE_DOC, actorOf());
+
+		expect(second.success && second.data).toEqual(first.success && first.data);
+		expect(calls.presigned).toHaveLength(2);
 	});
 
 	test("un curso finalizado se consulta, pero ya no se edita", async () => {
@@ -238,6 +292,20 @@ describe("findForParticipant", () => {
 				externalUrl: "https://forms.example/x",
 			}),
 		]);
+	});
+
+	test("lo bloqueado no se firma", async () => {
+		const { service, calls } = createHarness({
+			participantSessions: [
+				sessionOf(new Date("2026-10-16T16:00:00.000Z"), [
+					materialOf({ availableFromSession: true }),
+				]),
+			],
+		});
+
+		await service.findForParticipant(COURSE_DOC, actorOf());
+
+		expect(calls.presigned).toEqual([]);
 	});
 
 	test("una vez empezada la sesión, se abre", async () => {

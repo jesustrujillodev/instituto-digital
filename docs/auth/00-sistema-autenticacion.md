@@ -71,7 +71,7 @@ app/
 │   ├── auth/require-auth.server.ts    guard de autenticación para loaders/actions
 │   ├── auth/require-role.server.ts    guard de autorización por rol (único punto RBAC)
 │   ├── concurrency/single-flight[.memory].ts   puerto + adaptador (refresh idempotente)
-│   ├── rate-limit/rate-limiter[.memory].ts     puerto + adaptador (fuerza bruta)
+│   ├── rate-limit/rate-limiter[.memory|.redis.server].ts  puerto + adaptadores (fuerza bruta; docs/redis/00 §3)
 │   ├── logging/logger[.console].ts             puerto + adaptador (con redacción)
 │   ├── http/origin.ts                 defensa CSRF (verificación de Origin)
 │   ├── http/client-ip.ts              extracción validada de la IP del cliente
@@ -382,9 +382,12 @@ nada.
 - La IP (`X-Forwarded-For`) es falsificable sin un proxy de confianza delante;
   por eso el rate limit por IP es secundario y la IP nunca decide seguridad.
   Se endurece en despliegue (Cloudflare/nginx sobrescribiendo el header).
-- Single-flight y rate limiter son **en memoria (un proceso)**. Con varios
-  nodos, las capas de DB mantienen la corrección (CAS + gracia persistida) y
-  los puertos se reimplementan sobre Redis sin tocar dominio.
+- **Rate limiter compartido con Redis** (ventana deslizante, [redis/00 §3](../redis/00-redis.md));
+  sin `REDIS_URL`, o si Redis cae, limita en memoria por proceso y el límite
+  efectivo pasa a ser límite × nodos.
+- **El single-flight sigue en memoria a propósito.** Con varios nodos, las capas
+  de DB mantienen la corrección (CAS + gracia persistida); llevarlo a Redis
+  guardaría pares de tokens fuera de la base ([ADR 0032](../adr/0032-redis-opcional-cache-y-coordinacion.md)).
 
 ## 9. Manejo de errores y observabilidad
 
@@ -418,17 +421,19 @@ Qué se reescribe por stack (adaptadores):
    y logger deben ser **singletons de proceso**, no por petición.
 
 Puntos de variación previstos por proyecto: tupla `ROLES`, TTLs/límites por
-env, política de contraseñas (`atoms.newPassword`), y los adaptadores de
-memoria → Redis al escalar horizontalmente.
+env y política de contraseñas (`atoms.newPassword`). Al escalar
+horizontalmente basta con `REDIS_URL`: el rate limiter y el aviso de corte ya
+tienen su adaptador de Redis ([redis/00](../redis/00-redis.md)).
 
 ## 11. Pendientes conocidos
 
 Por planear en sesión aparte:
 
-- **Limpieza automatizada de expiradas:** ya existe un disparador **manual** en
-  el monitor (§6.5), pero nada la ejecuta sola. Opciones evaluadas en el plan:
-  oportunista / scheduler / pg_cron. Nota: es higiene de datos, no seguridad —
-  las sesiones expiradas ya se rechazan en el caso de uso.
+- **Limpieza automatizada de expiradas:** resuelta con Redis. El worker de colas
+  corre `purge-expired-sessions` a diario, a las 03:00 de Tijuana
+  ([queues/00](../queues/00-colas.md)). Sin Redis sigue solo el disparador manual
+  del monitor (§6.5). Es higiene de datos, no seguridad: las sesiones expiradas ya
+  se rechazan en el caso de uso.
 - **Desalojo del cap por uso reciente:** `deleteOldestExceeding` ordena por
   `createdAt`, así que el cap es por antigüedad absoluta. Una sesión vieja pero
   activa puede caer antes que una nueva y ociosa. Si se quiere LRU, el cambio es

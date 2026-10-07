@@ -4,6 +4,7 @@ import {
 	canManageGroups,
 	groupScopeWhere,
 	groupScopeWriteWhere,
+	isEffectiveMembership,
 } from "../group.access";
 
 const DEPENDENCY: AccessScope = { kind: "dependency", dependencyId: 3 };
@@ -46,5 +47,24 @@ describe("canManageGroups", () => {
 		expect(canManageGroups({ kind: "global" })).toBe(false);
 		expect(canManageGroups({ kind: "self", userId: 7 })).toBe(false);
 		expect(canManageGroups({ kind: "none" })).toBe(false);
+	});
+});
+
+describe("isEffectiveMembership", () => {
+	test("cuenta mientras la persona siga en la dependencia del grupo", () => {
+		expect(
+			isEffectiveMembership({ dependencyId: 3 }, { dependencyId: 3 }),
+		).toBe(true);
+	});
+
+	// §6.4: quien se traslada sigue en la lista, pero su pertenencia no vale en
+	// otra dependencia.
+	test("no cuenta tras un traslado ni sin dependencia", () => {
+		expect(
+			isEffectiveMembership({ dependencyId: 4 }, { dependencyId: 3 }),
+		).toBe(false);
+		expect(
+			isEffectiveMembership({ dependencyId: null }, { dependencyId: 3 }),
+		).toBe(false);
 	});
 });

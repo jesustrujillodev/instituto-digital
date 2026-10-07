@@ -1094,6 +1094,26 @@ model EmailOutbox {
   @@schema("org")
 }
 
+/// Trabajo de fondo que agotó sus intentos (docs/queues/00-colas.md). Sobrevive
+/// a la retención de Redis para revisarlo y reencolarlo; se purga a los 30 días.
+/// El correo no llega aquí: su fila FAILED del outbox cumple ese papel.
+model JobFailure {
+  id Int @id @default(autoincrement())
+
+  queue    String
+  name     String
+  jobId    String @map("job_id")
+  payload  Json
+  error    String
+  attempts Int
+
+  failedAt DateTime @default(now()) @map("failed_at")
+
+  @@index([failedAt])
+  @@map("job_failure")
+  @@schema("org")
+}
+
 enum LessonProgressStatus {
   IN_PROGRESS
   COMPLETED

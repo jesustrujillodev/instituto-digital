@@ -2,7 +2,11 @@ import { Prisma } from "@prisma/client";
 import { uniqueViolationTarget } from "@/core/prisma-errors";
 import type { AccessScope } from "@/shared/auth/scope.rules";
 import type { ICradle } from "@/shared/di/container.types";
-import { groupScopeWhere, groupScopeWriteWhere } from "../domain/group.access";
+import {
+	groupScopeWhere,
+	groupScopeWriteWhere,
+	isEffectiveMembership,
+} from "../domain/group.access";
 import {
 	GROUP_LIST_DEFAULTS,
 	MEMBER_CANDIDATES_LIMIT,
@@ -128,10 +132,18 @@ export const createGroupRepository = ({
 		async findGroupIdsOfUser(userId: number) {
 			const memberships = await prisma.groupMember.findMany({
 				where: { userId, group: { archivedAt: null } },
-				select: { groupId: true },
+				select: {
+					groupId: true,
+					group: { select: { dependencyId: true } },
+					user: { select: { dependencyId: true } },
+				},
 			});
 
-			return memberships.map((membership) => membership.groupId);
+			return memberships
+				.filter((membership) =>
+					isEffectiveMembership(membership.user, membership.group),
+				)
+				.map((membership) => membership.groupId);
 		},
 		async findActive(scope: AccessScope) {
 			const groups = await prisma.group.findMany({

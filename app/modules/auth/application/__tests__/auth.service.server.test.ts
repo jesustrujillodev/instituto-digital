@@ -101,7 +101,7 @@ const createHarness = (
 		passwordService,
 		singleFlight: { run: (_key, _ttl, fn) => fn() } as ICradle["singleFlight"],
 		rateLimiter: {
-			consume: () => ({ allowed: true, retryAfterMs: 0 }),
+			consume: async () => ({ allowed: true, retryAfterMs: 0 }),
 		} as ICradle["rateLimiter"],
 		logger: silentLogger,
 		authConfig: {
