@@ -106,6 +106,22 @@ export const createCreditRepository = ({
 			});
 		},
 
+		async findYearCourses(userId, fiscalYear) {
+			const rows = await prisma.credit.findMany({
+				where: { userId, fiscalYear, revokedAt: null },
+				select: {
+					course: {
+						select: {
+							hours: true,
+							sessions: { select: { startsAt: true, endsAt: true } },
+						},
+					},
+				},
+			});
+
+			return rows.map((row) => row.course);
+		},
+
 		async findMine(userId) {
 			const rows = await prisma.credit.findMany({
 				where: { userId, revokedAt: null },

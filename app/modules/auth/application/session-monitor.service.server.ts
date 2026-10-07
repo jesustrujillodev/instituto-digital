@@ -44,6 +44,13 @@ export const createSessionMonitorService = ({
 	};
 
 	return {
+		async countActive() {
+			// Sin `status`, el filtro del repositorio ya es «vigentes».
+			return run("countActive", async () =>
+				ok(await sessionRepository.count({})),
+			);
+		},
+
 		async list(filters: ListSessionsDto, currentRefreshToken?: string) {
 			return run("list", async () => {
 				// Las tres son independientes entre sí; encadenarlas triplicaría la

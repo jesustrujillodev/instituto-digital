@@ -41,6 +41,7 @@ const createHarness = () => {
 		staff: [] as StaffQuery[],
 		summaries: [] as number[],
 		mine: [] as number[],
+		year: [] as { userId: number; fiscalYear: number }[],
 	};
 	const dependencies = [SOP, SDS];
 
@@ -48,6 +49,21 @@ const createHarness = () => {
 		findMine: async (userId: number) => {
 			calls.mine.push(userId);
 			return [];
+		},
+		findYearCourses: async (userId: number, fiscalYear: number) => {
+			calls.year.push({ userId, fiscalYear });
+			return [
+				{ hours: 6, sessions: [] },
+				{
+					hours: null,
+					sessions: [
+						{
+							startsAt: new Date("2026-09-01T16:00:00.000Z"),
+							endsAt: new Date("2026-09-01T19:00:00.000Z"),
+						},
+					],
+				},
+			];
 		},
 		findStaff: async (query: StaffQuery) => {
 			calls.staff.push(query);
@@ -81,6 +97,20 @@ describe("creditService.listMine", () => {
 
 		expect(result).toMatchObject({ success: true, data: { fiscalYear: 2026 } });
 		expect(calls.mine).toEqual([50]);
+	});
+});
+
+describe("creditService.summarizeYear", () => {
+	test("cuenta créditos y horas propios del ejercicio en curso de Tijuana", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.summarizeYear(actorOf({ userId: 50 }));
+
+		expect(calls.year).toEqual([{ userId: 50, fiscalYear: 2026 }]);
+		expect(result).toMatchObject({
+			success: true,
+			data: { fiscalYear: 2026, total: 2, hours: 9 },
+		});
 	});
 });
 

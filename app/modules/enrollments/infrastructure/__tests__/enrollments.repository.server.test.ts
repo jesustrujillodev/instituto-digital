@@ -219,3 +219,55 @@ describe("pertenencia a grupos", () => {
 		).resolves.toEqual([{ groupId: 1, userDocumentId: "doc-50" }]);
 	});
 });
+
+describe("findMine", () => {
+	test("lee inscripciones y asistencia a la vez, acotadas por la misma inscripción", async () => {
+		const started: string[] = [];
+		const attendanceCalls: Record<string, unknown>[] = [];
+		let releaseEnrollments: (rows: unknown[]) => void = () => {};
+
+		const repository = createEnrollmentRepository({
+			prisma: {
+				enrollment: {
+					findMany: () => {
+						started.push("enrollments");
+						return new Promise((resolve) => {
+							releaseEnrollments = resolve;
+						});
+					},
+				},
+				courseAttendance: {
+					findMany: async (args: Record<string, unknown>) => {
+						started.push("attendance");
+						attendanceCalls.push(args);
+						return [];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
+		});
+
+		const pending = repository.findMine(50);
+		// La asistencia ya salió aunque las inscripciones no hayan respondido.
+		expect(started).toEqual(["enrollments", "attendance"]);
+		releaseEnrollments([]);
+
+		await expect(pending).resolves.toEqual([]);
+		expect(attendanceCalls[0]).toMatchObject({
+			where: {
+				userId: 50,
+				attended: true,
+				session: {
+					course: {
+						enrollments: {
+							some: {
+								userId: 50,
+								status: { in: ["INVITED", "ENROLLED", "WITHDRAWN"] },
+							},
+						},
+					},
+				},
+			},
+		});
+	});
+});

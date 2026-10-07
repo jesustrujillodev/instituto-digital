@@ -133,7 +133,12 @@ interface EnrollmentWindow {
  * Un autogestivo sin fecha límite no tiene cierre: no hay primera sesión que lo
  * alcance y nada obliga a entrar antes de una fecha (docs/adr/0011).
  */
-export const enrollmentClosesAt = (course: EnrollmentWindow): Date | null =>
+export const enrollmentClosesAt = (
+	course: Pick<
+		EnrollmentWindow,
+		"enrollmentDeadline" | "format" | "firstSessionAt"
+	>,
+): Date | null =>
 	course.enrollmentDeadline ??
 	(requiresSessions(course.format) ? course.firstSessionAt : null);
 

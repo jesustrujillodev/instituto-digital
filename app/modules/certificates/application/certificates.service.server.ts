@@ -370,9 +370,12 @@ export const createCertificateService = ({
 			});
 		},
 
-		async listMine(actor) {
+		async listMine(actor, options) {
 			return run("listMine", async () => {
-				const rows = await certificateRepository.findMine(actor.userId);
+				const rows = await certificateRepository.findMine(
+					actor.userId,
+					options?.limit,
+				);
 				return ok(rows.map(toMyCertificate));
 			});
 		},

@@ -8,6 +8,8 @@ export interface FindCalendarSessionsParams {
 	courseFilter: CalendarCourseFilter;
 	viewerId: number;
 	staffDependencyId: number | null;
+	/** Tope de filas; sin él, todas las del rango. */
+	limit?: number;
 }
 
 export interface ICalendarRepository {

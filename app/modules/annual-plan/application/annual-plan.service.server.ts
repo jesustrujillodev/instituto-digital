@@ -1,4 +1,5 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import { UNASSIGNED_DEPENDENCY } from "@/modules/dependencies/domain/dependency.config";
 import { type AccessScope, resolveScope } from "@/shared/auth/scope.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
@@ -19,6 +20,8 @@ import {
 	assertLineReactivable,
 	assertPlanWritable,
 	creatableYearsOf,
+	currentFiscalYear,
+	planProgressOf,
 } from "../domain/annual-plan.rules";
 import type { IAnnualPlanService } from "../domain/annual-plan.service";
 import type {
@@ -27,6 +30,7 @@ import type {
 	PlanLineDto,
 	StoredLineWithPlan,
 } from "../domain/annual-plan.types";
+import { dueLinesOf, toPlanCoverage } from "../domain/plan-summary.rules";
 
 type Dependencies = {
 	annualPlanRepository: ICradle["annualPlanRepository"];
@@ -62,6 +66,48 @@ export const createAnnualPlanService = ({
 	};
 
 	return {
+		async summarizeCurrent(actor: AuthContext, { limit }: { limit: number }) {
+			return run("summarizeCurrent", async () => {
+				const scope = requireManager(actor);
+				const now = clock.now();
+				const fiscalYear = currentFiscalYear(now);
+
+				const [plan] = await annualPlanRepository.findPlans(
+					planScopeWhere(scope),
+					{ fiscalYear },
+				);
+				const due = plan ? dueLinesOf(plan.lines, now) : [];
+
+				return ok({
+					fiscalYear,
+					plan: plan
+						? {
+								documentId: plan.documentId,
+								progress: planProgressOf(plan.lines),
+							}
+						: null,
+					dueLines: due.slice(0, limit),
+					dueTotal: due.length,
+				});
+			});
+		},
+
+		async summarizeCoverage(actor: AuthContext) {
+			return run("summarizeCoverage", async () => {
+				if (resolveScope(actor).kind !== "global") {
+					throw new AnnualPlanForbiddenScopeError();
+				}
+				const fiscalYear = currentFiscalYear(clock.now());
+
+				const records = await annualPlanRepository.findCoverage(
+					fiscalYear,
+					UNASSIGNED_DEPENDENCY,
+				);
+
+				return ok(toPlanCoverage(fiscalYear, records));
+			});
+		},
+
 		async listPlans(query: ListPlansDto, actor: AuthContext) {
 			return run("listPlans", async () => {
 				const scope = resolveScope(actor);

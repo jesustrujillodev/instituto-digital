@@ -60,3 +60,9 @@ export const dependencyResponseSchema = createResponseSchema(dependencySchema);
 export const dependencyListResponseSchema = createResponseSchema(
 	v.array(dependencySchema),
 );
+
+/** Una dependencia nombrada por el panel de inicio. */
+export interface DependencyRef {
+	documentId: string;
+	name: string;
+}

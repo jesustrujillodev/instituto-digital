@@ -137,3 +137,42 @@ export type PlanDetailResponse = AppResponse<PlanDetail>;
 export type PlanCreatedResponse = AppResponse<{ documentId: string }>;
 export type PlanMutationResponse = AppResponse<null>;
 export type LineForCourseResponse = AppResponse<LineForCourse>;
+
+/** Una línea que ya debería tener curso: la de este mes o una atrasada. */
+export interface DuePlanLine {
+	documentId: string;
+	title: string;
+	plannedMonth: number;
+	overdue: boolean;
+}
+
+/** El plan del ejercicio en curso de la dependencia, tal como lo pinta el panel. */
+export interface CurrentPlanSummary {
+	fiscalYear: number;
+	plan: { documentId: string; progress: PlanProgress } | null;
+	dueLines: DuePlanLine[];
+	dueTotal: number;
+}
+
+/** Una dependencia activa con su plan del ejercicio, si lo tiene. */
+export interface DependencyPlanRecord {
+	documentId: string;
+	name: string;
+	plan: {
+		documentId: string;
+		lines: {
+			cancelledAt: Date | null;
+			courses: { status: CourseStatus; format: CourseFormat }[];
+		}[];
+	} | null;
+}
+
+export interface PlanCoverage {
+	fiscalYear: number;
+	plans: {
+		documentId: string;
+		dependencyName: string;
+		progress: PlanProgress;
+	}[];
+	withoutPlan: { documentId: string; name: string }[];
+}

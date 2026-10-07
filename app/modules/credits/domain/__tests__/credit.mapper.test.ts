@@ -3,7 +3,7 @@ import {
 	CREDIT_ERROR_CODES,
 	CreditForbiddenScopeError,
 } from "../credit.errors";
-import { summarizeMine, toMyCredit } from "../credit.mapper";
+import { summarizeMine, toMyCredit, toYearCredits } from "../credit.mapper";
 import type { MyCredit } from "../credit.types";
 
 const creditOf = (
@@ -185,5 +185,16 @@ describe("errores de créditos", () => {
 		expect(new CreditForbiddenScopeError().code).toBe(
 			CREDIT_ERROR_CODES.FORBIDDEN_SCOPE,
 		);
+	});
+});
+
+describe("toYearCredits", () => {
+	test("suma las horas efectivas y cuenta 0 donde no hay", () => {
+		expect(
+			toYearCredits(2026, [
+				{ hours: 4, sessions: [] },
+				{ hours: null, sessions: [] },
+			]),
+		).toEqual({ fiscalYear: 2026, total: 2, hours: 4 });
 	});
 });

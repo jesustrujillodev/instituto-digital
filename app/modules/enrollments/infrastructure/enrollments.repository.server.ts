@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { isEffectiveMembership } from "@/modules/groups/domain/group.access";
 import type { ICradle } from "@/shared/di/container.types";
 import { resolveAssetRef } from "@/shared/storage/public-url";
+import { openEnrollmentWhere } from "../domain/enrollment.access";
 import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	AVAILABLE_LIST_DEFAULTS,
@@ -106,17 +107,7 @@ const availableWhere = (
 ): Prisma.CourseWhereInput => ({
 	AND: [
 		asWhere(filter),
-		{ status: "PUBLISHED" },
-		// Un calendarizado entra al catálogo mientras tenga sesiones y ninguna haya
-		// empezado; un autogestivo no tiene ninguna que mirar (docs/adr/0011).
-		{
-			OR: [
-				{ format: "SELF_PACED" as const },
-				{ sessions: { some: {}, none: { startsAt: { lte: now } } } },
-			],
-		},
-		{ OR: [{ enrollmentDeadline: null }, { enrollmentDeadline: { gt: now } }] },
-		{ enrollmentClosedAt: null },
+		...(openEnrollmentWhere(now) as unknown as Prisma.CourseWhereInput[]),
 		...(filters.dependency
 			? [{ dependency: { documentId: filters.dependency } }]
 			: []),
@@ -175,43 +166,47 @@ export const createEnrollmentRepository = ({
 		userId: number,
 		where: Prisma.EnrollmentWhereInput,
 	): Promise<MyCourseRecord[]> => {
-		const rows = await prisma.enrollment.findMany({
-			where: { ...where, userId, status: { in: myCourseStatuses } },
-			orderBy: { updatedAt: "desc" },
-			select: {
-				documentId: true,
-				origin: true,
-				status: true,
-				result: true,
-				userId: true,
-				actedById: true,
-				grade: true,
-				completed: true,
-				progressPercent: true,
-				contentCompletedAt: true,
-				withdrawnAt: true,
-				course: {
-					select: {
-						...COURSE_SELECT,
-						ratings: { where: { userId }, select: { score: true } },
-						certificateIssues: {
-							where: { userId, revokedAt: null },
-							select: { documentId: true },
+		const mine = { ...where, userId, status: { in: myCourseStatuses } };
+		// La asistencia se acota por la misma inscripción y no por los ids de la
+		// primera lectura: así las dos viajan juntas en vez de una tras otra.
+		const [rows, attended] = await Promise.all([
+			prisma.enrollment.findMany({
+				where: mine,
+				orderBy: { updatedAt: "desc" },
+				select: {
+					documentId: true,
+					origin: true,
+					status: true,
+					result: true,
+					userId: true,
+					actedById: true,
+					grade: true,
+					completed: true,
+					progressPercent: true,
+					contentCompletedAt: true,
+					withdrawnAt: true,
+					course: {
+						select: {
+							...COURSE_SELECT,
+							ratings: { where: { userId }, select: { score: true } },
+							certificateIssues: {
+								where: { userId, revokedAt: null },
+								select: { documentId: true },
+							},
+							certificate: { select: { isDownloadable: true } },
 						},
-						certificate: { select: { isDownloadable: true } },
 					},
 				},
-			},
-		});
-
-		const attended = await prisma.courseAttendance.findMany({
-			where: {
-				userId,
-				attended: true,
-				session: { courseId: { in: rows.map((row) => row.course.id) } },
-			},
-			select: { session: { select: { courseId: true } } },
-		});
+			}),
+			prisma.courseAttendance.findMany({
+				where: {
+					userId,
+					attended: true,
+					session: { course: { enrollments: { some: mine } } },
+				},
+				select: { session: { select: { courseId: true } } },
+			}),
+		]);
 		const attendedByCourse = new Map<number, number>();
 		for (const { session } of attended) {
 			attendedByCourse.set(

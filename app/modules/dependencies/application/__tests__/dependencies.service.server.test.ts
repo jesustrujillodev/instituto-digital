@@ -83,6 +83,7 @@ const createHarness = (
 		assignHead: [] as unknown[],
 		revoked: [] as number[],
 		candidates: [] as number[],
+		withoutHead: [] as string[],
 	};
 
 	const dependencyRepository = {
@@ -97,6 +98,10 @@ const createHarness = (
 		findById: async () =>
 			options.dependency === undefined ? dependencyOf() : options.dependency,
 		findActive: async () => options.active ?? [],
+		findWithoutHead: async (excludeName: string) => {
+			calls.withoutHead.push(excludeName);
+			return [{ documentId: "d-sds", name: "Desarrollo Social" }];
+		},
 		findHeadCandidates: async (dependencyId: number) => {
 			calls.candidates.push(dependencyId);
 			return options.candidates ?? [];
@@ -479,5 +484,19 @@ describe("createDependencyService — assignHead", () => {
 			expect(result.error.code).toBe("DEPENDENCY_ALREADY_HAS_HEAD");
 		}
 		expect(calls.revoked).toEqual([]);
+	});
+});
+
+describe("listWithoutHead", () => {
+	test("pide las activas sin titular y deja fuera la de acogida", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.listWithoutHead();
+
+		expect(calls.withoutHead).toEqual(["Sin asignar"]);
+		expect(result).toMatchObject({
+			success: true,
+			data: [{ documentId: "d-sds", name: "Desarrollo Social" }],
+		});
 	});
 });

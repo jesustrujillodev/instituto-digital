@@ -239,3 +239,31 @@ export type TeachingDetailResponse = AppResponse<TeachingDetail>;
 export type TeachingWriteResponse = AppResponse<TeachingWriteResult>;
 export type FinishResponse = AppResponse<FinishResult>;
 export type IssueCertificatesResponse = AppResponse<IssueCertificatesResult>;
+
+/** Un curso calendarizado cuyas sesiones ya terminaron, tal como lo lee el repositorio. */
+export interface PendingFinishRecord {
+	documentId: string;
+	title: string;
+	dependencyId: number;
+	lastSessionEndsAt: Date;
+	enrolledCount: number;
+	/** Quien consulta está entre sus capacitadores. */
+	viewerTeaches: boolean;
+}
+
+export interface PendingFinishCourse {
+	documentId: string;
+	title: string;
+	lastSessionEndsAt: Date;
+	enrolledCount: number;
+	/** Lo imparte quien consulta. */
+	teaching: boolean;
+	/** Lo organiza la dependencia de quien consulta. */
+	organizing: boolean;
+}
+
+export interface TeachingPending {
+	awaitingFinish: PendingFinishCourse[];
+	/** Había más de los que se leyeron. */
+	truncated: boolean;
+}

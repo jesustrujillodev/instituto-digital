@@ -60,3 +60,6 @@ export const FINISH_BLOCKERS = [
 	"TOO_EARLY",
 ] as const;
 export type FinishBlocker = (typeof FINISH_BLOCKERS)[number];
+
+/** Tope de cursos por finalizar que se leen para ordenarlos por antigüedad. */
+export const TEACHING_PENDING_SCAN_CAP = 50;

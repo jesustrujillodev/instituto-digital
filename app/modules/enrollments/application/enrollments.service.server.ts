@@ -12,8 +12,6 @@ import {
 	toNotifiedSessions,
 } from "@/modules/notifications/domain/notification.mapper";
 import type { Recipient } from "@/modules/notifications/domain/notification.types";
-import { canRateCourse } from "@/modules/ratings/domain/rating.rules";
-import { accreditationGapsOf } from "@/modules/teaching/domain/teaching.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -57,8 +55,6 @@ import {
 	canParticipate,
 	canTransition,
 	canWithdraw,
-	classifyMyCourse,
-	courseTimelineOf,
 	enrollmentClosesAt,
 	isEnrollmentOpen,
 	participantPermissionsOf,
@@ -70,12 +66,10 @@ import type {
 	EnrollmentWrite,
 	InviteParticipantsDto,
 	ListAvailableCoursesDto,
-	MyCourseEntry,
-	MyCourseRecord,
-	MyCourses,
 	ParticipantAccount,
 	RemoveParticipantDto,
 } from "../domain/enrollment.types";
+import { bucketMyCourses, toMyCourseEntry } from "../domain/my-courses.rules";
 
 type Dependencies = {
 	enrollmentRepository: ICradle["enrollmentRepository"];
@@ -191,33 +185,6 @@ export const createEnrollmentService = ({
 						sessions: toNotifiedSessions(course.sessions),
 					})),
 				);
-
-	/** Solo valora quien no lo ha hecho y cumple lo que pide el curso. */
-	const toMyCourseEntry = (
-		record: MyCourseRecord,
-		now: Date,
-	): MyCourseEntry => ({
-		...record,
-		timeline: courseTimelineOf(record.course, now),
-		gaps: accreditationGapsOf(
-			{ ...record.course, sessionCount: record.course.sessions.length },
-			{
-				attendedSessions: record.outcome.attendedSessions,
-				contentCompletedAt: record.outcome.contentCompletedAt,
-				result: record.enrollment.result,
-				grade: record.outcome.grade,
-			},
-		),
-		canRate:
-			record.outcome.myRating === null &&
-			canRateCourse({
-				courseStatus: record.course.status,
-				courseFormat: record.course.format,
-				enrollmentStatus: record.enrollment.status,
-				attendedSessions: record.outcome.attendedSessions,
-				completed: record.outcome.completed,
-			}),
-	});
 
 	/** El `AuthContext` no trae el nombre: el saludo cae en "Hola:". */
 	const actorRecipient = (actor: AuthContext): Recipient => ({
@@ -411,32 +378,7 @@ export const createEnrollmentService = ({
 				const now = clock.now();
 				const entries = await enrollmentRepository.findMine(actor.userId);
 
-				const mine: MyCourses = {
-					invitations: [],
-					upcoming: [],
-					inProgress: [],
-					finished: [],
-					withdrawn: [],
-				};
-
-				for (const record of entries) {
-					const entry = toMyCourseEntry(record, now);
-					if (entry.enrollment.status === "WITHDRAWN") {
-						mine.withdrawn.push(entry);
-						continue;
-					}
-					if (entry.enrollment.status === "INVITED") {
-						if (entry.course.status === "PUBLISHED") {
-							mine.invitations.push(entry);
-						}
-						continue;
-					}
-					mine[
-						classifyMyCourse(entry.course, now, entry.outcome.completed)
-					].push(entry);
-				}
-
-				return ok(mine);
+				return ok(bucketMyCourses(entries, now));
 			});
 		},
 

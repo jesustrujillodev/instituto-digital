@@ -278,7 +278,7 @@ export const monthGridDays = (value: string): string[] => {
 	});
 };
 
-const nextDay = (day: string): string => {
+export const nextDay = (day: string): string => {
 	const [year, month, date] = day.split("-").map(Number);
 	const next = new Date(Date.UTC(year, month - 1, date + 1));
 

@@ -9,7 +9,7 @@ import {
 	CreditDependencyNotFoundError,
 	CreditForbiddenScopeError,
 } from "../domain/credit.errors";
-import { summarizeMine } from "../domain/credit.mapper";
+import { summarizeMine, toYearCredits } from "../domain/credit.mapper";
 import type { ICreditService } from "../domain/credit.service";
 import type {
 	CreditDependency,
@@ -73,6 +73,18 @@ export const createCreditService = ({
 				return ok(
 					summarizeMine(credits, query.fiscalYear ?? zonedYearOf(clock.now())),
 				);
+			});
+		},
+
+		async summarizeYear(actor: AuthContext) {
+			return run("summarizeYear", async () => {
+				const fiscalYear = zonedYearOf(clock.now());
+				const courses = await creditRepository.findYearCourses(
+					actor.userId,
+					fiscalYear,
+				);
+
+				return ok(toYearCredits(fiscalYear, courses));
 			});
 		},
 

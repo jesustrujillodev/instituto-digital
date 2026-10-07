@@ -108,3 +108,12 @@ export interface CalendarData {
 }
 
 export type CalendarResponse = AppResponse<CalendarData>;
+
+/** Lo que el panel de inicio pinta de los próximos siete días. */
+export interface CalendarWeek {
+	today: string;
+	days: string[];
+	sessions: CalendarSession[];
+	/** Había más sesiones de las que se leyeron. */
+	truncated: boolean;
+}

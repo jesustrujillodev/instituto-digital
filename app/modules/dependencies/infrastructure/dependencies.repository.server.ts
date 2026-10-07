@@ -129,6 +129,17 @@ export const createDependencyRepository = ({
 			});
 			return dependencies.map(toDomain);
 		},
+		async findWithoutHead(excludeName) {
+			return prisma.dependency.findMany({
+				where: {
+					archivedAt: null,
+					name: { not: excludeName },
+					users: { none: { role: "DEPENDENCY_HEAD", archivedAt: null } },
+				},
+				orderBy: { name: "asc" },
+				select: { documentId: true, name: true },
+			});
+		},
 		async findCatalog() {
 			const dependencies = await prisma.dependency.findMany({
 				orderBy: { name: "asc" },

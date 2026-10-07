@@ -1,3 +1,4 @@
+import type { AppResponse } from "@/shared/response/response.types";
 import type {
 	ListSessionsDto,
 	RevokedCountResponse,
@@ -29,6 +30,9 @@ export interface SessionMonitorService {
 		filters: ListSessionsDto,
 		currentRefreshToken?: string,
 	): Promise<SessionListResponse>;
+
+	/** Cuántas sesiones siguen vigentes en toda la plataforma. */
+	countActive(): Promise<AppResponse<number>>;
 
 	/** Falla con `SESSION_NOT_FOUND` si el id ya no existe. */
 	revoke(sessionId: string): Promise<SessionVoidResponse>;

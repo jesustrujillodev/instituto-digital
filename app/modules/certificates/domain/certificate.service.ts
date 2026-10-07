@@ -92,8 +92,11 @@ export interface ICertificateService {
 		actor: AuthContext,
 	): Promise<AppResponse<null>>;
 
-	/** Los certificados vigentes de quien está en sesión, y solo esos. */
-	listMine(actor: AuthContext): Promise<AppResponse<MyCertificate[]>>;
+	/** Los certificados vigentes de quien está en sesión, y solo esos; con `limit`, los más recientes. */
+	listMine(
+		actor: AuthContext,
+		options?: { limit?: number },
+	): Promise<AppResponse<MyCertificate[]>>;
 
 	/** La descarga de un certificado propio, si el curso la permite. */
 	downloadMine(

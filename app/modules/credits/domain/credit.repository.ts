@@ -1,6 +1,7 @@
 import type {
 	CreditCandidate,
 	CreditDependency,
+	CreditedCourseHours,
 	CreditWriteContext,
 	DependencyCreditRow,
 	MyCredit,
@@ -33,6 +34,11 @@ export interface ICreditRepository {
 
 	/** Créditos vigentes de la persona, del más reciente al más antiguo. */
 	findMine(userId: number): Promise<MyCredit[]>;
+	/** Los cursos de los créditos vigentes de la persona en ese ejercicio. */
+	findYearCourses(
+		userId: number,
+		fiscalYear: number,
+	): Promise<CreditedCourseHours[]>;
 
 	/**
 	 * Personal de la dependencia y quien obtuvo créditos PARA ella en el

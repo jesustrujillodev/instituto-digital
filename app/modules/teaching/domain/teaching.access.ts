@@ -108,3 +108,15 @@ export const canCorrect = (
 	scope: TeachingScope,
 	courseDependencyId: number,
 ): boolean => scope.global || scope.dependencyId === courseDependencyId;
+
+/**
+ * Lo que la persona imparte u organiza por su dependencia, sin el alcance
+ * global ni el de autor: el panel de inicio no le pone a nadie el trabajo de
+ * toda la plataforma, y lo que el autor opera —autogestivos sin sesiones— no
+ * se finaliza nunca.
+ */
+export const ownTeachingScope = (actor: TeachingActor): TeachingScope => ({
+	...resolveTeachingScope(actor),
+	global: false,
+	creator: null,
+});

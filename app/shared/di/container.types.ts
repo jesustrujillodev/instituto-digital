@@ -45,6 +45,8 @@ import type { ISessionMaterialRepository } from "@/modules/content/domain/sessio
 import type { ISessionMaterialService } from "@/modules/content/domain/session-material.service";
 import type { ICourseRepository } from "@/modules/courses/domain/course.repository";
 import type { ICourseService } from "@/modules/courses/domain/course.service";
+import type { ICourseAttentionRepository } from "@/modules/courses/domain/course-attention.repository";
+import type { ICourseAttentionService } from "@/modules/courses/domain/course-attention.service";
 import type { ICreditRepository } from "@/modules/credits/domain/credit.repository";
 import type { ICreditService } from "@/modules/credits/domain/credit.service";
 import type { IDependencyRepository } from "@/modules/dependencies/domain/dependency.repository";
@@ -52,10 +54,13 @@ import type { IDependencyService } from "@/modules/dependencies/domain/dependenc
 import type { IEnrollmentQrService } from "@/modules/enrollment-qr/domain/enrollment-qr.service";
 import type { IEnrollmentRepository } from "@/modules/enrollments/domain/enrollment.repository";
 import type { IEnrollmentService } from "@/modules/enrollments/domain/enrollment.service";
+import type { IEnrollmentSummaryRepository } from "@/modules/enrollments/domain/enrollment-summary.repository";
+import type { IEnrollmentSummaryService } from "@/modules/enrollments/domain/enrollment-summary.service";
 import type { IGroupRepository } from "@/modules/groups/domain/group.repository";
 import type { IGroupService } from "@/modules/groups/domain/group.service";
 import type { INotificationRepository } from "@/modules/notifications/domain/notification.repository";
 import type { INotificationService } from "@/modules/notifications/domain/notification.service";
+import type { IOperationsService } from "@/modules/operations/domain/operations.service";
 import type { IRatingRepository } from "@/modules/ratings/domain/rating.repository";
 import type { IRatingService } from "@/modules/ratings/domain/rating.service";
 import type { ITeachingRepository } from "@/modules/teaching/domain/teaching.repository";
@@ -139,6 +144,9 @@ export interface ICradle {
 	groupService: IGroupService;
 	courseRepository: ICourseRepository;
 	courseService: ICourseService;
+	// Lo que el panel de inicio pide atender de los cursos (docs/adr/0034).
+	courseAttentionRepository: ICourseAttentionRepository;
+	courseAttentionService: ICourseAttentionService;
 	contentRepository: IContentRepository;
 	contentService: IContentService;
 	// El aula del participante (docs/adr/0014). `progressSync` es la única vía
@@ -168,6 +176,9 @@ export interface ICradle {
 	certificateTemplateService: ICertificateTemplateService;
 	enrollmentRepository: IEnrollmentRepository;
 	enrollmentService: IEnrollmentService;
+	// Resúmenes de inscripción para el panel de inicio (docs/adr/0034).
+	enrollmentSummaryRepository: IEnrollmentSummaryRepository;
+	enrollmentSummaryService: IEnrollmentSummaryService;
 	calendarRepository: ICalendarRepository;
 	calendarService: ICalendarService;
 	teachingRepository: ITeachingRepository;
@@ -197,6 +208,8 @@ export interface ICradle {
 	// cola ejecuta los trabajos con los servicios de este mismo cradle.
 	jobDispatcher: JobDispatcher;
 	jobFailureRepository: IJobFailureRepository;
+	// Lectura de lo que la entrega de fondo no completó (docs/operations/00-operacion.md).
+	operationsService: IOperationsService;
 	// Preferencia de modo claro/oscuro por usuario. El loader raíz la resuelve en
 	// TODA petición, así que `resolveMode` evita bajar a la base salvo en el caso
 	// de dispositivo nuevo (docs/theme/00-modo-oscuro.md).

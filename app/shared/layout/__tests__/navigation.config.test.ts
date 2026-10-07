@@ -335,12 +335,13 @@ describe("navigationSections — filtrado por rol", () => {
 describe("footerNavigationConfig", () => {
 	// El monitor de sesiones opera sobre sesiones de terceros: su loader exige
 	// SUPERADMIN, así que el enlace tiene que declarar lo mismo.
-	test("el monitor de sesiones solo lo ve el superadministrador", () => {
+	test("el monitor de sesiones y la operación solo los ve el superadministrador", () => {
 		expect(pathsFor(footerNavigationConfig, "USER")).toEqual([]);
 		expect(pathsFor(footerNavigationConfig, "DEPENDENCY_HEAD")).toEqual([]);
-		expect(pathsFor(footerNavigationConfig, "SUPERADMIN")).toContain(
+		expect(pathsFor(footerNavigationConfig, "SUPERADMIN")).toEqual([
 			"/dashboard/sesiones",
-		);
+			"/dashboard/operacion",
+		]);
 	});
 
 	// Accesos operativos que se consultan cuando algo va mal: van aparte para no

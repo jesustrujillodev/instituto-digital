@@ -351,10 +351,11 @@ export const createCertificateRepository = ({
 			});
 		},
 
-		async findMine(userId) {
+		async findMine(userId, take) {
 			const rows = await prisma.certificateIssue.findMany({
 				where: { userId, revokedAt: null },
 				orderBy: { issuedAt: "desc" },
+				take,
 				select: {
 					documentId: true,
 					dataSnapshot: true,

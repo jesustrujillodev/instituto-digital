@@ -94,13 +94,27 @@ const createHarness = (
 		updatedLines: [] as unknown[][],
 		cancellations: [] as unknown[][],
 		deleted: [] as number[],
+		coverage: [] as unknown[][],
+		filters: [] as unknown[],
 	};
 	const plans = options.plans ?? [planOf()];
 
 	const annualPlanRepository = {
-		findPlans: async (where: unknown) => {
+		findPlans: async (where: unknown, filters: unknown) => {
 			calls.wheres.push(where);
+			calls.filters.push(filters);
 			return plans;
+		},
+		findCoverage: async (...args: unknown[]) => {
+			calls.coverage.push(args);
+			return [
+				{
+					documentId: "d-sop",
+					name: "Obras Públicas",
+					plan: { documentId: PLAN_DOC, lines: [] },
+				},
+				{ documentId: "d-sds", name: "Desarrollo Social", plan: null },
+			];
 		},
 		findPlan: async (documentId: string, where: object) => {
 			calls.wheres.push(where);
@@ -342,5 +356,121 @@ describe("annualPlanService.findLineForCourse", () => {
 			}).service.findLineForCourse(LINE_DOC, actorOf()),
 			ANNUAL_PLAN_ERROR_CODES.LINE_HAS_ACTIVE_COURSE,
 		);
+	});
+});
+
+describe("annualPlanService.summarizeCurrent", () => {
+	const lineAt = (
+		documentId: string,
+		plannedMonth: number,
+		overrides: Partial<StoredPlan["lines"][number]> = {},
+	): StoredPlan["lines"][number] => ({
+		id: plannedMonth,
+		documentId,
+		title: `Línea ${documentId}`,
+		plannedMonth,
+		plannedModality: null,
+		estimatedDuration: null,
+		targetAudience: null,
+		notes: null,
+		cancelledAt: null,
+		courses: [],
+		...overrides,
+	});
+
+	test("lee el plan del ejercicio en curso de su dependencia", async () => {
+		const { service, calls } = createHarness();
+
+		await service.summarizeCurrent(actorOf(), { limit: 5 });
+
+		expect(calls.wheres).toEqual([{ dependencyId: 3 }]);
+		expect(calls.filters).toEqual([{ fiscalYear: 2026 }]);
+	});
+
+	test("devuelve el avance y las líneas que ya deberían tener curso", async () => {
+		const { service } = createHarness({
+			plans: [
+				{
+					...planOf(),
+					lines: [
+						lineAt("julio", 7),
+						lineAt("septiembre", 9),
+						lineAt("octubre", 10),
+						lineAt("hecha", 8, {
+							courses: [
+								{
+									documentId: "c",
+									title: "c",
+									status: "FINISHED",
+									format: "SCHEDULED",
+								},
+							],
+						}),
+					],
+				},
+			],
+		});
+
+		const result = await service.summarizeCurrent(actorOf(), { limit: 1 });
+
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				fiscalYear: 2026,
+				plan: {
+					documentId: PLAN_DOC,
+					progress: { done: 1, total: 4, cancelled: 0 },
+				},
+				dueLines: [{ documentId: "julio", overdue: true }],
+				dueTotal: 2,
+			},
+		});
+	});
+
+	test("sin plan del ejercicio, lo dice sin líneas", async () => {
+		const { service } = createHarness({ plans: [] });
+
+		const result = await service.summarizeCurrent(actorOf(), { limit: 5 });
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { plan: null, dueLines: [], dueTotal: 0 },
+		});
+	});
+
+	test("fuera del alcance de dependencia responde FORBIDDEN_SCOPE", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.summarizeCurrent(SUPERADMIN, { limit: 5 });
+
+		expectCode(result, ANNUAL_PLAN_ERROR_CODES.FORBIDDEN_SCOPE);
+		expect(calls.wheres).toEqual([]);
+	});
+});
+
+describe("annualPlanService.summarizeCoverage", () => {
+	test("el superadministrador ve el avance de cada dependencia y quién no tiene plan", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.summarizeCoverage(SUPERADMIN);
+
+		expect(calls.coverage).toEqual([[2026, "Sin asignar"]]);
+		expect(result).toMatchObject({
+			success: true,
+			data: {
+				fiscalYear: 2026,
+				plans: [{ dependencyName: "Obras Públicas", documentId: PLAN_DOC }],
+				withoutPlan: [{ documentId: "d-sds", name: "Desarrollo Social" }],
+			},
+		});
+	});
+
+	test("fuera del alcance global responde FORBIDDEN_SCOPE", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.summarizeCoverage(actorOf());
+
+		expectCode(result, ANNUAL_PLAN_ERROR_CODES.FORBIDDEN_SCOPE);
+		expect(calls.coverage).toEqual([]);
 	});
 });

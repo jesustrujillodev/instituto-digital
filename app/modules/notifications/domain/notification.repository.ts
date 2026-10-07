@@ -1,5 +1,6 @@
 import type {
 	ClaimedMessage,
+	FailedEmailRecord,
 	OutboxMessage,
 	OutboxRef,
 } from "./notification.types";
@@ -33,4 +34,13 @@ export interface INotificationRepository {
 	markFailed(id: number, error: string): Promise<void>;
 	/** Borra los enviados antes de `before`. Devuelve cuántos. */
 	purgeSent(before: Date): Promise<number>;
+
+	/** Los que agotaron sus intentos, del más reciente al más viejo. */
+	findFailed(page: {
+		skip: number;
+		take: number;
+	}): Promise<FailedEmailRecord[]>;
+	countFailed(): Promise<number>;
+	/** Pendientes que debían haber salido antes de `before` y siguen ahí. */
+	countStuck(before: Date): Promise<number>;
 }

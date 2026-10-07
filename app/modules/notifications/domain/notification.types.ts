@@ -92,3 +92,13 @@ export interface DrainSummary {
 }
 
 export type NotifyResponse = AppResponse<{ queued: number }>;
+
+/** Un correo que agotó sus intentos, sin su contenido: lo que se revisa en Operación. */
+export interface FailedEmailRecord {
+	id: number;
+	template: string;
+	recipient: string;
+	attempts: number;
+	lastError: string | null;
+	createdAt: Date;
+}
