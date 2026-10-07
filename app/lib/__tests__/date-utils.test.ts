@@ -5,6 +5,7 @@ import {
 	formatSessionRange,
 	formatZonedDate,
 	formatZonedDateTime,
+	formatZonedUntil,
 	INSTITUTE_TIME_ZONE,
 	inputDateToDisplay,
 	maskDisplayDate,
@@ -97,6 +98,26 @@ describe("startOfZonedDay", () => {
 describe("zonedYearOf", () => {
 	test("la noche del 31 de diciembre cuenta para ese año aunque en UTC ya sea enero", () => {
 		expect(zonedYearOf(zonedInputToUtc("2026-12-31", "20:00"))).toBe(2026);
+	});
+});
+
+describe("formatZonedUntil", () => {
+	test("el mismo día solo da la hora", () => {
+		expect(
+			formatZonedUntil(
+				zonedInputToUtc("2026-10-05", "09:00"),
+				zonedInputToUtc("2026-10-05", "12:00"),
+			),
+		).toBe("12:00");
+	});
+
+	test("si cruza la medianoche repite la fecha", () => {
+		expect(
+			formatZonedUntil(
+				zonedInputToUtc("2026-10-05", "23:45"),
+				zonedInputToUtc("2026-10-06", "00:15"),
+			),
+		).toBe("06-10-2026 00:15");
 	});
 });
 

@@ -1,6 +1,6 @@
 import { Lock, Play } from "lucide-react";
 import { useFetcher } from "react-router";
-import { formatZonedDate } from "@/lib/date-utils";
+import { formatZonedDateTime, formatZonedUntil } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import {
 	type SessionRefs,
@@ -36,10 +36,12 @@ interface BoardParticipant {
 
 /** «Abre 12-10-2026 10:00 · cierra 12:00», con lo que se sepa. */
 const windowLabel = (followUp: FollowUpView) => {
+	const opensAt = followUp.opensAt ? new Date(followUp.opensAt) : null;
+	const closesAt = followUp.closesAt ? new Date(followUp.closesAt) : null;
 	const parts = [
-		followUp.opensAt && `abre ${formatZonedDate(new Date(followUp.opensAt))}`,
-		followUp.closesAt &&
-			`cierra ${formatZonedDate(new Date(followUp.closesAt))}`,
+		opensAt && `abre ${formatZonedDateTime(opensAt)}`,
+		closesAt &&
+			`cierra ${opensAt ? formatZonedUntil(opensAt, closesAt) : formatZonedDateTime(closesAt)}`,
 	].filter(Boolean);
 	return parts.length > 0 ? parts.join(" · ") : AVAILABILITY_SHORT.MANUAL;
 };

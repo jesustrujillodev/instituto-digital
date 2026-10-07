@@ -218,6 +218,15 @@ export const formatZonedTime = (value: Date): string =>
 export const formatZonedDateTime = (value: Date): string =>
 	`${formatZonedDate(value)} ${formatZonedTime(value)}`;
 
+/**
+ * El final de un tramo que empieza en `from`: "12:00" si es el mismo día en
+ * Tijuana, "06-10-2026 00:15" si cruza la medianoche.
+ */
+export const formatZonedUntil = (from: Date, to: Date): string =>
+	formatZonedDate(from) === formatZonedDate(to)
+		? formatZonedTime(to)
+		: formatZonedDateTime(to);
+
 const longDateFormatter = new Intl.DateTimeFormat("es-MX", {
 	timeZone: INSTITUTE_TIME_ZONE,
 	dateStyle: "long",

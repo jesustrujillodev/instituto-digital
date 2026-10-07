@@ -1,6 +1,6 @@
 import { ClipboardCheck } from "lucide-react";
 import { Link } from "react-router";
-import { formatZonedDate } from "@/lib/date-utils";
+import { formatZonedDate, formatZonedTime } from "@/lib/date-utils";
 import {
 	type SessionRefs,
 	sessionNumberLabel,
@@ -20,7 +20,7 @@ const statusOf = (followUp: ParticipantFollowUp): string => {
 			return `Tu calificación: ${followUp.best ?? "—"}.`;
 		case "NOT_YET":
 			return followUp.opensAt
-				? `Se abre el ${formatZonedDate(new Date(followUp.opensAt))}.`
+				? `Se abre el ${formatZonedDate(new Date(followUp.opensAt))} a las ${formatZonedTime(new Date(followUp.opensAt))}.`
 				: "La abre quien imparte la sesión.";
 		case "NOT_ATTENDED":
 			return "Registra tu asistencia a la sesión para presentarla.";
