@@ -28,7 +28,10 @@ export interface IGroupRepository {
 	 * grupo es una lista nominal de una unidad, y verlo es leer a su gente.
 	 */
 	findActive(scope: AccessScope): Promise<Group[]>;
-	/** Ids de los grupos activos a los que pertenece hoy la persona (§6.4). */
+	/**
+	 * Ids de los grupos activos a los que pertenece hoy la persona (§6.4): los
+	 * de otra dependencia, tras un traslado, no cuentan.
+	 */
 	findGroupIdsOfUser(userId: number): Promise<number[]>;
 	findById(documentId: string, scope: AccessScope): Promise<Group | null>;
 	create(data: CreateGroupData): Promise<Group>;

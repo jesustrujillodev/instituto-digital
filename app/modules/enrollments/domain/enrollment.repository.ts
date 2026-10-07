@@ -161,13 +161,17 @@ export interface IEnrollmentRepository {
 		userDocumentIds: readonly string[],
 		dependencyId: number | null,
 	): Promise<ParticipantAccount[]>;
-	/** Miembros internos y activos de los grupos. */
+	/**
+	 * Miembros internos y activos de los grupos que siguen en la dependencia del
+	 * grupo; cada persona una vez.
+	 */
 	findGroupParticipants(
 		groupIds: readonly number[],
 	): Promise<ParticipantAccount[]>;
 	/**
-	 * Por grupo, los miembros internos y activos que aún no están inscritos al
-	 * curso; con `dependencyId`, solo los de esa dependencia.
+	 * Por grupo, los miembros internos y activos que siguen en la dependencia del
+	 * grupo y aún no están inscritos al curso; con `dependencyId`, solo los de
+	 * esa dependencia.
 	 */
 	findGroupEnrollable(params: {
 		courseId: number;

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { isEffectiveMembership } from "@/modules/groups/domain/group.access";
 import type { ICradle } from "@/shared/di/container.types";
 import { resolveAssetRef } from "@/shared/storage/public-url";
 import {
@@ -552,17 +553,30 @@ export const createEnrollmentRepository = ({
 		async findGroupParticipants(groupIds) {
 			if (groupIds.length === 0) return [];
 
-			const rows = await prisma.user.findMany({
+			const rows = await prisma.groupMember.findMany({
 				where: {
-					groupMemberships: { some: { groupId: { in: [...groupIds] } } },
-					type: "INTERNAL",
-					archivedAt: null,
-					dependencyId: { not: null },
+					groupId: { in: [...groupIds] },
+					user: {
+						type: "INTERNAL",
+						archivedAt: null,
+						dependencyId: { not: null },
+					},
 				},
-				select: PARTICIPANT_SELECT,
+				select: {
+					group: { select: { dependencyId: true } },
+					user: { select: PARTICIPANT_SELECT },
+				},
 			});
 
-			return toParticipants(rows);
+			// Quien está en varios de los grupos se cuenta una vez.
+			const members = new Map<number, (typeof rows)[number]["user"]>();
+			for (const row of rows) {
+				if (isEffectiveMembership(row.user, row.group)) {
+					members.set(row.user.id, row.user);
+				}
+			}
+
+			return toParticipants([...members.values()]);
 		},
 
 		async findGroupEnrollable({ courseId, groupIds, dependencyId }) {
@@ -578,13 +592,19 @@ export const createEnrollmentRepository = ({
 						enrollments: { none: { courseId, status: "ENROLLED" } },
 					},
 				},
-				select: { groupId: true, user: { select: { documentId: true } } },
+				select: {
+					groupId: true,
+					group: { select: { dependencyId: true } },
+					user: { select: { documentId: true, dependencyId: true } },
+				},
 			});
 
-			return rows.map((row) => ({
-				groupId: row.groupId,
-				userDocumentId: row.user.documentId,
-			}));
+			return rows
+				.filter((row) => isEffectiveMembership(row.user, row.group))
+				.map((row) => ({
+					groupId: row.groupId,
+					userDocumentId: row.user.documentId,
+				}));
 		},
 
 		async searchCandidates({ courseId, dependencyId, search }) {
