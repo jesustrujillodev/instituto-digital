@@ -44,12 +44,23 @@ describe("ratingRepository", () => {
 	test("el resumen nunca proyecta al autor", async () => {
 		const { repository, calls } = createHarness();
 
-		await repository.summarizeCourse(10);
+		await repository.summarizeCourse("c-doc", { dependencyId: 3 } as never);
 
 		expect(calls.findMany[0].select).toEqual({
 			score: true,
 			comment: true,
 			createdAt: true,
+		});
+	});
+
+	test("el resumen se acota con el mismo filtro de curso que findCourseId", async () => {
+		const { repository, calls } = createHarness();
+		const where = { OR: [{ trainers: { some: { userId: 9 } } }] } as never;
+
+		await repository.summarizeCourse("c-doc", where);
+
+		expect(calls.findMany[0].where).toEqual({
+			course: { AND: [{ documentId: "c-doc" }, where] },
 		});
 	});
 

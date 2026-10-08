@@ -547,6 +547,19 @@ describe("certificateTemplateService.apply", () => {
 		expect(calls.written).toEqual([]);
 	});
 
+	test("sin curso ni plantilla, gana el error del curso, como en fila", async () => {
+		const { service } = createHarness({ course: null, templates: [] });
+
+		expect(
+			await service.apply(
+				{ courseDocumentId: COURSE, templateDocumentId: TEMPLATE },
+				actorOf(),
+			),
+		).toMatchObject({
+			error: { code: CERTIFICATE_ERROR_CODES.COURSE_NOT_FOUND },
+		});
+	});
+
 	test("una plantilla archivada no se aplica", async () => {
 		const { service } = createHarness({
 			templates: [templateOf({ archivedAt: NOW })],

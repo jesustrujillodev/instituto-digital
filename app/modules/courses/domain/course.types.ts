@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.config";
 import type { AppResponse } from "@/shared/response/response.types";
 import { createResponseSchema } from "@/shared/rules/response.rules";
 import type {
@@ -178,6 +179,12 @@ export interface QrCourse {
 	qrOpensBeforeMinutes: number;
 	qrClosesAfterMinutes: number;
 	sessions: QrCourseSession[];
+}
+
+/** El curso del QR con la inscripción de quien escanea, leídos juntos. */
+export interface QrCourseForViewer {
+	course: QrCourse;
+	viewerEnrollment: { status: EnrollmentStatus } | null;
 }
 
 // Lo consume el modulo `enrollment-qr`. Sin alcance por la misma razon que

@@ -41,6 +41,8 @@ export interface IUserRepository {
 	 * releer al propio titular del token.
 	 */
 	findByInternalId(userId: number): Promise<SafeUser | null>;
+	/** `findByInternalId` de varios en una sola consulta; los que no existen no aparecen. */
+	findByInternalIds(userIds: readonly number[]): Promise<SafeUser[]>;
 	create(data: CreateUserData): Promise<SafeUser>;
 	update(
 		documentId: string,

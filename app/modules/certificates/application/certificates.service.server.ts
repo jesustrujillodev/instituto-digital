@@ -259,10 +259,8 @@ export const createCertificateService = ({
 		async getEditor(courseDocumentId, actor) {
 			return run("getEditor", async () => {
 				const course = await requireCourse(courseDocumentId, actor);
-				const [record, delivery] = await Promise.all([
-					certificateRepository.findRecord(course.id),
-					certificateRepository.findDelivery(course.id),
-				]);
+				const { record, delivery } =
+					await certificateRepository.findRecordWithDelivery(course.id);
 
 				return ok({
 					course,

@@ -559,17 +559,24 @@ export const createCourseRepository = ({
 				select: { id: true, documentId: true },
 			});
 		},
-		async findByQrToken(token) {
-			const course = await prisma.course.findUnique({
+		async findByQrToken(token, viewerId) {
+			const row = await prisma.course.findUnique({
 				where: { qrToken: token },
-				select: QR_SELECT,
+				select: {
+					...QR_SELECT,
+					enrollments: {
+						where: { userId: viewerId },
+						select: { status: true },
+					},
+				},
 			});
 
-			if (!course) return null;
+			if (!row) return null;
 
+			const { enrollments, ...course } = row;
 			return {
-				...course,
-				dependencyName: course.dependency.name,
+				course: { ...course, dependencyName: course.dependency.name },
+				viewerEnrollment: enrollments.at(0) ?? null,
 			};
 		},
 		async rotateQrToken(courseId, token, at) {

@@ -160,9 +160,12 @@ imagen se subió una vez y es lo que hace reconocible el curso en las tres.
 
 - **Cupo:** `lockCourseSeats` bloquea la fila del curso con `FOR UPDATE` dentro
   de `runInTransaction` y cuenta los `ENROLLED`. Editar el cupo del curso usa el
-  mismo bloqueo.
+  mismo bloqueo. Quien solo necesita serializar (cuestionarios, avance,
+  impartición) usa `lockCourse`: el mismo `FOR UPDATE`, sin leer el cupo.
 - **Doble envío:** `save` actualiza solo si la fila sigue en el estado leído. Si
   no, o si dos altas chocan con la unicidad, responde `ENROLLMENT_STATE_CHANGED`.
+  Asignar e invitar en lote usan `saveMany`, con la misma regla por grupo: si
+  se actualizan menos filas de las esperadas, el mismo error y el lote revierte.
 
 ## 7. Lo que queda enganchado
 

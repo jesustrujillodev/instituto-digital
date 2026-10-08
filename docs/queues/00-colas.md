@@ -67,7 +67,7 @@ Los casos de uso piden `jobDispatcher` por el cradle; nunca tocan BullMQ.
 2. Se encola con 2 s de espera y deduplicación por curso:
    - mientras espera, otra edición lo reemplaza y reinicia la espera;
    - si llega una edición mientras corre, se guarda y corre al terminar.
-3. El worker relee el curso. Si ya no está publicado, no hace nada; si lo está, recalcula con la fila del curso bloqueada (`lockCourseSeats`).
+3. El worker relee el curso. Si ya no está publicado, no hace nada; si lo está, recalcula con la fila del curso bloqueada (`lockCourse`).
 
 **Borrado:** si el objeto ya no existe cuenta como borrado. Agotado, queda en `job_failure` y el gestor de nube lo sigue viendo como huérfano.
 

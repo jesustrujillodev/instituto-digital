@@ -159,7 +159,9 @@ describe("findMine", () => {
 			where: {
 				userId: 50,
 				attended: true,
-				session: { courseId: { in: [10] } },
+				session: {
+					course: { credits: { some: { userId: 50, revokedAt: null } } },
+				},
 			},
 		});
 		expect(credit).toMatchObject({

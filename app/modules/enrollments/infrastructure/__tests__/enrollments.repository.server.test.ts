@@ -1,6 +1,8 @@
+import { Prisma } from "@prisma/client";
 import { describe, expect, test } from "vitest";
 import type { ICradle } from "@/shared/di/container.types";
 import { catalogAccessWhere } from "../../domain/enrollment.access";
+import { ENROLLMENT_ERROR_CODES } from "../../domain/enrollment.errors";
 import type { CatalogFilter } from "../../domain/enrollment.repository";
 import { createEnrollmentRepository } from "../enrollments.repository.server";
 
@@ -37,7 +39,7 @@ describe("saveResults", () => {
 
 		expect(calls).toEqual([
 			{
-				where: { courseId: 10, userId: 50, status: "ENROLLED" },
+				where: { courseId: 10, userId: { in: [50] }, status: "ENROLLED" },
 				data: {
 					result: "PASSED",
 					grade: 92,
@@ -46,6 +48,75 @@ describe("saveResults", () => {
 				},
 			},
 		]);
+	});
+
+	test("una sentencia por resultado y nota, y gana la última entrada de cada quien", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.saveResults(
+			10,
+			[
+				{ userId: 50, result: "PASSED", grade: 92 },
+				{ userId: 51, result: "FAILED", grade: 40 },
+				{ userId: 52, result: "PASSED", grade: 92 },
+				{ userId: 53, result: "PASSED", grade: null },
+				{ userId: 51, result: "PASSED", grade: 92 },
+			],
+			9,
+			AT,
+		);
+
+		expect(
+			calls.map((call) => ({
+				userIds: (call.where as { userId: { in: number[] } }).userId.in,
+				result: (call.data as { result: string }).result,
+				grade: (call.data as { grade: number | null }).grade,
+			})),
+		).toEqual([
+			{ userIds: [50, 51, 52], result: "PASSED", grade: 92 },
+			{ userIds: [53], result: "PASSED", grade: null },
+		]);
+	});
+});
+
+describe("saveProgress", () => {
+	test("agrupa por porcentaje y fija la fecha de término solo donde falta", async () => {
+		const { repository, calls } = createHarness();
+		const DONE = new Date("2026-09-04T17:00:00.000Z");
+
+		await repository.saveProgress(10, [
+			{ userId: 50, percent: 100, completedAt: DONE },
+			{ userId: 51, percent: 40, completedAt: null },
+			{ userId: 52, percent: 100, completedAt: DONE },
+		]);
+
+		expect(calls).toEqual([
+			{
+				where: { courseId: 10, userId: { in: [50, 52] }, status: "ENROLLED" },
+				data: { progressPercent: 100 },
+			},
+			{
+				where: { courseId: 10, userId: { in: [51] }, status: "ENROLLED" },
+				data: { progressPercent: 40 },
+			},
+			{
+				where: {
+					courseId: 10,
+					userId: { in: [50, 52] },
+					status: "ENROLLED",
+					contentCompletedAt: null,
+				},
+				data: { contentCompletedAt: DONE },
+			},
+		]);
+	});
+
+	test("sin escrituras no consulta", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.saveProgress(10, []);
+
+		expect(calls).toEqual([]);
 	});
 });
 
@@ -269,5 +340,212 @@ describe("findMine", () => {
 				},
 			},
 		});
+	});
+});
+
+describe("findEnrollmentByCourseDocumentId", () => {
+	test("la busca por el documentId del curso y la proyecta como findEnrollment", async () => {
+		const row = {
+			userId: 50,
+			actedById: 50,
+			documentId: "e1",
+			origin: "SELF",
+			status: "ENROLLED",
+			result: "PENDING",
+			completed: false,
+		};
+		const calls: Record<string, unknown>[] = [];
+		const repository = createEnrollmentRepository({
+			prisma: {
+				enrollment: {
+					findFirst: async (args: Record<string, unknown>) => {
+						calls.push(args);
+						return row;
+					},
+					findUnique: async () => row,
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => key,
+		});
+
+		const byDocument = await repository.findEnrollmentByCourseDocumentId(
+			"c-doc",
+			50,
+		);
+
+		expect(calls[0]).toMatchObject({
+			where: { userId: 50, course: { documentId: "c-doc" } },
+		});
+		expect(byDocument).toEqual(await repository.findEnrollment(10, 50));
+	});
+});
+
+describe("bloqueo del curso", () => {
+	const createLockHarness = () => {
+		const ops: string[] = [];
+		const repository = createEnrollmentRepository({
+			prisma: {
+				$queryRaw: async (strings: TemplateStringsArray) => {
+					ops.push(strings.join("?").replace(/\s+/g, " "));
+					return [];
+				},
+				course: {
+					findUniqueOrThrow: async () => {
+						ops.push("capacity");
+						return { capacity: 20 };
+					},
+				},
+				enrollment: {
+					count: async () => {
+						ops.push("count");
+						return 3;
+					},
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => key,
+		});
+		return { repository, ops };
+	};
+
+	test("lockCourse solo bloquea la fila, sin leer cupo ni inscritos", async () => {
+		const { repository, ops } = createLockHarness();
+
+		await repository.lockCourse(10);
+
+		expect(ops).toEqual([
+			'SELECT id FROM "org"."courses" WHERE id = ? FOR UPDATE',
+		]);
+	});
+
+	test("lockCourseSeats bloquea primero y lee cupo e inscritos después", async () => {
+		const { repository, ops } = createLockHarness();
+
+		expect(await repository.lockCourseSeats(10)).toEqual({
+			capacity: 20,
+			enrolled: 3,
+		});
+		expect(ops[0]).toBe(
+			'SELECT id FROM "org"."courses" WHERE id = ? FOR UPDATE',
+		);
+		expect([...ops.slice(1)].sort()).toEqual(["capacity", "count"]);
+	});
+});
+
+describe("saveMany", () => {
+	const writeOf = (
+		userId: number,
+		dependencyId: number,
+		expected: "WITHDRAWN" | "DECLINED" | null,
+	) => ({
+		data: {
+			courseId: 10,
+			userId,
+			dependencyId,
+			origin: "ASSIGNED" as const,
+			status: "ENROLLED" as const,
+			actedById: 9,
+			at: AT,
+		},
+		expected,
+	});
+	const fields = (dependencyId: number) => ({
+		dependencyId,
+		origin: "ASSIGNED",
+		status: "ENROLLED",
+		actedById: 9,
+		enrolledAt: AT,
+		withdrawnAt: null,
+	});
+	const createBatchHarness = (
+		options: { createError?: Error; updated?: number } = {},
+	) => {
+		const calls: Record<string, unknown>[] = [];
+		const repository = createEnrollmentRepository({
+			prisma: {
+				enrollment: {
+					createMany: async (args: Record<string, unknown>) => {
+						if (options.createError) throw options.createError;
+						calls.push({ createMany: args });
+					},
+					updateMany: async (args: { where: { userId: { in: number[] } } }) => {
+						calls.push({ updateMany: args });
+						return { count: options.updated ?? args.where.userId.in.length };
+					},
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => key,
+		});
+		return { repository, calls };
+	};
+
+	test("crea los nuevos juntos y actualiza por estado esperado y campos", async () => {
+		const { repository, calls } = createBatchHarness();
+
+		await repository.saveMany([
+			writeOf(50, 3, null),
+			writeOf(51, 3, "WITHDRAWN"),
+			writeOf(52, 3, "WITHDRAWN"),
+			writeOf(53, 4, "WITHDRAWN"),
+			writeOf(54, 3, null),
+		]);
+
+		expect(calls).toEqual([
+			{
+				createMany: {
+					data: [
+						{ courseId: 10, userId: 50, ...fields(3) },
+						{ courseId: 10, userId: 54, ...fields(3) },
+					],
+				},
+			},
+			{
+				updateMany: {
+					where: {
+						courseId: 10,
+						userId: { in: [51, 52] },
+						status: "WITHDRAWN",
+					},
+					data: fields(3),
+				},
+			},
+			{
+				updateMany: {
+					where: { courseId: 10, userId: { in: [53] }, status: "WITHDRAWN" },
+					data: fields(4),
+				},
+			},
+		]);
+	});
+
+	test("si se actualizan menos filas de las esperadas, STATE_CHANGED como save", async () => {
+		const { repository } = createBatchHarness({ updated: 1 });
+
+		await expect(
+			repository.saveMany([
+				writeOf(51, 3, "WITHDRAWN"),
+				writeOf(52, 3, "WITHDRAWN"),
+			]),
+		).rejects.toMatchObject({ code: ENROLLMENT_ERROR_CODES.STATE_CHANGED });
+	});
+
+	test("una alta que choca con la unicidad es STATE_CHANGED, no un error suelto", async () => {
+		const { repository } = createBatchHarness({
+			createError: new Prisma.PrismaClientKnownRequestError("duplicado", {
+				code: "P2002",
+				clientVersion: "7.9.0",
+			}),
+		});
+
+		await expect(
+			repository.saveMany([writeOf(50, 3, null)]),
+		).rejects.toMatchObject({ code: ENROLLMENT_ERROR_CODES.STATE_CHANGED });
+	});
+
+	test("sin escrituras no consulta", async () => {
+		const { repository, calls } = createBatchHarness();
+
+		await repository.saveMany([]);
+
+		expect(calls).toEqual([]);
 	});
 });

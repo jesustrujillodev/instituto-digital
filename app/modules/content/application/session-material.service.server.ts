@@ -1,5 +1,6 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { canEdit } from "@/modules/courses/domain/course.rules";
+import { allInOrder } from "@/shared/concurrency/all-in-order";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -237,16 +238,22 @@ export const createSessionMaterialService = ({
 		async create(courseDocumentId, dto, actor) {
 			return run("create", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
-				const session = await sessionMaterialRepository.findSession(
-					course.id,
-					dto.sessionDocumentId,
-				);
-				if (!session) throw new ContentSessionNotFoundError();
-				assertSessionMaterialLimit(session.materialCount);
+				// El objeto subido se comprueba mientras se busca la sesión; los
+				// errores de la sesión siguen ganando.
+				const [session, write] = await allInOrder([
+					sessionMaterialRepository
+						.findSession(course.id, dto.sessionDocumentId)
+						.then((session) => {
+							if (!session) throw new ContentSessionNotFoundError();
+							assertSessionMaterialLimit(session.materialCount);
+							return session;
+						}),
+					resolveWrite(dto),
+				]);
 
 				const created = await sessionMaterialRepository.create(
 					session.id,
-					await resolveWrite(dto),
+					write,
 				);
 
 				return ok(created);

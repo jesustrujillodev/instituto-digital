@@ -12,6 +12,7 @@ import {
 	toNotifiedSessions,
 } from "@/modules/notifications/domain/notification.mapper";
 import type { NotificationEvent } from "@/modules/notifications/domain/notification.types";
+import { allInOrder } from "@/shared/concurrency/all-in-order";
 import type { ICradle } from "@/shared/di/container.types";
 import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
@@ -563,8 +564,12 @@ export const createCourseService = ({
 		) {
 			return run("create", async () => {
 				const scope = requireWriteScope(actor);
-				const dependencyId = await resolveOrganizer(dto.dependency, scope);
-				const data = await buildWriteData(dto, scope);
+				// Independientes entre sí; si los dos fallan, gana el del organizador,
+				// que es el que se comprobaba primero.
+				const [dependencyId, data] = await allInOrder([
+					resolveOrganizer(dto.dependency, scope),
+					buildWriteData(dto, scope),
+				]);
 
 				// Curso, sesiones, capacitadores y audiencia son una sola escritura
 				// (reglas §8.1): un curso a medias no es un borrador, es basura. La

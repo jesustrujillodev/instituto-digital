@@ -7,6 +7,7 @@ import {
 	ACTIVE_ENROLLMENT_STATUSES,
 	AVAILABLE_LIST_DEFAULTS,
 	ENROLLMENT_CANDIDATES_LIMIT,
+	type EnrollmentStatus,
 	MY_COURSE_STATUSES,
 } from "../domain/enrollment.config";
 import { EnrollmentStateChangedError } from "../domain/enrollment.errors";
@@ -76,6 +77,27 @@ const COURSE_SELECT = {
 	},
 } satisfies Prisma.CourseSelect;
 
+const OWN_ENROLLMENT_SELECT = {
+	userId: true,
+	actedById: true,
+	documentId: true,
+	origin: true,
+	status: true,
+	result: true,
+	completed: true,
+} satisfies Prisma.EnrollmentSelect;
+
+const toStoredEnrollment = (
+	enrollment: Prisma.EnrollmentGetPayload<{
+		select: typeof OWN_ENROLLMENT_SELECT;
+	}> | null,
+) =>
+	enrollment && {
+		...toOwnEnrollment(enrollment),
+		userId: enrollment.userId,
+		completed: enrollment.completed,
+	};
+
 const PARTICIPANT_SELECT = {
 	id: true,
 	documentId: true,
@@ -133,6 +155,24 @@ const toParticipants = (
 		dependencyId === null ? [] : [{ ...row, dependencyId }],
 	);
 
+/**
+ * Agrupa a las personas que reciben la misma escritura, en el orden en que
+ * aparecen: cada grupo es un `updateMany` en vez de uno por persona.
+ */
+const groupUserIds = <T extends { userId: number }>(
+	rows: readonly T[],
+	keyOf: (row: T) => string,
+) => {
+	const groups = new Map<string, { sample: T; userIds: number[] }>();
+	for (const row of rows) {
+		const key = keyOf(row);
+		const group = groups.get(key);
+		if (group) group.userIds.push(row.userId);
+		else groups.set(key, { sample: row, userIds: [row.userId] });
+	}
+	return [...groups.values()];
+};
+
 const timestampsFor = (data: EnrollmentWrite) => {
 	switch (data.status) {
 		case "INVITED":
@@ -154,12 +194,31 @@ const timestampsFor = (data: EnrollmentWrite) => {
 	}
 };
 
+/** Otra petición se adelantó: la unicidad `(curso, persona)` llega como P2002. */
+const asStateChanged = (error: unknown) =>
+	error instanceof Prisma.PrismaClientKnownRequestError &&
+	error.code === "P2002"
+		? new EnrollmentStateChangedError()
+		: error;
+
+const fieldsOf = (data: EnrollmentWrite) => ({
+	dependencyId: data.dependencyId,
+	origin: data.origin,
+	status: data.status,
+	actedById: data.actedById,
+	...timestampsFor(data),
+});
+
 export const createEnrollmentRepository = ({
 	prisma,
 	assetUrlResolver,
 }: Dependencies): IEnrollmentRepository => {
 	const resolveCover = (reference: string | null) =>
 		resolveAssetRef(assetUrlResolver, reference);
+
+	const lockCourse = async (courseId: number) => {
+		await prisma.$queryRaw`SELECT id FROM "org"."courses" WHERE id = ${courseId} FOR UPDATE`;
+	};
 
 	/** Las inscripciones de «Mis cursos», con lo que le fue a la persona en cada curso. */
 	const readMyCourses = async (
@@ -283,25 +342,21 @@ export const createEnrollmentRepository = ({
 		},
 
 		async findEnrollment(courseId, userId) {
-			const enrollment = await prisma.enrollment.findUnique({
-				where: { courseId_userId: { courseId, userId } },
-				select: {
-					userId: true,
-					actedById: true,
-					documentId: true,
-					origin: true,
-					status: true,
-					result: true,
-					completed: true,
-				},
-			});
+			return toStoredEnrollment(
+				await prisma.enrollment.findUnique({
+					where: { courseId_userId: { courseId, userId } },
+					select: OWN_ENROLLMENT_SELECT,
+				}),
+			);
+		},
 
-			return (
-				enrollment && {
-					...toOwnEnrollment(enrollment),
-					userId: enrollment.userId,
-					completed: enrollment.completed,
-				}
+		async findEnrollmentByCourseDocumentId(courseDocumentId, userId) {
+			// Una inscripción por persona y curso: la misma fila que `findEnrollment`.
+			return toStoredEnrollment(
+				await prisma.enrollment.findFirst({
+					where: { userId, course: { documentId: courseDocumentId } },
+					select: OWN_ENROLLMENT_SELECT,
+				}),
 			);
 		},
 
@@ -341,8 +396,10 @@ export const createEnrollmentRepository = ({
 			});
 		},
 
+		lockCourse,
+
 		async lockCourseSeats(courseId) {
-			await prisma.$queryRaw`SELECT id FROM "org"."courses" WHERE id = ${courseId} FOR UPDATE`;
+			await lockCourse(courseId);
 
 			const [course, enrolled] = await Promise.all([
 				prisma.course.findUniqueOrThrow({
@@ -356,18 +413,14 @@ export const createEnrollmentRepository = ({
 		},
 
 		async save(data, expected) {
-			const fields = {
-				dependencyId: data.dependencyId,
-				origin: data.origin,
-				status: data.status,
-				actedById: data.actedById,
-				...timestampsFor(data),
-			};
-
 			try {
 				if (expected === null) {
 					await prisma.enrollment.create({
-						data: { courseId: data.courseId, userId: data.userId, ...fields },
+						data: {
+							courseId: data.courseId,
+							userId: data.userId,
+							...fieldsOf(data),
+						},
 					});
 					return;
 				}
@@ -378,28 +431,72 @@ export const createEnrollmentRepository = ({
 						userId: data.userId,
 						status: expected,
 					},
-					data: fields,
+					data: fieldsOf(data),
 				});
 				if (count === 0) throw new EnrollmentStateChangedError();
 			} catch (error) {
-				if (
-					error instanceof Prisma.PrismaClientKnownRequestError &&
-					error.code === "P2002"
-				) {
-					throw new EnrollmentStateChangedError();
+				throw asStateChanged(error);
+			}
+		},
+
+		async saveMany(writes) {
+			const creates = writes.filter((write) => write.expected === null);
+			const updates = new Map<
+				string,
+				{ data: EnrollmentWrite; expected: EnrollmentStatus; userIds: number[] }
+			>();
+			for (const { data, expected } of writes) {
+				if (expected === null) continue;
+				// Mismo curso, mismo estado esperado y mismos campos: un solo UPDATE.
+				const key = JSON.stringify([data.courseId, expected, fieldsOf(data)]);
+				const group = updates.get(key);
+				if (group) group.userIds.push(data.userId);
+				else updates.set(key, { data, expected, userIds: [data.userId] });
+			}
+
+			try {
+				if (creates.length > 0) {
+					await prisma.enrollment.createMany({
+						data: creates.map(({ data }) => ({
+							courseId: data.courseId,
+							userId: data.userId,
+							...fieldsOf(data),
+						})),
+					});
 				}
-				throw error;
+				for (const { data, expected, userIds } of updates.values()) {
+					const { count } = await prisma.enrollment.updateMany({
+						where: {
+							courseId: data.courseId,
+							userId: { in: userIds },
+							status: expected,
+						},
+						data: fieldsOf(data),
+					});
+					// Una inscripción por persona y curso: menos filas que personas
+					// es que alguna cambió de estado, como el `count === 0` de `save`.
+					if (count !== userIds.length) throw new EnrollmentStateChangedError();
+				}
+			} catch (error) {
+				throw asStateChanged(error);
 			}
 		},
 
 		async saveResults(courseId, entries, actorId, at) {
-			// Secuencial: la transacción interactiva de Prisma no admite consultas en paralelo.
-			for (const entry of entries) {
+			// Como en fila, si alguien viene dos veces gana su última entrada; las
+			// personas con el mismo resultado y nota se escriben en una sentencia.
+			const latest = new Map(entries.map((entry) => [entry.userId, entry]));
+			const groups = groupUserIds(
+				[...latest.values()],
+				(entry) => `${entry.result}:${entry.grade}`,
+			);
+
+			for (const { sample, userIds } of groups) {
 				await prisma.enrollment.updateMany({
-					where: { courseId, userId: entry.userId, status: "ENROLLED" },
+					where: { courseId, userId: { in: userIds }, status: "ENROLLED" },
 					data: {
-						result: entry.result,
-						grade: entry.grade,
+						result: sample.result,
+						grade: sample.grade,
 						resultRecordedById: actorId,
 						resultRecordedAt: at,
 					},
@@ -419,9 +516,13 @@ export const createEnrollmentRepository = ({
 			});
 		},
 
-		async findProgressStates(courseId) {
+		async findProgressStates(courseId, userIds) {
 			return prisma.enrollment.findMany({
-				where: { courseId, status: "ENROLLED" },
+				where: {
+					courseId,
+					status: "ENROLLED",
+					...(userIds ? { userId: { in: [...userIds] } } : {}),
+				},
 				select: {
 					userId: true,
 					progressPercent: true,
@@ -434,22 +535,41 @@ export const createEnrollmentRepository = ({
 		},
 
 		async saveProgress(courseId, writes) {
+			// En fila, el último porcentaje de cada persona es el que queda, y la
+			// primera fecha de término es la única que entra (después ya no es nula).
+			const latest = new Map(writes.map((write) => [write.userId, write]));
+			const firstCompletion = new Map<number, Date>();
 			for (const write of writes) {
-				await prisma.enrollment.updateMany({
-					where: { courseId, userId: write.userId, status: "ENROLLED" },
-					data: { progressPercent: write.percent },
-				});
-				if (write.completedAt) {
-					await prisma.enrollment.updateMany({
-						where: {
-							courseId,
-							userId: write.userId,
-							status: "ENROLLED",
-							contentCompletedAt: null,
-						},
-						data: { contentCompletedAt: write.completedAt },
-					});
+				if (write.completedAt && !firstCompletion.has(write.userId)) {
+					firstCompletion.set(write.userId, write.completedAt);
 				}
+			}
+
+			for (const { sample, userIds } of groupUserIds(
+				[...latest.values()],
+				(write) => String(write.percent),
+			)) {
+				await prisma.enrollment.updateMany({
+					where: { courseId, userId: { in: userIds }, status: "ENROLLED" },
+					data: { progressPercent: sample.percent },
+				});
+			}
+			for (const { sample, userIds } of groupUserIds(
+				[...firstCompletion].map(([userId, completedAt]) => ({
+					userId,
+					completedAt,
+				})),
+				(write) => String(write.completedAt.getTime()),
+			)) {
+				await prisma.enrollment.updateMany({
+					where: {
+						courseId,
+						userId: { in: userIds },
+						status: "ENROLLED",
+						contentCompletedAt: null,
+					},
+					data: { contentCompletedAt: sample.completedAt },
+				});
 			}
 		},
 

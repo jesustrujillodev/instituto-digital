@@ -6,7 +6,10 @@ import type { Logger } from "@/shared/logging/logger";
 import type { Role } from "@/shared/rules/atoms.rules";
 import { catalogAccessWhere } from "../../domain/enrollment.access";
 import type { EnrollmentStatus } from "../../domain/enrollment.config";
-import { ENROLLMENT_ERROR_CODES } from "../../domain/enrollment.errors";
+import {
+	ENROLLMENT_ERROR_CODES,
+	EnrollmentStateChangedError,
+} from "../../domain/enrollment.errors";
 import type {
 	CandidateAccount,
 	EnrollmentCourse,
@@ -104,6 +107,8 @@ interface HarnessOptions {
 	/** La inscripción de la persona a quien se da de baja. */
 	target?: { status: EnrollmentStatus; completed?: boolean } | null;
 	seats?: { capacity: number | null; enrolled: number };
+	/** Otra petición cambió alguna de las inscripciones del lote. */
+	batchStateChanged?: boolean;
 	participants?: ParticipantAccount[];
 	groupMembers?: ParticipantAccount[];
 	eligibleGroups?: number;
@@ -122,6 +127,7 @@ const createHarness = (options: HarnessOptions = {}) => {
 		locks: [] as number[],
 		lockedInTransaction: [] as boolean[],
 		saved: [] as { data: EnrollmentWrite; expected: EnrollmentStatus | null }[],
+		batches: [] as number[],
 		courseFilters: [] as unknown[],
 		participantScopes: [] as (number | null)[],
 		availableFilters: [] as unknown[],
@@ -131,6 +137,18 @@ const createHarness = (options: HarnessOptions = {}) => {
 		rateKeys: [] as string[],
 	};
 	let inTransaction = false;
+
+	const ownEnrollment = () =>
+		options.own
+			? {
+					userId: 50,
+					documentId: "e1",
+					origin: "INVITATION",
+					status: options.own,
+					result: "PENDING",
+					removed: options.removed ?? false,
+				}
+			: null;
 
 	const enrollmentRepository = {
 		findCourse: async (_documentId: string, filter: object) => {
@@ -148,17 +166,8 @@ const createHarness = (options: HarnessOptions = {}) => {
 			return [];
 		},
 		findGroupEnrollable: async () => options.enrollable ?? [],
-		findEnrollment: async () =>
-			options.own
-				? {
-						userId: 50,
-						documentId: "e1",
-						origin: "INVITATION",
-						status: options.own,
-						result: "PENDING",
-						removed: options.removed ?? false,
-					}
-				: null,
+		findEnrollment: async () => ownEnrollment(),
+		findEnrollmentByCourseDocumentId: async () => ownEnrollment(),
 		findParticipantEnrollment: async () =>
 			options.target
 				? {
@@ -187,6 +196,13 @@ const createHarness = (options: HarnessOptions = {}) => {
 		},
 		save: async (data: EnrollmentWrite, expected: EnrollmentStatus | null) => {
 			calls.saved.push({ data, expected });
+		},
+		saveMany: async (
+			writes: { data: EnrollmentWrite; expected: EnrollmentStatus | null }[],
+		) => {
+			if (options.batchStateChanged) throw new EnrollmentStateChangedError();
+			calls.batches.push(writes.length);
+			calls.saved.push(...writes);
 		},
 		findParticipants: async (
 			ids: readonly string[],
@@ -669,6 +685,33 @@ describe("enrollmentService.assign", () => {
 		});
 	});
 
+	test("escribe el lote de una vez, no persona por persona", async () => {
+		const { service, calls } = createHarness();
+
+		await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A, USER_B] },
+			head,
+		);
+
+		expect(calls.batches).toEqual([2]);
+	});
+
+	test("si otra petición cambió a alguien del lote, falla con STATE_CHANGED", async () => {
+		const { service } = createHarness({ batchStateChanged: true });
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A, USER_B] },
+			head,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.STATE_CHANGED },
+		});
+	});
+
 	test("omite a quien ya está inscrito", async () => {
 		const { service, calls } = createHarness({
 			existing: [{ userId: 100, status: "ENROLLED" }],
@@ -1065,7 +1108,7 @@ describe("enrollmentService.findAvailable", () => {
 
 		await service.findAvailable(COURSE_ID, actorOf("DEPENDENCY_DEPUTY"));
 
-		expect(calls.courseFilters[0]).toEqual({
+		expect(calls.courseFilters).toContainEqual({
 			AND: [
 				expect.objectContaining({ OR: expect.any(Array) }),
 				catalogAccessWhere(50),

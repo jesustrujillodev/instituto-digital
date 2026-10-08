@@ -516,3 +516,65 @@ describe("setEnrollmentClosed", () => {
 		});
 	});
 });
+
+describe("findByQrToken", () => {
+	const repositoryReturning = (row: unknown) => {
+		const calls: unknown[] = [];
+		const repository = createCourseRepository({
+			prisma: {
+				course: {
+					findUnique: async (args: unknown) => {
+						calls.push(args);
+						return row;
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+		return { repository, calls };
+	};
+	const QR_ROW = {
+		id: 7,
+		documentId: "c-doc",
+		title: "Seguridad en obra",
+		status: "PUBLISHED",
+		modality: "IN_PERSON",
+		qrOpensBeforeMinutes: 15,
+		qrClosesAfterMinutes: 15,
+		dependency: { name: "Obras Públicas" },
+		sessions: [],
+	};
+
+	test("trae la inscripción de quien escanea en la misma consulta", async () => {
+		const { repository, calls } = repositoryReturning({
+			...QR_ROW,
+			enrollments: [{ status: "ENROLLED" }],
+		});
+
+		const found = await repository.findByQrToken("token", 50);
+
+		expect(calls[0]).toMatchObject({
+			where: { qrToken: "token" },
+			select: {
+				enrollments: { where: { userId: 50 }, select: { status: true } },
+			},
+		});
+		expect(found).toEqual({
+			course: { ...QR_ROW, dependencyName: "Obras Públicas" },
+			viewerEnrollment: { status: "ENROLLED" },
+		});
+	});
+
+	test("sin inscripción, la deja en null; sin curso, devuelve null", async () => {
+		expect(
+			(
+				await repositoryReturning({
+					...QR_ROW,
+					enrollments: [],
+				}).repository.findByQrToken("token", 50)
+			)?.viewerEnrollment,
+		).toBeNull();
+		expect(
+			await repositoryReturning(null).repository.findByQrToken("token", 50),
+		).toBeNull();
+	});
+});

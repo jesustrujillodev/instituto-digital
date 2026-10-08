@@ -21,6 +21,7 @@ const createHarness = (
 		quizUpdate: [],
 		questionDelete: [],
 		questionCreate: [],
+		optionCreate: [],
 		attemptCreate: [],
 		attemptFindMany: [],
 		attemptAggregate: [],
@@ -46,8 +47,17 @@ const createHarness = (
 				deleteMany: async (args: unknown) => {
 					calls.questionDelete.push(args);
 				},
-				create: async (args: unknown) => {
+				createManyAndReturn: async (args: { data: { order: number }[] }) => {
 					calls.questionCreate.push(args);
+					return args.data.map((row) => ({
+						id: 100 + row.order,
+						order: row.order,
+					}));
+				},
+			},
+			quizOption: {
+				createMany: async (args: unknown) => {
+					calls.optionCreate.push(args);
 				},
 			},
 			quizAttempt: {
@@ -92,20 +102,9 @@ describe("quizRepository.replaceBank", () => {
 	test("crea el examen si no existe y escribe preguntas y opciones en orden", async () => {
 		const { repository, calls } = createHarness();
 
-		await repository.replaceBank(7, FINAL, bank);
+		await repository.replaceBank(7, FINAL, bank, null);
 
-		expect(calls.quizFind).toEqual([
-			{
-				where: {
-					courseId: 7,
-					lessonId: null,
-					moduleId: null,
-					sessionId: null,
-					archivedAt: null,
-				},
-				select: { id: true },
-			},
-		]);
+		expect(calls.quizFind).toEqual([]);
 		expect(calls.quizCreate).toEqual([
 			{
 				data: {
@@ -122,31 +121,94 @@ describe("quizRepository.replaceBank", () => {
 		expect(calls.questionDelete).toEqual([{ where: { quizId: 5 } }]);
 		expect(calls.questionCreate).toEqual([
 			{
-				data: {
-					quizId: 5,
-					statement: "¿Cuál?",
-					type: "SINGLE_CHOICE",
-					points: 2,
-					order: 1,
-					options: {
-						create: [
-							{ text: "A", isCorrect: true, order: 1 },
-							{ text: "B", isCorrect: false, order: 2 },
-						],
+				data: [
+					{
+						quizId: 5,
+						statement: "¿Cuál?",
+						type: "SINGLE_CHOICE",
+						points: 2,
+						order: 1,
 					},
-				},
+				],
+				select: { id: true, order: true },
+			},
+		]);
+		expect(calls.optionCreate).toEqual([
+			{
+				data: [
+					{ questionId: 101, text: "A", isCorrect: true, order: 1 },
+					{ questionId: 101, text: "B", isCorrect: false, order: 2 },
+				],
 			},
 		]);
 	});
 
-	test("si ya existe, lo actualiza en lugar de crear otro", async () => {
+	test("cuelga cada opción de su pregunta, en dos sentencias para todo el banco", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.replaceBank(
+			7,
+			FINAL,
+			{
+				...bank,
+				questions: [
+					...bank.questions,
+					{
+						statement: "¿Verdadero?",
+						type: "TRUE_FALSE" as const,
+						points: 1,
+						options: [
+							{ text: "Sí", isCorrect: false },
+							{ text: "No", isCorrect: true },
+						],
+					},
+				],
+			},
+			null,
+		);
+
+		expect(calls.questionCreate).toHaveLength(1);
+		expect(calls.optionCreate).toEqual([
+			{
+				data: [
+					{ questionId: 101, text: "A", isCorrect: true, order: 1 },
+					{ questionId: 101, text: "B", isCorrect: false, order: 2 },
+					{ questionId: 102, text: "Sí", isCorrect: false, order: 1 },
+					{ questionId: 102, text: "No", isCorrect: true, order: 2 },
+				],
+			},
+		]);
+	});
+
+	test("con el id que ya leyó el servicio, lo actualiza sin volver a buscarlo", async () => {
 		const { repository, calls } = createHarness({ existing: { id: 3 } });
 
-		await repository.replaceBank(7, FINAL, bank);
+		await repository.replaceBank(7, FINAL, bank, 3);
 
+		expect(calls.quizFind).toEqual([]);
 		expect(calls.quizCreate).toEqual([]);
-		expect(calls.quizUpdate).toHaveLength(1);
+		expect(calls.quizUpdate).toEqual([
+			{
+				where: { id: 3 },
+				data: {
+					title: "Examen",
+					passingScore: 70,
+					maxAttempts: 3,
+					shuffleQuestions: false,
+				},
+			},
+		]);
 		expect(calls.questionDelete).toEqual([{ where: { quizId: 3 } }]);
+	});
+
+	test("un banco sin preguntas solo borra las anteriores", async () => {
+		const { repository, calls } = createHarness({ existing: { id: 3 } });
+
+		await repository.replaceBank(7, FINAL, { ...bank, questions: [] }, 3);
+
+		expect(calls.questionDelete).toEqual([{ where: { quizId: 3 } }]);
+		expect(calls.questionCreate).toEqual([]);
+		expect(calls.optionCreate).toEqual([]);
 	});
 });
 
@@ -194,7 +256,12 @@ describe("evaluaciones de módulo", () => {
 	test("la de un módulo se crea colgando de él", async () => {
 		const { repository, calls } = createHarness();
 
-		await repository.replaceBank(7, { lessonId: null, moduleId: 21 }, bank);
+		await repository.replaceBank(
+			7,
+			{ lessonId: null, moduleId: 21 },
+			bank,
+			null,
+		);
 
 		expect(calls.quizCreate).toEqual([
 			{ data: expect.objectContaining({ lessonId: null, moduleId: 21 }) },
@@ -327,5 +394,164 @@ describe("quizRepository.findFollowUpBanks", () => {
 			expect.objectContaining({ id: 40, attemptCount: 3, questions: [] }),
 		]);
 		expect(banks[0]).not.toHaveProperty("_count");
+	});
+});
+
+describe("quizRepository.findLatestFollowUpAttempts", () => {
+	const attemptRow = (quizId: number, number: number) => ({
+		quizId,
+		id: quizId * 10 + number,
+		number,
+		submittedAt: AT,
+		score: 50,
+		passed: false,
+		retakeGrantedAt: null,
+		answers: [],
+	});
+
+	test("lee los intentos del seguimiento del curso en una sola consulta", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findLatestFollowUpAttempts(7, 50);
+
+		expect(calls.attemptFindMany).toEqual([
+			expect.objectContaining({
+				where: { userId: 50, quiz: { courseId: 7, sessionId: { not: null } } },
+				orderBy: { number: "desc" },
+			}),
+		]);
+	});
+
+	test("deja el intento de número más alto de cada cuestionario, sin el quizId", async () => {
+		const { repository } = createHarness({
+			attempts: [attemptRow(40, 2), attemptRow(41, 1), attemptRow(40, 1)],
+		});
+
+		const latest = await repository.findLatestFollowUpAttempts(7, 50);
+
+		expect([...latest.keys()]).toEqual([40, 41]);
+		expect(latest.get(40)).toEqual({
+			id: 402,
+			number: 2,
+			submittedAt: AT,
+			score: 50,
+			passed: false,
+			retakeGrantedAt: null,
+			answers: [],
+		});
+		expect(latest.get(41)?.number).toBe(1);
+	});
+});
+
+describe("quizRepository.findBestScoresIn", () => {
+	const row = (
+		score: number,
+		quiz: {
+			courseId: number;
+			documentId: string;
+			lessonId: number | null;
+			lesson?: { documentId: string } | null;
+			module?: { courseId: number } | null;
+		},
+	) => ({
+		userId: 50,
+		score,
+		quiz: { lesson: null, module: null, ...quiz },
+	});
+
+	test("filtra por los cursos y conserva las dos ramas de findBestScores", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findBestScoresIn([7, 8], [50]);
+
+		expect(calls.attemptFindMany).toEqual([
+			expect.objectContaining({
+				where: {
+					quiz: {
+						courseId: { in: [7, 8] },
+						OR: [
+							{
+								archivedAt: null,
+								module: { courseId: { in: [7, 8] }, archivedAt: null },
+							},
+							{ lessonId: { not: null } },
+						],
+					},
+					userId: { in: [50] },
+				},
+			}),
+		]);
+	});
+
+	test("la mejor nota por curso y elemento; el módulo de otro curso no cuenta", async () => {
+		const { repository } = createHarness({
+			attempts: [
+				row(40, {
+					courseId: 7,
+					documentId: "quiz-a",
+					lessonId: 31,
+					lesson: { documentId: "lesson-a" },
+				}),
+				row(90, {
+					courseId: 7,
+					documentId: "quiz-a",
+					lessonId: 31,
+					lesson: { documentId: "lesson-a" },
+				}),
+				row(70, {
+					courseId: 8,
+					documentId: "module-quiz",
+					lessonId: null,
+					module: { courseId: 8 },
+				}),
+				row(100, {
+					courseId: 7,
+					documentId: "stray-quiz",
+					lessonId: null,
+					module: { courseId: 8 },
+				}),
+			],
+		});
+
+		const byCourse = await repository.findBestScoresIn([7, 8], [50]);
+
+		expect(byCourse).toEqual(
+			new Map([
+				[7, [{ userId: 50, itemDocumentId: "lesson-a", score: 90 }]],
+				[8, [{ userId: 50, itemDocumentId: "module-quiz", score: 70 }]],
+			]),
+		);
+	});
+});
+
+describe("quizRepository.findQuizWithAttemptCount", () => {
+	test("el mismo cuestionario que findQuiz, con sus intentos contados", async () => {
+		const calls: unknown[] = [];
+		const repository = createQuizRepository({
+			prisma: {
+				quiz: {
+					findFirst: async (args: { select: Record<string, unknown> }) => {
+						calls.push(args);
+						return args.select._count
+							? { id: 9, title: "Examen", _count: { attempts: 4 } }
+							: { id: 9, title: "Examen" };
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		const withCount = await repository.findQuizWithAttemptCount(7, FINAL);
+		await repository.findQuiz(7, FINAL);
+
+		expect(withCount).toEqual({ id: 9, title: "Examen", attemptCount: 4 });
+		const [counted, plain] = calls as {
+			where: unknown;
+			select: Record<string, unknown>;
+		}[];
+		expect(counted.where).toEqual(plain.where);
+		expect(counted.select).toEqual({
+			...plain.select,
+			_count: { select: { attempts: true } },
+		});
 	});
 });

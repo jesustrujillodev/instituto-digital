@@ -17,6 +17,7 @@ const createHarness = (
 		findMany: [],
 		findUnique: [],
 		upsert: [],
+		attendanceWrites: [],
 	};
 
 	const repository = createTeachingRepository({
@@ -38,6 +39,12 @@ const createHarness = (
 				},
 				upsert: async (args: Record<string, unknown>) => {
 					calls.upsert.push(args);
+				},
+				createMany: async (args: Record<string, unknown>) => {
+					calls.attendanceWrites.push({ createMany: args });
+				},
+				updateMany: async (args: Record<string, unknown>) => {
+					calls.attendanceWrites.push({ updateMany: args });
 				},
 			},
 		} as unknown as ICradle["prisma"],
@@ -133,38 +140,95 @@ describe("findCourses", () => {
 });
 
 describe("saveAttendance", () => {
-	test("escribe una marca por persona con quién y cuándo", async () => {
+	const at = new Date("2026-09-03T17:00:00.000Z");
+	const dataOf = (attended: boolean) => ({
+		attended,
+		source: "MANUAL",
+		recordedById: 9,
+		recordedAt: at,
+	});
+
+	test("por cada valor, crea las que faltan y escribe todas, con quién y cuándo", async () => {
 		const { repository, calls } = createHarness();
-		const at = new Date("2026-09-03T17:00:00.000Z");
 
 		await repository.saveAttendance(
 			101,
 			[
 				{ userId: 50, attended: true },
 				{ userId: 51, attended: false },
+				{ userId: 52, attended: true },
 			],
 			9,
 			at,
 		);
 
-		expect(calls.upsert).toHaveLength(2);
-		expect(calls.upsert[1]).toEqual({
-			where: { sessionId_userId: { sessionId: 101, userId: 51 } },
-			create: {
-				sessionId: 101,
-				userId: 51,
-				attended: false,
-				source: "MANUAL",
-				recordedById: 9,
-				recordedAt: at,
+		expect(calls.upsert).toEqual([]);
+		expect(calls.attendanceWrites).toEqual([
+			{
+				createMany: {
+					data: [
+						{ sessionId: 101, userId: 50, ...dataOf(true) },
+						{ sessionId: 101, userId: 52, ...dataOf(true) },
+					],
+					skipDuplicates: true,
+				},
 			},
-			update: {
-				attended: false,
-				source: "MANUAL",
-				recordedById: 9,
-				recordedAt: at,
+			{
+				updateMany: {
+					where: { sessionId: 101, userId: { in: [50, 52] } },
+					data: dataOf(true),
+				},
 			},
-		});
+			{
+				createMany: {
+					data: [{ sessionId: 101, userId: 51, ...dataOf(false) }],
+					skipDuplicates: true,
+				},
+			},
+			{
+				updateMany: {
+					where: { sessionId: 101, userId: { in: [51] } },
+					data: dataOf(false),
+				},
+			},
+		]);
+	});
+
+	test("si una persona viene dos veces gana la última marca, como en fila", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.saveAttendance(
+			101,
+			[
+				{ userId: 50, attended: true },
+				{ userId: 50, attended: false },
+			],
+			9,
+			at,
+		);
+
+		expect(calls.attendanceWrites).toEqual([
+			{
+				createMany: {
+					data: [{ sessionId: 101, userId: 50, ...dataOf(false) }],
+					skipDuplicates: true,
+				},
+			},
+			{
+				updateMany: {
+					where: { sessionId: 101, userId: { in: [50] } },
+					data: dataOf(false),
+				},
+			},
+		]);
+	});
+
+	test("sin marcas no escribe nada", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.saveAttendance(101, [], 9, at);
+
+		expect(calls.attendanceWrites).toEqual([]);
 	});
 });
 
@@ -296,5 +360,17 @@ describe("findAwaitingFinish", () => {
 			enrolledCount: 14,
 			viewerTeaches: true,
 		});
+	});
+});
+
+describe("findCourseId", () => {
+	test("usa el mismo filtro que findCourse y solo pide el id", async () => {
+		const { repository, calls } = createHarness();
+
+		await repository.findCourse("c-doc", WHERE);
+		await repository.findCourseId("c-doc", WHERE);
+
+		expect(calls.findFirst[1]?.where).toEqual(calls.findFirst[0]?.where);
+		expect(calls.findFirst[1]?.select).toEqual({ id: true });
 	});
 });

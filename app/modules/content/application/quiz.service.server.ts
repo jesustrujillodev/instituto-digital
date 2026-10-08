@@ -235,25 +235,35 @@ export const createQuizService = ({
 	});
 
 	/** Lo que el participante puede hacer con una evaluación de seguimiento. */
-	const followUpAvailabilityFor = async (
+	const followUpAvailabilityWith = (
 		course: ClassroomCourse,
 		followUp: StoredFollowUp,
 		latestAttempt: StoredAttempt | null,
-		userId: number,
+		attended: readonly number[],
 		now: Date,
-	) => {
-		const attended = await teachingRepository.findAttendedSessionIds(
-			course.id,
-			userId,
-		);
-		return followUpAvailabilityOf(
+	) =>
+		followUpAvailabilityOf(
 			windowStateOf(followUp, course.status, now).state,
 			attended.includes(followUp.session.id),
 			course.enrollment,
 			latestAttempt,
 			followUp.maxAttempts,
 		);
-	};
+
+	const followUpAvailabilityFor = async (
+		course: ClassroomCourse,
+		followUp: StoredFollowUp,
+		latestAttempt: StoredAttempt | null,
+		userId: number,
+		now: Date,
+	) =>
+		followUpAvailabilityWith(
+			course,
+			followUp,
+			latestAttempt,
+			await teachingRepository.findAttendedSessionIds(course.id, userId),
+			now,
+		);
 
 	/** El curso visto por quien lo presenta, con su inscripción. */
 	const requireClassroomCourse = async (
@@ -312,12 +322,14 @@ export const createQuizService = ({
 				const course = await requireCourse(courseDocumentId, actor);
 				const { ids } = await resolveOwner(course.id, owner);
 
-				const quiz = await quizRepository.findQuiz(course.id, ids);
+				const quiz = await quizRepository.findQuizWithAttemptCount(
+					course.id,
+					ids,
+				);
 				if (!quiz) return ok(null);
 
-				return ok(
-					toQuizBank(quiz, await quizRepository.countAttempts(quiz.id)),
-				);
+				const { attemptCount, ...bank } = quiz;
+				return ok(toQuizBank(bank, attemptCount));
 			});
 		},
 
@@ -333,16 +345,19 @@ export const createQuizService = ({
 				await runInTransaction(async () => {
 					// Con la fila del curso bloqueada: dos guardados no pueden crear
 					// dos cuestionarios para el mismo dueño, y nadie presenta a mitad.
-					await enrollmentRepository.lockCourseSeats(course.id);
+					await enrollmentRepository.lockCourse(course.id);
 
-					const quiz = await quizRepository.findQuiz(course.id, ids);
-					if (quiz)
-						assertBankEditable(await quizRepository.countAttempts(quiz.id));
+					const quiz = await quizRepository.findQuizWithAttemptCount(
+						course.id,
+						ids,
+					);
+					if (quiz) assertBankEditable(quiz.attemptCount);
 
 					await quizRepository.replaceBank(
 						course.id,
 						ids,
 						toQuizBankWrite(dto),
+						quiz?.id ?? null,
 					);
 
 					if (!quiz && kind === "MODULE") {
@@ -406,16 +421,28 @@ export const createQuizService = ({
 				if (kind === "FINAL" && !evaluatesByQuiz(course)) return ok(null);
 				const { ids, followUp } = await resolveOwner(course.id, owner);
 
-				const quiz = await quizRepository.findQuiz(course.id, ids);
+				// El seguimiento ya trae su id, que es el del cuestionario: su intento
+				// y la asistencia no esperan al banco.
+				const [quiz, followUpAttempt, attended] = await Promise.all([
+					quizRepository.findQuiz(course.id, ids),
+					followUp
+						? quizRepository.findAttempt(followUp.id, actor.userId)
+						: null,
+					followUp
+						? teachingRepository.findAttendedSessionIds(course.id, actor.userId)
+						: null,
+				]);
 				if (!quiz || quiz.questions.length === 0) return ok(null);
 
-				const attempt = await quizRepository.findAttempt(quiz.id, actor.userId);
+				const attempt = followUp
+					? followUpAttempt
+					: await quizRepository.findAttempt(quiz.id, actor.userId);
 				const availability = followUp
-					? await followUpAvailabilityFor(
+					? followUpAvailabilityWith(
 							course,
 							followUp,
 							attempt,
-							actor.userId,
+							attended ?? [],
 							clock.now(),
 						)
 					: quizAvailabilityOf(
@@ -477,7 +504,7 @@ export const createQuizService = ({
 				const now = clock.now();
 
 				return runInTransaction(async () => {
-					await enrollmentRepository.lockCourseSeats(course.id);
+					await enrollmentRepository.lockCourse(course.id);
 
 					const quiz = await quizRepository.findQuiz(course.id, ids);
 					if (!quiz || quiz.questions.length === 0) {
@@ -518,14 +545,16 @@ export const createQuizService = ({
 					// Cualquier intento cuenta como presentado: la práctica completa
 					// su lección aunque se repruebe (docs/adr/0024).
 					if (lessonId !== null) {
-						const stored = (
-							await classroomRepository.findProgress(course.id, actor.userId)
-						).find((row) => row.lessonDocumentId === dto.lessonDocumentId);
-						if (stored?.status !== "COMPLETED") {
+						const stored = await classroomRepository.findLessonStatus(
+							course.id,
+							lessonId,
+							actor.userId,
+						);
+						if (stored !== "COMPLETED") {
 							await classroomRepository.saveProgress(
 								lessonId,
 								actor.userId,
-								nextProgressStatus(stored?.status ?? null, "COMPLETED"),
+								nextProgressStatus(stored, "COMPLETED"),
 								now,
 							);
 						}
@@ -656,7 +685,7 @@ export const createQuizService = ({
 				const documentId = await runInTransaction(async () => {
 					// Con la fila del curso bloqueada: nadie presenta a mitad y dos
 					// altas no rebasan el tope.
-					await enrollmentRepository.lockCourseSeats(course.id);
+					await enrollmentRepository.lockCourse(course.id);
 
 					if (!dto.followUpDocumentId) {
 						const existing = await quizRepository.findFollowUps(course.id);
@@ -707,7 +736,7 @@ export const createQuizService = ({
 				const course = await requireEditableCourse(courseDocumentId, actor);
 
 				await runInTransaction(async () => {
-					await enrollmentRepository.lockCourseSeats(course.id);
+					await enrollmentRepository.lockCourse(course.id);
 
 					const followUp = await requireFollowUp(
 						course.id,
@@ -726,6 +755,7 @@ export const createQuizService = ({
 							shuffleQuestions: followUp.shuffleQuestions,
 							questions: dto.questions,
 						}),
+						followUp.id,
 					);
 				});
 
@@ -742,7 +772,7 @@ export const createQuizService = ({
 				const course = await requireEditableCourse(courseDocumentId, actor);
 
 				await runInTransaction(async () => {
-					await enrollmentRepository.lockCourseSeats(course.id);
+					await enrollmentRepository.lockCourse(course.id);
 
 					const followUp = await requireFollowUp(
 						course.id,
@@ -795,7 +825,7 @@ export const createQuizService = ({
 				const now = clock.now();
 
 				await runInTransaction(async () => {
-					await enrollmentRepository.lockCourseSeats(course.id);
+					await enrollmentRepository.lockCourse(course.id);
 
 					const followUp = await requireFollowUp(
 						course.id,
@@ -863,10 +893,11 @@ export const createQuizService = ({
 				}
 				const now = clock.now();
 
-				const [followUps, attended, scores] = await Promise.all([
+				const [followUps, attended, scores, latestOf] = await Promise.all([
 					quizRepository.findFollowUps(course.id),
 					teachingRepository.findAttendedSessionIds(course.id, actor.userId),
 					quizRepository.findFollowUpBestScores(course.id, [actor.userId]),
+					quizRepository.findLatestFollowUpAttempts(course.id, actor.userId),
 				]);
 				const bestOf = new Map(scores.map((row) => [row.quizId, row.score]));
 				const presentable = followUps.filter(
@@ -876,38 +907,33 @@ export const createQuizService = ({
 							followUp.session.documentId === sessionDocumentId),
 				);
 
-				const entries = await Promise.all(
-					presentable.map(async (followUp) => {
-						const latest = await quizRepository.findAttempt(
-							followUp.id,
-							actor.userId,
-						);
-						const { opensAt, closesAt, state } = windowStateOf(
-							followUp,
-							course.status,
-							now,
-						);
-						return {
-							documentId: followUp.documentId,
-							title: followUp.title,
-							sessionDocumentId: followUp.session.documentId,
-							countsTowardGrade: followUp.countsTowardGrade,
-							questionCount: followUp.questionCount,
-							opensAt,
-							closesAt,
-							availability: followUpAvailabilityOf(
-								state,
-								attended.includes(followUp.session.id),
-								course.enrollment,
-								latest,
-								followUp.maxAttempts,
-							),
-							best: bestOf.get(followUp.id) ?? null,
-							attemptsLeft: attemptsLeftOf(followUp.maxAttempts, latest),
-							checkInClosed: isCheckInClosed(course, followUp.session, now),
-						};
-					}),
-				);
+				const entries = presentable.map((followUp) => {
+					const latest = latestOf.get(followUp.id) ?? null;
+					const { opensAt, closesAt, state } = windowStateOf(
+						followUp,
+						course.status,
+						now,
+					);
+					return {
+						documentId: followUp.documentId,
+						title: followUp.title,
+						sessionDocumentId: followUp.session.documentId,
+						countsTowardGrade: followUp.countsTowardGrade,
+						questionCount: followUp.questionCount,
+						opensAt,
+						closesAt,
+						availability: followUpAvailabilityOf(
+							state,
+							attended.includes(followUp.session.id),
+							course.enrollment,
+							latest,
+							followUp.maxAttempts,
+						),
+						best: bestOf.get(followUp.id) ?? null,
+						attemptsLeft: attemptsLeftOf(followUp.maxAttempts, latest),
+						checkInClosed: isCheckInClosed(course, followUp.session, now),
+					};
+				});
 
 				return ok(entries);
 			});

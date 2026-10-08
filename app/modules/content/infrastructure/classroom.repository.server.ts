@@ -1,5 +1,6 @@
 import type { ICradle } from "@/shared/di/container.types";
 import type { IClassroomRepository } from "../domain/classroom.repository";
+import type { CompletedLessonRow } from "../domain/classroom.types";
 
 type Dependencies = {
 	prisma: ICradle["prisma"];
@@ -59,6 +60,14 @@ export const createClassroomRepository = ({
 		}));
 	},
 
+	async findLessonStatus(courseId, lessonId, userId) {
+		const row = await prisma.lessonProgress.findFirst({
+			where: { userId, lessonId, lesson: activeLessonOf(courseId) },
+			select: { status: true },
+		});
+		return row?.status ?? null;
+	},
+
 	async findCompletedLessons(courseId, userIds) {
 		const rows = await prisma.lessonProgress.findMany({
 			where: {
@@ -73,6 +82,37 @@ export const createClassroomRepository = ({
 			userId: row.userId,
 			lessonDocumentId: row.lesson.documentId,
 		}));
+	},
+
+	async findCompletedLessonsIn(courseIds, userIds) {
+		const byCourse = new Map<number, CompletedLessonRow[]>(
+			courseIds.map((courseId) => [courseId, []]),
+		);
+		if (courseIds.length === 0) return byCourse;
+
+		const rows = await prisma.lessonProgress.findMany({
+			where: {
+				status: "COMPLETED",
+				lesson: {
+					...ACTIVE,
+					module: { courseId: { in: [...courseIds] }, ...ACTIVE },
+				},
+				userId: { in: [...userIds] },
+			},
+			select: {
+				userId: true,
+				lesson: {
+					select: { documentId: true, module: { select: { courseId: true } } },
+				},
+			},
+		});
+		for (const row of rows) {
+			byCourse.get(row.lesson.module.courseId)?.push({
+				userId: row.userId,
+				lessonDocumentId: row.lesson.documentId,
+			});
+		}
+		return byCourse;
 	},
 
 	async saveProgress(lessonId, userId, status, at) {
