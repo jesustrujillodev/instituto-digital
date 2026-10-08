@@ -281,6 +281,7 @@ export const courseTimelineOf = (
 	return {
 		sessionsHeld: held.length,
 		nextSession,
+		nextSessionStarted: nextSession !== null && nextSession.startsAt <= now,
 		daysToStart:
 			first && first.startsAt > now
 				? // `round`: el cambio de horario deja días de 23 o 25 horas.

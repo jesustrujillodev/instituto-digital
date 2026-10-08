@@ -398,7 +398,11 @@ describe("courseTimelineOf", () => {
 			new Date("2026-10-03T12:00:00Z"),
 		);
 
-		expect(timeline).toMatchObject({ sessionsHeld: 1, daysToStart: null });
+		expect(timeline).toMatchObject({
+			sessionsHeld: 1,
+			daysToStart: null,
+			nextSessionStarted: false,
+		});
 		expect(timeline.nextSession?.documentId).toBe(sessions[1].documentId);
 	});
 
@@ -410,12 +414,15 @@ describe("courseTimelineOf", () => {
 
 		expect(timeline.sessionsHeld).toBe(0);
 		expect(timeline.nextSession?.documentId).toBe(sessions[0].documentId);
+		// …pero se anuncia como en curso, no como próxima.
+		expect(timeline.nextSessionStarted).toBe(true);
 	});
 
 	test("sin sesiones no hay fechas", () => {
 		expect(courseTimelineOf({ sessions: [] }, new Date())).toEqual({
 			sessionsHeld: 0,
 			nextSession: null,
+			nextSessionStarted: false,
 			daysToStart: null,
 		});
 	});

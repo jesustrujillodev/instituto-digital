@@ -172,7 +172,7 @@ function OwnStatus({ entry }: { entry: MyCourseDetail }) {
 			)}
 			{next && (
 				<p>
-					Próxima sesión:{" "}
+					{timeline.nextSessionStarted ? "Sesión en curso:" : "Próxima sesión:"}{" "}
 					<span className="font-medium text-foreground">
 						{formatSessionRange(new Date(next.startsAt), new Date(next.endsAt))}
 					</span>
