@@ -1,6 +1,7 @@
 import { BookOpenText, Info, Video } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
+import { MODALITY_LABELS } from "../domain/course.labels";
 import {
 	allowsSessions,
 	COURSE_MODALITIES,
@@ -13,7 +14,6 @@ import {
 import type { CourseFormOptions } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
-import { MODALITY_LABELS } from "../utils/course-labels";
 import { CourseChecklistField } from "./course-checklist-field";
 import { CourseChoiceField } from "./course-choice-field";
 import { CourseQrWindowFields } from "./course-qr-window-fields";

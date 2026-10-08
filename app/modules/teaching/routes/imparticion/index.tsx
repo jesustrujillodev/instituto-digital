@@ -20,8 +20,8 @@ import {
 	CourseCardStatus,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
+import { STATUS_LABELS } from "@/modules/courses/domain/course.labels";
 import { requiresSessions } from "@/modules/courses/domain/course.rules";
-import { STATUS_LABELS } from "@/modules/courses/utils/course-labels";
 import { ListPagination } from "@/shared/components/common/list-pagination";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { TextInput } from "@/shared/components/common/text-input";

@@ -54,7 +54,7 @@ Nota:
 
 Control recomendado:
 
-- Configurar reglas de boundaries en lint para bloquear imports invalidos.
+- Configurar reglas de boundaries en lint para bloquear imports invalidos. En este proyecto viven en `.dependency-cruiser.cjs` y se ejecutan con `bun run lint:arch` dentro del pre-commit.
 
 ## 5. Contratos de entrada y salida
 

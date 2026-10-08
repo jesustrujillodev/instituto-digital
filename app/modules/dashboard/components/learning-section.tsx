@@ -3,8 +3,8 @@ import { Link } from "react-router";
 import { formatZonedDate, formatZonedDateTime } from "@/lib/date-utils";
 import { ProgressBar } from "@/modules/content/components/progress-bar";
 import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
+import { formatHours } from "@/modules/courses/domain/course.labels";
 import { countsContent } from "@/modules/courses/domain/course.rules";
-import { formatHours } from "@/modules/courses/utils/course-labels";
 import type {
 	AttendanceOutlook,
 	MyCourseInProgress,

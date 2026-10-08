@@ -66,6 +66,11 @@ import {
 	COURSE_PAGE_SIZES,
 } from "../../domain/course.config";
 import {
+	ACCESS_LABELS,
+	MODALITY_LABELS,
+	STATUS_LABELS,
+} from "../../domain/course.labels";
+import {
 	COURSE_MODALITIES,
 	COURSE_STATUSES,
 	type CourseStatus,
@@ -74,11 +79,6 @@ import {
 	canPublish,
 	requiresSessions,
 } from "../../domain/course.rules";
-import {
-	ACCESS_LABELS,
-	MODALITY_LABELS,
-	STATUS_LABELS,
-} from "../../utils/course-labels";
 import {
 	COURSE_INTENTS,
 	type CourseActionData,

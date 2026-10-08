@@ -1,15 +1,15 @@
 import { Link } from "react-router";
 import { formatZonedDate } from "@/lib/date-utils";
 import {
+	COMPLETION_RULE_LABELS,
+	courseHoursLabel,
+} from "../domain/course.labels";
+import {
 	allowsSessions,
 	countsAttendance,
 	gradesAutomatically,
 } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
-import {
-	COMPLETION_RULE_LABELS,
-	courseHoursLabel,
-} from "../utils/course-labels";
 import {
 	type CourseDetailFact,
 	CourseDetailsCard,

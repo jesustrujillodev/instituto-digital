@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from "react";
 import { useFetcher } from "react-router";
+import { MODALITY_LABELS } from "@/modules/courses/domain/course.labels";
 import {
 	COURSE_MODALITIES,
 	type CourseModality,
 } from "@/modules/courses/domain/course.rules";
-import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Dialog,

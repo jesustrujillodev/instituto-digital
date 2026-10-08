@@ -1,5 +1,5 @@
 import { formatSessionRange } from "@/lib/date-utils";
-import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
+import { MODALITY_LABELS } from "@/modules/courses/domain/course.labels";
 import { escapeHtml } from "@/shared/html/escape-html";
 import { PLATFORM_NAME } from "./notification.config";
 import type {

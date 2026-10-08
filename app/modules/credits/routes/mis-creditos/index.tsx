@@ -16,7 +16,7 @@ import {
 	CourseCardStatus,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
-import { formatHours } from "@/modules/courses/utils/course-labels";
+import { formatHours } from "@/modules/courses/domain/course.labels";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
 import { Button } from "@/shared/components/ui/button";

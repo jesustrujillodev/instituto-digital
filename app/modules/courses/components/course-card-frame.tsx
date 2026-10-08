@@ -7,9 +7,9 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import type { ViewMode } from "@/shared/view-mode/view-mode";
+import { MODALITY_LABELS } from "../domain/course.labels";
 import type { CourseFormat, CourseModality } from "../domain/course.rules";
 import { requiresSessions } from "../domain/course.rules";
-import { MODALITY_LABELS } from "../utils/course-labels";
 
 export interface CourseMetaItem {
 	icon: LucideIcon;
