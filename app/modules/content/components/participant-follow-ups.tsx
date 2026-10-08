@@ -23,7 +23,9 @@ const statusOf = (followUp: ParticipantFollowUp): string => {
 				? `Se abre el ${formatZonedDate(new Date(followUp.opensAt))} a las ${formatZonedTime(new Date(followUp.opensAt))}.`
 				: "La abre quien imparte la sesión.";
 		case "NOT_ATTENDED":
-			return "Registra tu asistencia a la sesión para presentarla.";
+			return followUp.checkInClosed
+				? "No registraste asistencia en esta sesión, así que no puedes presentarla."
+				: "Registra tu asistencia a la sesión para presentarla.";
 		case "CLOSED":
 			if (followUp.best !== null) return `Tu calificación: ${followUp.best}.`;
 			return followUp.countsTowardGrade

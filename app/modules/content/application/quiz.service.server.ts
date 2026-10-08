@@ -1,4 +1,5 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import { windowOf } from "@/modules/check-in/domain/check-in.rules";
 import {
 	evaluatesByQuiz,
 	requiresSessions,
@@ -200,6 +201,18 @@ export const createQuizService = ({
 		const window = followUpWindowOf(followUp, followUp.session);
 		return { ...window, state: followUpStateOf(window, courseStatus, now) };
 	};
+
+	/** La misma ventana del QR que aplica el check-in, sin la tolerancia previa. */
+	const isCheckInClosed = (
+		course: ClassroomCourse,
+		session: { startsAt: Date; endsAt: Date },
+		now: Date,
+	) =>
+		now >
+		windowOf(session, {
+			opensBeforeMinutes: 0,
+			closesAfterMinutes: course.qrClosesAfterMinutes,
+		}).closesAt;
 
 	const toFollowUpView = (
 		followUp: StoredFollowUp,
@@ -434,6 +447,9 @@ export const createQuizService = ({
 					opensAt: followUp
 						? followUpWindowOf(followUp, followUp.session).opensAt
 						: null,
+					checkInClosed: followUp
+						? isCheckInClosed(course, followUp.session, clock.now())
+						: false,
 				});
 			});
 		},
@@ -888,6 +904,7 @@ export const createQuizService = ({
 							),
 							best: bestOf.get(followUp.id) ?? null,
 							attemptsLeft: attemptsLeftOf(followUp.maxAttempts, latest),
+							checkInClosed: isCheckInClosed(course, followUp.session, now),
 						};
 					}),
 				);

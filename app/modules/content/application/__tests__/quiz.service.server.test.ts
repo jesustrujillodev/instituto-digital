@@ -83,6 +83,7 @@ const classroomCourseOf = (
 	completionRule: "CONTENT",
 	requiresEvaluation: true,
 	minPassingGrade: 70,
+	qrClosesAfterMinutes: 15,
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 100,
@@ -672,6 +673,42 @@ describe("submit: práctica (docs/adr/0021, 0024)", () => {
 describe("findView", () => {
 	// La página de un seguimiento que no abre dice cuándo se abre; si es manual,
 	// solo lo sabe quien imparte.
+	// Sin asistencia, la página solo invita a escanear mientras el QR sigue abierto.
+	test("sin asistencia, dice si el QR de la sesión ya cerró", async () => {
+		const owner = followUpOwnerOf(FOLLOW_UP_DOC);
+		const ended = {
+			...SESSION,
+			startsAt: new Date(NOW.getTime() - 4 * 3_600_000),
+			endsAt: new Date(NOW.getTime() - 3 * 3_600_000),
+		};
+		const late = createHarness({
+			attended: [],
+			followUps: [
+				followUpOf({
+					availability: "RANGE",
+					opensBeforeMinutes: 0,
+					closesAfterMinutes: 600,
+					session: ended,
+				}),
+			],
+		});
+		const during = createHarness({
+			attended: [],
+			followUps: [followUpOf()],
+		});
+
+		expect(await late.service.findView(COURSE_DOC, owner, ANA)).toMatchObject({
+			success: true,
+			data: { availability: "NOT_ATTENDED", checkInClosed: true },
+		});
+		expect(await during.service.findView(COURSE_DOC, owner, ANA)).toMatchObject(
+			{
+				success: true,
+				data: { availability: "NOT_ATTENDED", checkInClosed: false },
+			},
+		);
+	});
+
 	test("un seguimiento automático trae cuándo se abre; el manual sin abrir, no", async () => {
 		const owner = followUpOwnerOf(FOLLOW_UP_DOC);
 		const tomorrow = {

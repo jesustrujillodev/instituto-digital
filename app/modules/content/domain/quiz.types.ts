@@ -226,6 +226,8 @@ export interface QuizView {
 	 * y en el modo manual mientras nadie la abra: ahí solo lo sabe quien imparte.
 	 */
 	opensAt: Date | null;
+	/** Ya cerró el QR de su sesión: quien no registró asistencia ya no puede hacerlo. */
+	checkInClosed: boolean;
 }
 
 // ── Lo que ve quien imparte ───────────────────────────────────────────────────
@@ -326,6 +328,8 @@ export interface ParticipantFollowUp {
 	availability: QuizAvailability;
 	best: number | null;
 	attemptsLeft: number | null;
+	/** Ya cerró el QR de su sesión: quien no registró asistencia ya no puede hacerlo. */
+	checkInClosed: boolean;
 }
 
 export type QuizBankResponse = AppResponse<QuizBank | null>;

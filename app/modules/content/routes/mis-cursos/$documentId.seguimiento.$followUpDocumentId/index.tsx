@@ -48,9 +48,14 @@ export default function SeguimientoPage({
 					icon: Clock,
 					text: notYetText(view.opensAt && new Date(view.opensAt)),
 				}
-			: view.availability === "NOT_ATTENDED" || view.availability === "CLOSED"
-				? UNAVAILABLE_COPY[view.availability]
-				: null;
+			: view.availability === "NOT_ATTENDED" && view.checkInClosed
+				? {
+						icon: QrCode,
+						text: "No registraste asistencia en esta sesión, así que no puedes presentar esta evaluación.",
+					}
+				: view.availability === "NOT_ATTENDED" || view.availability === "CLOSED"
+					? UNAVAILABLE_COPY[view.availability]
+					: null;
 
 	return (
 		<div className="flex flex-col gap-4">
