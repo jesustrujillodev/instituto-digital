@@ -137,7 +137,10 @@ export function QuizTaker({
 	owner: QuizOwnerRef;
 }) {
 	const fetcher = useFetcher<AppResponse<QuizOutcome>>();
-	useFetcherToast(fetcher);
+	// Enviar salió bien aunque se repruebe: el resultado no se anuncia como éxito.
+	useFetcherToast(fetcher, {
+		toneOf: (data) => (data.success && !data.data.passed ? "info" : "success"),
+	});
 	const copy = CONFIRM_COPY[quizKindOf(owner)];
 	const attempts = attemptsNote(sheet.attemptsLeft);
 	const [answers, setAnswers] = useState<Record<string, string>>({});
