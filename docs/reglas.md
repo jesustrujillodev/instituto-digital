@@ -31,18 +31,22 @@ Regla:
 
 ## 3. Estructura minima de carpetas
 
-Usar esta estructura base en proyectos nuevos:
+Estructura del proyecto:
 
-- src/modules/<modulo>
-- src/shared
-- src/platform
-- docs/adr
+- `app/modules/<modulo>`: cada modulo de negocio, dividido en carpetas por capa (seccion 21).
+- `app/shared`: piezas transversales sin dominio de negocio (contrato de respuestas, DI, errores base, storage, colas, cache, correo, layout y componentes comunes), cada una como puerto mas adaptadores.
+- `app/core`: arranque del runtime de servidor (cliente de base de datos y transacciones, entorno, cookies, traduccion de errores del ORM).
+- `app/lib`: utilidades puras sin I/O (fechas, cadenas, formularios), usables en cliente y servidor.
+- `app/routes.ts`: compone las rutas que declara cada modulo en su `routes/routes.config.ts`.
+- `prisma/schema.prisma`: esquema unico de base de datos.
+- `scripts/`: herramientas de linea de comandos; cada una es su propio composition root.
+- `docs/adr`: decisiones de arquitectura.
 
 Nota:
 
 - Si se usa monorepo, mantener la misma separacion por paquete.
 - Dentro de cada modulo, aplicar la taxonomia obligatoria definida en la seccion 21.
-- El core del negocio se modela dentro de cada modulo (entity, ports, service), no en una carpeta global unica.
+- El core del negocio se modela dentro de cada modulo (`domain/` con tipos, reglas y puertos), no en una carpeta global unica.
 
 ## 4. Reglas de importacion
 
@@ -100,7 +104,7 @@ Regla:
 ## 8. Persistencia y servicios externos
 
 1. Repositorios siempre por interfaces.
-2. Clientes HTTP, SDKs, ORM y query builders solo en adaptadores.
+2. Clientes HTTP, SDKs, ORM y query builders solo en adaptadores. Dentro de un modulo, el cliente del ORM solo lo recibe `infrastructure/`; `application/`, `domain/` y los adaptadores de entrada nunca lo reciben, ni por import ni por el contenedor.
 3. Prohibido que casos de uso conozcan endpoints, SQL o detalles de proveedor.
 4. Todo timeout, retry y circuit breaker en capa de infraestructura.
 
@@ -119,6 +123,22 @@ Criterio practico:
 - Escritura simple de una sola entidad: atomicidad por sentencia suele ser suficiente.
 - Escritura compuesta de varias entidades o tablas: transaccion explicita obligatoria.
 - Procesos largos o distribuidos: consistencia eventual + idempotencia + compensacion.
+
+### 8.2 SQL escrito a mano (restringido)
+
+El acceso a datos se hace con la API del ORM. El SQL escrito a mano se admite solo si se cumplen TODAS estas condiciones; fuera de ellas no hay SQL en ninguna parte del codigo.
+
+1. **Lugar.** Vive en un adaptador server-only de `app/modules/<modulo>/infrastructure/`. Nunca en `application/`, `domain/`, `routes/`, `components/`, `hooks/`, `utils/`, `app/shared/`, `app/core/`, `scripts/` ni `prisma/`.
+2. **Motivo.** La API del ORM no puede expresar la operacion, y es una de estas:
+    - bloqueo de filas (`SELECT ... FOR UPDATE`, `FOR UPDATE SKIP LOCKED`);
+    - actualizacion condicional atomica que devuelve las filas tocadas (`UPDATE ... WHERE ... RETURNING`);
+    - funcion que debe evaluar el servidor de datos y no el proceso (por ejemplo `now()`, para que varios nodos no dependan de su propio reloj).
+3. **Parametrizado.** Plantilla etiquetada del ORM (`` $queryRaw`...${valor}` ``, `` $executeRaw`...` ``), con todo valor como parametro. Prohibidas las variantes `Unsafe`, `Prisma.raw` y cualquier SQL armado concatenando cadenas.
+4. **Fuertemente tipado.** Toda lectura declara el tipo de sus filas (`` $queryRaw<{ id: number }[]>`...` ``). El resultado se convierte a tipos de dominio antes de salir del repositorio. Las tablas van con su esquema (`"org"."courses"`) y los parametros con su conversion cuando el tipo lo exige (`${documentId}::uuid`).
+5. **Documentado.** El porque queda escrito junto a la sentencia o en un ADR.
+6. **Probado.** Prueba de repositorio con un doble del cliente que verifica la sentencia enviada.
+
+Verificacion automatica: `bun run lint:sql` (`scripts/check-sql.ts`, en el pre-commit) rechaza SQL fuera de `infrastructure/`, las variantes sin parametrizar, las lecturas sin tipo de fila y el cliente del ORM en capas que no son `infrastructure/`. `lint:arch` no puede verlo: revisa imports, y el cliente llega por el contenedor.
 
 ## 9. UI y estado
 
@@ -222,6 +242,7 @@ Agregar pipeline con validaciones automaticas:
 - Test de core
 - Contract tests
 - Deteccion de imports prohibidos en core
+- Deteccion de SQL fuera de las condiciones de la seccion 8.2
 - Verificacion de casos criticos con pruebas de transaccion/consistencia
 
 Regla de bloqueo:
@@ -247,6 +268,7 @@ Regla de bloqueo:
 15. Un metodo de bloqueo que lee datos que su llamador ignora.
 16. Paralelizar lecturas con `Promise.all` cuando pueden lanzar errores distintos y el orden de esos errores importa.
 17. Releer en el repositorio un registro que el caso de uso ya leyo en la misma transaccion.
+18. SQL escrito a mano fuera de `infrastructure/`, sin parametrizar, sin tipo de fila o para algo que la API del ORM ya expresa (seccion 8.2).
 
 ## 18. Checklist de arranque para proyectos nuevos
 
@@ -326,110 +348,103 @@ Si no se cumplen estas 3 condiciones, el proyecto no se considera realmente agno
 
 ## 21. Taxonomia de archivos por modulo
 
-Todo modulo nuevo debe usar una taxonomia explicita de archivos para separar responsabilidades.
+Todo modulo vive en `app/modules/<modulo>/` y se divide en carpetas por capa. Solo existen las carpetas que el modulo necesita.
 
-Archivos obligatorios por modulo:
+| Carpeta | Contenido | Server-only |
+| --- | --- | --- |
+| `domain/` | Tipos, reglas puras, puertos (interfaces de servicio y repositorio), mappers, validadores de frontera, errores y configuracion | No. No importa nada `.server`, ni framework, ORM o Node |
+| `application/` | Implementacion de los casos de uso y helpers internos del modulo | Si (`.server.ts`) |
+| `infrastructure/` | Adaptadores de persistencia e integraciones externas (base de datos, storage, exportadores) | Si (`.server.ts`) |
+| `routes/` | Adaptadores de entrada del router: registro de rutas, loaders, actions, componente de cada ruta y guardas compartidas | Loaders, actions y guardas |
+| `components/` | Componentes de UI del modulo | No |
+| `hooks/` | Hooks de vista | No |
+| `utils/` | Funciones puras para adaptadores y vistas: parseo de formularios, valores por defecto, filas de tabla, diccionario de copia de errores, predicados de revalidacion | No |
 
-- <modulo>.entity.ts: entidad y tipos de dominio del modulo.
-- <modulo>.ports.ts: interfaces de repositorio, servicio y controlador/casos de uso.
-- <modulo>.schema.ts: contratos de validacion de entrada/salida en frontera.
-- <modulo>.repository.ts: adaptador de persistencia o integracion externa.
-- <modulo>.mapper.ts: conversion entre modelos externos, internos y DTO.
-- <modulo>.service.ts: logica de aplicacion/casos de uso.
-- <modulo>.controller.ts: adaptador inbound para entrada del framework.
+`<nombre>` es la entidad o el subdominio, no necesariamente el nombre del modulo: un modulo puede tener varios (por ejemplo, `content` tiene `content`, `classroom`, `quiz` y `session-material`).
 
-Archivos opcionales segun necesidad:
+`domain/`:
 
-- <modulo>.constants.ts: constantes del modulo.
-- <modulo>.types.ts: tipos auxiliares no propios del dominio.
-- <modulo>.routes.ts: declaracion de rutas/middlewares cuando el modulo expone capa API/routing explicita (por ejemplo, REST/RPC).
-- <modulo>-<caso>.routes.ts: rutas especializadas por caso de uso.
-- `__tests__/` por capa del modulo (`domain/`, `application/`, `infrastructure/`) con pruebas unitarias, de integracion y de contrato.
+- `<nombre>.types.ts`: tipos y modelos de dominio.
+- `<nombre>.errors.ts`: `<MODULO>_ERROR_CODES` y clases que extienden la base de errores de dominio.
+- `<nombre>.rules.ts`: reglas de negocio puras. Cuando crece se divide por tema: `<nombre>.<tema>.rules.ts` (por ejemplo `user.access.rules.ts`, `user.role.rules.ts`).
+- `<nombre>.access.ts` (opcional): traduccion del alcance de quien pide a filtros de lectura y escritura.
+- `<nombre>.validators.ts`: esquemas de validacion de entrada y salida en frontera. No existe un `<modulo>.schema.ts` de ORM por modulo: el esquema de base de datos es unico y vive en `prisma/schema.prisma`.
+- `<nombre>.mapper.ts`: conversion entre filas de persistencia, dominio y DTO.
+- `<nombre>.service.ts` y `<nombre>.repository.ts`: puertos (interfaces), sin implementacion.
+- `<nombre>.config.ts` (opcional): constantes y defaults del modulo (paginacion, limites).
+- Otros archivos puros por rol (`<nombre>.<rol>.ts`) y subcarpetas cuando un subdominio crece (por ejemplo `certificates/domain/design/`).
+
+`application/`:
+
+- `<nombre>.service.server.ts`: implementacion de un puerto de servicio.
+- `<nombre>.<rol>.server.ts` o `<nombre>.server.ts`: helpers internos que el servicio del propio modulo arma con dependencias ya inyectadas (gate, reader, sync, worker). No se exponen a adaptadores de entrada; solo se registran en el contenedor cuando implementan un puerto que otro modulo consume.
+
+`infrastructure/`:
+
+- `<nombre>.repository.server.ts`: implementacion de un puerto de repositorio.
+- `<nombre>.repository.cache.server.ts` o `<nombre>.cache.server.ts`: decorador con cache sobre el mismo puerto.
+- `<nombre>.references.server.ts`: fuente de referencias de storage del modulo.
+- `<nombre>.server.ts`: otros adaptadores externos (exportadores, herramientas de archivos).
+
+`routes/`:
+
+- `routes.config.ts`: rutas del modulo; `app/routes.ts` solo las compone.
+- `<ruta>/index.tsx`, `index.loader.ts`, `index.action.ts`: componente, loader y action de una ruta. Solo las piezas que la ruta usa; una ruta de recurso sin pantalla usa `index.ts`. El nombre de la carpeta es el segmento de URL (`$documentId.editar`).
+- `<nombre>.server.ts` en `routes/`: guardas e intents compartidos por varias rutas del modulo (`require-*.server.ts`, `*-intents.server.ts`).
+
+`components/`, `hooks/` y `utils/`: un archivo por pieza en kebab-case (`user-form.tsx`, `use-user-form-ids.ts`, `parse-user-form-data.ts`). El diccionario de copia de errores es `utils/<modulo>-error-messages.ts`.
+
+Pruebas: un `__tests__/` por carpeta de capa y por carpeta de ruta, nunca junto al archivo probado (seccion 12).
 
 Reglas:
 
-1. No mezclar responsabilidades (por ejemplo, validaciones en repository).
-2. Todo modulo debe poder entenderse leyendo estos archivos en orden: entity, ports, schema, mapper, service, controller; y routes cuando aplique.
+1. No mezclar responsabilidades (por ejemplo, validaciones en un repositorio o consultas en una ruta).
+2. Todo modulo debe poder entenderse leyendo en orden: `domain/` (types, errors, rules, puertos), `application/`, `infrastructure/` y `routes/`.
 3. Si un archivo supera 300 lineas, dividirlo por subdominio o caso de uso.
 
-## 22. Reglas de comentarios claras (obligatorias)
+## 22. Reglas de comentarios (obligatorias)
 
-Objetivo: comentarios consistentes, utiles y auditables; sin ruido.
+Objetivo: el codigo bien escrito se explica solo; los comentarios se reservan para lo que el codigo no puede decir. Esta seccion y la "Politica de comentarios" de AGENTS.md dicen lo mismo; si alguna vez divergen, prevalece AGENTS.md.
 
-### 22.1 Encabezados por seccion
+### 22.1 Cuando si comentar
 
-Usar separadores de bloque para secciones relevantes dentro de archivos medianos/grandes:
+1. JSDoc de una linea en funciones y metodos exportados, solo cuando el nombre no lo deja claro. Explica el porque o la regla de negocio, no repite el nombre ni los tipos.
+2. Logica no obvia: un algoritmo, una condicion de borde o una decision de negocio cuyo porque no es evidente.
+3. Workarounds y limitaciones conocidas: algo poco ortodoxo por una razon concreta (bug de libreria, restriccion del ORM, seguridad, compatibilidad, rendimiento).
+4. En `routes.config.ts`, la intencion de una ruta cuando no se deduce del path (ruta de recurso sin pantalla, restriccion de acceso relevante).
 
-// ===============================================================
-// Nombre de la seccion
-// ===============================================================
+### 22.2 Cuando no comentar
 
-Regla:
+1. No parafrasear lo que el codigo ya dice.
+2. No poner cabeceras ni separadores de seccion (`// ====== Helpers ======`): si un archivo necesita secciones para leerse, se divide.
+3. No dejar TODO sin ticket o referencia.
+4. No traducir lo que el nombre de la variable o funcion ya expresa.
+5. No dejar comentarios desactualizados ni jerga que solo tiene sentido en la conversacion que produjo el cambio.
 
-- Solo para secciones reales (tipos, mappers, api publica, helpers, etc.).
-
-### 22.2 JSDoc en API publica
-
-Todo elemento exportado de uso externo debe tener JSDoc breve cuando no sea trivial:
-
-- Factories principales.
-- Funciones de dominio no obvias.
-- Middlewares y controladores.
-- Contratos criticos en puertos.
-
-Reglas:
-
-1. Explicar el "por que" o la regla de negocio, no repetir el nombre de la funcion.
-2. Incluir precondiciones o restricciones cuando aplique.
-3. No documentar lo obvio ni duplicar tipos.
-
-### 22.3 Comentarios inline
-
-Permitidos solo cuando aclaran decisiones no evidentes:
-
-- Seguridad.
-- Compatibilidad.
-- Performance.
-- Workarounds temporales.
-
-Prohibido:
-
-- Comentarios narrativos linea por linea.
-- TODO sin ticket o referencia.
-- Comentarios desactualizados.
-
-### 22.4 Comentarios de rutas y endpoints
-
-Cuando exista archivo de rutas, debe incluir comentarios cortos de intencion por endpoint:
-
-- Metodo + path.
-- Objetivo del endpoint.
-- Restriccion de seguridad relevante (si aplica).
+Regla de oro: si eliminar el comentario no hace el codigo mas dificil de entender, se elimina.
 
 ## 23. Plantilla minima por modulo
 
 Checklist de creacion de modulo:
 
-1. Crear <modulo>.entity.ts con modelo de dominio.
-2. Crear <modulo>.ports.ts con contratos de repositorio/servicio/controlador.
-3. Crear <modulo>.schema.ts con validaciones de entrada/salida.
-4. Crear <modulo>.mapper.ts para conversiones.
-5. Crear <modulo>.repository.ts sin reglas de negocio.
-6. Crear <modulo>.service.ts con casos de uso.
-7. Crear <modulo>.controller.ts como adaptador de framework.
-8. Crear <modulo>.routes.ts con middlewares y endpoints solo cuando el modulo exponga una capa API/routing explicita fuera del filesystem router.
-9. Crear los `__tests__/` de cada capa con minimo: 1 unit test de service en `application/__tests__/`, 1 contract test de repository en `infrastructure/__tests__/`, 1 integration test del adaptador inbound (route o equivalente).
+1. `domain/`: `<nombre>.types.ts`, `<nombre>.errors.ts`, `<nombre>.rules.ts`, `<nombre>.validators.ts`, y los puertos `<nombre>.service.ts` y `<nombre>.repository.ts`. `<nombre>.mapper.ts`, `<nombre>.config.ts` y `<nombre>.access.ts` cuando el modulo los necesita.
+2. `application/<nombre>.service.server.ts`, envolviendo cada operacion en el runner (seccion 25).
+3. `infrastructure/<nombre>.repository.server.ts`, sin reglas de negocio.
+4. Servicio y repositorio registrados en el contenedor y declarados en su registry tipado contra los puertos (seccion 11).
+5. `routes/routes.config.ts` compuesto en `app/routes.ts`, y cada ruta en su carpeta con las piezas que use.
+6. `utils/<modulo>-error-messages.ts` con la entrada de reserva para el error inesperado.
+7. Los `__tests__/` de cada capa con minimo: 1 prueba del servicio en `application/__tests__/`, 1 de contrato del repositorio en `infrastructure/__tests__/` y 1 del adaptador de entrada en el `__tests__/` de su ruta.
 
 Regla de calidad:
 
-- Ningun PR de modulo nuevo se aprueba si faltan 2 o mas archivos obligatorios de la taxonomia.
+- Ningun PR de modulo nuevo se aprueba si falta alguno de los archivos de los puntos 1 a 6 que el modulo necesita.
 
 ## 24. Nomenclatura obligatoria (ingles)
 
 Regla general:
 
 - Nombres de archivos, carpetas, variables, funciones, tipos e interfaces deben estar en ingles.
-- Se permite espanol unicamente en campos de base de datos y en valores de negocio persistidos (por ejemplo, enums o catálogos ya definidos en DB).
+- Se permite espanol unicamente en campos de base de datos, en valores de negocio persistidos (por ejemplo, enums o catálogos ya definidos en DB) y en las carpetas de `routes/`, porque nombran el segmento de URL publico (`routes/usuarios/`, `routes/mis-cursos/`).
 
 Reglas practicas:
 
@@ -620,7 +635,7 @@ Objetivo: que un caso de uso resuelva su trabajo con el menor numero de fases de
 
 ### 27.4 Cuando descartar
 
-Se descarta, y se anota en el PR con su motivo, si: no reduce fases ni sentencias; contradice una decision documentada o una prueba existente; exige SQL crudo y el proyecto no lo admite; cambia la carga sobre un tercero (proveedor de correo, storage, pool); o ahorra un viaje en una accion poco frecuente tocando filtros de autorizacion.
+Se descarta, y se anota en el PR con su motivo, si: no reduce fases ni sentencias; contradice una decision documentada o una prueba existente; exige SQL fuera de las condiciones de la seccion 8.2 (un lote en una sola sentencia con `UPDATE ... FROM (VALUES ...)` o `INSERT ... ON CONFLICT DO UPDATE` no es un motivo admitido); cambia la carga sobre un tercero (proveedor de correo, storage, pool); o ahorra un viaje en una accion poco frecuente tocando filtros de autorizacion.
 
 ### 27.5 Pruebas
 

@@ -221,7 +221,7 @@ replaceLines(parentId, owner, lines, existingId: number | null)
 
 ```ts
 const lockOrder = async (id: number) => {
-  await prisma.$queryRaw`SELECT id FROM orders WHERE id = ${id} FOR UPDATE`;
+  await prisma.$queryRaw<{ id: number }[]>`SELECT id FROM "app"."orders" WHERE id = ${id} FOR UPDATE`;
 };
 
 return {
@@ -233,6 +233,8 @@ return {
   },
 };
 ```
+
+> El `FOR UPDATE` es SQL escrito a mano: solo se admite con las condiciones de `docs/reglas.md` §8.2 (en `infrastructure/`, parametrizado, con tipo de fila, documentado y probado), que `bun run lint:sql` vigila.
 
 > Usar una función local, no `this.lockOrder`: el repositorio es un objeto literal y `this` depende de cómo lo llamen (un decorador o una desestructuración lo rompen).
 
@@ -327,7 +329,7 @@ Se descarta (y se anota en el PR con su motivo) cuando:
 
 1. **No gana fases ni sentencias.** Reordenar lecturas que siguen sumando las mismas fases no aporta.
 2. **Contradice una decisión documentada o probada.** Si una prueba existente fija un comportamiento (p. ej. "no consultar lo ya guardado"), se respeta.
-3. **Exige una herramienta que el proyecto no admite.** Algunos lotes solo bajan a una sentencia con SQL crudo (`UPDATE … FROM (VALUES …)`, `INSERT … ON CONFLICT … DO UPDATE WHERE`, `UPDATE … RETURNING` de una cola). Si el proyecto decidió "solo API del ORM", se quedan como están.
+3. **Exige SQL fuera de sus condiciones.** El SQL escrito a mano solo se admite para bloquear filas, para una actualización condicional atómica con `RETURNING` o para una función que debe evaluar la base (`docs/reglas.md` §8.2). Un lote en una sola sentencia (`UPDATE … FROM (VALUES …)`, `INSERT … ON CONFLICT … DO UPDATE`) no es motivo: se queda con `createMany`/`updateMany` (P8) o como está.
 4. **Cambia la carga sobre un tercero.** Paralelizar envíos de correo o bloques de un escaneo de storage puede chocar con límites del proveedor o saturar el pool, y cambiar el resultado (reintentos, fallos).
 5. **Ahorra un viaje en una acción rara y toca filtros delicados o autorización.** Costo contra riesgo (`docs/reglas.md` §26.5).
 6. **Cruza fronteras de módulo.** Un repositorio que tendría que mapear entidades de otro módulo para ahorrar un viaje rompe la separación de capas.
@@ -414,7 +416,7 @@ Diferencia con `Promise.all`: espera a **todas** antes de decidir. Para lecturas
 
 ## 10. Bloques listos para pegar
 
-Los tres archivos de reglas de un proyecto de la plantilla reciben el mismo contenido: `docs/reglas.md` la regla agnóstica, y `AGENTS.md` / `CLAUDE.md` (mismo texto) su versión operativa con las piezas del proyecto. Requisito previo: copiar `all-in-order.ts` y su prueba a `app/shared/concurrency/`.
+Los tres archivos de reglas de un proyecto de la plantilla reciben el mismo contenido: `docs/reglas.md` la regla agnóstica, y `AGENTS.md` / `CLAUDE.md` (mismo texto) su versión operativa con las piezas del proyecto. Requisitos previos: copiar `all-in-order.ts` y su prueba a `app/shared/concurrency/`, y tener la regla de SQL escrito a mano (`docs/reglas.md` §8.2, sección "SQL crudo (restringido)" de `AGENTS.md` y `scripts/check-sql.ts` como `lint:sql` en el pre-commit), a la que remiten estos bloques.
 
 ### 10.1 `docs/reglas.md`
 
@@ -454,7 +456,7 @@ Objetivo: que un caso de uso resuelva su trabajo con el menor numero de fases de
 
 ### 27.4 Cuando descartar
 
-Se descarta, y se anota en el PR con su motivo, si: no reduce fases ni sentencias; contradice una decision documentada o una prueba existente; exige SQL crudo y el proyecto no lo admite; cambia la carga sobre un tercero (proveedor de correo, storage, pool); o ahorra un viaje en una accion poco frecuente tocando filtros de autorizacion.
+Se descarta, y se anota en el PR con su motivo, si: no reduce fases ni sentencias; contradice una decision documentada o una prueba existente; exige SQL fuera de las condiciones de la seccion 8.2 (un lote en una sola sentencia con `UPDATE ... FROM (VALUES ...)` o `INSERT ... ON CONFLICT DO UPDATE` no es un motivo admitido); cambia la carga sobre un tercero (proveedor de correo, storage, pool); o ahorra un viaje en una accion poco frecuente tocando filtros de autorizacion.
 
 ### 27.5 Pruebas
 
@@ -537,7 +539,7 @@ Fuera de una transaccion se optimizan las **fases** (lecturas en fila); dentro d
 - Pruebas de repositorio con `where`/`data` exactos, agrupacion, duplicados, errores por `code` y lote vacio.
 - Pruebas de servicio con la lectura/escritura por lote invocada una vez y el orden de errores con dos fallos a la vez.
 - Lecturas: medicion y comparacion de `.data` como en "Rendimiento de loaders". Mutaciones: si la base de desarrollo es compartida o su outbox envia correo real, se cuentan las sentencias por construccion en las pruebas, sin disparar acciones.
-- Lo descartado (sin ganancia de fases, contradice una decision probada, requiere SQL crudo, presiona a un tercero) va al PR con su motivo.
+- Lo descartado (sin ganancia de fases, contradice una decision probada, requiere SQL fuera de "SQL crudo (restringido)", presiona a un tercero) va al PR con su motivo.
 ```
 
 **En "Checklist de salida del agente", nuevo punto:**
