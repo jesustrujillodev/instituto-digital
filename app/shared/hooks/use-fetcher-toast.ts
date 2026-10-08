@@ -3,11 +3,14 @@ import type { useFetcher } from "react-router";
 import { sileo } from "sileo";
 import type { AppResponse } from "@/shared/response/response.types";
 
-interface Options {
+export type SuccessTone = "success" | "info";
+
+interface Options<T> {
 	onSuccess?: () => void;
 	onError?: () => void;
 	successMessage?: string;
 	errorMessage?: string;
+	toneOf?: (data: T) => SuccessTone;
 }
 
 /**
@@ -61,14 +64,16 @@ export function splitToastMessage(message: string): {
  */
 export function useFetcherToast<T extends FetcherToastData>(
 	fetcher: ReturnType<typeof useFetcher<T>>,
-	options: Options = {},
+	options: Options<T> = {},
 ) {
-	const { onSuccess, onError, successMessage, errorMessage } = options;
+	const { onSuccess, onError, successMessage, errorMessage, toneOf } = options;
 
 	const onSuccessRef = useRef(onSuccess);
 	const onErrorRef = useRef(onError);
+	const toneOfRef = useRef(toneOf);
 	onSuccessRef.current = onSuccess;
 	onErrorRef.current = onError;
+	toneOfRef.current = toneOf;
 
 	const processedRef = useRef<T | null | undefined>(undefined);
 
@@ -81,7 +86,8 @@ export function useFetcherToast<T extends FetcherToastData>(
 			const message = data.message ?? successMessage;
 			if (message) {
 				const { title, description } = splitToastMessage(message);
-				sileo.success({ title: title || "Listo", description });
+				const tone = toneOfRef.current?.(data as T) ?? "success";
+				sileo[tone]({ title: title || "Listo", description });
 			}
 			onSuccessRef.current?.();
 		} else {

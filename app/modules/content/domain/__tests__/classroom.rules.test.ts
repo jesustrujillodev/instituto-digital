@@ -51,6 +51,7 @@ const courseOf = (
 	completionRule: "CONTENT",
 	requiresEvaluation: false,
 	minPassingGrade: 70,
+	qrClosesAfterMinutes: 15,
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 0,

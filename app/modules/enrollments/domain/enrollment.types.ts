@@ -170,6 +170,8 @@ export interface MyCourseTimeline {
 	sessionsHeld: number;
 	/** La que sigue o la que está en curso ahora. */
 	nextSession: EnrollmentCourseSession | null;
+	/** `nextSession` ya empezó: se anuncia «en curso», no «próxima». */
+	nextSessionStarted: boolean;
 	/** Días naturales, en la zona del instituto, hasta la primera sesión. */
 	daysToStart: number | null;
 }

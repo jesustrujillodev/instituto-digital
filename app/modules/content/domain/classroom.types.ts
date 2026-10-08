@@ -30,6 +30,8 @@ export interface ClassroomCourse {
 	completionRule: CourseCompletionRule;
 	requiresEvaluation: boolean;
 	minPassingGrade: number;
+	/** Minutos tras el fin de cada sesión en que el QR todavía registra asistencia. */
+	qrClosesAfterMinutes: number;
 	enrollment: {
 		status: EnrollmentStatus;
 		progressPercent: number;

@@ -177,9 +177,11 @@ const progressOf = (
 		percent: Math.floor((timeline.sessionsHeld * 100) / course.sessions.length),
 		count,
 		headline: count,
-		caption: next
-			? `${count} · próxima: ${shortDayOf(next.startsAt)}, ${formatZonedTime(new Date(next.startsAt))}`
-			: count,
+		caption: !next
+			? count
+			: timeline.nextSessionStarted
+				? `${count} · en curso hasta ${formatZonedTime(new Date(next.endsAt))}`
+				: `${count} · próxima: ${shortDayOf(next.startsAt)}, ${formatZonedTime(new Date(next.startsAt))}`,
 		next,
 	};
 };
@@ -413,9 +415,11 @@ function ListDetail({
 			<p className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
 				<CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
 				<span className="shrink-0 text-foreground">
-					{section === "inProgress"
-						? `Próxima sesión: ${shortDayOf(next.startsAt)}`
-						: capitalize(shortDayOf(next.startsAt))}{" "}
+					{section !== "inProgress"
+						? capitalize(shortDayOf(next.startsAt))
+						: timeline.nextSessionStarted
+							? `En curso: ${shortDayOf(next.startsAt)}`
+							: `Próxima sesión: ${shortDayOf(next.startsAt)}`}{" "}
 					· {timeRangeOf(next)}
 				</span>
 				<SessionPlace session={next} />

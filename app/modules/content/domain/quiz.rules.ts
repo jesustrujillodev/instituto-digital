@@ -286,33 +286,12 @@ const followUpSettings = {
 	closesAfterMinutes: followUpMinutes("después del fin"),
 };
 
-/** El rango pide las dos tolerancias; «al terminar», cuánto dura abierta. */
-const hasRequiredMinutes = <
-	T extends {
-		availability: FollowUpAvailabilityMode;
-		opensBeforeMinutes: number | null;
-		closesAfterMinutes: number | null;
-	},
->(
-	entry: T,
-) => {
-	if (entry.availability === "RANGE") {
-		return (
-			entry.opensBeforeMinutes !== null && entry.closesAfterMinutes !== null
-		);
-	}
-	if (entry.availability === "SESSION_END") {
-		return entry.closesAfterMinutes !== null;
-	}
-	return true;
-};
-
-const MISSING_MINUTES_MESSAGE =
-	"Indica los minutos de la ventana en que estará abierta la evaluación.";
-
 /**
  * La configuración de una evaluación de seguimiento, la del modal: sus datos y
  * cuándo se abre, sin las preguntas. Sin `followUpDocumentId`, se crea.
+ *
+ * Los minutos que faltan se reportan en su campo (`v.forward`): un `v.check`
+ * sobre el objeto no lleva ruta, y `toFieldErrors` descarta lo que no la tiene.
  */
 export const saveFollowUpRule = v.pipe(
 	v.object({
@@ -320,7 +299,25 @@ export const saveFollowUpRule = v.pipe(
 		...bankFields,
 		...followUpSettings,
 	}),
-	v.check(hasRequiredMinutes, MISSING_MINUTES_MESSAGE),
+	v.forward(
+		v.check(
+			// El rango pide las dos tolerancias; «al terminar», cuánto dura abierta.
+			(entry) =>
+				entry.availability !== "RANGE" || entry.opensBeforeMinutes !== null,
+			"Indica cuántos minutos antes del inicio se abre la evaluación.",
+		),
+		["opensBeforeMinutes"],
+	),
+	v.forward(
+		v.check(
+			(entry) =>
+				(entry.availability !== "RANGE" &&
+					entry.availability !== "SESSION_END") ||
+				entry.closesAfterMinutes !== null,
+			"Indica cuántos minutos después del fin queda abierta la evaluación.",
+		),
+		["closesAfterMinutes"],
+	),
 );
 
 /** Sus preguntas, que se guardan con el paso, como las del examen final. */

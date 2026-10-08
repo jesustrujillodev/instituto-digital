@@ -221,6 +221,13 @@ export interface QuizView {
 	outcome: QuizOutcome | null;
 	/** Reprobó, agotó sus intentos y no ha acreditado: puede pedir otro. */
 	canRequestRetake: boolean;
+	/**
+	 * Cuándo se abre una evaluación de seguimiento. `null` fuera del seguimiento
+	 * y en el modo manual mientras nadie la abra: ahí solo lo sabe quien imparte.
+	 */
+	opensAt: Date | null;
+	/** Ya cerró el QR de su sesión: quien no registró asistencia ya no puede hacerlo. */
+	checkInClosed: boolean;
 }
 
 // ── Lo que ve quien imparte ───────────────────────────────────────────────────
@@ -321,6 +328,8 @@ export interface ParticipantFollowUp {
 	availability: QuizAvailability;
 	best: number | null;
 	attemptsLeft: number | null;
+	/** Ya cerró el QR de su sesión: quien no registró asistencia ya no puede hacerlo. */
+	checkInClosed: boolean;
 }
 
 export type QuizBankResponse = AppResponse<QuizBank | null>;
