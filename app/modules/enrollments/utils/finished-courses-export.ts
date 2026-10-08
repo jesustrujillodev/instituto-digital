@@ -3,7 +3,7 @@ import {
 	ACCESS_LABELS,
 	MODALITY_LABELS,
 	STATUS_LABELS,
-} from "@/modules/courses/utils/course-labels";
+} from "@/modules/courses/domain/course.labels";
 import type { SpreadsheetSheet } from "@/shared/spreadsheet/spreadsheet.port";
 import type {
 	EnrollmentCourse,

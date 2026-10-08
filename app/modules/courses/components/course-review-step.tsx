@@ -5,15 +5,15 @@ import type { ContentSummary } from "@/modules/content/domain/content.types";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
 import { Button } from "@/shared/components/ui/button";
 import {
+	COMPLETION_RULE_LABELS,
+	courseHoursLabel,
+} from "../domain/course.labels";
+import {
 	countsAttendance,
 	gradesAutomatically,
 	requiresSessions,
 } from "../domain/course.rules";
 import type { CourseDetail } from "../domain/course.types";
-import {
-	COMPLETION_RULE_LABELS,
-	courseHoursLabel,
-} from "../utils/course-labels";
 import {
 	type PublishChecklist,
 	stepOfKey,

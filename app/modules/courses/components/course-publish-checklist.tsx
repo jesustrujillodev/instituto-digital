@@ -2,8 +2,8 @@ import { CircleCheck, CircleDashed } from "lucide-react";
 import { useId } from "react";
 import { Link } from "react-router";
 import { cn } from "@/lib/utils";
+import { publishCheckLabel } from "../domain/course.labels";
 import type { CourseModality, PublishCheck } from "../domain/course.rules";
-import { publishCheckLabel } from "../utils/course-labels";
 import {
 	type PublishChecklist,
 	stepOfCheck,

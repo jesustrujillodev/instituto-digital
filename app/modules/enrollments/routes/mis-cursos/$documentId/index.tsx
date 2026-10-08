@@ -25,11 +25,11 @@ import {
 	type CourseDetailFact,
 	CourseDetailSection,
 } from "@/modules/courses/components/course-detail-layout";
+import { formatHours } from "@/modules/courses/domain/course.labels";
 import {
 	countsContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
-import { formatHours } from "@/modules/courses/utils/course-labels";
 import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";

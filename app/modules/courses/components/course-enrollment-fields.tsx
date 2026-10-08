@@ -13,6 +13,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import { DateInput } from "@/shared/components/common/date-input";
 import { Input } from "@/shared/components/ui/input";
+import { ACCESS_LABELS } from "../domain/course.labels";
 import {
 	COURSE_ACCESS_TYPES,
 	type CourseAccessType,
@@ -21,7 +22,6 @@ import {
 import type { CourseFormOptions } from "../domain/course.types";
 import type { CourseFormIds } from "../hooks/use-course-form-ids";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
-import { ACCESS_LABELS } from "../utils/course-labels";
 import {
 	enrollmentSummaryOf,
 	firstSessionStartOf,

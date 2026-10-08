@@ -1,7 +1,7 @@
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MODALITY_LABELS } from "@/modules/courses/domain/course.labels";
 import { COURSE_MODALITIES } from "@/modules/courses/domain/course.rules";
-import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
 import { TextInput } from "@/shared/components/common/text-input";
 import { Button } from "@/shared/components/ui/button";
 import {

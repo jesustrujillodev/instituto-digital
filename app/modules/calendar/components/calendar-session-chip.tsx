@@ -1,6 +1,6 @@
 import { formatZonedTime } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
-import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
+import { MODALITY_LABELS } from "@/modules/courses/domain/course.labels";
 import type { CalendarLens } from "../domain/calendar.config";
 import type { CalendarSession } from "../domain/calendar.types";
 import { primaryLensOf } from "../utils/calendar-labels";

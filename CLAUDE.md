@@ -169,11 +169,28 @@ Consecuencias no negociables:
    (reglas, mappers, validadores, clases de error, constantes de `<modulo>.config.ts`).
 4. Librerias de terceros, dentro de la capa que les corresponde (`valibot`, `jose`,
    `bcryptjs`; tipos del ORM solo en `infrastructure/`).
+5. Helpers internos de `application/` que el servicio de su **propio** modulo arma con
+   dependencias ya inyectadas (ej. `createContentCourseGate`, `createMaterialStorage`). No se
+   registran en el cradle: expuestos en `context`, un loader podria saltarse el servicio que
+   aplica el alcance. Entre modulos siguen prohibidos.
 
 ### Criterio de desempate
 
 Si tiene estado, ciclo de vida, I/O, o hay que sustituirlo por un doble en un test: **se
 inyecta**. Si es una funcion pura, un tipo o una constante: se importa.
+
+### Verificacion automatica
+
+`bun run lint:arch` (dependency-cruiser, reglas en `.dependency-cruiser.cjs`) bloquea en el
+pre-commit los imports que rompen esta seccion y la direccion de las capas: servicios,
+repositorios y adaptadores con estado fuera de los composition roots, `domain/` con framework,
+ORM, Node o archivos `.server`, `application/` con React/React Router o adaptadores de entrada,
+y Prisma fuera de `infrastructure/`. Los tests cuentan como composition root. Cada violacion
+imprime la regla que incumple y por que.
+
+Un composition root nuevo (otro runtime o script de CLI) se agrega a `COMPOSITION_ROOTS`; un
+adaptador con estado nuevo en `app/shared/`, a `STATEFUL_ADAPTERS`. No se agregan excepciones
+para silenciar una violacion: se corrige el import.
 
 ## Sufijo .server obligatorio
 
@@ -259,7 +276,7 @@ Antes de terminar una tarea, el agente debe confirmar:
 1. Que el cambio cumple docs/reglas.md.
 2. Que no se rompio la separacion de responsabilidades por archivo.
 3. Que no hay imports de framework en capas de negocio.
-4. Que ninguna dependencia con estado (servicio, repositorio, cliente, config, logger) se resolvio por import directo: todas vienen del cradle y estan declaradas en `ICradle`.
+4. Que ninguna dependencia con estado (servicio, repositorio, cliente, config, logger) se resolvio por import directo: todas vienen del cradle y estan declaradas en `ICradle`. `bun run lint:arch` en verde.
 5. Que los archivos server-only (DB/Prisma, secretos, sesiones, storage) usan el sufijo `.server.ts`.
 6. Que se agregaron o actualizaron las pruebas necesarias, que viven en `__tests__/` de su capa, y que toda operacion mutadora nueva o modificada tiene la suya.
 7. Que la documentacion tecnica fue actualizada si hubo cambios estructurales.
@@ -285,7 +302,7 @@ Si el usuario pide una implementacion que rompe estas reglas, el agente debe:
 
 Los hooks del proyecto (Husky, `.husky/`) ejecutan:
 
-- `pre-commit`: `bun run verify:commit` (lint-staged: Biome sobre los archivos en stage, con auto-fix y re-stage; luego typecheck del proyecto completo).
+- `pre-commit`: `bun run verify:commit` (lint-staged: Biome sobre los archivos en stage, con auto-fix y re-stage; luego `lint:arch` con las fronteras de arquitectura y typecheck del proyecto completo).
 - `commit-msg`: `commitlint` sobre el mensaje (Conventional Commits, ver `.commitlintrc.json`).
 - `pre-push`: `bun run verify:push` (suite completa con `vitest run`).
 

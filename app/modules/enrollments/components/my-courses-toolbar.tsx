@@ -1,11 +1,11 @@
 import { Download, ListFilter, Search } from "lucide-react";
 import { useId } from "react";
+import { MODALITY_LABELS } from "@/modules/courses/domain/course.labels";
 import {
 	COURSE_FORMATS,
 	COURSE_MODALITIES,
 	type CourseFormat,
 } from "@/modules/courses/domain/course.rules";
-import { MODALITY_LABELS } from "@/modules/courses/utils/course-labels";
 import { TextInput } from "@/shared/components/common/text-input";
 import { ViewModeToggle } from "@/shared/components/common/view-mode-toggle";
 import { Button } from "@/shared/components/ui/button";

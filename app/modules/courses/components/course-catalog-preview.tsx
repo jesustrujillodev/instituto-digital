@@ -2,9 +2,9 @@ import { Clock, ImageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { CourseCover } from "@/modules/enrollments/components/course-cover";
+import { formatHours } from "../domain/course.labels";
 import { requiresSessions } from "../domain/course.rules";
 import type { CourseFormValues } from "../utils/build-course-form-defaults";
-import { formatHours } from "../utils/course-labels";
 import type { CourseCoverControl } from "./course-identity-fields";
 
 /** La portada nueva mientras se edita: el object URL se suelta al cambiarla. */

@@ -6,7 +6,7 @@ import {
 	type CourseStatus,
 	courseHoursOf,
 	type PublishCheck,
-} from "../domain/course.rules";
+} from "./course.rules";
 
 // El vocabulario persistido está en inglés (reglas §24); la copia, aquí.
 

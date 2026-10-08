@@ -26,11 +26,11 @@ import {
 	CourseCardStatus,
 	type CourseMetaItem,
 } from "@/modules/courses/components/course-card-frame";
+import { formatHours } from "@/modules/courses/domain/course.labels";
 import {
 	countsContent,
 	requiresSessions,
 } from "@/modules/courses/domain/course.rules";
-import { formatHours } from "@/modules/courses/utils/course-labels";
 import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
 import { Button } from "@/shared/components/ui/button";
 import {

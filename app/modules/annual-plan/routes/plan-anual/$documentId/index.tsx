@@ -14,7 +14,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { Link, useFetcher, useNavigate } from "react-router";
 import { CourseModalityBadge } from "@/modules/courses/components/course-badges";
-import { FORMAT_LABELS } from "@/modules/courses/utils/course-labels";
+import { FORMAT_LABELS } from "@/modules/courses/domain/course.labels";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import {
 	DataTable,

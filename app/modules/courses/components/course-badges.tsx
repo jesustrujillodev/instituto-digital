@@ -1,4 +1,10 @@
 import { Badge } from "@/shared/components/ui/badge";
+import {
+	ACCESS_LABELS,
+	FORMAT_LABELS,
+	MODALITY_LABELS,
+	STATUS_LABELS,
+} from "../domain/course.labels";
 import type {
 	CourseAccessType,
 	CourseFormat,
@@ -6,12 +12,6 @@ import type {
 	CourseStatus,
 } from "../domain/course.rules";
 import { requiresSessions } from "../domain/course.rules";
-import {
-	ACCESS_LABELS,
-	FORMAT_LABELS,
-	MODALITY_LABELS,
-	STATUS_LABELS,
-} from "../utils/course-labels";
 
 const STATUS_VARIANTS = {
 	DRAFT: "secondary",
