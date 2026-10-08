@@ -179,7 +179,8 @@ Minimos por modulo:
 - Unit tests de domain y application.
 - Contract tests para puertos y adaptadores.
 - Integration tests para adaptadores criticos.
-- E2E para flujos principales.
+
+Recomendado: E2E para flujos principales.
 
 Estructura de los tests:
 
@@ -209,12 +210,18 @@ Regla:
 
 ## 13. Observabilidad y trazabilidad
 
-1. Logging estructurado con correlation id.
-2. Metricas por caso de uso.
-3. Trazas de errores por codigo estable.
-4. Eventos de auditoria separados de logs tecnicos.
+Obligatorio:
 
-## 14. Convenciones de versionado de contratos
+1. Logging estructurado.
+2. Trazas de errores por codigo estable (lo hace el runner de la seccion 25).
+
+Recomendado:
+
+1. Correlation id por peticion en cada registro.
+2. Metricas por caso de uso.
+3. Eventos de auditoria separados de los logs tecnicos.
+
+## 14. Convenciones de versionado de contratos (recomendado)
 
 1. Versionar DTOs publicos cuando cambien.
 2. Cambios breaking requieren plan de compatibilidad.
@@ -228,14 +235,14 @@ Una historia se considera terminada solo si:
 2. Incluye pruebas de core y adaptador.
 3. No introduce tipos de framework en core.
 4. Incluye ADR si hubo decision de arquitectura.
-5. Pasa gates de CI de agnosticidad.
+5. Pasa las verificaciones de la seccion 16.
 6. Si el cambio incluye escritura compuesta, define y prueba su estrategia transaccional (ACID o compensacion).
 7. Si el cambio agrega o modifica un adaptador de entrada que lee datos (loader, controller, resolver), cumple la seccion 26: sin cascadas de llamadas independientes, sin N+1 y sin leer colecciones completas para contarlas.
 8. Si el cambio agrega o modifica un caso de uso o un repositorio, cumple la seccion 27: sin consultas por elemento, sin lecturas en fila independientes, sin escrituras por fila dentro de transacciones, y con los mismos resultados y errores comprobados por pruebas.
 
-## 16. Gates de CI obligatorios
+## 16. Verificaciones obligatorias
 
-Agregar pipeline con validaciones automaticas:
+Estas validaciones automaticas corren en los hooks de git (pre-commit y pre-push):
 
 - Lint de boundaries
 - Typecheck estricto
@@ -247,7 +254,9 @@ Agregar pipeline con validaciones automaticas:
 
 Regla de bloqueo:
 
-- Si falla cualquier gate de agnosticidad, no se hace merge.
+- Si falla cualquier verificacion, no se hace commit, push ni merge. Saltarse un hook requiere autorizacion explicita.
+
+Recomendado: un pipeline de integracion continua que repita estas verificaciones en cada pull request.
 
 ## 17. Antipatrones prohibidos
 
@@ -279,7 +288,7 @@ Antes de empezar funcionalidades, completar:
 3. Modelo de errores tipado implementado.
 4. Primer adaptador inbound e outbound funcional.
 5. Reglas de lint para boundaries activas.
-6. Pipeline CI con gates de agnosticidad.
+6. Verificaciones de la seccion 16 activas en los hooks de git (pipeline de CI recomendado).
 7. ADR inicial de decisiones base.
 8. Ejemplo de prueba unitaria y contract test listos.
 9. Politica de transacciones y consistencia definida para operaciones criticas del dominio.
@@ -389,10 +398,10 @@ Todo modulo vive en `app/modules/<modulo>/` y se divide en carpetas por capa. So
 `routes/`:
 
 - `routes.config.ts`: rutas del modulo; `app/routes.ts` solo las compone.
-- `<ruta>/index.tsx`, `index.loader.ts`, `index.action.ts`: componente, loader y action de una ruta. Solo las piezas que la ruta usa; una ruta de recurso sin pantalla usa `index.ts`. El nombre de la carpeta es el segmento de URL (`$documentId.editar`).
-- `<nombre>.server.ts` en `routes/`: guardas e intents compartidos por varias rutas del modulo (`require-*.server.ts`, `*-intents.server.ts`).
+- `<ruta>/index.tsx`, `index.loader.ts`, `index.action.ts`: componente, loader y action de una ruta. Solo las piezas que la ruta usa; una ruta de recurso sin pantalla usa `index.ts`. El nombre de la carpeta es el segmento de URL (`$documentId.editar`), y las rutas pueden agruparse en una carpeta comun (`routes/cursos/$documentId.certificado/`).
+- Helpers de rutas (guardas, intents, armado de una respuesta o de los datos de una pantalla): un archivo por helper, junto a las rutas que lo usan. En `routes/` si lo comparte el modulo (`require-teaching.server.ts`), en la carpeta de grupo si solo lo comparte ese grupo (`routes/cursos/certificate-action.server.ts`) o junto al `index.*` de la unica ruta que lo usa (`routes/home/load-dashboard.server.ts`). Lleva `.server.ts` si es server-only; uno puro no (`require-course-param.ts`, `download-response.ts`).
 
-`components/`, `hooks/` y `utils/`: un archivo por pieza en kebab-case (`user-form.tsx`, `use-user-form-ids.ts`, `parse-user-form-data.ts`). El diccionario de copia de errores es `utils/<modulo>-error-messages.ts`.
+`components/`, `hooks/` y `utils/`: un archivo por pieza en kebab-case (`user-form.tsx`, `use-user-form-ids.ts`, `parse-user-form-data.ts`). El diccionario de copia de errores es `utils/<nombre>-error-messages.ts`, uno por cada `<nombre>.errors.ts` (`user-error-messages.ts`, `session-monitor-error-messages.ts`).
 
 Pruebas: un `__tests__/` por carpeta de capa y por carpeta de ruta, nunca junto al archivo probado (seccion 12).
 
@@ -416,7 +425,7 @@ Objetivo: el codigo bien escrito se explica solo; los comentarios se reservan pa
 ### 22.2 Cuando no comentar
 
 1. No parafrasear lo que el codigo ya dice.
-2. No poner cabeceras ni separadores de seccion (`// ====== Helpers ======`): si un archivo necesita secciones para leerse, se divide.
+2. No poner cabeceras ni separadores de seccion (`// ====== Helpers ======`): si un archivo necesita secciones para leerse, se divide. Las que ya existen se quitan al modificar el archivo, conservando como comentario normal el texto que explique algo.
 3. No dejar TODO sin ticket o referencia.
 4. No traducir lo que el nombre de la variable o funcion ya expresa.
 5. No dejar comentarios desactualizados ni jerga que solo tiene sentido en la conversacion que produjo el cambio.
@@ -432,8 +441,8 @@ Checklist de creacion de modulo:
 3. `infrastructure/<nombre>.repository.server.ts`, sin reglas de negocio.
 4. Servicio y repositorio registrados en el contenedor y declarados en su registry tipado contra los puertos (seccion 11).
 5. `routes/routes.config.ts` compuesto en `app/routes.ts`, y cada ruta en su carpeta con las piezas que use.
-6. `utils/<modulo>-error-messages.ts` con la entrada de reserva para el error inesperado.
-7. Los `__tests__/` de cada capa con minimo: 1 prueba del servicio en `application/__tests__/`, 1 de contrato del repositorio en `infrastructure/__tests__/` y 1 del adaptador de entrada en el `__tests__/` de su ruta.
+6. `utils/<nombre>-error-messages.ts` con la entrada de reserva para el error inesperado.
+7. Los `__tests__/` de cada capa con minimo: 1 prueba del servicio en `application/__tests__/`, 1 de contrato del repositorio en `infrastructure/__tests__/` y 1 del adaptador de entrada (loader o action) en el `__tests__/` de su ruta. Una pantalla sin loader ni action no lleva prueba de ruta.
 
 Regla de calidad:
 
@@ -444,7 +453,7 @@ Regla de calidad:
 Regla general:
 
 - Nombres de archivos, carpetas, variables, funciones, tipos e interfaces deben estar en ingles.
-- Se permite espanol unicamente en campos de base de datos, en valores de negocio persistidos (por ejemplo, enums o catálogos ya definidos en DB) y en las carpetas de `routes/`, porque nombran el segmento de URL publico (`routes/usuarios/`, `routes/mis-cursos/`).
+- Se permite espanol unicamente en campos de base de datos, en valores de negocio persistidos (por ejemplo, enums o catálogos ya definidos en DB) y en `routes/`: las carpetas, porque nombran el segmento de URL publico (`routes/usuarios/`, `routes/mis-cursos/`), y la funcion de la pantalla de cada ruta, que puede llevar ese mismo nombre (`UsuariosPage`, `MisCursosPage`).
 
 Reglas practicas:
 
@@ -538,7 +547,7 @@ Un caso de uso puede quedar fuera del envelope solo si se cumplen las dos condic
 1. No lo consume ningun adaptador de entrada (es infraestructura interna: middleware, refresco de tokens, jobs de arranque).
 2. El consumidor necesita distinguir clases de fallo para decidir su flujo, y no hay pantalla al otro lado que muestre un error.
 
-La excepcion se documenta en el puerto (`<modulo>.service.ts`) explicando por que. Sin comentario, no hay excepcion.
+La excepcion se documenta en el puerto (`<nombre>.service.ts`) explicando por que. Sin comentario, no hay excepcion.
 
 ### 25.6 Definition of Done
 

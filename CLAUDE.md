@@ -31,13 +31,13 @@ Para cada cambio, el agente debe validar y respetar:
     - application/<nombre>.<rol>.server.ts: helpers internos que el servicio del propio modulo arma con dependencias ya inyectadas (gate, reader, sync, worker).
     - infrastructure/<nombre>.repository.server.ts: adaptador de persistencia (siempre server-only). Variantes: `<nombre>.repository.cache.server.ts` / `<nombre>.cache.server.ts` (decorador con cache), `<nombre>.references.server.ts` (referencias de storage) y `<nombre>.server.ts` (otras integraciones externas).
     - routes/routes.config.ts: registro de rutas del modulo, compuesto en app/routes.ts.
-    - routes/<segmento-url>/index.tsx, index.loader.ts, index.action.ts: adaptadores inbound del filesystem router de React Router (solo las piezas que la ruta usa; `index.ts` para una ruta de recurso sin pantalla). La carpeta lleva el segmento de URL, en espanol.
-    - routes/<nombre>.server.ts: guardas e intents compartidos por varias rutas del modulo (`require-*.server.ts`, `*-intents.server.ts`).
-    - components/<nombre>.tsx, hooks/use-<nombre>.ts, utils/<nombre>.ts: piezas de vista y funciones puras en kebab-case; el diccionario de errores es utils/<modulo>-error-messages.ts.
+    - routes/<segmento-url>/index.tsx, index.loader.ts, index.action.ts: adaptadores inbound del filesystem router de React Router (solo las piezas que la ruta usa; `index.ts` para una ruta de recurso sin pantalla). La carpeta lleva el segmento de URL, en espanol, y puede agruparse en una carpeta comun (`routes/cursos/`); la funcion de la pantalla puede llevar ese mismo nombre (`UsuariosPage`).
+    - Helpers de rutas (guardas, intents, armado de respuestas o de datos de una pantalla): un archivo junto a las rutas que lo usan — en `routes/` si lo comparte el modulo, en la carpeta de grupo o junto al `index.*` de la unica ruta que lo usa. `.server.ts` si es server-only (`require-*.server.ts`, `*-intents.server.ts`); sin sufijo si es puro.
+    - components/<nombre>.tsx, hooks/use-<nombre>.ts, utils/<nombre>.ts: piezas de vista y funciones puras en kebab-case; el diccionario de errores es utils/<nombre>-error-messages.ts, uno por cada `<nombre>.errors.ts`.
 3. Logica de negocio agnostica al framework.
 4. Errores de dominio/aplicacion desacoplados de HTTP/framework.
 5. Politica de comentarios de este archivo (JSDoc util, sin cabeceras de seccion ni ruido); prevalece sobre docs/reglas.md §22 si divergen.
-6. Pruebas minimas por modulo (service/repository/inbound-adapter) segun el estandar, ubicadas en `__tests__/` por capa y cubriendo toda operacion que mute la base (ver secciones de pruebas mas abajo).
+6. Pruebas minimas por modulo (service/repository/loader o action) segun el estandar, ubicadas en `__tests__/` por capa y cubriendo toda operacion que mute la base (ver secciones de pruebas mas abajo).
 7. Contrato estandar de respuestas (ver seccion siguiente y docs/reglas.md §25).
 8. Loaders sin cascadas, sin N+1 y leyendo solo lo que la vista pinta (ver "Rendimiento de loaders" y docs/reglas.md §26).
 9. Casos de uso y repositorios sin consultas por elemento, sin lecturas en fila independientes y sin escrituras por fila dentro de transacciones (ver "Rendimiento de servicios y repositorios" y docs/reglas.md §27).
@@ -60,11 +60,11 @@ Todo servicio de `application/` devuelve el envelope `AppResponse<T>`, y todo lo
 
 ### Reglas por capa
 
-1. **`domain/<modulo>.errors.ts`**: exporta `<MODULO>_ERROR_CODES` (constante) y clases que extienden `DomainError`. `details` para lo que el adaptador necesite interpolar.
-2. **`domain/<modulo>.service.ts`** (puerto): todos los metodos consumidos por loaders/actions devuelven `AppResponse<T>`. Una excepcion (metodo de middleware que sigue lanzando) exige comentario que la justifique.
-3. **`application/<modulo>.service.server.ts`**: recibe `logger` por DI, crea `const run = createOperationRunner(logger.child({ module: "<modulo>" }))` y envuelve TODA operacion. Devuelve `ok(...)`; deja que el repositorio lance.
-4. **`infrastructure/<modulo>.repository.server.ts`**: sin cambios de contrato — sigue devolviendo dominio crudo y lanzando errores tipados.
-5. **`utils/<modulo>-error-messages.ts`**: diccionario `ErrorMessageMap` con entrada de reserva para `RESPONSE_ERROR_CODES.UNEXPECTED`.
+1. **`domain/<nombre>.errors.ts`**: exporta `<MODULO>_ERROR_CODES` (constante) y clases que extienden `DomainError`. `details` para lo que el adaptador necesite interpolar.
+2. **`domain/<nombre>.service.ts`** (puerto): todos los metodos consumidos por loaders/actions devuelven `AppResponse<T>`. Una excepcion (metodo de middleware que sigue lanzando) exige comentario que la justifique.
+3. **`application/<nombre>.service.server.ts`**: recibe `logger` por DI, crea `const run = createOperationRunner(logger.child({ module: "<modulo>" }))` y envuelve TODA operacion. Devuelve `ok(...)`; deja que el repositorio lance.
+4. **`infrastructure/<nombre>.repository.server.ts`**: sin cambios de contrato — sigue devolviendo dominio crudo y lanzando errores tipados.
+5. **`utils/<nombre>-error-messages.ts`**: diccionario `ErrorMessageMap` con entrada de reserva para `RESPONSE_ERROR_CODES.UNEXPECTED`.
 6. **Loaders**: `if (!result.success) throw toRouteError(result.error, <MODULO>_ERROR_MESSAGES);` y devuelven `ok(...)`.
 7. **Actions**: `if (!result.success) return localizeError(result, <MODULO>_ERROR_MESSAGES);` y devuelven `ok(null, { message })`. La validacion de frontera va en `parseInput(() => ...)`.
 
