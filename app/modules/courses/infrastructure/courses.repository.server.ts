@@ -439,7 +439,9 @@ export const createCourseRepository = ({
 			return toDetail(course);
 		},
 		async lock(documentId) {
-			await prisma.$queryRaw`SELECT id FROM "org"."courses" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;
+			await prisma.$queryRaw<
+				{ id: number }[]
+			>`SELECT id FROM "org"."courses" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;
 		},
 		async findSessionsWithAttendance(sessionDocumentIds) {
 			if (sessionDocumentIds.length === 0) return [];

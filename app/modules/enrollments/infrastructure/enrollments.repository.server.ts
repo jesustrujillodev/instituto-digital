@@ -217,7 +217,9 @@ export const createEnrollmentRepository = ({
 		resolveAssetRef(assetUrlResolver, reference);
 
 	const lockCourse = async (courseId: number) => {
-		await prisma.$queryRaw`SELECT id FROM "org"."courses" WHERE id = ${courseId} FOR UPDATE`;
+		await prisma.$queryRaw<
+			{ id: number }[]
+		>`SELECT id FROM "org"."courses" WHERE id = ${courseId} FOR UPDATE`;
 	};
 
 	/** Las inscripciones de «Mis cursos», con lo que le fue a la persona en cada curso. */

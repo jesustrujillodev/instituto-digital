@@ -178,7 +178,9 @@ export const createAnnualPlanRepository = ({
 	},
 
 	async lockLineForCourse(documentId) {
-		await prisma.$queryRaw`SELECT id FROM "org"."plan_lines" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;
+		await prisma.$queryRaw<
+			{ id: number }[]
+		>`SELECT id FROM "org"."plan_lines" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;
 
 		return prisma.planLine.findUnique({
 			where: { documentId },
