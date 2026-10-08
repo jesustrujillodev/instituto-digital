@@ -439,6 +439,8 @@ export const createCourseRepository = ({
 			return toDetail(course);
 		},
 		async lock(documentId) {
+			// Prisma no expresa `FOR UPDATE`: la fila queda bloqueada hasta el commit
+			// de la transacción en curso.
 			await prisma.$queryRaw<
 				{ id: number }[]
 			>`SELECT id FROM "org"."courses" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;

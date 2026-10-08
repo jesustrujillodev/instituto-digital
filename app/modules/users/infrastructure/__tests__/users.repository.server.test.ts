@@ -95,3 +95,22 @@ describe("findByInternalIds", () => {
 		expect(await repository.findByInternalIds([])).toEqual([]);
 	});
 });
+
+describe("lockActiveSuperadminIds", () => {
+	test("bloquea a los superadministradores activos y devuelve sus ids", async () => {
+		const sql: string[] = [];
+		const repository = createUserRepository({
+			prisma: {
+				$queryRaw: async (strings: TemplateStringsArray) => {
+					sql.push(strings.join("?").replace(/\s+/g, " ").trim());
+					return [{ id: 1 }, { id: 4 }];
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.lockActiveSuperadminIds()).toEqual([1, 4]);
+		expect(sql).toEqual([
+			'SELECT id FROM "auth"."users" WHERE role = \'SUPERADMIN\' AND archived_at IS NULL FOR UPDATE',
+		]);
+	});
+});

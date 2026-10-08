@@ -178,6 +178,8 @@ export const createAnnualPlanRepository = ({
 	},
 
 	async lockLineForCourse(documentId) {
+		// Prisma no expresa `FOR UPDATE`. La línea queda bloqueada hasta el commit:
+		// dos altas sobre ella no pasan las dos la comprobación (docs/adr/0007).
 		await prisma.$queryRaw<
 			{ id: number }[]
 		>`SELECT id FROM "org"."plan_lines" WHERE "documentId" = ${documentId}::uuid FOR UPDATE`;

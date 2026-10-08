@@ -216,6 +216,8 @@ export const createEnrollmentRepository = ({
 	const resolveCover = (reference: string | null) =>
 		resolveAssetRef(assetUrlResolver, reference);
 
+	// Prisma no expresa `FOR UPDATE`: serializa las escrituras de ESE curso hasta
+	// el commit (docs/adr/0004).
 	const lockCourse = async (courseId: number) => {
 		await prisma.$queryRaw<
 			{ id: number }[]
