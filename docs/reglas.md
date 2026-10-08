@@ -1,7 +1,7 @@
 # Reglas Base para Proyectos Agnosticos de Framework
 
-Fecha: 2026-10-01
-Version: 1.2
+Fecha: 2026-10-08
+Version: 1.3
 Objetivo: Definir reglas obligatorias para iniciar proyectos nuevos con logica de negocio portable, escalable y facil de mantener a largo plazo.
 
 Base de referencia: este estandar define una taxonomia modular y reglas de comentarios para proyectos agnosticos.
@@ -211,6 +211,7 @@ Una historia se considera terminada solo si:
 5. Pasa gates de CI de agnosticidad.
 6. Si el cambio incluye escritura compuesta, define y prueba su estrategia transaccional (ACID o compensacion).
 7. Si el cambio agrega o modifica un adaptador de entrada que lee datos (loader, controller, resolver), cumple la seccion 26: sin cascadas de llamadas independientes, sin N+1 y sin leer colecciones completas para contarlas.
+8. Si el cambio agrega o modifica un caso de uso o un repositorio, cumple la seccion 27: sin consultas por elemento, sin lecturas en fila independientes, sin escrituras por fila dentro de transacciones, y con los mismos resultados y errores comprobados por pruebas.
 
 ## 16. Gates de CI obligatorios
 
@@ -241,6 +242,11 @@ Regla de bloqueo:
 10. Consultas dentro de un bucle o un `map` por cada fila (N+1).
 11. Leer una coleccion o un arbol completo solo para contar sus elementos.
 12. Optimizar sin una medicion antes y despues.
+13. Llamar al repositorio por cada elemento de una coleccion en un caso de uso, aunque sea dentro de `Promise.all`.
+14. `create`, `update` o `upsert` dentro de un bucle en una transaccion.
+15. Un metodo de bloqueo que lee datos que su llamador ignora.
+16. Paralelizar lecturas con `Promise.all` cuando pueden lanzar errores distintos y el orden de esos errores importa.
+17. Releer en el repositorio un registro que el caso de uso ya leyo en la misma transaccion.
 
 ## 18. Checklist de arranque para proyectos nuevos
 
@@ -580,3 +586,57 @@ La latencia por viaje (decenas de ms entre regiones, unos pocos dentro de la mis
 5. ¿Hay decisiones que se pueden tomar antes de leer lo demas?
 6. ¿Que mutaciones lo revalidan sin necesidad?
 7. ¿Conserva redirecciones, errores, permisos y forma? Comprobado con la comparacion de respuestas.
+
+## 27. Rendimiento de casos de uso y repositorios (obligatorio)
+
+Objetivo: que un caso de uso resuelva su trabajo con el menor numero de fases de lectura y de sentencias de escritura, sin cambiar lo que devuelve ni que error da. Complementa la seccion 26: aquella decide que pide el adaptador de entrada; esta, como lo resuelven el caso de uso y su repositorio.
+
+### 27.1 Modelo de costo
+
+1. Fuera de una transaccion, el costo son las fases: cuantas lecturas van en fila. Lo independiente va en paralelo.
+2. Dentro de una transaccion interactiva no hay paralelo: el ORM serializa sobre una sola conexion. El costo son las sentencias.
+3. Cada sentencia ejecutada con un bloqueo tomado alarga la espera de las demas peticiones sobre esa fila.
+
+### 27.2 Reglas
+
+1. Prohibido consultar el repositorio por cada elemento de una coleccion, tambien dentro de `Promise.all`. El repositorio ofrece la variante por lote (`IN`) y devuelve un mapa por clave con todas las claves presentes.
+2. Va en fila solo la lectura que necesita el resultado de otra. Las independientes van en una sola fase. Si pueden lanzar errores distintos, se espera a todas y gana el error de la que iba primero (helper puro en `shared/`), nunca el primero en el tiempo.
+3. Una lectura que solo esperaba el id de otra se acota por relacion o por la clave publica que ya se tiene, demostrando que describe el mismo conjunto.
+4. Relaciones, conteos y la fila del usuario actual viajan en la misma consulta que el registro principal. Se agregan en un metodo hermano para no cambiar la forma que reciben otros consumidores.
+5. Dos lecturas de la misma fila en un mismo flujo se fusionan en un metodo que devuelve ambas proyecciones con sus defaults.
+6. Si el caso de uso ya leyo un registro dentro de la misma transaccion, pasa su id al repositorio en vez de que este lo vuelva a buscar.
+7. Bloquear y leer son metodos distintos. Quien solo serializa usa el bloqueo sin lecturas. Las lecturas que deben ver lo confirmado por otros despues de esperar el bloqueo van en sentencias separadas del bloqueo.
+8. Dentro de una transaccion, nada de escrituras por fila: `createMany`, `updateMany` agrupando por valores iguales, `createMany` con omision de duplicados seguido de `updateMany` para un upsert por lote, e insercion con retorno para padres con hijos, colgando los hijos por una clave natural y no por el orden de retorno.
+9. Una mutacion que solo necesita el id no lee el agregado completo: usa un metodo que comparte el mismo filtro (una funcion `where` comun) y proyecta solo el id. Un elemento no se busca leyendo su coleccion. Un filtro expresable en la consulta no se aplica en memoria.
+10. Comprobaciones sincronas y limites de tasa van antes de cualquier lectura. Las que dependen de lecturas se evaluan despues de la fase paralela, en el orden original.
+11. Un metodo que queda sin uso tras una optimizacion se elimina del puerto y del adaptador.
+
+### 27.3 Garantia de comportamiento identico
+
+1. Mismo resultado, mismos errores en el mismo orden, mismo alcance y misma forma de respuesta (seccion 26.4).
+2. Una escritura por lote replica la semantica del bucle: el mismo ganador ante claves repetidas (ultimo para actualizaciones, primero para escrituras condicionadas a vacio), el mismo error tipado ante unicidad violada o ante menos filas actualizadas de las esperadas, y la misma atomicidad (misma transaccion).
+3. Un filtro por lote con `IN` que antes comparaba dos columnas contra el mismo valor re-comprueba en memoria que sean iguales entre si.
+4. Solo se adelantan lecturas sin efectos. Nunca escrituras ni limites de tasa.
+
+### 27.4 Cuando descartar
+
+Se descarta, y se anota en el PR con su motivo, si: no reduce fases ni sentencias; contradice una decision documentada o una prueba existente; exige SQL crudo y el proyecto no lo admite; cambia la carga sobre un tercero (proveedor de correo, storage, pool); o ahorra un viaje en una accion poco frecuente tocando filtros de autorizacion.
+
+### 27.5 Pruebas
+
+1. Repositorio: `where`, `data` y orden exactos de cada metodo nuevo; igualdad del `where` entre un metodo ligero y el completo; agrupacion; duplicados; errores tipados por `code`; lote vacio sin consultas.
+2. Caso de uso: lectura y escritura por lote invocadas una sola vez; orden de errores con dos fallos simultaneos; id ya leido pasado al repositorio.
+
+### 27.6 Checklist
+
+1. ¿Consultas por elemento?
+2. ¿Lecturas en fila que no dependen entre si?
+3. ¿Esperas solo por un id?
+4. ¿Conteos o relaciones en otra consulta?
+5. ¿Lecturas dobles de una fila?
+6. ¿Relecturas dentro de la transaccion?
+7. ¿Bloqueos que leen lo que nadie usa?
+8. ¿Escrituras por fila en transaccion?
+9. ¿Se lee mas de lo que se usa?
+10. ¿Errores en el mismo orden?
+11. ¿Medido o contado, y descartes anotados?

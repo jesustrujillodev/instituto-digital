@@ -35,6 +35,7 @@ Para cada cambio, el agente debe validar y respetar:
 6. Pruebas minimas por modulo (service/repository/inbound-adapter) segun el estandar, ubicadas en `__tests__/` por capa y cubriendo toda operacion que mute la base (ver secciones de pruebas mas abajo).
 7. Contrato estandar de respuestas (ver seccion siguiente y docs/reglas.md §25).
 8. Loaders sin cascadas, sin N+1 y leyendo solo lo que la vista pinta (ver "Rendimiento de loaders" y docs/reglas.md §26).
+9. Casos de uso y repositorios sin consultas por elemento, sin lecturas en fila independientes y sin escrituras por fila dentro de transacciones (ver "Rendimiento de servicios y repositorios" y docs/reglas.md §27).
 
 ## Contrato estandar de respuestas (obligatorio)
 
@@ -121,6 +122,42 @@ paga la latencia de red completa.
   documentan en el PR.
 - Si la ganancia medida es pequena y el cambio arriesga alterar resultados, se descarta y se
   anota en el PR con su medicion.
+
+## Rendimiento de servicios y repositorios (obligatorio)
+
+Todo caso de uso de `application/` y todo repositorio de `infrastructure/` cumple docs/reglas.md §27.
+Fuera de una transaccion se optimizan las **fases** (lecturas en fila); dentro de `runInTransaction`
+`Promise.all` no paraleliza nada y se optimizan las **sentencias**. Guia completa con ejemplos:
+`docs/guia-rendimiento-servicios-repositorios.md`.
+
+### Piezas del proyecto
+
+| Pieza | Para que |
+| --- | --- |
+| `allInOrder` (`app/shared/concurrency/all-in-order.ts`) | Lanzar lecturas independientes a la vez conservando que error gana: el de la primera posicion. Helper puro: se importa. |
+| Metodos por lote (`findXIn(ids)` → `Map<id, X[]>`) | Sustituir consultas por elemento. Todas las claves presentes, vacias si no hay filas. |
+| `lockX` / `lockXAndRead` | Serializar sin leer / serializar y leer. Cada llamador usa el que necesita. |
+| `createMany` · `updateMany` agrupado · `createManyAndReturn` | Escrituras por lote dentro de la transaccion. |
+| Funcion `xWhere()` compartida | Que un metodo ligero (`findXId`) y el completo (`findX`) no puedan divergir en alcance. |
+
+### Reglas
+
+1. **Sin consultas por elemento.** Ni en `map` ni en `Promise.all(map(...))`. Se agrega el metodo por lote al puerto.
+2. **Una fase por grupo independiente.** Si las lecturas pueden lanzar errores distintos, `allInOrder`. Si una comprobacion iba entre dos lecturas, se cuelga de la primera con `.then`.
+3. **Sin esperas falsas.** Lo que solo esperaba un id se acota por relacion o por `documentId`.
+4. **Lo que se usa junto se lee junto.** `_count`, relaciones filtradas y "la fila del usuario" en la misma consulta, en un metodo hermano.
+5. **Ni lecturas dobles ni relecturas.** Una fila, un metodo; el id ya leido en la transaccion se pasa al repositorio.
+6. **Escrituras por lote** con la semantica del bucle: deduplicar como el bucle (ultimo o primero gana), agrupar por todos los campos de `data` y `where`, P2002 y conteo menor → el mismo error tipado; upsert por lote = `createMany({ skipDuplicates })` y despues `updateMany`; hijos colgados por clave natural.
+7. **Leer solo lo que se usa.** Ids con el mismo `where`, un elemento por clave unica con el mismo filtro de pertenencia, filtros en la consulta y no en memoria.
+8. **Limites de tasa y comprobaciones sincronas, antes de leer.** Nunca se adelantan escrituras.
+9. **Metodos sin uso tras optimizar, fuera** del puerto y del adaptador.
+
+### Mismo funcionamiento, comprobado
+
+- Pruebas de repositorio con `where`/`data` exactos, agrupacion, duplicados, errores por `code` y lote vacio.
+- Pruebas de servicio con la lectura/escritura por lote invocada una vez y el orden de errores con dos fallos a la vez.
+- Lecturas: medicion y comparacion de `.data` como en "Rendimiento de loaders". Mutaciones: si la base de desarrollo es compartida o su outbox envia correo real, se cuentan las sentencias por construccion en las pruebas, sin disparar acciones.
+- Lo descartado (sin ganancia de fases, contradice una decision probada, requiere SQL crudo, presiona a un tercero) va al PR con su motivo.
 
 ## Restricciones de acoplamiento
 
@@ -281,6 +318,7 @@ Antes de terminar una tarea, el agente debe confirmar:
 7. Que la documentacion tecnica fue actualizada si hubo cambios estructurales.
 8. Que todo servicio nuevo o modificado devuelve `AppResponse<T>` y sus loaders/actions lo consumen sin `instanceof` ni literales `{ success: ... }`.
 9. Que todo loader nuevo o modificado no encadena llamadas independientes, no consulta por fila y no lee colecciones completas para contarlas; y que toda optimizacion se midio antes y despues y conserva redirecciones, errores, permisos y forma de la respuesta.
+10. Que todo caso de uso o repositorio nuevo o modificado no consulta por elemento, no encadena lecturas independientes ni escribe fila a fila dentro de transacciones; y que cada optimizacion conserva resultado, errores y su orden, alcance y forma, con pruebas que lo demuestran.
 
 ## Regla de decision
 
