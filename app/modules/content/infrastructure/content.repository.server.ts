@@ -141,6 +141,23 @@ export const createContentRepository = ({
 			});
 		},
 
+		async findTrees(courseIds) {
+			const trees = new Map<number, ContentModuleRaw[]>(
+				courseIds.map((courseId) => [courseId, []]),
+			);
+			if (courseIds.length === 0) return trees;
+
+			const rows = await prisma.courseModule.findMany({
+				where: { courseId: { in: [...courseIds] }, ...ACTIVE },
+				orderBy: { order: "asc" },
+				select: { courseId: true, ...MODULE_SELECT },
+			});
+			for (const { courseId, ...module } of rows) {
+				trees.get(courseId)?.push(module);
+			}
+			return trees;
+		},
+
 		async countFinalQuizQuestions(courseId) {
 			return prisma.quizQuestion.count({
 				where: {

@@ -38,6 +38,10 @@ export interface IContentRepository {
 	findCourseRef(courseId: number): Promise<ContentCourseRef | null>;
 	/** El temario activo del curso, módulos y lecciones en su orden. */
 	findTree(courseId: number): Promise<ContentModuleRaw[]>;
+	/** `findTree` de varios cursos en una sola consulta, por id de curso. */
+	findTrees(
+		courseIds: readonly number[],
+	): Promise<Map<number, ContentModuleRaw[]>>;
 	/** Lo que el checklist de publicación necesita, sin traer el árbol entero. */
 	countActiveLessons(courseId: number): Promise<number>;
 	/** Preguntas del examen final: el pendiente `quiz` de la publicación. */

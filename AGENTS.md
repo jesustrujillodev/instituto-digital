@@ -16,25 +16,30 @@ Si hay conflicto entre una decision tecnica y este estandar, prevalece el estand
 
 Para cada cambio, el agente debe validar y respetar:
 
-1. Estructura modular por modulo en app/modules/<modulo>, separada en subcarpetas domain/, application/, infrastructure/ y routes/.
-2. Taxonomia de archivos por modulo:
-    - domain/<modulo>.types.ts: tipos y modelos de dominio.
-    - domain/<modulo>.errors.ts: errores de dominio/aplicacion.
-    - domain/<modulo>.rules.ts: reglas de negocio puras.
-    - domain/<modulo>.validators.ts: contratos de validacion de entrada/salida en frontera (no existen `<modulo>.schema.ts` de ORM por modulo; el schema de base de datos es unico y vive en prisma/schema.prisma).
-    - domain/<modulo>.mapper.ts: conversion entre modelos externos, internos y DTO.
-    - domain/<modulo>.service.ts y domain/<modulo>.repository.ts: puertos/contratos (interfaces), sin implementacion concreta.
-    - domain/<modulo>.config.ts (opcional): configuracion propia del modulo.
-    - application/<modulo>.service.server.ts: implementacion de casos de uso (siempre server-only, ver regla de sufijo `.server`).
-    - infrastructure/<modulo>.repository.server.ts: adaptador de persistencia u otra integracion externa (siempre server-only).
-    - routes/routes.config.ts: registro de rutas del modulo.
-    - routes/<nombre-ruta>/index.tsx, index.loader.ts, index.action.ts: adaptadores inbound del filesystem router de React Router (condicional: solo las piezas que el modulo realmente exponga).
+1. Estructura modular por modulo en app/modules/<modulo>, separada en carpetas por capa: domain/, application/, infrastructure/, routes/ y, cuando el modulo tiene vistas, components/, hooks/ y utils/. Solo existen las que el modulo necesita (docs/reglas.md §21).
+2. Taxonomia de archivos por modulo. `<nombre>` es la entidad o el subdominio, no necesariamente el modulo (content tiene content, classroom, quiz y session-material):
+    - domain/<nombre>.types.ts: tipos y modelos de dominio.
+    - domain/<nombre>.errors.ts: errores de dominio/aplicacion.
+    - domain/<nombre>.rules.ts: reglas de negocio puras; cuando crecen, por tema (`<nombre>.<tema>.rules.ts`).
+    - domain/<nombre>.access.ts (opcional): traduccion del alcance de quien pide a filtros de lectura y escritura.
+    - domain/<nombre>.validators.ts: contratos de validacion de entrada/salida en frontera (no existen `<modulo>.schema.ts` de ORM por modulo; el schema de base de datos es unico y vive en prisma/schema.prisma).
+    - domain/<nombre>.mapper.ts: conversion entre modelos externos, internos y DTO.
+    - domain/<nombre>.service.ts y domain/<nombre>.repository.ts: puertos/contratos (interfaces), sin implementacion concreta.
+    - domain/<nombre>.config.ts (opcional): configuracion propia del modulo. Otros archivos puros por rol (`<nombre>.<rol>.ts`) y subcarpetas cuando un subdominio crece.
+    - application/<nombre>.service.server.ts: implementacion de casos de uso (siempre server-only, ver regla de sufijo `.server`).
+    - application/<nombre>.<rol>.server.ts: helpers internos que el servicio del propio modulo arma con dependencias ya inyectadas (gate, reader, sync, worker).
+    - infrastructure/<nombre>.repository.server.ts: adaptador de persistencia (siempre server-only). Variantes: `<nombre>.repository.cache.server.ts` / `<nombre>.cache.server.ts` (decorador con cache), `<nombre>.references.server.ts` (referencias de storage) y `<nombre>.server.ts` (otras integraciones externas).
+    - routes/routes.config.ts: registro de rutas del modulo, compuesto en app/routes.ts.
+    - routes/<segmento-url>/index.tsx, index.loader.ts, index.action.ts: adaptadores inbound del filesystem router de React Router (solo las piezas que la ruta usa; `index.ts` para una ruta de recurso sin pantalla). La carpeta lleva el segmento de URL, en espanol, y puede agruparse en una carpeta comun (`routes/cursos/`); la funcion de la pantalla puede llevar ese mismo nombre (`UsuariosPage`).
+    - Helpers de rutas (guardas, intents, armado de respuestas o de datos de una pantalla): un archivo junto a las rutas que lo usan — en `routes/` si lo comparte el modulo, en la carpeta de grupo o junto al `index.*` de la unica ruta que lo usa. `.server.ts` si es server-only (`require-*.server.ts`, `*-intents.server.ts`); sin sufijo si es puro.
+    - components/<nombre>.tsx, hooks/use-<nombre>.ts, utils/<nombre>.ts: piezas de vista y funciones puras en kebab-case; el diccionario de errores es utils/<nombre>-error-messages.ts, uno por cada `<nombre>.errors.ts`.
 3. Logica de negocio agnostica al framework.
 4. Errores de dominio/aplicacion desacoplados de HTTP/framework.
-5. Regla de comentarios del estandar (secciones, JSDoc util, sin ruido).
-6. Pruebas minimas por modulo (service/repository/inbound-adapter) segun el estandar, ubicadas en `__tests__/` por capa y cubriendo toda operacion que mute la base (ver secciones de pruebas mas abajo).
+5. Politica de comentarios de este archivo (JSDoc util, sin cabeceras de seccion ni ruido); prevalece sobre docs/reglas.md §22 si divergen.
+6. Pruebas minimas por modulo (service/repository/loader o action) segun el estandar, ubicadas en `__tests__/` por capa y cubriendo toda operacion que mute la base (ver secciones de pruebas mas abajo).
 7. Contrato estandar de respuestas (ver seccion siguiente y docs/reglas.md §25).
 8. Loaders sin cascadas, sin N+1 y leyendo solo lo que la vista pinta (ver "Rendimiento de loaders" y docs/reglas.md §26).
+9. Casos de uso y repositorios sin consultas por elemento, sin lecturas en fila independientes y sin escrituras por fila dentro de transacciones (ver "Rendimiento de servicios y repositorios" y docs/reglas.md §27).
 
 ## Contrato estandar de respuestas (obligatorio)
 
@@ -54,11 +59,11 @@ Todo servicio de `application/` devuelve el envelope `AppResponse<T>`, y todo lo
 
 ### Reglas por capa
 
-1. **`domain/<modulo>.errors.ts`**: exporta `<MODULO>_ERROR_CODES` (constante) y clases que extienden `DomainError`. `details` para lo que el adaptador necesite interpolar.
-2. **`domain/<modulo>.service.ts`** (puerto): todos los metodos consumidos por loaders/actions devuelven `AppResponse<T>`. Una excepcion (metodo de middleware que sigue lanzando) exige comentario que la justifique.
-3. **`application/<modulo>.service.server.ts`**: recibe `logger` por DI, crea `const run = createOperationRunner(logger.child({ module: "<modulo>" }))` y envuelve TODA operacion. Devuelve `ok(...)`; deja que el repositorio lance.
-4. **`infrastructure/<modulo>.repository.server.ts`**: sin cambios de contrato — sigue devolviendo dominio crudo y lanzando errores tipados.
-5. **`utils/<modulo>-error-messages.ts`**: diccionario `ErrorMessageMap` con entrada de reserva para `RESPONSE_ERROR_CODES.UNEXPECTED`.
+1. **`domain/<nombre>.errors.ts`**: exporta `<MODULO>_ERROR_CODES` (constante) y clases que extienden `DomainError`. `details` para lo que el adaptador necesite interpolar.
+2. **`domain/<nombre>.service.ts`** (puerto): todos los metodos consumidos por loaders/actions devuelven `AppResponse<T>`. Una excepcion (metodo de middleware que sigue lanzando) exige comentario que la justifique.
+3. **`application/<nombre>.service.server.ts`**: recibe `logger` por DI, crea `const run = createOperationRunner(logger.child({ module: "<modulo>" }))` y envuelve TODA operacion. Devuelve `ok(...)`; deja que el repositorio lance.
+4. **`infrastructure/<nombre>.repository.server.ts`**: sin cambios de contrato — sigue devolviendo dominio crudo y lanzando errores tipados.
+5. **`utils/<nombre>-error-messages.ts`**: diccionario `ErrorMessageMap` con entrada de reserva para `RESPONSE_ERROR_CODES.UNEXPECTED`.
 6. **Loaders**: `if (!result.success) throw toRouteError(result.error, <MODULO>_ERROR_MESSAGES);` y devuelven `ok(...)`.
 7. **Actions**: `if (!result.success) return localizeError(result, <MODULO>_ERROR_MESSAGES);` y devuelven `ok(null, { message })`. La validacion de frontera va en `parseInput(() => ...)`.
 
@@ -122,13 +127,86 @@ paga la latencia de red completa.
 - Si la ganancia medida es pequena y el cambio arriesga alterar resultados, se descarta y se
   anota en el PR con su medicion.
 
+## Rendimiento de servicios y repositorios (obligatorio)
+
+Todo caso de uso de `application/` y todo repositorio de `infrastructure/` cumple docs/reglas.md §27.
+Fuera de una transaccion se optimizan las **fases** (lecturas en fila); dentro de `runInTransaction`
+`Promise.all` no paraleliza nada y se optimizan las **sentencias**. Guia completa con ejemplos:
+`docs/guia-rendimiento-servicios-repositorios.md`.
+
+### Piezas del proyecto
+
+| Pieza | Para que |
+| --- | --- |
+| `allInOrder` (`app/shared/concurrency/all-in-order.ts`) | Lanzar lecturas independientes a la vez conservando que error gana: el de la primera posicion. Helper puro: se importa. |
+| Metodos por lote (`findXIn(ids)` → `Map<id, X[]>`) | Sustituir consultas por elemento. Todas las claves presentes, vacias si no hay filas. |
+| `lockX` / `lockXAndRead` | Serializar sin leer / serializar y leer. Cada llamador usa el que necesita. |
+| `createMany` · `updateMany` agrupado · `createManyAndReturn` | Escrituras por lote dentro de la transaccion. |
+| Funcion `xWhere()` compartida | Que un metodo ligero (`findXId`) y el completo (`findX`) no puedan divergir en alcance. |
+
+### Reglas
+
+1. **Sin consultas por elemento.** Ni en `map` ni en `Promise.all(map(...))`. Se agrega el metodo por lote al puerto.
+2. **Una fase por grupo independiente.** Si las lecturas pueden lanzar errores distintos, `allInOrder`. Si una comprobacion iba entre dos lecturas, se cuelga de la primera con `.then`.
+3. **Sin esperas falsas.** Lo que solo esperaba un id se acota por relacion o por `documentId`.
+4. **Lo que se usa junto se lee junto.** `_count`, relaciones filtradas y "la fila del usuario" en la misma consulta, en un metodo hermano.
+5. **Ni lecturas dobles ni relecturas.** Una fila, un metodo; el id ya leido en la transaccion se pasa al repositorio.
+6. **Escrituras por lote** con la semantica del bucle: deduplicar como el bucle (ultimo o primero gana), agrupar por todos los campos de `data` y `where`, P2002 y conteo menor → el mismo error tipado; upsert por lote = `createMany({ skipDuplicates })` y despues `updateMany`; hijos colgados por clave natural.
+7. **Leer solo lo que se usa.** Ids con el mismo `where`, un elemento por clave unica con el mismo filtro de pertenencia, filtros en la consulta y no en memoria.
+8. **Limites de tasa y comprobaciones sincronas, antes de leer.** Nunca se adelantan escrituras.
+9. **Metodos sin uso tras optimizar, fuera** del puerto y del adaptador.
+
+### Mismo funcionamiento, comprobado
+
+- Pruebas de repositorio con `where`/`data` exactos, agrupacion, duplicados, errores por `code` y lote vacio.
+- Pruebas de servicio con la lectura/escritura por lote invocada una vez y el orden de errores con dos fallos a la vez.
+- Lecturas: medicion y comparacion de `.data` como en "Rendimiento de loaders". Mutaciones: si la base de desarrollo es compartida o su outbox envia correo real, se cuentan las sentencias por construccion en las pruebas, sin disparar acciones.
+- Lo descartado (sin ganancia de fases, contradice una decision probada, requiere SQL fuera de "SQL crudo (restringido)", presiona a un tercero) va al PR con su motivo.
+
 ## Restricciones de acoplamiento
 
 No introducir en logica de negocio:
 
 - Tipos de request/response de framework.
 - Redirects/routing en servicios de negocio.
-- Dependencias a SDKs/ORM (Prisma) fuera de application/, infrastructure/ o adaptadores en app/shared/.
+- Prisma (cliente, tipos o SQL) fuera de `infrastructure/` de cada modulo. Los adaptadores de `app/shared/` y `app/core/` pueden usar la API de Prisma, nunca SQL.
+
+## SQL crudo (restringido)
+
+La base se consulta con la API de Prisma. El SQL escrito a mano (docs/reglas.md §8.2) se admite
+solo si se cumplen **todas** estas condiciones; fuera de ellas no hay SQL en ninguna parte del
+codigo:
+
+1. **Lugar.** Un adaptador `app/modules/<modulo>/infrastructure/*.server.ts`. Nunca en
+   `application/`, `domain/`, `routes/`, `components/`, `hooks/`, `utils/`, `app/shared/`,
+   `app/core/`, `scripts/` ni `prisma/`.
+2. **Motivo.** Prisma no puede expresar la operacion, y es una de estas: bloqueo de filas
+   (`FOR UPDATE`, `FOR UPDATE SKIP LOCKED`), actualizacion condicional atomica que devuelve filas
+   (`UPDATE ... RETURNING`), o una funcion que debe evaluar Postgres y no el proceso (`now()`).
+   Un lote en una sola sentencia (`UPDATE ... FROM (VALUES ...)`, `INSERT ... ON CONFLICT DO
+   UPDATE`) no es motivo: se usan `createMany`/`updateMany` (ver "Rendimiento de servicios y
+   repositorios").
+3. **Parametrizado.** Solo `` $queryRaw`...${valor}` `` y `` $executeRaw`...` ``. Prohibidos
+   `$queryRawUnsafe`, `$executeRawUnsafe`, `Prisma.raw` y concatenar cadenas.
+4. **Fuertemente tipado.** Toda lectura declara el tipo de sus filas
+   (`` $queryRaw<{ id: number }[]>`...` ``) y su resultado se convierte a tipos de dominio antes de
+   salir del repositorio. Tablas con esquema (`"org"."courses"`) y conversiones explicitas
+   (`${documentId}::uuid`).
+5. **Documentado y probado.** Comentario o ADR con el porque, y prueba de repositorio con un doble
+   de `$queryRaw`/`$executeRaw` que verifica la sentencia.
+
+Referencias: `lockCourse` (`enrollments.repository.server.ts`), `claimById` y `claimDue`
+(`notifications.repository.server.ts`), las escrituras de epoch
+(`security-state.repository.server.ts`).
+
+### Verificacion automatica
+
+`bun run lint:sql` (`scripts/check-sql.ts`, en el pre-commit) rechaza: SQL fuera de
+`infrastructure/`, las variantes sin parametrizar, `$queryRaw` sin tipo de fila y el cliente del
+ORM (`ICradle["prisma"]`, `context.prisma`) en `application/`, `domain/`, `routes/`,
+`components/`, `hooks/` o `utils/`. Existe aparte de `lint:arch` porque el cliente llega por el
+cradle y no por un import: dependency-cruiser no lo ve. No se agregan excepciones al script para
+silenciar una violacion.
 
 ## Inyeccion de dependencias (estrictamente obligatoria)
 
@@ -185,7 +263,8 @@ pre-commit los imports que rompen esta seccion y la direccion de las capas: serv
 repositorios y adaptadores con estado fuera de los composition roots, `domain/` con framework,
 ORM, Node o archivos `.server`, `application/` con React/React Router o adaptadores de entrada,
 y Prisma fuera de `infrastructure/`. Los tests cuentan como composition root. Cada violacion
-imprime la regla que incumple y por que.
+imprime la regla que incumple y por que. Lo que no es un import (el cliente del ORM recibido por
+el cradle y el SQL) lo vigila `bun run lint:sql` (ver "SQL crudo (restringido)").
 
 Un composition root nuevo (otro runtime o script de CLI) se agrega a `COMPOSITION_ROOTS`; un
 adaptador con estado nuevo en `app/shared/`, a `STATEFUL_ADAPTERS`. No se agregan excepciones
@@ -281,6 +360,8 @@ Antes de terminar una tarea, el agente debe confirmar:
 7. Que la documentacion tecnica fue actualizada si hubo cambios estructurales.
 8. Que todo servicio nuevo o modificado devuelve `AppResponse<T>` y sus loaders/actions lo consumen sin `instanceof` ni literales `{ success: ... }`.
 9. Que todo loader nuevo o modificado no encadena llamadas independientes, no consulta por fila y no lee colecciones completas para contarlas; y que toda optimizacion se midio antes y despues y conserva redirecciones, errores, permisos y forma de la respuesta.
+10. Que todo caso de uso o repositorio nuevo o modificado no consulta por elemento, no encadena lecturas independientes ni escribe fila a fila dentro de transacciones; y que cada optimizacion conserva resultado, errores y su orden, alcance y forma, con pruebas que lo demuestran.
+11. Que no hay SQL fuera de las condiciones de "SQL crudo (restringido)": solo en `infrastructure/`, parametrizado, con tipo de fila, documentado y probado. `bun run lint:sql` en verde.
 
 ## Regla de decision
 
@@ -301,7 +382,7 @@ Si el usuario pide una implementacion que rompe estas reglas, el agente debe:
 
 Los hooks del proyecto (Husky, `.husky/`) ejecutan:
 
-- `pre-commit`: `bun run verify:commit` (lint-staged: Biome sobre los archivos en stage, con auto-fix y re-stage; luego `lint:arch` con las fronteras de arquitectura y typecheck del proyecto completo).
+- `pre-commit`: `bun run verify:commit` (lint-staged: Biome sobre los archivos en stage, con auto-fix y re-stage; luego `lint:arch` con las fronteras de arquitectura, `lint:sql` con las del SQL y typecheck del proyecto completo).
 - `commit-msg`: `commitlint` sobre el mensaje (Conventional Commits, ver `.commitlintrc.json`).
 - `pre-push`: `bun run verify:push` (suite completa con `vitest run`).
 

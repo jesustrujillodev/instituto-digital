@@ -190,6 +190,15 @@ export const createUserRepository = ({
 			});
 			return user ? toDomain(user) : null;
 		},
+		async findByInternalIds(userIds: readonly number[]) {
+			if (userIds.length === 0) return [];
+
+			const users = await prisma.user.findMany({
+				where: { id: { in: [...userIds] } },
+				include: WITH_TRAINER_PROFILE,
+			});
+			return users.map(toDomain);
+		},
 		async findByEmail(email: string) {
 			const user = await prisma.user.findUnique({
 				where: { email },

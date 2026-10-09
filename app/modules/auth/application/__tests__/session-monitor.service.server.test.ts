@@ -53,7 +53,7 @@ const createHarness = (
 		revokeUserTokens: [] as number[],
 		revokeAllTokens: 0,
 		findAll: [] as unknown[],
-		findByInternalId: [] as number[],
+		findByInternalIds: [] as (readonly number[])[],
 		deleteExpired: 0,
 		count: [] as unknown[],
 	};
@@ -111,15 +111,15 @@ const createHarness = (
 	} as unknown as ICradle["securityStateRepository"];
 
 	const userRepository = {
-		findByInternalId: async (id: number) => {
-			calls.findByInternalId.push(id);
-			return {
+		findByInternalIds: async (ids: readonly number[]) => {
+			calls.findByInternalIds.push(ids);
+			return ids.map((id) => ({
 				id,
 				documentId: `doc-${id}`,
 				email: `usuario${id}@empresa.com`,
 				firstName: "Ana",
 				lastName: "Ruiz",
-			};
+			}));
 		},
 	} as unknown as ICradle["userRepository"];
 
@@ -201,9 +201,8 @@ describe("createSessionMonitorService — list", () => {
 		expect(JSON.stringify(result)).not.toContain("secreto-vigente");
 	});
 
-	// Los dueños se resuelven DEDUPLICADOS: con el cap por usuario, una página de
-	// 10 filas puede ser un solo usuario, y sin deduplicar serían 10 consultas.
-	test("resolves each distinct owner exactly once", async () => {
+	// Los dueños se resuelven DEDUPLICADOS y en una sola consulta para la página.
+	test("resolves each distinct owner exactly once, in one read", async () => {
 		const { service, calls } = createHarness({
 			sessions: [
 				sessionOf({ id: "a", userId: 7 }),
@@ -215,7 +214,7 @@ describe("createSessionMonitorService — list", () => {
 
 		await service.list({});
 
-		expect(calls.findByInternalId).toEqual([7, 9]);
+		expect(calls.findByInternalIds).toEqual([[7, 9]]);
 	});
 
 	test("marks the session the panel is being viewed from", async () => {

@@ -26,7 +26,9 @@ export const createCertificateIssuance = ({
 		if (diff.issue.length > 0) {
 			// Secuencial: la transacción interactiva de Prisma no admite consultas en paralelo.
 			const course = await certificateRepository.findCourseById(courseId);
-			const record = await certificateRepository.findRecord(courseId);
+			// La entrega es la misma fila que el diseño: se lee con él.
+			const { record, delivery } =
+				await certificateRepository.findRecordWithDelivery(courseId);
 			const design = record.published ?? DEFAULT_CERTIFICATE_DESIGN;
 			const firstSeq = await certificateRepository.reserveFolios(
 				diff.issue.length,
@@ -49,7 +51,6 @@ export const createCertificateIssuance = ({
 
 			// En la misma transacción que la emisión (docs/adr/0008): si la emisión
 			// revierte, el correo no sale. Solo la primera vez; restaurar no avisa.
-			const delivery = await certificateRepository.findDelivery(courseId);
 			await notificationService.notify(
 				diff.issue.map((candidate, index) => ({
 					template: "CERTIFICATE_ISSUED",

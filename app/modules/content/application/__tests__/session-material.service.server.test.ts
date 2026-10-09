@@ -455,6 +455,27 @@ describe("create", () => {
 		expect(calls.created).toHaveLength(0);
 	});
 
+	test("si faltan la sesión y la subida, gana el error de la sesión, como en fila", async () => {
+		const { service } = createHarness({ session: null, stat: null });
+
+		expect(await service.create(COURSE_DOC, fileDto, actorOf())).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.SESSION_NOT_FOUND },
+		});
+	});
+
+	test("con la sesión llena y la subida perdida, gana el tope", async () => {
+		const { service } = createHarness({
+			session: { id: 11, materialCount: SESSION_MATERIAL_MAX_PER_SESSION },
+			stat: null,
+		});
+
+		expect(await service.create(COURSE_DOC, fileDto, actorOf())).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.TOO_MANY_SESSION_MATERIALS },
+		});
+	});
+
 	test("una sesión llena no admite otro", async () => {
 		const { service, calls } = createHarness({
 			session: { id: 11, materialCount: SESSION_MATERIAL_MAX_PER_SESSION },

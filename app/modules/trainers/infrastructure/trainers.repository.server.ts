@@ -114,32 +114,36 @@ export const createTrainerRepository = ({
 		async findByUserDocumentIds(userDocumentIds: readonly string[]) {
 			if (userDocumentIds.length === 0) return [];
 
-			const profiles = await prisma.trainerProfile.findMany({
-				where: { user: { documentId: { in: [...userDocumentIds] } } },
-				select: DETAIL_SELECT,
-			});
+			// Las tres lecturas parten del mismo conjunto de cuentas —las de esos
+			// documentId que tienen perfil—, así que viajan juntas y no en fila. La
+			// media se rehace desde sumas y conteos por curso, que es lo que
+			// `statsOf` promedia rating a rating.
+			const trainerUsers = {
+				documentId: { in: [...userDocumentIds] },
+				trainerProfile: { isNot: null },
+			};
+			const [profiles, assignments, ratings] = await Promise.all([
+				prisma.trainerProfile.findMany({
+					where: { user: { documentId: { in: [...userDocumentIds] } } },
+					select: DETAIL_SELECT,
+				}),
+				prisma.courseTrainer.findMany({
+					where: { user: trainerUsers, course: { status: "FINISHED" } },
+					select: { userId: true, courseId: true },
+				}),
+				prisma.courseRating.groupBy({
+					by: ["courseId"],
+					where: {
+						course: {
+							status: "FINISHED",
+							trainers: { some: { user: trainerUsers } },
+						},
+					},
+					_sum: { score: true },
+					_count: { _all: true },
+				}),
+			]);
 			if (profiles.length === 0) return [];
-
-			// Dos consultas para toda la página y no dos por persona: la media se
-			// rehace desde sumas y conteos por curso, que es lo que `statsOf`
-			// promedia rating a rating.
-			const assignments = await prisma.courseTrainer.findMany({
-				where: {
-					userId: { in: profiles.map((profile) => profile.userId) },
-					course: { status: "FINISHED" },
-				},
-				select: { userId: true, courseId: true },
-			});
-			const courseIds = [...new Set(assignments.map((row) => row.courseId))];
-			const ratings =
-				courseIds.length === 0
-					? []
-					: await prisma.courseRating.groupBy({
-							by: ["courseId"],
-							where: { courseId: { in: courseIds } },
-							_sum: { score: true },
-							_count: { _all: true },
-						});
 
 			const stats = toStatsByUser(
 				assignments,

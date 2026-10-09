@@ -3,7 +3,6 @@ import { zonedInputToUtc } from "@/lib/date-utils";
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import type { QrCourse } from "@/modules/courses/domain/course.types";
 import type { EnrollmentStatus } from "@/modules/enrollments/domain/enrollment.config";
-import type { StoredEnrollment } from "@/modules/enrollments/domain/enrollment.types";
 import { courseOf as teachingCourseOf } from "@/modules/teaching/domain/__tests__/teaching.fixtures";
 import type { ICradle } from "@/shared/di/container.types";
 import type { Logger } from "@/shared/logging/logger";
@@ -74,27 +73,18 @@ const createHarness = (options: HarnessOptions = {}) => {
 	};
 
 	const courseRepository = {
-		findByQrToken: async (token: string) =>
-			token === TOKEN ? (options.course ?? qrCourseOf()) : null,
+		findByQrToken: async (token: string) => {
+			if (token !== TOKEN) return null;
+			const status = options.status === undefined ? "ENROLLED" : options.status;
+			return {
+				course: options.course ?? qrCourseOf(),
+				viewerEnrollment: status === null ? null : { status },
+			};
+		},
 		rotateQrToken: async (courseId: number, token: string, at: Date) => {
 			log.rotations.push({ courseId, token, at });
 		},
 	} as unknown as ICradle["courseRepository"];
-
-	const enrollmentRepository = {
-		findEnrollment: async (): Promise<StoredEnrollment | null> => {
-			const status = options.status === undefined ? "ENROLLED" : options.status;
-			return status === null
-				? null
-				: ({
-						userId: 7,
-						documentId: "e",
-						origin: "SELF",
-						status,
-						result: "PENDING",
-					} as StoredEnrollment);
-		},
-	} as unknown as ICradle["enrollmentRepository"];
 
 	const teachingRepository = {
 		checkIn: async (sessionId: number, userId: number, at: Date) => {
@@ -106,7 +96,6 @@ const createHarness = (options: HarnessOptions = {}) => {
 
 	const service = createCheckInService({
 		courseRepository,
-		enrollmentRepository,
 		teachingRepository,
 		clock: { now: () => options.now ?? NOW_INSIDE },
 		logger: silentLogger,

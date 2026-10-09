@@ -3,6 +3,7 @@ import {
 	courseScopeWriteWhere,
 	resolveCourseScope,
 } from "@/modules/courses/domain/course.access";
+import { allInOrder } from "@/shared/concurrency/all-in-order";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
@@ -316,8 +317,12 @@ export const createCertificateTemplateService = ({
 
 		async apply({ courseDocumentId, templateDocumentId }, actor) {
 			return run("apply", async () => {
-				const course = await requireEditableCourse(courseDocumentId, actor);
-				const template = await requireVisible(templateDocumentId, actor);
+				// El curso y la plantilla no dependen uno del otro; si fallan los
+				// dos, gana el error del curso, como cuando iban en fila.
+				const [course, template] = await allInOrder([
+					requireEditableCourse(courseDocumentId, actor),
+					requireVisible(templateDocumentId, actor),
+				]);
 				if (template.archivedAt) throw new CertificateTemplateNotFoundError();
 
 				return ok(

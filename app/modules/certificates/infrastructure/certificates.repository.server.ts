@@ -62,6 +62,9 @@ const RECORD_SELECT = {
 	publishedAt: true,
 } satisfies Prisma.CourseCertificateSelect;
 
+/** Sin fila de certificado: descarga permitida y sin mensaje. */
+const DEFAULT_DELIVERY = { isDownloadable: true, emailMessage: null };
+
 type StoredRecord = Prisma.CourseCertificateGetPayload<{
 	select: typeof RECORD_SELECT;
 }>;
@@ -149,6 +152,22 @@ export const createCertificateRepository = ({
 				select: RECORD_SELECT,
 			});
 			return toRecord(row, courseId);
+		},
+
+		async findRecordWithDelivery(courseId) {
+			const row = await prisma.courseCertificate.findUnique({
+				where: { courseId },
+				select: { ...RECORD_SELECT, isDownloadable: true, emailMessage: true },
+			});
+			return {
+				record: toRecord(row, courseId),
+				delivery: row
+					? {
+							isDownloadable: row.isDownloadable,
+							emailMessage: row.emailMessage,
+						}
+					: DEFAULT_DELIVERY,
+			};
 		},
 
 		async saveDraft(courseId, design) {
@@ -336,7 +355,7 @@ export const createCertificateRepository = ({
 				where: { courseId },
 				select: { isDownloadable: true, emailMessage: true },
 			});
-			return row ?? { isDownloadable: true, emailMessage: null };
+			return row ?? DEFAULT_DELIVERY;
 		},
 
 		async saveDelivery(courseId, delivery) {

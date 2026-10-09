@@ -37,6 +37,11 @@ export interface ITeachingRepository {
 		documentId: string,
 		where: TeachingCourseWhere,
 	): Promise<TeachingCourse | null>;
+	/** El id de `findCourse` con el mismo filtro, sin leer su lista ni su asistencia. */
+	findCourseId(
+		documentId: string,
+		where: TeachingCourseWhere,
+	): Promise<number | null>;
 	/**
 	 * Relectura sin filtro para usarla dentro de la transacción, ya autorizada y
 	 * con la fila del curso bloqueada.

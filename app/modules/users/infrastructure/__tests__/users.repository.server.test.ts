@@ -63,3 +63,54 @@ describe("create — unicidad (P2002)", () => {
 		});
 	});
 });
+
+describe("findByInternalIds", () => {
+	test("los busca juntos, con el perfil de capacitador que pide el mapper", async () => {
+		const calls: unknown[] = [];
+		const repository = createUserRepository({
+			prisma: {
+				user: {
+					findMany: async (args: unknown) => {
+						calls.push(args);
+						return [];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.findByInternalIds([7, 9])).toEqual([]);
+		expect(calls).toEqual([
+			{
+				where: { id: { in: [7, 9] } },
+				include: { trainerProfile: { select: { archivedAt: true } } },
+			},
+		]);
+	});
+
+	test("sin ids no consulta", async () => {
+		const repository = createUserRepository({
+			prisma: {} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.findByInternalIds([])).toEqual([]);
+	});
+});
+
+describe("lockActiveSuperadminIds", () => {
+	test("bloquea a los superadministradores activos y devuelve sus ids", async () => {
+		const sql: string[] = [];
+		const repository = createUserRepository({
+			prisma: {
+				$queryRaw: async (strings: TemplateStringsArray) => {
+					sql.push(strings.join("?").replace(/\s+/g, " ").trim());
+					return [{ id: 1 }, { id: 4 }];
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.lockActiveSuperadminIds()).toEqual([1, 4]);
+		expect(sql).toEqual([
+			'SELECT id FROM "auth"."users" WHERE role = \'SUPERADMIN\' AND archived_at IS NULL FOR UPDATE',
+		]);
+	});
+});

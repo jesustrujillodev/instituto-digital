@@ -123,6 +123,7 @@ export const createSecurityStateRepository = ({
 		},
 
 		async lift() {
+			// La hora la pone la base, como en `revokeAllTokens`.
 			await prisma.$executeRaw`
 				UPDATE auth.security_state
 				SET lockdown_at = NULL, lockdown_scope = NULL, lockdown_reason = NULL, lockdown_by = NULL, "updatedAt" = now()

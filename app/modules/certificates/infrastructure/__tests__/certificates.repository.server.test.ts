@@ -127,6 +127,33 @@ describe("findRecord", () => {
 	});
 });
 
+describe("findRecordWithDelivery", () => {
+	test("sin fila, lo mismo que findRecord y findDelivery por separado", async () => {
+		const { repository } = createHarness(null);
+
+		expect(await repository.findRecordWithDelivery(7)).toEqual({
+			record: await repository.findRecord(7),
+			delivery: await repository.findDelivery(7),
+		});
+	});
+
+	test("con fila, el diseño y la entrega de esa misma fila", async () => {
+		const row = {
+			draftDesign: DEFAULT_CERTIFICATE_DESIGN,
+			publishedDesign: null,
+			publishedAt: null,
+			isDownloadable: false,
+			emailMessage: "Felicidades",
+		};
+		const { repository } = createHarness(row);
+
+		expect(await repository.findRecordWithDelivery(7)).toEqual({
+			record: await repository.findRecord(7),
+			delivery: { isDownloadable: false, emailMessage: "Felicidades" },
+		});
+	});
+});
+
 describe("saveDraft y publish", () => {
 	test("guardar crea la fila la primera vez y después solo toca el borrador", async () => {
 		const { repository, writes } = createHarness();

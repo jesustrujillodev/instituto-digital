@@ -8,7 +8,7 @@ import type {
 	EnrollmentQrCourse,
 	EnrollmentQrState,
 	ListCoursesDto,
-	QrCourse,
+	QrCourseForViewer,
 	UpdateCourseData,
 } from "./course.types";
 
@@ -126,7 +126,10 @@ export interface ICourseRepository {
 	 * Sin alcance a propósito: el token opaco ES la autorización para llegar al
 	 * curso, y quien escanea no lo administra (§6.8).
 	 */
-	findByQrToken(token: string): Promise<QrCourse | null>;
+	findByQrToken(
+		token: string,
+		viewerId: number,
+	): Promise<QrCourseForViewer | null>;
 
 	/**
 	 * Fija el token del QR, generándolo o rotándolo. Al rotar, el código ya

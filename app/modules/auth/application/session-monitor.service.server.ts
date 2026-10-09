@@ -61,20 +61,11 @@ export const createSessionMonitorService = ({
 					resolveCurrentSessionId(currentRefreshToken),
 				]);
 
-				// Los dueños se resuelven deduplicados: N sesiones del mismo usuario
-				// son UNA consulta, no N. Con el cap por usuario activo, una página de
-				// 10 filas puede ser un solo usuario.
-				const ownerIds = [
+				// Los dueños de toda la página, deduplicados, en una sola consulta.
+				const owners = await userRepository.findByInternalIds([
 					...new Set(sessions.map((session) => session.userId)),
-				];
-				const owners = await Promise.all(
-					ownerIds.map((id) => userRepository.findByInternalId(id)),
-				);
-				const ownerById = new Map(
-					owners
-						.filter((owner) => owner !== null)
-						.map((owner) => [owner.id, owner]),
-				);
+				]);
+				const ownerById = new Map(owners.map((owner) => [owner.id, owner]));
 
 				const ctx = { now: Date.now(), currentSessionId };
 				const data = sessions.map((session) =>

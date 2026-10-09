@@ -166,6 +166,22 @@ export const createEnrollmentService = ({
 		return enrollmentRepository.save(data, expected);
 	};
 
+	/** `persist` de un lote: la misma comprobación por persona, antes de escribir. */
+	const persistMany = async (
+		writes: readonly {
+			data: EnrollmentWrite;
+			expected: EnrollmentWrite["status"] | null;
+		}[],
+	) => {
+		if (writes.length === 0) return;
+		for (const { data, expected } of writes) {
+			if (!canTransition(expected, data.status)) {
+				throw new EnrollmentStateChangedError();
+			}
+		}
+		await enrollmentRepository.saveMany(writes);
+	};
+
 	/** Un aviso por persona sobre este curso, con sus sesiones de ahora. */
 	const notifyCourse = (
 		template:
@@ -332,16 +348,15 @@ export const createEnrollmentService = ({
 		async findAvailable(courseDocumentId: string, actor: AuthContext) {
 			return run("findAvailable", async () => {
 				requireParticipant(actor);
-				const course = await requireCourse(
-					courseDocumentId,
-					await catalogOf(actor),
-				);
-				const now = clock.now();
-				const detail = withAvailability(course, now);
-
 				const scope = resolveCourseScope(actor);
-				const [enrollment, visibleToDependency] = await Promise.all([
-					enrollmentRepository.findEnrollment(course.id, actor.userId),
+				// Nada de esto depende del curso leído: va en paralelo, y si el curso
+				// no se ve, lo demás se descarta sin salir de aquí.
+				const [filter, enrollment, visibleToDependency] = await Promise.all([
+					catalogOf(actor),
+					enrollmentRepository.findEnrollmentByCourseDocumentId(
+						courseDocumentId,
+						actor.userId,
+					),
 					scope.kind === "dependency"
 						? enrollmentRepository.findCourse(
 								courseDocumentId,
@@ -349,6 +364,9 @@ export const createEnrollmentService = ({
 							)
 						: Promise.resolve(null),
 				]);
+				const course = await requireCourse(courseDocumentId, filter);
+				const now = clock.now();
+				const detail = withAvailability(course, now);
 				return ok({
 					course: detail,
 					enrollment: enrollment && {
@@ -679,9 +697,9 @@ export const createEnrollmentService = ({
 
 						assertSeatsFor(seats.capacity, seats.enrolled, pending.length);
 
-						for (const participant of pending) {
-							await persist(
-								{
+						await persistMany(
+							pending.map((participant) => ({
+								data: {
 									courseId: course.id,
 									userId: participant.id,
 									dependencyId: participant.dependencyId,
@@ -690,9 +708,9 @@ export const createEnrollmentService = ({
 									actedById: actor.userId,
 									at: now,
 								},
-								existing.get(participant.id) ?? null,
-							);
-						}
+								expected: existing.get(participant.id) ?? null,
+							})),
+						);
 						await notifyCourse("ENROLLMENT_ASSIGNED", course, pending);
 
 						return {
@@ -738,9 +756,9 @@ export const createEnrollmentService = ({
 							return !status || !ACTIVE_ENROLLMENT_STATUSES.includes(status);
 						});
 
-						for (const participant of pending) {
-							await persist(
-								{
+						await persistMany(
+							pending.map((participant) => ({
+								data: {
 									courseId: course.id,
 									userId: participant.id,
 									dependencyId: participant.dependencyId,
@@ -749,9 +767,9 @@ export const createEnrollmentService = ({
 									actedById: actor.userId,
 									at: now,
 								},
-								existing.get(participant.id) ?? null,
-							);
-						}
+								expected: existing.get(participant.id) ?? null,
+							})),
+						);
 						await notifyCourse("COURSE_INVITATION", course, pending);
 
 						return {

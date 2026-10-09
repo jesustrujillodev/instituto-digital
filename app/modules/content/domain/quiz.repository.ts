@@ -19,16 +19,21 @@ import type {
 export interface IQuizRepository {
 	/** El cuestionario activo de ese dueño; todos nulos, el examen final. */
 	findQuiz(courseId: number, owner: QuizOwnerIds): Promise<StoredQuiz | null>;
-	countAttempts(quizId: number): Promise<number>;
+	/** `findQuiz` con sus intentos contados, en la misma consulta. */
+	findQuizWithAttemptCount(
+		courseId: number,
+		owner: QuizOwnerIds,
+	): Promise<(StoredQuiz & { attemptCount: number }) | null>;
 	/**
-	 * Crea el cuestionario si no existe y reescribe sus preguntas y opciones.
-	 * Quien la llama la envuelve en `runInTransaction` y ya comprobó que no
-	 * tiene intentos.
+	 * Crea el cuestionario si `quizId` es `null` y reescribe sus preguntas y
+	 * opciones. Quien la llama ya lo buscó dentro de la misma
+	 * `runInTransaction` y comprobó que no tiene intentos.
 	 */
 	replaceBank(
 		courseId: number,
 		owner: QuizOwnerIds,
 		bank: QuizBankWrite,
+		quizId: number | null,
 	): Promise<void>;
 	rename(quizId: number, title: string): Promise<void>;
 	/** Borra con su banco en cascada: solo la evaluación de módulo de un borrador. */
@@ -36,6 +41,14 @@ export interface IQuizRepository {
 
 	/** El último intento de la persona, o `null` si nunca lo presentó. */
 	findAttempt(quizId: number, userId: number): Promise<StoredAttempt | null>;
+	/**
+	 * El último intento de la persona en cada evaluación de seguimiento del
+	 * curso, por id del cuestionario; las que no presentó no aparecen.
+	 */
+	findLatestFollowUpAttempts(
+		courseId: number,
+		userId: number,
+	): Promise<Map<number, StoredAttempt>>;
 	/** La mejor nota de la persona en ese cuestionario; `null` sin intentos. */
 	findBestScore(quizId: number, userId: number): Promise<number | null>;
 	/** La unicidad `(quiz, persona, número)` es la última defensa del doble envío. */
@@ -57,6 +70,12 @@ export interface IQuizRepository {
 		courseId: number,
 		userIds?: readonly number[],
 	): Promise<QuizScoreRow[]>;
+
+	/** `findBestScores` de varios cursos en una sola consulta, por id de curso. */
+	findBestScoresIn(
+		courseIds: readonly number[],
+		userIds: readonly number[],
+	): Promise<Map<number, QuizScoreRow[]>>;
 
 	/** La mejor nota de cada persona en el examen final. */
 	findFinalBestScores(

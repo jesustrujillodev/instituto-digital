@@ -87,13 +87,29 @@ export const createTeachingService = ({
 	};
 
 	/**
+	 * Solo el id, con el mismo filtro que `requireCourse`: quien escribe lo
+	 * bloquea y lo vuelve a leer completo dentro de la transacción.
+	 */
+	const requireCourseId = async (
+		documentId: string,
+		scope: TeachingScope,
+	): Promise<number> => {
+		const id = await teachingRepository.findCourseId(
+			documentId,
+			teachingCourseWhere(scope),
+		);
+		if (id === null) throw new TeachingCourseNotFoundError();
+		return id;
+	};
+
+	/**
 	 * Bloquea la fila del curso y la vuelve a leer. Con el bloqueo, dos
 	 * correcciones simultáneas no pueden calcular créditos sobre datos viejos, y
 	 * nadie escribe asistencia en un curso que otra petición acaba de finalizar.
 	 * Reutiliza el bloqueo del cupo de PRD-04: es el mismo `FOR UPDATE`.
 	 */
 	const lockCourse = async (courseId: number): Promise<TeachingCourse> => {
-		await enrollmentRepository.lockCourseSeats(courseId);
+		await enrollmentRepository.lockCourse(courseId);
 		return teachingRepository.findCourseById(courseId);
 	};
 
@@ -158,7 +174,7 @@ export const createTeachingService = ({
 		) {
 			return run("saveAttendance", async () => {
 				const scope = requireScope(actor);
-				const { id } = await requireCourse(documentId, scope);
+				const id = await requireCourseId(documentId, scope);
 				const now = clock.now();
 
 				const affected = await runInTransaction(async () => {
@@ -196,7 +212,7 @@ export const createTeachingService = ({
 		async finish(documentId: string, actor: AuthContext) {
 			return run("finish", async () => {
 				const scope = requireScope(actor);
-				const { id } = await requireCourse(documentId, scope);
+				const id = await requireCourseId(documentId, scope);
 				const now = clock.now();
 
 				const summary = await runInTransaction(async () => {
@@ -236,7 +252,7 @@ export const createTeachingService = ({
 		async issueCertificates(documentId: string, actor: AuthContext) {
 			return run("issueCertificates", async () => {
 				const scope = requireScope(actor);
-				const { id } = await requireCourse(documentId, scope);
+				const id = await requireCourseId(documentId, scope);
 				const now = clock.now();
 
 				const summary = await runInTransaction(async () => {
@@ -258,7 +274,7 @@ export const createTeachingService = ({
 		) {
 			return run("setEnrollmentOpen", async () => {
 				const scope = requireScope(actor);
-				const { id } = await requireCourse(documentId, scope);
+				const id = await requireCourseId(documentId, scope);
 				const now = clock.now();
 
 				const affected = await runInTransaction(async () => {

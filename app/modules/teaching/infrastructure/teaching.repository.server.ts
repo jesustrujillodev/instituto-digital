@@ -124,6 +124,16 @@ const listWhere = (
 	],
 });
 
+const teachableWhere = (
+	documentId: string,
+	where: TeachingCourseWhere,
+): Prisma.CourseWhereInput => ({
+	AND: [
+		{ documentId, status: { in: [...TEACHABLE_STATUSES] } },
+		asWhere(where),
+	],
+});
+
 /** Desempate por la última modificación: el orden de una página no baila. */
 const toOrderBy = (
 	filters: ListTeachingCoursesDto,
@@ -175,16 +185,20 @@ export const createTeachingRepository = ({
 
 	async findCourse(documentId, where) {
 		const course = await prisma.course.findFirst({
-			where: {
-				AND: [
-					{ documentId, status: { in: [...TEACHABLE_STATUSES] } },
-					asWhere(where),
-				],
-			},
+			where: teachableWhere(documentId, where),
 			select: courseSelect({ course: { documentId } }),
 		});
 
 		return course ? toTeachingCourse(course) : null;
+	},
+
+	async findCourseId(documentId, where) {
+		const course = await prisma.course.findFirst({
+			where: teachableWhere(documentId, where),
+			select: { id: true },
+		});
+
+		return course?.id ?? null;
 	},
 
 	async findAwaitingFinish(where, { now, viewerId, take }) {
@@ -234,19 +248,35 @@ export const createTeachingRepository = ({
 	},
 
 	async saveAttendance(sessionId, marks, actorId, at) {
-		// Secuencial: la transacción interactiva de Prisma no admite consultas en paralelo.
-		for (const mark of marks) {
+		// Como los `upsert` en fila: si una persona viene dos veces, gana la última.
+		const attendedOf = new Map(
+			marks.map((mark) => [mark.userId, mark.attended]),
+		);
+
+		// Por valor de `attended`, dos sentencias por lote en vez de una por
+		// persona: crear las que faltan y escribir todas. Crear primero deja la
+		// marca manual encima de un escaneo que llegue entre las dos, como el
+		// `upsert`.
+		for (const attended of [true, false]) {
+			const userIds = [...attendedOf]
+				.filter(([, value]) => value === attended)
+				.map(([userId]) => userId);
+			if (userIds.length === 0) continue;
+
 			const data = {
-				attended: mark.attended,
+				attended,
 				source: "MANUAL",
 				recordedById: actorId,
 				recordedAt: at,
-			} satisfies Prisma.CourseAttendanceUncheckedUpdateInput;
+			} satisfies Prisma.CourseAttendanceUncheckedUpdateManyInput;
 
-			await prisma.courseAttendance.upsert({
-				where: { sessionId_userId: { sessionId, userId: mark.userId } },
-				create: { sessionId, userId: mark.userId, ...data },
-				update: data,
+			await prisma.courseAttendance.createMany({
+				data: userIds.map((userId) => ({ sessionId, userId, ...data })),
+				skipDuplicates: true,
+			});
+			await prisma.courseAttendance.updateMany({
+				where: { sessionId, userId: { in: userIds } },
+				data,
 			});
 		}
 	},

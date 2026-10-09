@@ -172,6 +172,7 @@ const createHarness = (
 	let inTransaction = false;
 	const calls = {
 		replaced: [] as { owner: QuizOwnerIds; bank: QuizBankWrite }[],
+		replacedQuizIds: [] as (number | null)[],
 		renamed: [] as string[],
 		deletedQuizzes: [] as number[],
 		attempts: [] as { number: number; attempt: GradedAttempt }[],
@@ -186,6 +187,7 @@ const createHarness = (
 		opened: [] as number[],
 		closed: [] as number[],
 		rateKeys: [] as string[],
+		attemptReads: [] as number[],
 	};
 	const followUps = options.followUps ?? [];
 	const quiz = options.quiz === undefined ? quizOf() : options.quiz;
@@ -218,6 +220,7 @@ const createHarness = (
 		findCourse: async () =>
 			options.course === undefined ? classroomCourseOf() : options.course,
 		findProgress: async () => [],
+		findLessonStatus: async () => null,
 		saveProgress: async (
 			_lessonId: number,
 			_userId: number,
@@ -229,13 +232,16 @@ const createHarness = (
 
 	const quizRepository = {
 		findQuiz: async () => quiz,
-		countAttempts: async () => options.attemptCount ?? 0,
+		findQuizWithAttemptCount: async () =>
+			quiz && { ...quiz, attemptCount: options.attemptCount ?? 0 },
 		replaceBank: async (
 			_courseId: number,
 			owner: QuizOwnerIds,
 			bank: QuizBankWrite,
+			quizId: number | null,
 		) => {
 			calls.replaced.push({ owner, bank });
+			calls.replacedQuizIds.push(quizId);
 		},
 		rename: async (_quizId: number, title: string) => {
 			calls.renamed.push(title);
@@ -243,7 +249,16 @@ const createHarness = (
 		deleteQuiz: async (quizId: number) => {
 			calls.deletedQuizzes.push(quizId);
 		},
-		findAttempt: async () => options.attempt ?? null,
+		findAttempt: async (quizId: number) => {
+			calls.attemptReads.push(quizId);
+			return options.attempt ?? null;
+		},
+		findLatestFollowUpAttempts: async () =>
+			new Map(
+				options.attempt
+					? followUps.map((followUp) => [followUp.id, options.attempt])
+					: [],
+			),
 		saveAttempt: async (
 			_quizId: number,
 			_userId: number,
@@ -301,9 +316,8 @@ const createHarness = (
 	} as unknown as ICradle["quizRepository"];
 
 	const enrollmentRepository = {
-		lockCourseSeats: async () => {
+		lockCourse: async () => {
 			calls.lockedInTransaction.push(inTransaction);
-			return { capacity: null, enrolled: 0 };
 		},
 		saveResults: async (_courseId: number, entries: ResultWrite[]) => {
 			calls.results.push(entries);
@@ -402,6 +416,16 @@ describe("saveBank", () => {
 				},
 			},
 		]);
+	});
+
+	test("reescribe el cuestionario que ya leyó, o crea uno si no había", async () => {
+		const existing = createHarness();
+		await existing.service.saveBank(COURSE_DOC, bankDto, HEAD);
+		const fresh = createHarness({ quiz: null });
+		await fresh.service.saveBank(COURSE_DOC, bankDto, HEAD);
+
+		expect(existing.calls.replacedQuizIds).toEqual([9]);
+		expect(fresh.calls.replacedQuizIds).toEqual([null]);
 	});
 
 	test("con intentos enviados el banco no cambia", async () => {
@@ -1246,6 +1270,7 @@ describe("evaluaciones de seguimiento (docs/adr/0027)", () => {
 				}),
 			},
 		]);
+		expect(calls.replacedQuizIds).toEqual([40]);
 		expect(calls.lockedInTransaction).toEqual([true]);
 	});
 
@@ -1516,6 +1541,67 @@ describe("evaluaciones de seguimiento (docs/adr/0027)", () => {
 			});
 			expect(calls.attempts).toEqual([]);
 		});
+	});
+
+	test("el participante ve cada una con su último intento, sin leerlos uno por uno", async () => {
+		const { service, calls } = createHarness({
+			course: classroomCourseOf({ format: "SCHEDULED" }),
+			followUps: [
+				followUpOf(),
+				followUpOf({ id: 41, documentId: OTHER_DOC, questionCount: 0 }),
+			],
+			attempt: attemptOf({ score: 80, passed: true }),
+		});
+
+		const result = await service.findParticipantFollowUps(COURSE_DOC, ANA);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: [
+				{
+					documentId: FOLLOW_UP_DOC,
+					sessionDocumentId: SESSION.documentId,
+					attemptsLeft: 0,
+					availability: "TAKEN",
+				},
+			],
+		});
+		expect(calls.attemptReads).toEqual([]);
+	});
+
+	test("filtrado por sesión, deja fuera las de otras sesiones", async () => {
+		const { service } = createHarness({
+			course: classroomCourseOf({ format: "SCHEDULED" }),
+			followUps: [followUpOf()],
+		});
+
+		expect(
+			await service.findParticipantFollowUps(COURSE_DOC, ANA, OTHER_DOC),
+		).toMatchObject({ success: true, data: [] });
+	});
+
+	test("la vista de una lee el intento de su propio cuestionario", async () => {
+		const { service, calls } = createHarness({
+			course: classroomCourseOf({
+				format: "SCHEDULED",
+				completionRule: "ATTENDANCE",
+				requiresEvaluation: false,
+			}),
+			followUps: [followUpOf()],
+			quiz: quizOf({ id: 40 }),
+		});
+
+		const result = await service.findView(
+			COURSE_DOC,
+			followUpOwnerOf(FOLLOW_UP_DOC),
+			ANA,
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { availability: "AVAILABLE" },
+		});
+		expect(calls.attemptReads).toEqual([40]);
 	});
 
 	test("sin inscripción vigente el participante no ve ninguna", async () => {

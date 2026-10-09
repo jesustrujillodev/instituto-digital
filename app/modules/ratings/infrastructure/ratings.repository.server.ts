@@ -9,6 +9,17 @@ type Dependencies = {
 	prisma: ICradle["prisma"];
 };
 
+const courseWhereOf = (
+	documentId: string,
+	where: TeachingCourseWhere,
+): Prisma.CourseWhereInput => ({
+	AND: [
+		{ documentId },
+		// El filtro de dominio usa arreglos `readonly`, que Prisma no acepta tal cual.
+		where as unknown as Prisma.CourseWhereInput,
+	],
+});
+
 export const createRatingRepository = ({
 	prisma,
 }: Dependencies): IRatingRepository => ({
@@ -62,22 +73,16 @@ export const createRatingRepository = ({
 
 	async findCourseId(documentId, where: TeachingCourseWhere) {
 		const course = await prisma.course.findFirst({
-			where: {
-				AND: [
-					{ documentId },
-					// El filtro de dominio usa arreglos `readonly`, que Prisma no acepta tal cual.
-					where as unknown as Prisma.CourseWhereInput,
-				],
-			},
+			where: courseWhereOf(documentId, where),
 			select: { id: true },
 		});
 
 		return course?.id ?? null;
 	},
 
-	async summarizeCourse(courseId) {
+	async summarizeCourse(courseDocumentId, where) {
 		const rows = await prisma.courseRating.findMany({
-			where: { courseId },
+			where: { course: courseWhereOf(courseDocumentId, where) },
 			orderBy: { createdAt: "desc" },
 			// Sin `userId`: el anonimato empieza en la proyección.
 			select: { score: true, comment: true, createdAt: true },

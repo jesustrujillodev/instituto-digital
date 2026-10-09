@@ -1,4 +1,5 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
+import { allInOrder } from "@/shared/concurrency/all-in-order";
 import type { ICradle } from "@/shared/di/container.types";
 import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok } from "@/shared/response/response.helpers";
@@ -219,10 +220,12 @@ export const createContentService = ({
 			return run("deleteModule", async () => {
 				const course = await requireEditableCourse(courseDocumentId, actor);
 				assertContentDeletable(course.status);
-				const module = await requireModule(course.id, moduleDocumentId);
+				// Los hermanos solo dependen del curso: viajan con el módulo.
+				const [module, siblings] = await allInOrder([
+					requireModule(course.id, moduleDocumentId),
+					contentRepository.findModuleSiblings(course.id),
+				]);
 				assertModuleDeletable(module);
-
-				const siblings = await contentRepository.findModuleSiblings(course.id);
 
 				await runInTransaction(() =>
 					contentRepository.deleteModule(
@@ -294,10 +297,10 @@ export const createContentService = ({
 				const course = await requireEditableCourse(courseDocumentId, actor);
 				assertContentDeletable(course.status);
 				const lesson = await requireLesson(course.id, lessonDocumentId);
-				const siblings = await contentRepository.findLessonSiblings(
-					lesson.moduleId,
-				);
-				const material = await contentRepository.findMaterialFileUrl(lesson.id);
+				const [siblings, material] = await Promise.all([
+					contentRepository.findLessonSiblings(lesson.moduleId),
+					contentRepository.findMaterialFileUrl(lesson.id),
+				]);
 
 				await runInTransaction(() =>
 					contentRepository.deleteLesson(
@@ -380,8 +383,11 @@ export const createContentService = ({
 				const lesson = await requireLesson(course.id, dto.lessonDocumentId);
 				assertMaterialMatchesLesson(lesson.type, dto.type);
 
-				const previous = await contentRepository.findMaterialFileUrl(lesson.id);
-				const write = await resolveMaterialWrite(dto);
+				// La fila anterior y el objeto subido no dependen uno del otro.
+				const [previous, write] = await allInOrder([
+					contentRepository.findMaterialFileUrl(lesson.id),
+					resolveMaterialWrite(dto),
+				]);
 
 				await contentRepository.saveMaterial(lesson.id, write);
 				if (previous !== write.fileUrl) await discardObject(previous);

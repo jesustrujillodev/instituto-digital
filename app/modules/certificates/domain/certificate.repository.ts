@@ -37,6 +37,10 @@ export interface ICertificateRepository {
 	 * diseño por defecto. Sin fila, el diseño por defecto y `exists: false`.
 	 */
 	findRecord(courseId: number): Promise<CertificateRecord>;
+	/** `findRecord` y `findDelivery` en una sola lectura: son la misma fila. */
+	findRecordWithDelivery(
+		courseId: number,
+	): Promise<{ record: CertificateRecord; delivery: CertificateDelivery }>;
 
 	/** Crea la fila en el primer guardado. */
 	saveDraft(courseId: number, design: CertificateDesign): Promise<void>;

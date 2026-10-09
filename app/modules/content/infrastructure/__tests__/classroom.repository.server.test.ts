@@ -124,3 +124,96 @@ describe("classroomRepository", () => {
 		]);
 	});
 });
+
+describe("classroomRepository.findCompletedLessonsIn", () => {
+	test("lee los cursos juntos y reparte las filas por curso", async () => {
+		const calls: unknown[] = [];
+		const repository = createClassroomRepository({
+			prisma: {
+				lessonProgress: {
+					findMany: async (args: unknown) => {
+						calls.push(args);
+						return [
+							{
+								userId: 50,
+								lesson: { documentId: LESSON_1, module: { courseId: 8 } },
+							},
+						];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		const byCourse = await repository.findCompletedLessonsIn([7, 8], [50]);
+
+		expect(calls).toEqual([
+			expect.objectContaining({
+				where: {
+					status: "COMPLETED",
+					lesson: {
+						archivedAt: null,
+						module: { courseId: { in: [7, 8] }, archivedAt: null },
+					},
+					userId: { in: [50] },
+				},
+			}),
+		]);
+		expect(byCourse).toEqual(
+			new Map([
+				[7, []],
+				[8, [{ userId: 50, lessonDocumentId: LESSON_1 }]],
+			]),
+		);
+	});
+
+	test("sin cursos no consulta", async () => {
+		const repository = createClassroomRepository({
+			prisma: {} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.findCompletedLessonsIn([], [50])).toEqual(
+			new Map(),
+		);
+	});
+});
+
+describe("classroomRepository.findLessonStatus", () => {
+	test("la busca con el mismo filtro de lección activa que findProgress", async () => {
+		const calls: unknown[] = [];
+		const repository = createClassroomRepository({
+			prisma: {
+				lessonProgress: {
+					findFirst: async (args: unknown) => {
+						calls.push(args);
+						return { status: "COMPLETED" };
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.findLessonStatus(7, 31, 50)).toBe("COMPLETED");
+		expect(calls).toEqual([
+			{
+				where: {
+					userId: 50,
+					lessonId: 31,
+					lesson: {
+						archivedAt: null,
+						module: { courseId: 7, archivedAt: null },
+					},
+				},
+				select: { status: true },
+			},
+		]);
+	});
+
+	test("sin fila responde null", async () => {
+		const repository = createClassroomRepository({
+			prisma: {
+				lessonProgress: { findFirst: async () => null },
+			} as unknown as ICradle["prisma"],
+		});
+
+		expect(await repository.findLessonStatus(7, 31, 50)).toBeNull();
+	});
+});

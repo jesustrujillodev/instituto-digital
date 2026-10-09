@@ -68,7 +68,7 @@ Lo que **no** hace todavía:
 POST /dashboard/imparticion/:id  intent=finish
   │ requireTeaching → teachingService.finish
   ▼ runInTransaction
-  │ lockCourseSeats(course)          FOR UPDATE sobre la fila del curso
+  │ lockCourse(course)               FOR UPDATE sobre la fila del curso
   │ findCourseById                   relectura con el bloqueo tomado
   │ assertFinishable                 publicado · con sesiones · en su día
   │ courseRepository.finish          UPDATE ... WHERE status = 'PUBLISHED'
@@ -137,7 +137,7 @@ la de **inscripciones**:
 ```
 POST /dashboard/imparticion/:id  intent=enrollment-window  payload={ open }
   │ teachingService.setEnrollmentOpen
-  ▼ runInTransaction + lockCourseSeats
+  ▼ runInTransaction + lockCourse
   │ assertEnrollmentTogglable        autogestivo · publicado
   │ courseRepository.setEnrollmentClosed(at | null)
 ```

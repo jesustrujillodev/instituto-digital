@@ -167,3 +167,50 @@ describe("escrituras de orden", () => {
 		]);
 	});
 });
+
+describe("contentRepository.findTrees", () => {
+	test("lee los temarios juntos y los reparte por curso en su orden", async () => {
+		const calls: Record<string, unknown>[] = [];
+		const moduleOf = (courseId: number, documentId: string, order: number) => ({
+			courseId,
+			documentId,
+			title: documentId,
+			description: null,
+			order,
+			lessons: [],
+			quizzes: [],
+		});
+		const repository = createContentRepository({
+			prisma: {
+				courseModule: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.push(args);
+						return [
+							moduleOf(7, MODULE_A, 1),
+							moduleOf(8, MODULE_B, 1),
+							moduleOf(7, "module-c", 2),
+						];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		const trees = await repository.findTrees([7, 8, 9]);
+
+		expect(calls).toEqual([
+			expect.objectContaining({
+				where: { courseId: { in: [7, 8, 9] }, archivedAt: null },
+				orderBy: { order: "asc" },
+			}),
+		]);
+		expect(trees.get(7)?.map((module) => module.documentId)).toEqual([
+			MODULE_A,
+			"module-c",
+		]);
+		expect(trees.get(8)?.map((module) => module.documentId)).toEqual([
+			MODULE_B,
+		]);
+		expect(trees.get(9)).toEqual([]);
+		expect(trees.get(7)?.[0]).not.toHaveProperty("courseId");
+	});
+});

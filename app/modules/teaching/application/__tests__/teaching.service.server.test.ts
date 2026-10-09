@@ -88,6 +88,9 @@ const createHarness = (
 			documentId === course.documentId && !("id" in where)
 				? structuredClone(course)
 				: null,
+		// El mismo filtro que `findCourse`: solo cambia lo que devuelve.
+		findCourseId: async (documentId: string, where: object) =>
+			documentId === course.documentId && !("id" in where) ? course.id : null,
 		findCourseById: async () => structuredClone(course),
 		saveAttendance: async (sessionId: number, marks: AttendanceMark[]) => {
 			log.attendance.push(marks);
@@ -104,9 +107,8 @@ const createHarness = (
 	} as unknown as ICradle["teachingRepository"];
 
 	const enrollmentRepository = {
-		lockCourseSeats: async () => {
+		lockCourse: async () => {
 			log.locks.push(inTransaction);
-			return { capacity: null, enrolled: 0 };
 		},
 		saveResults: async (_courseId: number, entries: ResultWrite[]) => {
 			log.results.push(entries);

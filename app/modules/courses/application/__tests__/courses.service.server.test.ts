@@ -703,6 +703,19 @@ describe("coursesService.create", () => {
 		});
 	});
 
+	test("si fallan el organizador y los capacitadores, gana el del organizador", async () => {
+		const { service } = createHarness({
+			dependencyArchived: true,
+			eligibleTrainers: 0,
+		});
+
+		const result = await service.create(dtoOf(), actorOf());
+
+		expect(result).toMatchObject({
+			error: { code: COURSE_ERROR_CODES.DEPENDENCY_INACTIVE },
+		});
+	});
+
 	test("rechaza el lote si un capacitador no está disponible", async () => {
 		const { service, calls } = createHarness({ eligibleTrainers: 0 });
 

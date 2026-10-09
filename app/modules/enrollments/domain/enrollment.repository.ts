@@ -77,6 +77,11 @@ export interface IEnrollmentRepository {
 		courseId: number,
 		userId: number,
 	): Promise<StoredEnrollment | null>;
+	/** `findEnrollment` por el documentId del curso, sin leerlo antes. */
+	findEnrollmentByCourseDocumentId(
+		courseDocumentId: string,
+		userId: number,
+	): Promise<StoredEnrollment | null>;
 	findEnrollments(
 		courseId: number,
 		userIds: readonly number[],
@@ -88,8 +93,14 @@ export interface IEnrollmentRepository {
 	): Promise<ParticipantEnrollment | null>;
 
 	/**
-	 * Bloquea la fila del curso hasta el final de la transacción y cuenta los
-	 * inscritos. Solo tiene sentido dentro de `runInTransaction`.
+	 * Bloquea la fila del curso hasta el final de la transacción, sin leer nada
+	 * más. Solo tiene sentido dentro de `runInTransaction`.
+	 */
+	lockCourse(courseId: number): Promise<void>;
+
+	/**
+	 * `lockCourse` y, ya con el bloqueo, el cupo y los inscritos. Solo tiene
+	 * sentido dentro de `runInTransaction`.
 	 */
 	lockCourseSeats(
 		courseId: number,
@@ -103,6 +114,19 @@ export interface IEnrollmentRepository {
 	save(data: EnrollmentWrite, expected: EnrollmentStatus | null): Promise<void>;
 
 	/**
+	 * `save` de un lote en pocas sentencias, con el mismo resultado y el mismo
+	 * error: si alguna fila ya no está como se esperaba, lanza
+	 * `EnrollmentStateChangedError` y la transacción de quien llama revierte
+	 * el lote entero.
+	 */
+	saveMany(
+		writes: readonly {
+			data: EnrollmentWrite;
+			expected: EnrollmentStatus | null;
+		}[],
+	): Promise<void>;
+
+	/**
 	 * Resultado y nota de inscritos, con quién y cuándo (§6.8). La escribe
 	 * `teaching`, dentro de su transacción: la fila es de este módulo.
 	 */
@@ -112,8 +136,14 @@ export interface IEnrollmentRepository {
 		actorId: number,
 		at: Date,
 	): Promise<void>;
-	/** El avance cacheado de las inscripciones activas del curso. */
-	findProgressStates(courseId: number): Promise<ProgressState[]>;
+	/**
+	 * El avance cacheado de las inscripciones activas del curso; con `userIds`,
+	 * solo el de esas personas.
+	 */
+	findProgressStates(
+		courseId: number,
+		userIds?: readonly number[],
+	): Promise<ProgressState[]>;
 	/**
 	 * La caché del avance, escrita por `content` dentro de su transacción. El
 	 * porcentaje se reescribe siempre; `contentCompletedAt` solo si estaba vacío,

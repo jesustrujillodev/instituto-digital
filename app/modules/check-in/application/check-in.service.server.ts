@@ -27,7 +27,6 @@ import type { CheckInCourse, CheckInSession } from "../domain/check-in.types";
 
 type Dependencies = {
 	courseRepository: ICradle["courseRepository"];
-	enrollmentRepository: ICradle["enrollmentRepository"];
 	teachingRepository: ICradle["teachingRepository"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -39,7 +38,6 @@ const generateQrToken = (): string =>
 
 export const createCheckInService = ({
 	courseRepository,
-	enrollmentRepository,
 	teachingRepository,
 	clock,
 	logger,
@@ -56,16 +54,13 @@ export const createCheckInService = ({
 		actor: AuthContext,
 		now: Date,
 	): Promise<{ course: CheckInCourse; session: CheckInSession }> => {
-		const course = await courseRepository.findByQrToken(token);
-		if (!course) throw new CheckInInvalidTokenError();
+		// La inscripción viaja con el curso: una lectura por escaneo, no dos.
+		const found = await courseRepository.findByQrToken(token, actor.userId);
+		if (!found) throw new CheckInInvalidTokenError();
+		const { course, viewerEnrollment } = found;
 
 		assertCheckInOpen(course);
-
-		const enrollment = await enrollmentRepository.findEnrollment(
-			course.id,
-			actor.userId,
-		);
-		assertEnrolled(enrollment, course.documentId);
+		assertEnrolled(viewerEnrollment, course.documentId);
 
 		const outcome = resolveSessionOutcome(
 			course.sessions,

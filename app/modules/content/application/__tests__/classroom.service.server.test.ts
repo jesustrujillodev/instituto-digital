@@ -10,6 +10,7 @@ import {
 	MODULE_A,
 	MODULE_B,
 	MODULE_QUIZ_A,
+	OTHER_DOC,
 } from "../../domain/__tests__/content.fixtures";
 import type { LessonProgressStatus } from "../../domain/classroom.rules";
 import type {
@@ -131,6 +132,8 @@ const createHarness = (
 		/** El temario con la evaluación del primer módulo. */
 		moduleQuiz?: boolean;
 		moduleAttempts?: QuizAttemptRow[];
+		/** Los cursos con aula de quien pregunta; sin él, solo el del fixture. */
+		classroomCourses?: { id: number; documentId: string }[];
 	} = {},
 ) => {
 	let progress = structuredClone(options.progress ?? []);
@@ -141,6 +144,31 @@ const createHarness = (
 			userIds: readonly number[] | undefined;
 			inTransaction: boolean;
 		}[],
+		batchReads: [] as { read: string; courseIds: readonly number[] }[],
+		statusReads: [] as number[],
+	};
+	const treeOf = () =>
+		structuredClone(options.moduleQuiz ? treeWithModuleQuiz() : TREE);
+	const completedOf = () =>
+		progress
+			.filter((row) => row.status === "COMPLETED")
+			.map((row) => ({ userId: 50, lessonDocumentId: row.lessonDocumentId }));
+	const bestScoresOf = () =>
+		(options.moduleAttempts ?? []).map((attempt) => ({
+			userId: 50,
+			itemDocumentId: attempt.quizDocumentId,
+			score: attempt.score,
+		}));
+	/** Solo el curso 7 tiene temario y avance; los demás llegan vacíos. */
+	const byCourse = <T>(
+		read: string,
+		courseIds: readonly number[],
+		rows: () => T[],
+	) => {
+		calls.batchReads.push({ read, courseIds });
+		return new Map(
+			courseIds.map((courseId) => [courseId, courseId === 7 ? rows() : []]),
+		);
 	};
 
 	const classroomRepository = {
@@ -151,6 +179,14 @@ const createHarness = (
 					: options.course
 				: null,
 		findProgress: async () => structuredClone(progress),
+		findLessonStatus: async (_courseId: number, lessonId: number) => {
+			calls.statusReads.push(lessonId);
+			const lessonDocumentId = lessonId === 31 ? LESSON_1 : LESSON_2;
+			return (
+				progress.find((row) => row.lessonDocumentId === lessonDocumentId)
+					?.status ?? null
+			);
+		},
 		saveProgress: async (
 			lessonId: number,
 			_userId: number,
@@ -163,16 +199,17 @@ const createHarness = (
 				{ lessonDocumentId, status },
 			];
 		},
-		findClassroomCourses: async () => [{ id: 7, documentId: COURSE_DOC }],
-		findCompletedLessons: async () =>
-			progress
-				.filter((row) => row.status === "COMPLETED")
-				.map((row) => ({ userId: 50, lessonDocumentId: row.lessonDocumentId })),
+		findClassroomCourses: async () =>
+			options.classroomCourses ?? [{ id: 7, documentId: COURSE_DOC }],
+		findCompletedLessons: async () => completedOf(),
+		findCompletedLessonsIn: async (courseIds: readonly number[]) =>
+			byCourse("completed", courseIds, completedOf),
 	} as unknown as ICradle["classroomRepository"];
 
 	const contentRepository = {
-		findTree: async () =>
-			structuredClone(options.moduleQuiz ? treeWithModuleQuiz() : TREE),
+		findTree: async () => treeOf(),
+		findTrees: async (courseIds: readonly number[]) =>
+			byCourse("trees", courseIds, treeOf),
 		findLesson: async (_courseId: number, documentId: string) =>
 			documentId === LESSON_1
 				? { id: 31, moduleId: 21, type: "TEXT", isRequired: true }
@@ -250,12 +287,9 @@ const createHarness = (
 						}
 					: null,
 			findLatestAttempts: async () => options.moduleAttempts ?? [],
-			findBestScores: async () =>
-				(options.moduleAttempts ?? []).map((attempt) => ({
-					userId: 50,
-					itemDocumentId: attempt.quizDocumentId,
-					score: attempt.score,
-				})),
+			findBestScores: async () => bestScoresOf(),
+			findBestScoresIn: async (courseIds: readonly number[]) =>
+				byCourse("scores", courseIds, bestScoresOf),
 		} as unknown as ICradle["quizRepository"],
 		runInTransaction,
 		clock: { now: () => NOW },
@@ -266,6 +300,19 @@ const createHarness = (
 };
 
 describe("recordProgress", () => {
+	test("lee solo el estado de la lección que se registra", async () => {
+		const { service, calls } = createHarness();
+
+		await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_1, status: "IN_PROGRESS" },
+			ANA,
+		);
+
+		expect(calls.statusReads).toEqual([31]);
+		expect(calls.saved).toEqual([{ lessonId: 31, status: "IN_PROGRESS" }]);
+	});
+
 	test("completar una lección recalcula el avance de quien la completa", async () => {
 		const { service, calls } = createHarness({
 			progress: [{ lessonDocumentId: LESSON_2, status: "COMPLETED" }],
@@ -646,6 +693,31 @@ describe("listMine y summarizeMine", () => {
 			success: true,
 			data: [{ documentId: COURSE_DOC, done: 1, total: 2, lessonsOnly: true }],
 		});
+	});
+
+	test("lee el avance de todos sus cursos de una vez, no curso por curso", async () => {
+		const { service, calls } = createHarness({
+			progress: [{ lessonDocumentId: LESSON_1, status: "COMPLETED" }],
+			classroomCourses: [
+				{ id: 7, documentId: COURSE_DOC },
+				{ id: 8, documentId: OTHER_DOC },
+			],
+		});
+
+		const result = await service.summarizeMine(ANA);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: [
+				{ documentId: COURSE_DOC, done: 1, total: 2 },
+				{ documentId: OTHER_DOC, done: 0, total: 0 },
+			],
+		});
+		expect(calls.batchReads).toEqual([
+			{ read: "trees", courseIds: [7, 8] },
+			{ read: "completed", courseIds: [7, 8] },
+			{ read: "scores", courseIds: [7, 8] },
+		]);
 	});
 
 	test("la evaluación de módulo aprobada cuenta como un paso más", async () => {

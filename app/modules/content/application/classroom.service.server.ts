@@ -276,12 +276,14 @@ export const createClassroomService = ({
 				const now = clock.now();
 
 				return runInTransaction(async () => {
-					const stored = (
-						await classroomRepository.findProgress(course.id, actor.userId)
-					).find((row) => row.lessonDocumentId === dto.lessonDocumentId);
-					const status = nextProgressStatus(stored?.status ?? null, dto.status);
+					const stored = await classroomRepository.findLessonStatus(
+						course.id,
+						lesson.id,
+						actor.userId,
+					);
+					const status = nextProgressStatus(stored, dto.status);
 
-					if (stored?.status !== status) {
+					if (stored !== status) {
 						await classroomRepository.saveProgress(
 							lesson.id,
 							actor.userId,
@@ -296,7 +298,7 @@ export const createClassroomService = ({
 						percent: course.enrollment?.progressPercent ?? 0,
 						contentCompleted: Boolean(course.enrollment?.contentCompletedAt),
 					};
-					if (status !== "COMPLETED" || stored?.status === "COMPLETED") {
+					if (status !== "COMPLETED" || stored === "COMPLETED") {
 						return ok(current);
 					}
 
@@ -333,28 +335,35 @@ export const createClassroomService = ({
 				const courses = await classroomRepository.findClassroomCourses(
 					actor.userId,
 				);
+				const courseIds = courses.map((course) => course.id);
 				const userIds = [actor.userId];
 
-				const summaries = await Promise.all(
-					courses.map(async (course) => {
-						const [rows, completed, presented] = await Promise.all([
-							contentRepository.findTree(course.id),
-							classroomRepository.findCompletedLessons(course.id, userIds),
-							quizRepository.findBestScores(course.id, userIds),
-						]);
+				const [trees, completed, presented] = await Promise.all([
+					contentRepository.findTrees(courseIds),
+					classroomRepository.findCompletedLessonsIn(courseIds, userIds),
+					quizRepository.findBestScoresIn(courseIds, userIds),
+				]);
+
+				return ok(
+					courses.map((course) => {
 						const done = new Set([
-							...completed.map((row) => row.lessonDocumentId),
-							...presented.map((row) => row.itemDocumentId),
+							...(completed.get(course.id) ?? []).map(
+								(row) => row.lessonDocumentId,
+							),
+							...(presented.get(course.id) ?? []).map(
+								(row) => row.itemDocumentId,
+							),
 						]);
 
 						return {
 							documentId: course.documentId,
-							...progressCountOf(toCourseContentTree(rows), done),
+							...progressCountOf(
+								toCourseContentTree(trees.get(course.id) ?? []),
+								done,
+							),
 						};
 					}),
 				);
-
-				return ok(summaries);
 			});
 		},
 	};

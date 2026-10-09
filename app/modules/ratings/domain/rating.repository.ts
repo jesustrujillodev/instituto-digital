@@ -19,5 +19,12 @@ export interface IRatingRepository {
 		documentId: string,
 		where: TeachingCourseWhere,
 	): Promise<number | null>;
-	summarizeCourse(courseId: number): Promise<CourseRatingSummary>;
+	/**
+	 * Las valoraciones del curso con el mismo filtro que `findCourseId`: así se
+	 * leen a la vez y no después.
+	 */
+	summarizeCourse(
+		courseDocumentId: string,
+		where: TeachingCourseWhere,
+	): Promise<CourseRatingSummary>;
 }

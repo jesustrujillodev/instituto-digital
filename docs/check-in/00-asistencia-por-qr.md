@@ -43,9 +43,10 @@ Escaneo del QR
   │
   ▼ POST /asistencia/<token>         (action, auto-enviado al montar)
   │ checkInService.register
-  │   courseRepository.findByQrToken   el token ES la autorización
+  │   courseRepository.findByQrToken   el token ES la autorización; trae la
+  │                                    inscripción de quien escanea en la
+  │                                    misma consulta
   │   assertCheckInOpen                solo PUBLISHED
-  │   enrollmentRepository.findEnrollment
   │   assertEnrolled                   solo ENROLLED
   │   resolveSessionOutcome            la ventana activa ahora
   │   teachingRepository.checkIn       upsert idempotente

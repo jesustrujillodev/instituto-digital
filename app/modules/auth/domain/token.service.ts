@@ -3,6 +3,11 @@ import type {
 	VerifiedAccessTokenPayload,
 } from "./auth.types";
 
+/**
+ * Fuera del envelope a propósito (docs/reglas.md §25.5): no lo consume ningún
+ * loader ni action, solo `authService` y el monitor de sesiones, que deciden con
+ * el `null` de `verifyAccessToken` sin pantalla de por medio.
+ */
 export interface TokenService {
 	// Signs a new JWT access token (TTL, issuer y audience desde AuthConfig).
 	signAccessToken(payload: AccessTokenPayload): Promise<string>;

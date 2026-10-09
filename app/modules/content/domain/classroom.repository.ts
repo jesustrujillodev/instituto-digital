@@ -14,6 +14,12 @@ export interface IClassroomRepository {
 	): Promise<ClassroomCourse | null>;
 	/** El avance de una persona en las lecciones activas del curso. */
 	findProgress(courseId: number, userId: number): Promise<LessonProgressRow[]>;
+	/** El estado de una lección en `findProgress`, sin leer las demás. */
+	findLessonStatus(
+		courseId: number,
+		lessonId: number,
+		userId: number,
+	): Promise<LessonProgressStatus | null>;
 	/**
 	 * Las lecciones activas completadas en el curso; con `userIds`, solo las de
 	 * esas personas.
@@ -22,6 +28,11 @@ export interface IClassroomRepository {
 		courseId: number,
 		userIds?: readonly number[],
 	): Promise<CompletedLessonRow[]>;
+	/** `findCompletedLessons` de varios cursos en una sola consulta, por id de curso. */
+	findCompletedLessonsIn(
+		courseIds: readonly number[],
+		userIds: readonly number[],
+	): Promise<Map<number, CompletedLessonRow[]>>;
 	/** Inserta o reescribe; `completedAt` se fija solo la primera vez. */
 	saveProgress(
 		lessonId: number,

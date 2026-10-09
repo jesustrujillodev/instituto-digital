@@ -69,20 +69,24 @@ const createHarness = (
 	const certificateRepository = {
 		findIssuesByCourse: async () => stored.map((issue) => ({ ...issue })),
 		findCourseById: async () => course,
-		findRecord: async () => ({
-			draft: DEFAULT_CERTIFICATE_DESIGN,
-			published:
-				options.published === undefined ? PUBLISHED : options.published,
-			publishedAt: null,
-			exists: true,
+		findRecordWithDelivery: async () => ({
+			record: {
+				draft: DEFAULT_CERTIFICATE_DESIGN,
+				published:
+					options.published === undefined ? PUBLISHED : options.published,
+				publishedAt: null,
+				exists: true,
+			},
+			delivery: options.delivery ?? {
+				isDownloadable: true,
+				emailMessage: null,
+			},
 		}),
 		reserveFolios: async (count: number) => {
 			const first = counter + 1;
 			counter += count;
 			return first;
 		},
-		findDelivery: async () =>
-			options.delivery ?? { isDownloadable: true, emailMessage: null },
 		createIssues: async (_courseId: number, issues: NewCertificateIssue[]) => {
 			if (options.failCreate) throw new Error("unique violation");
 			log.created.push(...issues);

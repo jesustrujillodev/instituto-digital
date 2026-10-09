@@ -231,7 +231,10 @@ const createHarness = (
 			return options.course === undefined ? courseOf() : options.course;
 		},
 		findRecord: async () => options.record ?? recordOf(),
-		findDelivery: async () => ({ isDownloadable: true, emailMessage: null }),
+		findRecordWithDelivery: async () => ({
+			record: options.record ?? recordOf(),
+			delivery: { isDownloadable: true, emailMessage: null },
+		}),
 		saveDelivery: async (courseId: number, delivery: CertificateDelivery) => {
 			calls.deliveries.push({ courseId, delivery });
 		},

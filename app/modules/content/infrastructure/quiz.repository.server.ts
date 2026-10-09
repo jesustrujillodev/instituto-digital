@@ -9,6 +9,8 @@ import type {
 	QuizAttemptRow,
 	QuizBoardEntry,
 	QuizOwnerIds,
+	QuizScoreRow,
+	StoredAttempt,
 	StoredFollowUp,
 	StoredQuiz,
 } from "../domain/quiz.types";
@@ -95,6 +97,18 @@ const toStoredFollowUps = (rows: readonly FollowUpRow[]): StoredFollowUp[] =>
 			: [],
 	);
 
+const ATTEMPT_SELECT = {
+	id: true,
+	number: true,
+	submittedAt: true,
+	score: true,
+	passed: true,
+	retakeGrantedAt: true,
+	answers: {
+		select: { questionId: true, optionId: true, isCorrect: true },
+	},
+} satisfies Prisma.QuizAttemptSelect;
+
 const QUIZ_SELECT = {
 	id: true,
 	documentId: true,
@@ -128,61 +142,77 @@ export const createQuizRepository = ({
 		});
 	},
 
-	async countAttempts(quizId) {
-		return prisma.quizAttempt.count({ where: { quizId } });
+	async findQuizWithAttemptCount(courseId, owner) {
+		const row = await prisma.quiz.findFirst({
+			where: ownerWhere(courseId, owner),
+			select: { ...QUIZ_SELECT, _count: { select: { attempts: true } } },
+		});
+		if (!row) return null;
+
+		const { _count, ...quiz } = row;
+		return { ...quiz, attemptCount: _count.attempts };
 	},
 
-	async replaceBank(courseId, owner, bank) {
+	async replaceBank(courseId, owner, bank, existingId) {
 		const scalars = {
 			title: bank.title,
 			passingScore: bank.passingScore,
 			maxAttempts: bank.maxAttempts,
 			shuffleQuestions: bank.shuffleQuestions,
 		};
-		const existing = await prisma.quiz.findFirst({
-			where: ownerWhere(courseId, owner),
-			select: { id: true },
-		});
 
-		const quizId = existing
-			? (
-					await prisma.quiz.update({
-						where: { id: existing.id },
-						data: scalars,
-					})
-				).id
-			: (
-					await prisma.quiz.create({
-						data: {
-							courseId,
-							lessonId: owner.lessonId,
-							moduleId: owner.moduleId,
-							...scalars,
-						},
-					})
-				).id;
+		const quizId =
+			existingId !== null
+				? (
+						await prisma.quiz.update({
+							where: { id: existingId },
+							data: scalars,
+						})
+					).id
+				: (
+						await prisma.quiz.create({
+							data: {
+								courseId,
+								lessonId: owner.lessonId,
+								moduleId: owner.moduleId,
+								...scalars,
+							},
+						})
+					).id;
 
 		// Borrar y recrear es seguro solo porque el banco no tiene intentos: el
 		// servicio lo comprueba antes, dentro de la misma transacción.
 		await prisma.quizQuestion.deleteMany({ where: { quizId } });
+		if (bank.questions.length === 0) return;
 
-		for (const [index, question] of bank.questions.entries()) {
-			await prisma.quizQuestion.create({
-				data: {
-					quizId,
-					statement: question.statement,
-					type: question.type,
-					points: question.points,
-					order: index + 1,
-					options: {
-						create: question.options.map((option, position) => ({
-							text: option.text,
-							isCorrect: option.isCorrect,
-							order: position + 1,
-						})),
-					},
-				},
-			});
+		// Preguntas y opciones en dos sentencias, no en una por pregunta. Las
+		// opciones se cuelgan de su pregunta por `order`, único dentro del quiz.
+		const created = await prisma.quizQuestion.createManyAndReturn({
+			data: bank.questions.map((question, index) => ({
+				quizId,
+				statement: question.statement,
+				type: question.type,
+				points: question.points,
+				order: index + 1,
+			})),
+			select: { id: true, order: true },
+		});
+		const questionIdOf = new Map(created.map((row) => [row.order, row.id]));
+
+		const options = bank.questions.flatMap((question, index) => {
+			const questionId = questionIdOf.get(index + 1);
+			if (questionId === undefined) {
+				throw new Error(`pregunta ${index + 1} sin crear al guardar el banco`);
+			}
+			return question.options.map((option, position) => ({
+				questionId,
+				text: option.text,
+				isCorrect: option.isCorrect,
+				order: position + 1,
+			}));
+		});
+		if (options.length > 0) {
+			await prisma.quizOption.createMany({ data: options });
 		}
 	},
 
@@ -198,18 +228,24 @@ export const createQuizRepository = ({
 		return prisma.quizAttempt.findFirst({
 			where: { quizId, userId },
 			orderBy: { number: "desc" },
-			select: {
-				id: true,
-				number: true,
-				submittedAt: true,
-				score: true,
-				passed: true,
-				retakeGrantedAt: true,
-				answers: {
-					select: { questionId: true, optionId: true, isCorrect: true },
-				},
-			},
+			select: ATTEMPT_SELECT,
 		});
+	},
+
+	async findLatestFollowUpAttempts(courseId, userId) {
+		// El mismo filtro que `findFollowUps`: así viaja junto a él y no después.
+		const rows = await prisma.quizAttempt.findMany({
+			where: { userId, quiz: { courseId, sessionId: { not: null } } },
+			orderBy: { number: "desc" },
+			select: { quizId: true, ...ATTEMPT_SELECT },
+		});
+
+		// Del más reciente al más antiguo: el primero de cada quiz es el último.
+		const latest = new Map<number, StoredAttempt>();
+		for (const { quizId, ...attempt } of rows) {
+			if (!latest.has(quizId)) latest.set(quizId, attempt);
+		}
+		return latest;
 	},
 
 	async findBestScore(quizId, userId) {
@@ -295,6 +331,66 @@ export const createQuizRepository = ({
 		}
 
 		return [...best.values()];
+	},
+
+	async findBestScoresIn(courseIds, userIds) {
+		const byCourse = new Map<number, QuizScoreRow[]>(
+			courseIds.map((courseId) => [courseId, []]),
+		);
+		if (courseIds.length === 0) return byCourse;
+
+		const ids = [...courseIds];
+		const rows = await prisma.quizAttempt.findMany({
+			where: {
+				quiz: {
+					courseId: { in: ids },
+					OR: [
+						{ ...ACTIVE, module: { courseId: { in: ids }, ...ACTIVE } },
+						{ lessonId: { not: null } },
+					],
+				},
+				userId: { in: [...userIds] },
+			},
+			select: {
+				userId: true,
+				score: true,
+				quiz: {
+					select: {
+						courseId: true,
+						documentId: true,
+						lessonId: true,
+						lesson: { select: { documentId: true } },
+						module: { select: { courseId: true } },
+					},
+				},
+			},
+		});
+
+		const best = new Map<string, QuizScoreRow & { courseId: number }>();
+		for (const row of rows) {
+			const { quiz } = row;
+			// Por curso, el de módulo cuenta si el módulo es del mismo curso: es lo
+			// que `activeModuleQuizOf` compara con un solo id.
+			if (quiz.lessonId === null && quiz.module?.courseId !== quiz.courseId) {
+				continue;
+			}
+			const itemDocumentId = quiz.lesson?.documentId ?? quiz.documentId;
+			const key = `${quiz.courseId}:${itemDocumentId}:${row.userId}`;
+			const current = best.get(key);
+			if (!current || row.score > current.score) {
+				best.set(key, {
+					courseId: quiz.courseId,
+					userId: row.userId,
+					itemDocumentId,
+					score: row.score,
+				});
+			}
+		}
+
+		for (const { courseId, ...score } of best.values()) {
+			byCourse.get(courseId)?.push(score);
+		}
+		return byCourse;
 	},
 
 	async findFinalBestScores(courseId, userIds) {

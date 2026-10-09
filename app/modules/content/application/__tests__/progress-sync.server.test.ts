@@ -134,6 +134,7 @@ const createHarness = (options: {
 		results: [] as { entries: ResultWrite[]; actorId: number; at: Date }[],
 		syncs: [] as { courseId: number; actorId: number; at: Date }[],
 		order: [] as string[],
+		stateReads: [] as (readonly number[] | undefined)[],
 	};
 
 	const sync = createProgressSync({
@@ -160,11 +161,18 @@ const createHarness = (options: {
 			findFollowUpBestScores: async () => options.followUpScores ?? [],
 		} as unknown as ICradle["quizRepository"],
 		enrollmentRepository: {
-			lockCourseSeats: async () => {
+			lockCourse: async () => {
 				calls.locks += 1;
-				return { capacity: null, enrolled: 0 };
 			},
-			findProgressStates: async () => options.states,
+			findProgressStates: async (
+				_courseId: number,
+				userIds?: readonly number[],
+			) => {
+				calls.stateReads.push(userIds);
+				return options.states.filter(
+					(state) => !userIds || userIds.includes(state.userId),
+				);
+			},
 			saveProgress: async (_courseId: number, writes: ProgressWrite[]) => {
 				calls.writes.push(writes);
 			},
@@ -207,6 +215,21 @@ const courseOf = (
 });
 
 describe("progressSync.recalculate", () => {
+	test("solo lee el avance de quien se recalcula; sin personas, el de todos", async () => {
+		const harness = createHarness({
+			lessons: [LESSON_1],
+			states: [stateOf(50, 0, null), stateOf(51, 0, null)],
+			completed: [],
+		});
+
+		const one = await harness.sync.recalculate(courseOf(), 50, AT, [50]);
+		const all = await harness.sync.recalculate(courseOf(), 50, AT);
+
+		expect(harness.calls.stateReads).toEqual([[50], undefined]);
+		expect(one.map((row) => row.userId)).toEqual([50]);
+		expect(all.map((row) => row.userId)).toEqual([50, 51]);
+	});
+
 	test("quien termina las obligatorias fija su fecha y un autogestivo lo acredita", async () => {
 		const { sync, calls } = createHarness({
 			lessons: [LESSON_1, LESSON_2],

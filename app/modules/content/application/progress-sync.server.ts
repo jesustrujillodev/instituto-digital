@@ -38,7 +38,7 @@ export const createProgressSync = ({
 	async recalculate(course, actorId, at, userIds, options) {
 		// El mismo `FOR UPDATE` que la impartición: dos avances simultáneos no
 		// pueden otorgar créditos calculados sobre datos viejos.
-		await enrollmentRepository.lockCourseSeats(course.id);
+		await enrollmentRepository.lockCourse(course.id);
 
 		const [
 			rows,
@@ -50,7 +50,7 @@ export const createProgressSync = ({
 			followUpRows,
 		] = await Promise.all([
 			contentRepository.findTree(course.id),
-			enrollmentRepository.findProgressStates(course.id),
+			enrollmentRepository.findProgressStates(course.id, userIds),
 			classroomRepository.findCompletedLessons(course.id, userIds),
 			quizRepository.findBestScores(course.id, userIds),
 			evaluatesByQuiz(course)

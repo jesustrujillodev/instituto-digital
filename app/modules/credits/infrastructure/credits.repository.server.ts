@@ -123,41 +123,45 @@ export const createCreditRepository = ({
 		},
 
 		async findMine(userId) {
-			const rows = await prisma.credit.findMany({
-				where: { userId, revokedAt: null },
-				orderBy: [{ fiscalYear: "desc" }, { grantedAt: "desc" }],
-				select: {
-					documentId: true,
-					fiscalYear: true,
-					grantedAt: true,
-					dependency: { select: { name: true } },
-					course: {
-						select: {
-							id: true,
-							documentId: true,
-							title: true,
-							hours: true,
-							modality: true,
-							coverImageUrl: true,
-							dependency: { select: { name: true } },
-							sessions: {
-								select: { startsAt: true, endsAt: true },
-								orderBy: { startsAt: "asc" },
+			const mine = { userId, revokedAt: null };
+			// La asistencia se acota por los mismos créditos y no por los ids de la
+			// primera lectura: así las dos viajan juntas en vez de una tras otra.
+			const [rows, attended] = await Promise.all([
+				prisma.credit.findMany({
+					where: mine,
+					orderBy: [{ fiscalYear: "desc" }, { grantedAt: "desc" }],
+					select: {
+						documentId: true,
+						fiscalYear: true,
+						grantedAt: true,
+						dependency: { select: { name: true } },
+						course: {
+							select: {
+								id: true,
+								documentId: true,
+								title: true,
+								hours: true,
+								modality: true,
+								coverImageUrl: true,
+								dependency: { select: { name: true } },
+								sessions: {
+									select: { startsAt: true, endsAt: true },
+									orderBy: { startsAt: "asc" },
+								},
+								enrollments: { where: { userId }, select: { grade: true } },
 							},
-							enrollments: { where: { userId }, select: { grade: true } },
 						},
 					},
-				},
-			});
-
-			const attended = await prisma.courseAttendance.findMany({
-				where: {
-					userId,
-					attended: true,
-					session: { courseId: { in: rows.map((row) => row.course.id) } },
-				},
-				select: { session: { select: { courseId: true } } },
-			});
+				}),
+				prisma.courseAttendance.findMany({
+					where: {
+						userId,
+						attended: true,
+						session: { course: { credits: { some: mine } } },
+					},
+					select: { session: { select: { courseId: true } } },
+				}),
+			]);
 			const attendedByCourse = new Map<number, number>();
 			for (const { session } of attended) {
 				attendedByCourse.set(

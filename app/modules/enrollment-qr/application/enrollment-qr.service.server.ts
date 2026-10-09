@@ -56,7 +56,11 @@ export const createEnrollmentQrService = ({
 	return {
 		async resolve(token, actor) {
 			return run("resolve", async () => {
-				const course = await courseRepository.findByEnrollmentQrToken(token);
+				// Los grupos de quien escanea no dependen del token: viajan con él.
+				const [course, groupIds] = await Promise.all([
+					courseRepository.findByEnrollmentQrToken(token),
+					groupRepository.findGroupIdsOfUser(actor.userId),
+				]);
 				if (!course) throw new EnrollmentQrInvalidTokenError();
 
 				assertAcceptsEnrollmentQr(course);
@@ -68,7 +72,7 @@ export const createEnrollmentQrService = ({
 						role: actor.role,
 						dependencyId: actor.dependencyId,
 						isTrainer: actor.isTrainer,
-						groupIds: await groupRepository.findGroupIdsOfUser(actor.userId),
+						groupIds,
 					}),
 				);
 				if (!visible) throw new EnrollmentQrNotInAudienceError();

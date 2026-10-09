@@ -59,15 +59,16 @@ export const createRatingService = ({
 		async findCourseSummary(courseDocumentId: string, actor: AuthContext) {
 			return run("findCourseSummary", async () => {
 				const scope = resolveTeachingScope(actor);
-				const courseId = canTeach(scope)
-					? await ratingRepository.findCourseId(
-							courseDocumentId,
-							teachingCourseWhere(scope),
-						)
-					: null;
+				if (!canTeach(scope)) throw new RatingCourseNotFoundError();
+
+				const where = teachingCourseWhere(scope);
+				const [courseId, summary] = await Promise.all([
+					ratingRepository.findCourseId(courseDocumentId, where),
+					ratingRepository.summarizeCourse(courseDocumentId, where),
+				]);
 				if (courseId === null) throw new RatingCourseNotFoundError();
 
-				return ok(await ratingRepository.summarizeCourse(courseId));
+				return ok(summary);
 			});
 		},
 	};
