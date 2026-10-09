@@ -409,7 +409,6 @@ Reglas:
 
 1. No mezclar responsabilidades (por ejemplo, validaciones en un repositorio o consultas en una ruta).
 2. Todo modulo debe poder entenderse leyendo en orden: `domain/` (types, errors, rules, puertos), `application/`, `infrastructure/` y `routes/`.
-3. Si un archivo supera 300 lineas, dividirlo por subdominio o caso de uso.
 
 ## 22. Reglas de comentarios (obligatorias)
 
