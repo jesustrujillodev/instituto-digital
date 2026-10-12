@@ -29,6 +29,12 @@ export interface ICertificateRepository {
 		where: CourseScopeWriteWhere,
 	): Promise<CertificateCourse | null>;
 
+	/** `findCourse` sin leer el curso: si el alcance lo administra. */
+	hasCourse(
+		courseDocumentId: string,
+		where: CourseScopeWriteWhere,
+	): Promise<boolean>;
+
 	/** El curso sin guarda de alcance: solo para la emisión, que ya lo tiene bloqueado. */
 	findCourseById(courseId: number): Promise<CertificateCourse>;
 

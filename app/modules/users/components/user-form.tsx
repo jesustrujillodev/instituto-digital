@@ -58,6 +58,7 @@ import { PhotoField } from "./photo-field";
 const ROLE_LOCK_HINTS: Record<RoleLock, string> = {
 	head: "La titularidad se designa desde la dependencia.",
 	self: "No puedes cambiar tu propio rol.",
+	external: "Una cuenta externa solo puede tener el rol de usuario.",
 	rank: "No puedes cambiar este rol.",
 	dependency: "Asígnale una dependencia antes de cambiarle el rol.",
 };

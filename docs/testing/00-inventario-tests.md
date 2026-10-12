@@ -122,7 +122,7 @@ login, rotación y cierre de sesión.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `auth.service.login.server.test.ts` | 18 | Rate limit por email y por IP con su `retryAfterMs`; el corte **antes** de bcrypt; el hash dummy que iguala el timing de un correo inexistente; que en la base se persiste el **hash** del refresh token; el cap de sesiones; `logout` idempotente. |
-| `auth.service.refresh.server.test.ts` | 22 | Rotación compare-and-swap; reintento **único** ante `stale`; hit de gracia que devuelve `refreshToken: null`; reuso fuera de la ventana que revoca la familia entera; single-flight compartiendo una rotación entre concurrentes; el corte `except-admin` en las dos ramas que resuelven usuario. |
+| `auth.service.refresh.server.test.ts` | 22 | Rotación compare-and-swap; reintento **único** ante `stale`; hit de gracia que devuelve `refreshToken: null`; reuso fuera de la ventana que revoca la familia entera; single-flight compartiendo una rotación entre concurrentes; el corte `except-admin` en las dos ramas que resuelven usuario. Desde la remediación C01: **tras borrar las sesiones del usuario o con el lockdown except-admin, el refresh token ya rotado da `INVALID_SESSION` aunque su par siga en la caché**; con la sesión viva el rezagado recibe el mismo par sin rotar otra vez; la sesión se comprueba por id y solo cuando el par viene de la caché; **un par cacheado anterior al epoch no se sirve** (access nuevo con el mismo refresh) y **uno de un rol bloqueado da `PLATFORM_LOCKED`** aunque la sesión siga. El doble del token recuerda el `iat` de cada access token, como un JWT. |
 | `auth.service.server.test.ts` | 4 | El lockdown corta login y refresh; alcance `all` sin llamar a `compare`; `except-admin` que deja pasar a SUPERADMIN y bloquea a USER tras el mismo bcrypt. |
 | `token.service.server.test.ts` | 16 | Round-trip firmar/verificar; rechazo de otro secreto, otro issuer, otra audiencia, firma alterada y token expirado; un rol fuera de la tupla **no supera la verificación** aunque esté bien firmado; el token no transporta más claims que los declarados. |
 | `session-monitor.service.server.test.ts` | 15 | Revocación y epoch (por sesión no lo toca, por usuario y global sí); dueños resueltos **deduplicados**; ningún hash llega a la respuesta; `revokeAllExceptCurrent` sin sesión que preservar no borra nada. |
@@ -339,6 +339,15 @@ que sus mutaciones sí.
 | `parse-trainer-form-data.test.ts` | 4 | Que los campos vacíos se descarten y la intención viaje aparte. |
 | `trainer-error-messages.test.ts` | 3 | Que el diccionario cubra todos los códigos del módulo y tenga su entrada de reserva. |
 
+### Externos solo `USER` (remediación C09)
+
+| Archivo | Qué protege |
+|---|---|
+| `trainers/…/trainer.access.test.ts` | Un externo con rol `SUPERADMIN` o `DEPENDENCY_DEPUTY` no lo administra un titular ni un auxiliar; el superadministrador sí. |
+| `trainers/…/trainers.service.server.test.ts` | **Desactivar, reactivar o editar el perfil de ese externo da `TRAINER_FORBIDDEN_SCOPE` sin archivar, editar ni revocar sesiones.** |
+| `users/…/user.role.rules.test.ts` | Nadie promueve a un externo (`roleLockOf` → `external`), ni el superadministrador; uno que ya tuviera otro rol solo vuelve a `USER`. |
+| `users/…/users.service.server.test.ts` | El superadministrador no promueve a una cuenta externa: `FORBIDDEN_SCOPE` sin escribir ni revocar. |
+
 ---
 
 ## Groups
@@ -464,6 +473,40 @@ el temario de un curso que no administra.
 |---|---:|---|
 | `$documentId.contenido/index.action.test.ts` | 8 | Que cada intent despache a su método con el curso de la URL; que reordenar mande el árbol completo; que un intent desconocido y un payload que no es JSON no lleguen al servicio; y que el fallo vuelva traducido conservando su código. |
 
+### Escrituras con el curso cerrado en medio (remediación C07 y su endurecimiento)
+
+Un doble del bloqueo finaliza o cancela el curso mientras la operación lo espera,
+como haría `finish`; las lecturas registran si ocurrieron dentro de la transacción.
+
+| Archivo | Qué protege |
+|---|---|
+| `content/…/quiz.service.server.test.ts` | **Enviar un cuestionario con el curso finalizado bajo el bloqueo da `CONTENT_CLASSROOM_READ_ONLY` y no guarda intento, avance ni recálculo**; el curso se relee una vez, después del bloqueo. **Cerrar un seguimiento** en esa situación da `CONTENT_FOLLOW_UP_CLOSED` sin cerrarlo ni recalcular. |
+| `content/…/classroom.service.server.test.ts` | Registrar avance (completar o empezar) con el curso finalizado bajo el bloqueo no escribe; completar toma el bloqueo exclusivo —el que pide el recálculo, para no subir desde el compartido— y empezar, el compartido. |
+| `check-in/…/check-in.service.server.test.ts` | **Un escaneo con el curso finalizado bajo el bloqueo da `CHECK_IN_COURSE_NOT_OPEN` y no registra**; el bloqueo es compartido y las guardas se repiten con él. |
+| `enrollments/…/enrollments.service.server.test.ts` | `enroll` (cancelado, finalizado, cerrado a mano), `accept` y `assign` con la ventana cerrada bajo el bloqueo dan `ENROLLMENT_CLOSED` sin escribir ni avisar. |
+| `enrollments/…/enrollments.repository.server.test.ts` | `lockCourseShared` es un `FOR SHARE` parametrizado que no lee nada; `lockCourseSeats` lee la ventana en la misma consulta que el cupo, con solo la primera sesión. |
+
+### Material ligado a su curso (remediación C04 y C05)
+
+| Archivo | Qué protege |
+|---|---|
+| `content.service.server.test.ts` | La key de subida cuelga de `documentos/lecciones/<curso>/<lección>/`; **una key de otro curso, de otra lección o sin curso da `CONTENT_UPLOAD_NOT_FOUND` y no borra nada**; una key sin curso que ya es el material de la lección se conserva. |
+| `session-material.service.server.test.ts` | La key cuelga de `documentos/sesiones/<curso>/`; **una key de otro curso o sin curso da `CONTENT_UPLOAD_NOT_FOUND`**. |
+| `content.rules.test.ts`, `session-material.rules.test.ts` | La carpeta lleva curso (y lección); `isKeyInFolder` exige la barra, para que un id que empieza igual no pase. |
+| `lesson-material.references.server.test.ts`, `session-material.references.server.test.ts` | El gestor de nube nombra la carpeta de cada curso (y de cada lección) con su título en una sola fase; una lección de otro curso no nombra la carpeta; un nombre que no es uuid no consulta la base. |
+
+### Autorización por objeto del proxy (remediación C06)
+
+| Archivo | Qué protege |
+|---|---|
+| `shared/storage/routes/__tests__/storage.route.test.ts` | El proxy pregunta por la key y por quien la pide; **lo que no puede leer responde 404 sin firmar ni leer el objeto** (redirección e inline); un fallo al decidir niega; una key pública no pregunta. |
+| `cloud/application/__tests__/storage-access.service.server.test.ts` | Basta una fuente que conceda y se pregunta a todas; lo que nadie concede (un huérfano) se niega; SUPERADMIN abre todo sin consultar; el fallo de una fuente sale en el envelope. |
+| `content/domain/__tests__/content.access.test.ts` | El material de lección: aula con inscripción activa en curso publicado o finalizado y lecciones vigentes, más el alcance de escritura; el de sesión: inscrito solo una vez disponible, más quien administra o imparte. |
+| `lesson-material.references.server.test.ts`, `session-material.references.server.test.ts` | `canRead` busca la fila por su referencia con ese alcance (y la hora del reloj); una key de otra carpeta no consulta. |
+| `certificate-assets.references.server.test.ts`, `certificate-template.references.server.test.ts` | Firmas e imágenes: quien administra el curso de la key; plantillas: quien la ve en la biblioteca; sin alcance o con una key que no es de un curso o plantilla, ni consulta. |
+| `certificates.repository.server.test.ts`, `certificate-templates.repository.server.test.ts` | `hasCourse` usa el mismo filtro que `findCourse` y solo lee el id; `findOwnership` solo lee alcance y dependencia. |
+| `shared/storage/__tests__/object-key.test.ts` | `isDocumentIdSegment`: solo un uuid completo. |
+
 ---
 
 ## Enrollments
@@ -502,6 +545,15 @@ escritura respete la máquina de estados de la fila única por persona y curso.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `enrollment-utils.test.ts` | 9 | Copia para cada código con su status de loader, redacción de lotes, nombre de respaldo y lectura de listas repetidas del formulario. |
+
+### La baja de quien organiza (remediación C08)
+
+| Archivo | Qué protege |
+|---|---|
+| `enrollment.rules.test.ts` | `removalsOutOfReach`: quien organiza alcanza a todos; para otra dependencia, **elegir a alguien dado de baja por quien organiza da `ENROLLMENT_PARTICIPANT_REMOVED`** y, si llega por un grupo, solo se aparta. |
+| `enrollment.mapper.test.ts` · `enrollment.errors.test.ts` | `toEnrollmentState` marca la baja de quien organiza; el `code` del error nuevo. |
+| `enrollments.service.server.test.ts` | **`assign` de una dependencia que no organiza sobre esa baja no llama a `saveMany` ni avisa**; el miembro de grupo cuenta como omitido; quien organiza la reinscribe; una baja voluntaria sigue siendo reasignable; `invite` aplica lo mismo; las opciones del lado no organizador piden la lista sin esas bajas. |
+| `enrollments.repository.server.test.ts` | `findEnrollments` lee `actedById` y entrega `removed`; `searchCandidates` y `findGroupEnrollable` sin `withRemovals` excluyen la baja comparando `acted_by_id` con `user_id` en la misma fila. |
 
 ---
 
@@ -552,6 +604,15 @@ fabrique**: se dibuja solo con lo congelado en la base y el diseño nunca llega 
 | `routes/verificar/$documentId/__tests__/` | 7 | Responde sin sesión; **la respuesta no trae correo ni ids** (probado sobre la forma); revocado distinto de inexistente; malformado da 404 sin llegar al servicio; 429 pasado el límite y por IP; y las cabeceras `noindex` y `no-store`. |
 | `routes/mis-certificados/**/__tests__/` | 7 | La lista pide solo los de la sesión aunque la URL diga otra cosa, un externo sin dependencia entra y sin sesión redirige; la descarga propia ignora un diseño en la query y responde 403 apagada y 404 ajena. |
 | `utils/…/resize-signature-image.test.ts` | 3 | Reducir sin ampliar ni perder proporción, y nunca alto cero. |
+
+**Saneado del fondo PDF (remediación C02 y C03).** `infrastructure/__tests__/pdf-lib-tools.server.test.ts`
+corre el saneado por el worker real (el fuente, que Node ejecuta quitando los tipos): **un
+`/ObjStm` con Flate encadenado de 581 bytes y un `/Contents` con la misma referencia ocho
+veces se rechazan como `too_large` en menos de 3 s sin que el event loop se detenga más de
+150 ms**; un fondo legítimo tampoco lo detiene; con el plazo vencido, `too_large`; y sin el
+archivo del worker, error inesperado y no un PDF malo. El `/ObjStm` se escribe a mano porque
+pdf-lib lo descarta al guardar. Las pruebas previas (tamaño, rotación, recorte, cifrado, sin
+JavaScript ni anotaciones) pasan por el worker sin cambios.
 
 ## Annual plan
 
@@ -679,7 +740,7 @@ cliente**—, `localizeError`/`failFrom`, y el runner que registra los conocidos
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `response.rules.test.ts` | 15 | La unión discriminada rechaza estados imposibles (`{ success: true, error }`); ningún código transversal es un status HTTP. |
-| `atoms.rules.test.ts` | 13 | `hasRole`; el cap de 72 caracteres de bcrypt (sin él, `password + basura` autenticaría por truncamiento); el picklist de roles. |
+| `atoms.rules.test.ts` | 17 | `hasRole`; el cap de 72 caracteres de bcrypt (sin él, `password + basura` autenticaría por truncamiento); el correo de 254 caracteres como máximo; el picklist de roles. |
 | `list.rules.test.ts` | 9 | `page >= 1` y el tope de `pageSize`, que es la defensa contra un `?pageSize=100000`. |
 | `format-vali-error.test.ts` | 5 | Primer mensaje por campo; las incidencias **sin path se descartan**. |
 
@@ -706,7 +767,8 @@ cliente**—, `localizeError`/`failFrom`, y el runner que registra los conocidos
 |---|---:|---|
 | `route-error.test.ts` | 12 | `isForbiddenRoleError` **distingue** el 403 de `requireRole` del 403 de Origin no confiable; la precedencia de status y el `statusText` explícito (sin él, un 404 se pinta como error interno). |
 | `origin.test.ts` | 10 | Defensa CSRF: sin header se permite (clientes no-navegador), `"null"` se rechaza, un host distinto se rechaza. |
-| `client-ip.test.ts` | 9 | Primer elemento de `X-Forwarded-For`, validación de formato y caída a `CF-Connecting-IP`: ninguna IP arbitraria se persiste. |
+| `client-ip.test.ts` | 12 | La IP sale de la cabecera del proxy declarado: elemento N desde la derecha de `X-Forwarded-For` (lo que antepone el cliente no cuenta), solo `CF-Connecting-IP` con Cloudflare, nada con `none`; validación de formato. |
+| `body-limit.test.ts` | 7 | Una escritura sin sesión de más de 64 KiB o con sesión de más de 16 MiB da `413` sin leer el cuerpo; sin `Content-Length`, `411`. |
 
 ### `logging/__tests__/` — 17 tests
 
@@ -738,7 +800,7 @@ ventana, claves independientes, el acceso vuelve al pasar la ventana.
 
 | Archivo | Tests | Qué protege |
 |---|---:|---|
-| `rate-limiter.memory.test.ts` | 7 | El contrato, más el barrido que no se lleva ventanas vivas y el límite 0. |
+| `rate-limiter.memory.test.ts` | 10 | El contrato, más el barrido: una vez por intervalo y no en cada intento, sin llevarse ventanas vivas, y una vencida sin barrer no bloquea; el límite 0. |
 | `rate-limiter.redis.server.test.ts` | 10 (+5) | El contrato sobre `ioredis-mock`; **un rechazo no se registra** (el bloqueo termina); la ventana caduca sola; el email no queda en claro; intentos simultáneos cuentan por separado. Con `REDIS_TEST_URL`, el contrato corre contra un Redis real. |
 | `rate-limiter.fallback.test.ts` | 3 | Con Redis caído **decide el de memoria, nunca deja pasar**; cada intento vuelve a probar Redis. |
 | `rate-limiter.factory.server.test.ts` | 3 | Sin Redis limita en memoria; con Redis el límite se comparte entre instancias; caído sigue limitando. |
@@ -772,8 +834,9 @@ con el número de avisos callados.
 | `job-failure.repository.server.test.ts` | 2 | Error recortado; purga por fecha. |
 | `queue.client.server.test.ts` | +5 | Con `REDIS_TEST_URL`: entrega; **la misma fila e intento se encola una vez**; ediciones seguidas dejan un recálculo con la última fecha; **una edición durante un recálculo activo produce otro al terminar, nunca dos a la vez**; scheduler idempotente. |
 
-`storage/__tests__/delete-object.job.server.test.ts` (3): borra; **un objeto que ya
-no existe cuenta como borrado**; si sigue ahí, lanza para reintentar.
+`storage/__tests__/delete-object.job.server.test.ts` (4): borra; **un objeto que ya
+no existe cuenta como borrado**; si sigue ahí, lanza para reintentar; **un objeto que
+otra fila sigue usando no se borra** (pregunta a cada fuente de referencias por la key).
 
 ### `html/__tests__/` — 4 tests
 
@@ -793,7 +856,7 @@ mensaje de un error de infraestructura viajaría al cliente.
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `after-commit.server.test.ts` | 6 | La tarea espera al commit, **se descarta en un rollback**, corre ya fuera de una transacción, una anidada se suma a la de fuera, una que falla no tumba las demás y dos transacciones concurrentes no comparten cola. |
-| `env.server.test.ts` | 12 | El proceso **no arranca** con un secreto ausente o débil; el mensaje enumera todas las variables incumplidas; la validación condicional al proveedor de storage; los defaults. |
+| `env.server.test.ts` | 35 | El proceso **no arranca** con un secreto ausente o débil; en producción, tampoco con el marcador de `.env.example`, con los dos secretos iguales ni sin `CLIENT_IP_SOURCE`; el mensaje enumera todas las variables incumplidas; la validación condicional al proveedor de storage; los defaults. |
 | `cookies.server.test.ts` | 20 | Round-trip serializar/parsear; `refreshToken: null` emite **una sola** cookie (el hit de gracia); `HttpOnly` y `SameSite=Lax` en ambas; una cookie manipulada no se acepta; **el refresco silencioso no pisa las cookies que fijó el handler** (logout con el access caducado no resucita la sesión). |
 
 ---
@@ -824,7 +887,9 @@ mensaje de un error de infraestructura viajaría al cliente.
   [reglas.md §12](../reglas.md) exige para los adaptadores.
 - **Adaptadores de storage sin integración.** `s3.adapter.ts` y `gcs.adapter.ts`
   solo se cubren indirectamente: `storage.factory.test.ts` verifica qué config
-  reciben, no que hablen correctamente con el proveedor. El resto del subsistema
+  reciben, no que hablen correctamente con el proveedor. La excepción es la URL
+  de subida de S3: `s3.adapter.presign.test.ts` la firma con el SDK real, sin red,
+  y comprueba que fija el `Content-Type`. El resto del subsistema
   —transacción, política, keys, MIME y el proxy— sí tiene cobertura completa.
 - **Composition root sin cobertura.** `container.server.ts` cablea el contenedor y
   ejecuta el silent refresh por petición; probarlo de verdad exige levantar una

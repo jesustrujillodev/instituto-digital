@@ -104,6 +104,14 @@ pide datos: el perfil deshabilitado conserva su especialidad.
 dependencia, así que `canManageUser` dejaría fuera a cualquier titular. Es lo que
 dice la matriz al no acotar esa fila a "su dep.".
 
+Esa excepción relaja el alcance, no el rango, y por eso **un externo solo es
+`USER`** (auditoría C09). `trainers.createExternal` lo crea así y `users` no deja
+cambiarlo: `roleLockOf` devuelve `external` y `canChangeRole` solo acepta volver
+a `USER` a un externo que ya tuviera otro rol. Para ese caso, que no debería
+existir, `canManageTrainer` reserva su perfil al superadministrador: si no, un
+titular o auxiliar de cualquier dependencia podría desactivarlo y reactivarlo,
+cerrándole las sesiones cada vez.
+
 ## 5. El alta de un externo, la escritura compuesta
 
 Una fila en `auth.users` y otra en `org.trainer_profiles`, **las dos o ninguna**.
@@ -215,6 +223,7 @@ caminos de escritura, que están contados y tienen prueba.
 | Un participante cualquiera administra perfiles | El action del perfil exige `TRAINER_ADMIN_ROLES` |
 | Un titular activa el perfil a alguien de otra dependencia | `canManageTrainer` reúne alcance y rango; fuera de alcance responde 404 |
 | Un titular edita o archiva la cuenta de un externo | `scopeWriteWhere` no lo alcanza; la fila ni ofrece la acción (`canManage`) |
+| Un externo con un rol alto queda al alcance de cualquier titular o auxiliar | Un externo no cambia de rol (`roleLockOf` → `external`), y si ya lo tuviera, su perfil solo lo administra el superadministrador (`canManageTrainer`) |
 | Un formulario manipulado cambia a quién se habilita | La cuenta sale del parámetro de la URL, no de un campo |
 | Se crea un externo sin perfil de capacitador | Transacción en `createExternal` y rechazo en `usersService.create`: son los dos únicos caminos |
 | Dos activaciones simultáneas duplican el perfil | La PK de `trainer_profiles` es la FK: la segunda choca con P2002 |

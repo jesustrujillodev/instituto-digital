@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	ENROLLMENT_ERROR_CODES,
+	EnrollmentParticipantRemovedError,
 	EnrollmentRemoveClosedError,
 	EnrollmentRemovedError,
 } from "../enrollment.errors";
@@ -21,6 +22,7 @@ import {
 	isRemoval,
 	participantPermissionsOf,
 	removalBlockerOf,
+	removalsOutOfReach,
 	seatsLeftOf,
 } from "../enrollment.rules";
 
@@ -486,5 +488,32 @@ describe("assertNotRemoved", () => {
 		);
 		expect(() => assertNotRemoved({ removed: false })).not.toThrow();
 		expect(() => assertNotRemoved(null)).not.toThrow();
+	});
+});
+
+// Auditoría C08.
+describe("removalsOutOfReach", () => {
+	const states = [
+		{ userId: 1, removed: true },
+		{ userId: 2, removed: false },
+		{ userId: 3, removed: true },
+	];
+
+	test("quien organiza alcanza a todos: no deja a nadie fuera", () => {
+		expect(removalsOutOfReach(states, true, new Set([1, 3]))).toEqual(
+			new Set(),
+		);
+	});
+
+	test("a otra dependencia, elegir a alguien dado de baja le rechaza el lote", () => {
+		expect(() => removalsOutOfReach(states, false, new Set([2, 3]))).toThrow(
+			EnrollmentParticipantRemovedError,
+		);
+	});
+
+	test("las bajas que llegan por un grupo solo se apartan", () => {
+		expect(removalsOutOfReach(states, false, new Set([2]))).toEqual(
+			new Set([1, 3]),
+		);
 	});
 });

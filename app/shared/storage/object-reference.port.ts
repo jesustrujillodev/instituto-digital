@@ -2,13 +2,15 @@
 //
 // Storage no tiene tablas propias: son los módulos los que guardan la key (o la
 // referencia del proxy) en SUS modelos. Por eso la respuesta a "¿a quién
-// pertenece este archivo?" y "¿qué hay que soltar en la base si se borra?" solo
-// la puede dar cada módulo. Cada uno publica una fuente con esta forma y el
+// pertenece este archivo?", "¿qué hay que soltar en la base si se borra?" y
+// "¿quién puede leerlo?" solo la puede dar cada módulo. Cada uno publica una fuente con esta forma y el
 // composition root las junta; quien gestiona la nube depende solo del puerto y
 // no conoce los módulos que guardan archivos.
 //
 // Vive en shared/storage —y no en el módulo que lo consume— para que los
 // módulos que lo implementan no dependan de ese consumidor.
+
+import type { AuthContext } from "@/modules/auth/domain/auth.types";
 
 // Union cerrada: añadir un módulo que guarde keys = añadir su literal aquí y
 // registrar su fuente en el composition root.
@@ -36,6 +38,12 @@ export interface ObjectReference {
 	href?: string;
 }
 
+/** Quien pide leer un objeto privado por el proxy. */
+export type ObjectReader = Pick<
+	AuthContext,
+	"userId" | "role" | "dependencyId" | "isTrainer"
+>;
+
 /** Nombre legible de una carpeta que la fuente reconoce como suya. */
 export interface FolderDescription {
 	/** Prefijo completo acabado en `/`. */
@@ -61,4 +69,11 @@ export interface IObjectReferenceSource {
 
 	/** Nombres legibles para las carpetas que esta fuente reconoce. */
 	describeFolders(prefixes: readonly string[]): Promise<FolderDescription[]>;
+
+	/**
+	 * ¿Puede `reader` leer esta key privada, con el mismo alcance que la pantalla
+	 * que la sirve? `false` si la key no es de esta fuente, sin consultar: el
+	 * proxy niega lo que ninguna fuente concede.
+	 */
+	canRead(key: string, reader: ObjectReader): Promise<boolean>;
 }

@@ -186,12 +186,28 @@ Para leer, el servicio firma una URL de TTL largo en cada carga. Los rangos que
 pide el reproductor van directos al bucket y la key cruda nunca viaja al cliente.
 
 El prefijo es `documentos/lecciones/`, **privado**: no cuelga de `media/` ni de
-`profile-photos/`, así que `isPublicKey` lo deja fuera y el proxy exige sesión.
+`profile-photos/`, así que `isPublicKey` lo deja fuera y el proxy exige sesión. Y
+no cualquier sesión: por el proxy el material solo lo abre quien administra el
+temario o está inscrito en el aula, y el de sesiones quien administra o imparte el
+curso o está inscrito una vez disponible (`content.access.ts`,
+[storage/00 §7.0](../storage/00-sistema-almacenamiento.md)).
+
+La key lleva el curso y la lección que la pidieron:
+`documentos/lecciones/<curso>/<lección>/<nombre>-<ms>.<ext>`
+(`lessonMaterialFolderOf`). `save-material` rechaza con `CONTENT_UPLOAD_NOT_FOUND`
+una key fuera de esa carpeta: sin esto, quien conociera la key del material de otro
+curso podía colgarla de una lección suya y, al reemplazarla, borrar el archivo ajeno.
+Las keys de antes del cambio no llevan carpeta y siguen valiendo solo si ya son el
+material de esa misma lección. El material de sesión hace lo mismo con
+`documentos/sesiones/<curso>/` (`sessionMaterialFolderOf`): sin la sesión, porque el
+alta pide la subida antes de guardarla.
 
 Reemplazar un material es volver a subir. Al hacerlo —y al borrar la lección— el
 objeto anterior se borra en *best-effort* y fuera de la transacción: un objeto que
 ya no está no puede tumbar una escritura que ya ocurrió, y si el borrado falla lo
-recoge el escaneo de huérfanos del gestor de nube.
+recoge el escaneo de huérfanos del gestor de nube. El trabajo `delete-object` no
+borra un objeto que otra fila sigue usando
+([storage/00 §5.3](../storage/00-sistema-almacenamiento.md)).
 
 ### 7.3 Sin transcodificación
 

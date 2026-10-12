@@ -86,6 +86,13 @@ export const createCertificateTemplateRepository = ({
 			return row ? toTemplate(row) : null;
 		},
 
+		async findOwnership(documentId) {
+			return prisma.certificateTemplate.findUnique({
+				where: { documentId },
+				select: { scope: true, dependencyId: true },
+			});
+		},
+
 		async findByDocumentIds(documentIds) {
 			if (documentIds.length === 0) return [];
 			const rows = await prisma.certificateTemplate.findMany({

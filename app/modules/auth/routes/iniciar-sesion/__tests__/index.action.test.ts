@@ -29,6 +29,7 @@ const createHarness = (
 	const calls = { login: [] as unknown[] };
 
 	const context = {
+		clientIpPolicy: { source: "proxy", trustedHops: 1 },
 		authService: {
 			login: async (dto: unknown, meta: unknown) => {
 				calls.login.push({ dto, meta });
@@ -106,8 +107,8 @@ describe("iniciar-sesion action — success", () => {
 		);
 	});
 
-	// El user-agent y la IP acaban en la fila de la sesión: son informativos (el
-	// monitor los pinta), pero tienen que llegar.
+	// El user-agent y la IP acaban en la fila de la sesión. La IP es la que
+	// agregó el proxy al final de la cadena, no la que el cliente puso delante.
 	test("forwards the user agent and the validated client IP", async () => {
 		const { context, calls } = createHarness();
 
@@ -125,7 +126,7 @@ describe("iniciar-sesion action — success", () => {
 		).catch(() => {});
 
 		expect(calls.login[0]).toMatchObject({
-			meta: { userAgent: "Mozilla/5.0", ipAddress: "203.0.113.7" },
+			meta: { userAgent: "Mozilla/5.0", ipAddress: "70.41.3.18" },
 		});
 	});
 

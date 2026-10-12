@@ -6,13 +6,11 @@ import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { buildObjectKey } from "@/shared/storage/object-key";
 import { toProxyRef } from "@/shared/storage/public-url";
-import {
-	LESSON_MATERIAL_PREFIX,
-	LESSON_UPLOAD_TTL_S,
-} from "../domain/content.config";
+import { LESSON_UPLOAD_TTL_S } from "../domain/content.config";
 import {
 	ContentLessonNotFoundError,
 	ContentModuleNotFoundError,
+	ContentUploadNotFoundError,
 } from "../domain/content.errors";
 import {
 	toContentSummary,
@@ -26,7 +24,9 @@ import {
 	assertModuleDeletable,
 	assertModuleLimit,
 	assertUploadAllowed,
+	isKeyInFolder,
 	type LessonUploadKind,
+	lessonMaterialFolderOf,
 	nextOrderOf,
 	requireUploadedObject,
 	resolveContentOrder,
@@ -139,11 +139,13 @@ export const createContentService = ({
 	 */
 	const resolveMaterialWrite = async (
 		dto: SaveMaterialDto,
+		acceptsKey: (key: string) => Promise<boolean>,
 	): Promise<LessonMaterialWrite> => {
 		if (dto.type === "TEXT") return { ...EMPTY_MATERIAL, body: dto.body };
 		if (dto.type === "LINK") {
 			return { ...EMPTY_MATERIAL, externalUrl: dto.externalUrl };
 		}
+		if (!(await acceptsKey(dto.key))) throw new ContentUploadNotFoundError();
 
 		// El objeto ya está en el bucket: aquí se confirma que llegó y que cabe,
 		// que es el tope que la firma de subida no puede imponer.
@@ -360,7 +362,10 @@ export const createContentService = ({
 
 				// La key la genera el servidor: nada de lo que mande el cliente
 				// decide dónde cae el objeto.
-				const key = buildObjectKey(LESSON_MATERIAL_PREFIX, dto.fileName);
+				const key = buildObjectKey(
+					lessonMaterialFolderOf(courseDocumentId, dto.lessonDocumentId),
+					dto.fileName,
+				);
 				const uploadUrl = await storageProvider.getUploadUrl(
 					requireBucketOf(key),
 					key,
@@ -383,10 +388,21 @@ export const createContentService = ({
 				const lesson = await requireLesson(course.id, dto.lessonDocumentId);
 				assertMaterialMatchesLesson(lesson.type, dto.type);
 
+				const folder = lessonMaterialFolderOf(
+					courseDocumentId,
+					dto.lessonDocumentId,
+				);
+				const previousRead = contentRepository.findMaterialFileUrl(lesson.id);
+				// Una key sin la carpeta de esta lección solo vale si ya es su
+				// material: las anteriores a ligarlas al curso no la llevan.
+				const acceptsKey = async (key: string) =>
+					isKeyInFolder(key, folder) ||
+					(await previousRead) === toProxyRef(key);
+
 				// La fila anterior y el objeto subido no dependen uno del otro.
 				const [previous, write] = await allInOrder([
-					contentRepository.findMaterialFileUrl(lesson.id),
-					resolveMaterialWrite(dto),
+					previousRead,
+					resolveMaterialWrite(dto, acceptsKey),
 				]);
 
 				await contentRepository.saveMaterial(lesson.id, write);

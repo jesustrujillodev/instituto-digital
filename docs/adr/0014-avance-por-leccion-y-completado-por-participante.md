@@ -121,6 +121,14 @@ Un curso con sesiones las sigue pudiendo cambiar: todo se calcula en el cierre.
   `progressSync.recalculate`, dentro de la transacción de quien escribe y con la
   fila del curso bloqueada (el mismo `FOR UPDATE` que la impartición). La pantalla
   del aula lo recalcula en vivo. El caché solo existe para los listados.
+- **El avance se escribe con el curso bloqueado y releído** (auditoría C07,
+  10-10-2026). Completar toma desde el principio el `FOR UPDATE` que pedirá el
+  recálculo —subir desde un bloqueo compartido dejaría a dos avances esperándose—;
+  empezar una lección no recalcula y toma `lockCourseShared` (`FOR SHARE`), para no
+  hacer esperar a los demás. Con el bloqueo se relee el curso y se repite
+  `assertCanProgress`: si `finish` lo cerró mientras se esperaba, responde
+  `CONTENT_CLASSROOM_READ_ONLY` sin escribir. El envío de un cuestionario y el
+  cierre de un seguimiento hacen lo mismo con su `FOR UPDATE`.
 - **Qué se mide.** Las lecciones obligatorias. Si no hay ninguna, se mide el
   temario entero, para que «todo opcional» no signifique «terminado sin abrir
   nada». Un temario vacío da 0 y nunca completa. El porcentaje es entero y hacia

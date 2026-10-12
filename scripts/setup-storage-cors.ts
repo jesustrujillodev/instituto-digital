@@ -35,7 +35,7 @@ const {
 	STORAGE_SECRET_ACCESS_KEY,
 	STORAGE_FORCE_PATH_STYLE,
 	CORS_ALLOWED_ORIGINS,
-	APP_URL,
+	APP_BASE_URL,
 } = process.env;
 
 /**
@@ -70,9 +70,16 @@ if (
 	process.exit(1);
 }
 
+const LOCAL_ORIGINS = [
+	"http://localhost:5173",
+	"http://127.0.0.1:5173",
+	"http://localhost:3000",
+];
+
 /**
  * Orígenes autorizados. `CORS_ALLOWED_ORIGINS` (separados por comas) manda; si
- * no, se deduce de `APP_URL` y siempre se añade el dev local.
+ * no, el de `APP_BASE_URL`. Los de desarrollo solo entran sin un origen https:
+ * el bucket de producción no acepta subidas desde una página en localhost.
  */
 const resolveOrigins = (): string[] => {
 	if (CORS_ALLOWED_ORIGINS) {
@@ -81,12 +88,9 @@ const resolveOrigins = (): string[] => {
 			.filter(Boolean);
 	}
 
-	const origins = ["http://localhost:5173", "http://localhost:3000"];
-	if (APP_URL && !APP_URL.includes("localhost")) {
-		origins.push(APP_URL.replace(/\/+$/, ""));
-	}
-
-	return origins;
+	return APP_BASE_URL?.startsWith("https://")
+		? [APP_BASE_URL.replace(/\/+$/, "")]
+		: LOCAL_ORIGINS;
 };
 
 const ORIGINS = resolveOrigins();

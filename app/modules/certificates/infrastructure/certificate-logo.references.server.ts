@@ -50,4 +50,9 @@ export const createCertificateLogoReferenceSource = ({
 				]
 			: [];
 	},
+
+	// Prefijo público: el proxy lo sirve sin preguntar.
+	async canRead() {
+		return false;
+	},
 });

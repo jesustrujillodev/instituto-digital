@@ -77,9 +77,14 @@ const createHarness = (
 		rotateOutcomes?: RotateOutcome[];
 		snapshot?: SecuritySnapshot;
 	} = {},
+	/** Lo que una revocación cambia entre dos refrescos de la misma prueba. */
+	live: { sessionExists: boolean; snapshot?: SecuritySnapshot } = {
+		sessionExists: true,
+	},
 ) => {
 	const calls = {
 		findByTokenHash: [] as string[],
+		findById: [] as string[],
 		deleteById: [] as string[],
 		deleteAllByUserId: [] as number[],
 		rotate: [] as { expectedTokenHash: string }[],
@@ -97,6 +102,10 @@ const createHarness = (
 			return options.session === undefined
 				? sessionOf({ refreshTokenHash: hash })
 				: options.session;
+		},
+		findById: async (id: string) => {
+			calls.findById.push(id);
+			return live.sessionExists ? sessionOf() : null;
 		},
 		rotateIfCurrent: async (params: { expectedTokenHash: string }) => {
 			calls.rotate.push({ expectedTokenHash: params.expectedTokenHash });
@@ -125,21 +134,25 @@ const createHarness = (
 				: options.user,
 	} as unknown as ICradle["userRepository"];
 
+	// Cada access token recuerda su payload y su `iat` en segundos, como un JWT:
+	// el par cacheado se evalúa contra el epoch igual que una cookie.
+	const issued = new Map<string, Record<string, unknown>>();
 	const tokenService = {
 		hashRefreshToken: hashOf,
 		generateRefreshToken: () => "token-nuevo",
-		signAccessToken: async () => {
+		signAccessToken: async (payload: Record<string, unknown>) => {
 			calls.signed += 1;
-			return "access-nuevo";
+			const token =
+				calls.signed === 1 ? "access-nuevo" : `access-nuevo-${calls.signed}`;
+			issued.set(token, { ...payload, iat: Math.floor(Date.now() / 1000) });
+			return token;
 		},
-		// El servicio solo delega; el doble devuelve null para no acoplar este
-		// archivo a la implementación real de jose (que ya tiene su propio test).
-		verifyAccessToken: async () => null,
+		verifyAccessToken: async (token: string) => issued.get(token) ?? null,
 		getRefreshTokenExpiry: () => new Date(Date.now() + 86_400_000),
 	} as unknown as ICradle["tokenService"];
 
 	const securityStateRepository = {
-		get: async () => options.snapshot ?? snapshotOf(),
+		get: async () => live.snapshot ?? options.snapshot ?? snapshotOf(),
 	} as unknown as ICradle["securityStateRepository"];
 
 	const service = createAuthService({
@@ -396,6 +409,116 @@ describe("createAuthService — single flight", () => {
 		]);
 
 		expect(calls.rotate).toHaveLength(2);
+	});
+});
+
+// C01: el par cacheado seguía autenticando hasta 60 s después de revocar.
+describe("createAuthService — el par cacheado y la revocación", () => {
+	const invalidSession = { code: new InvalidSessionError().code };
+
+	test("tras borrar las sesiones del usuario, el token rotado ya no autentica", async () => {
+		const live = { sessionExists: true };
+		const { service } = createHarness({}, live);
+		await service.refresh(RAW_TOKEN);
+
+		// revokeAllForUser: reseteo, archivado o cambio de rol.
+		live.sessionExists = false;
+
+		await expect(service.refresh(RAW_TOKEN)).rejects.toMatchObject(
+			invalidSession,
+		);
+	});
+
+	test("tampoco con el lockdown except-admin, que purga sus sesiones", async () => {
+		const live: { sessionExists: boolean; snapshot?: SecuritySnapshot } = {
+			sessionExists: true,
+		};
+		const { service } = createHarness(
+			{
+				user: {
+					id: 7,
+					documentId: "11111111-1111-4111-8111-111111111111",
+					email: "jefa@instituto.gob.mx",
+					role: "DEPENDENCY_HEAD",
+					dependencyId: 3,
+					isTrainer: false,
+					archivedAt: null,
+				},
+			},
+			live,
+		);
+		await service.refresh(RAW_TOKEN);
+
+		live.snapshot = snapshotOf({
+			lockdownAt: new Date(),
+			lockdownScope: "except-admin",
+		});
+		live.sessionExists = false;
+
+		await expect(service.refresh(RAW_TOKEN)).rejects.toMatchObject(
+			invalidSession,
+		);
+	});
+
+	// Para eso existe el single-flight: el rezagado recibe el mismo par.
+	test("con la sesión viva, el rezagado recibe el mismo par sin rotar otra vez", async () => {
+		const { service, calls } = createHarness();
+
+		const first = await service.refresh(RAW_TOKEN);
+		const late = await service.refresh(RAW_TOKEN);
+
+		expect(late).toEqual(first);
+		expect(calls.rotate).toHaveLength(1);
+	});
+
+	// Quien revoca conserva su sesión, pero su par cacheado es de antes del corte.
+	test("un par cacheado anterior al epoch no se sirve: access nuevo, el mismo refresh", async () => {
+		const live: { sessionExists: boolean; snapshot?: SecuritySnapshot } = {
+			sessionExists: true,
+		};
+		const { service, calls } = createHarness({}, live);
+		const first = await service.refresh(RAW_TOKEN);
+
+		live.snapshot = snapshotOf({
+			tokensValidAfter: new Date(Date.now() + 1_000),
+		});
+
+		const late = await service.refresh(RAW_TOKEN);
+
+		expect(late.accessToken).not.toBe(first.accessToken);
+		expect(late.refreshToken).toBe(first.refreshToken);
+		expect(calls.rotate).toHaveLength(1);
+		expect(calls.signed).toBe(2);
+	});
+
+	test("un par cacheado de un rol bloqueado no se sirve aunque la sesión siga", async () => {
+		const live: { sessionExists: boolean; snapshot?: SecuritySnapshot } = {
+			sessionExists: true,
+		};
+		const { service } = createHarness({}, live);
+		await service.refresh(RAW_TOKEN);
+
+		live.snapshot = snapshotOf({
+			lockdownAt: new Date(),
+			lockdownScope: "except-admin",
+		});
+
+		await expect(service.refresh(RAW_TOKEN)).rejects.toMatchObject({
+			code: new PlatformLockedError().code,
+		});
+	});
+
+	// Por id y no por hash: si la sesión rotó otra vez dentro de la ventana, el
+	// hash del rezagado ya no está en la fila, pero la sesión sigue siendo suya.
+	test("comprueba la sesión por su id, solo cuando el par viene de la caché", async () => {
+		const { service, calls } = createHarness();
+
+		await service.refresh(RAW_TOKEN);
+		expect(calls.findById).toEqual([]);
+
+		await service.refresh(RAW_TOKEN);
+		expect(calls.findById).toEqual([SESSION_ID]);
+		expect(calls.findByTokenHash).toEqual([CURRENT_HASH]);
 	});
 });
 

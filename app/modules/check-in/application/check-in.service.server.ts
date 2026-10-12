@@ -28,6 +28,8 @@ import type { CheckInCourse, CheckInSession } from "../domain/check-in.types";
 type Dependencies = {
 	courseRepository: ICradle["courseRepository"];
 	teachingRepository: ICradle["teachingRepository"];
+	enrollmentRepository: ICradle["enrollmentRepository"];
+	runInTransaction: ICradle["runInTransaction"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
 };
@@ -39,6 +41,8 @@ const generateQrToken = (): string =>
 export const createCheckInService = ({
 	courseRepository,
 	teachingRepository,
+	enrollmentRepository,
+	runInTransaction,
 	clock,
 	logger,
 }: Dependencies): ICheckInService => {
@@ -81,24 +85,30 @@ export const createCheckInService = ({
 		},
 
 		/**
-		 * Sin `runInTransaction` ni bloqueo del curso, a diferencia de
+		 * Con el curso bloqueado en modo COMPARTIDO, a diferencia del exclusivo de
 		 * `teachingService.saveAttendance`: se escribe UNA fila con clave primaria
-		 * `(sessionId, userId)`, el upsert ya es atómico y el curso está publicado,
-		 * así que no hay créditos que recalcular. Bloquear el curso serializaría a
-		 * las cuarenta personas que escanean al entrar al aula.
+		 * `(sessionId, userId)` y no hay créditos que recalcular, así que basta con
+		 * esperar a `finish` y no hacer esperar a las cuarenta personas que
+		 * escanean al entrar al aula. Bajo el bloqueo se repiten las guardas: el
+		 * curso pudo finalizarse desde la primera lectura (ADR 0009 §2.7).
 		 */
 		async register(token, actor) {
 			return run("register", async () => {
 				const now = clock.now();
-				const { course, session } = await resolve(token, actor, now);
+				const first = await resolve(token, actor, now);
 
-				const written = await teachingRepository.checkIn(
-					session.id,
-					actor.userId,
-					now,
-				);
+				return runInTransaction(async () => {
+					await enrollmentRepository.lockCourseShared(first.course.id);
+					const { course, session } = await resolve(token, actor, now);
 
-				return ok(toCheckInResult(course, session, written, now));
+					const written = await teachingRepository.checkIn(
+						session.id,
+						actor.userId,
+						now,
+					);
+
+					return ok(toCheckInResult(course, session, written, now));
+				});
 			});
 		},
 

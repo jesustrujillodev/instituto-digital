@@ -3,6 +3,7 @@ import {
 	accessTokenCookie,
 	appendRefreshedCookies,
 	clearAuthCookies,
+	cookieSecurityOf,
 	parseTokenCookies,
 	refreshTokenCookie,
 	serializeAuthCookies,
@@ -172,9 +173,9 @@ describe("cookie attributes", () => {
 		}
 	});
 
-	// NODE_ENV=test ⇒ no se exige Secure, o la suite (y el desarrollo en http)
-	// no podrían usarlas.
-	test("Secure is off outside production", async () => {
+	// Sin origen https (la suite, el desarrollo en http) no se exige Secure, o
+	// el navegador no las guardaría.
+	test("Secure is off without an https origin", async () => {
 		const [cookie] = await serializeAuthCookies({
 			accessToken: "at",
 			refreshToken: null,
@@ -186,6 +187,22 @@ describe("cookie attributes", () => {
 	test("the cookie names are the stable ones the container reads", () => {
 		expect(accessTokenCookie.name).toBe("__access_token");
 		expect(refreshTokenCookie.name).toBe("__refresh_token");
+	});
+
+	// Remediación (Fase C): depende del origen público, no de NODE_ENV.
+	test("con origen https van Secure y con el prefijo __Host-", () => {
+		expect(cookieSecurityOf("https://capacitacion.gob.mx")).toEqual({
+			secure: true,
+			prefix: "__Host-",
+		});
+		expect(cookieSecurityOf("http://localhost:5173")).toEqual({
+			secure: false,
+			prefix: "__",
+		});
+		expect(cookieSecurityOf(undefined)).toEqual({
+			secure: false,
+			prefix: "__",
+		});
 	});
 
 	// El maxAge sale del MISMO env que firma el token: una cookie que sobreviviera

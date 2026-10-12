@@ -3,7 +3,10 @@ import type {
 	CertificateTemplate,
 	NewCertificateTemplate,
 } from "./certificate.types";
-import type { TemplateVisibility } from "./certificate-template.access";
+import type {
+	TemplateOwnership,
+	TemplateVisibility,
+} from "./certificate-template.access";
 import type { StoredDesignRefs } from "./design/design.assets";
 
 /** Una plantilla con lo que nombra su diseño tal como está en la base. */
@@ -18,6 +21,8 @@ export interface ICertificateTemplateRepository {
 		includeArchived: boolean,
 	): Promise<CertificateTemplate[]>;
 	findByDocumentId(documentId: string): Promise<CertificateTemplate | null>;
+	/** De quién es la plantilla, sin leer su diseño. */
+	findOwnership(documentId: string): Promise<TemplateOwnership | null>;
 	findByDocumentIds(
 		documentIds: readonly string[],
 	): Promise<CertificateTemplate[]>;

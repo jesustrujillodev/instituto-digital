@@ -66,5 +66,10 @@ export const createCourseCoverReferenceSource = ({
 				? [{ prefix: ROOT_PREFIX, label: "Portadas de capacitaciones" }]
 				: [];
 		},
+
+		// Prefijo público: el proxy lo sirve sin preguntar.
+		async canRead() {
+			return false;
+		},
 	};
 };

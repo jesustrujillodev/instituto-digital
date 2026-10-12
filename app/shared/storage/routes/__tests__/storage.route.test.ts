@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { LogData, Logger } from "@/shared/logging/logger";
+import { fail, ok } from "@/shared/response/response.helpers";
+import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
 import { loader } from "../storage.route";
 
 type LoaderArgs = Parameters<typeof loader>[0];
@@ -33,9 +35,12 @@ const createHarness = (
 		fileBytes?: number;
 		getFileFails?: boolean;
 		presignFails?: boolean;
+		/** Lo que responde la autorización por objeto; `"error"` finge un fallo. */
+		canRead?: boolean | "error";
 	} = {},
 ) => {
 	const calls = {
+		canRead: [] as { key: string; reader: unknown }[],
 		getFile: [] as string[],
 		presigned: [] as string[],
 		presignOptions: [] as unknown[],
@@ -58,6 +63,18 @@ const createHarness = (
 						role: "USER",
 						iat: 1_800_000_000,
 					},
+		storageAccessService: {
+			canRead: async (key: string, reader: unknown) => {
+				calls.canRead.push({ key, reader });
+				const answer = options.canRead ?? true;
+				return answer === "error"
+					? fail({
+							code: RESPONSE_ERROR_CODES.UNEXPECTED,
+							message: "la base no responde",
+						})
+					: ok(answer);
+			},
+		},
 		storageProvider: {
 			getFile: async (bucket: string, key: string) => {
 				calls.buckets.push(bucket);
@@ -172,6 +189,67 @@ describe("storage proxy — autorización por prefijo", () => {
 		await run(requestOf(`?key=${encodeURIComponent(PRIVATE_KEY)}`), context);
 
 		expect(calls.presigned).toEqual([PRIVATE_KEY]);
+	});
+});
+
+// C06: con sesión bastaba; cualquier cuenta abría el material de un curso ajeno.
+describe("storage proxy — autorización por objeto", () => {
+	test("pregunta por la key y por quien la pide", async () => {
+		const { context, calls } = createHarness();
+
+		await run(requestOf(`?key=${encodeURIComponent(PRIVATE_KEY)}`), context);
+
+		expect(calls.canRead).toEqual([
+			{
+				key: PRIVATE_KEY,
+				reader: expect.objectContaining({ userId: 7, role: "USER" }),
+			},
+		]);
+	});
+
+	test("lo que quien pide no puede leer responde 404 sin firmar", async () => {
+		const { context, calls } = createHarness({ canRead: false });
+
+		const response = await run(
+			requestOf(`?key=${encodeURIComponent(PRIVATE_KEY)}`),
+			context,
+		);
+
+		expect(response.status).toBe(404);
+		expect(calls.presigned).toEqual([]);
+	});
+
+	test("en línea tampoco lee el archivo", async () => {
+		const { context, calls } = createHarness({ canRead: false });
+
+		const response = await run(
+			requestOf(`?inline=true&key=${encodeURIComponent(PRIVATE_KEY)}`),
+			context,
+		);
+
+		expect(response.status).toBe(404);
+		expect(calls.getFile).toEqual([]);
+	});
+
+	test("si no se puede decidir, se niega", async () => {
+		const { context, calls } = createHarness({ canRead: "error" });
+
+		const response = await run(
+			requestOf(`?key=${encodeURIComponent(PRIVATE_KEY)}`),
+			context,
+		);
+
+		expect(response.status).toBe(404);
+		expect(calls.presigned).toEqual([]);
+	});
+
+	test("una key pública no pregunta", async () => {
+		const { context, calls } = createHarness({ canRead: false });
+
+		await run(requestOf(`?key=${encodeURIComponent(PUBLIC_KEY)}`), context);
+
+		expect(calls.canRead).toEqual([]);
+		expect(calls.presigned).toEqual([PUBLIC_KEY]);
 	});
 });
 

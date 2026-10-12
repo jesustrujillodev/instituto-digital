@@ -20,6 +20,9 @@ const secret = (name: string) =>
 		v.minLength(32, `${name} must be at least 32 characters long`),
 	);
 
+/** El marcador de `.env.example` cumple el mínimo de longitud y es público. */
+const PLACEHOLDER_SECRET = /change-me/i;
+
 const baseEnvSchema = v.object({
 	DATABASE_URL: v.pipe(v.string("DATABASE_URL is required"), v.minLength(1)),
 	// Conexiones por proceso: réplicas × tope debe caber en la base o en su
@@ -51,6 +54,12 @@ const baseEnvSchema = v.object({
 	AUTH_LOGIN_MAX_PER_EMAIL: positiveInt(5),
 	AUTH_LOGIN_MAX_PER_IP: positiveInt(20),
 	AUTH_LOGIN_WINDOW_S: positiveInt(60),
+
+	// ── IP del cliente (docs/http/00-ip-del-cliente.md) ─────────────────────────
+	// Clave de los límites por IP. Obligatoria en producción: solo el despliegue
+	// sabe qué proxy tiene delante.
+	CLIENT_IP_SOURCE: v.optional(v.picklist(["proxy", "cloudflare", "none"])),
+	TRUSTED_PROXY_HOPS: positiveInt(1),
 
 	// ── Sesiones ────────────────────────────────────────────────────────────────
 	// Cap de sesiones activas por usuario; al exceder se elimina la más antigua.
@@ -134,6 +143,44 @@ const baseEnvSchema = v.object({
 // runtime (coherente con la filosofía fail-fast del resto del env).
 const envSchema = v.pipe(
 	baseEnvSchema,
+	// Con el marcador, cualquiera que lea el repositorio firma un access token
+	// de SUPERADMIN y la cookie que lo transporta. En desarrollo se tolera para
+	// que la plantilla arranque tal cual.
+	v.forward(
+		v.check(
+			(input) =>
+				input.NODE_ENV !== "production" ||
+				!PLACEHOLDER_SECRET.test(input.JWT_SECRET),
+			"JWT_SECRET conserva el valor de ejemplo de .env.example: en producción hay que generar uno propio",
+		),
+		["JWT_SECRET"],
+	),
+	v.forward(
+		v.check(
+			(input) =>
+				input.NODE_ENV !== "production" ||
+				!PLACEHOLDER_SECRET.test(input.COOKIE_SECRET),
+			"COOKIE_SECRET conserva el valor de ejemplo de .env.example: en producción hay que generar uno propio",
+		),
+		["COOKIE_SECRET"],
+	),
+	v.forward(
+		v.check(
+			(input) =>
+				input.NODE_ENV !== "production" ||
+				input.JWT_SECRET !== input.COOKIE_SECRET,
+			"JWT_SECRET y COOKIE_SECRET deben ser distintos en producción",
+		),
+		["COOKIE_SECRET"],
+	),
+	v.forward(
+		v.check(
+			(input) =>
+				input.NODE_ENV !== "production" || input.CLIENT_IP_SOURCE !== undefined,
+			"CLIENT_IP_SOURCE es obligatoria en producción: proxy, cloudflare o none (docs/http/00-ip-del-cliente.md)",
+		),
+		["CLIENT_IP_SOURCE"],
+	),
 	v.forward(
 		v.check(
 			(input) =>
@@ -173,6 +220,16 @@ const envSchema = v.pipe(
 	// `media/` ya viven separados y se sirven por el proxy como siempre. Es el
 	// paso previo natural — cuando el dominio exista, basta con añadirlo y no hay
 	// nada que mover.
+	// Con un solo nombre para los dos, lo privado viviría en el bucket público.
+	v.forward(
+		v.check(
+			(input) =>
+				!input.STORAGE_PUBLIC_BUCKET_NAME ||
+				input.STORAGE_PUBLIC_BUCKET_NAME !== input.STORAGE_BUCKET_NAME,
+			"STORAGE_PUBLIC_BUCKET_NAME debe ser distinto de STORAGE_BUCKET_NAME: el bucket público no puede guardar lo privado",
+		),
+		["STORAGE_PUBLIC_BUCKET_NAME"],
+	),
 	v.forward(
 		v.check(
 			(input) =>
@@ -206,6 +263,16 @@ const envSchema = v.pipe(
 			"SMTP_HOST requiere MAIL_FROM y APP_BASE_URL",
 		),
 		["SMTP_HOST"],
+	),
+	// De aquí salen los enlaces de los correos y si las cookies van `Secure`
+	// (`cookieSecurityOf`): sin ella, producción caería a http://localhost.
+	v.forward(
+		v.check(
+			(input) =>
+				input.NODE_ENV !== "production" || input.APP_BASE_URL !== undefined,
+			"APP_BASE_URL es obligatoria en producción (en Railway se deriva de RAILWAY_PUBLIC_DOMAIN)",
+		),
+		["APP_BASE_URL"],
 	),
 	v.forward(
 		v.check(
@@ -256,6 +323,8 @@ const result = v.safeParse(envSchema, {
 	AUTH_LOGIN_MAX_PER_EMAIL: process.env.AUTH_LOGIN_MAX_PER_EMAIL,
 	AUTH_LOGIN_MAX_PER_IP: process.env.AUTH_LOGIN_MAX_PER_IP,
 	AUTH_LOGIN_WINDOW_S: process.env.AUTH_LOGIN_WINDOW_S,
+	CLIENT_IP_SOURCE: process.env.CLIENT_IP_SOURCE,
+	TRUSTED_PROXY_HOPS: process.env.TRUSTED_PROXY_HOPS,
 	AUTH_MAX_SESSIONS_PER_USER: process.env.AUTH_MAX_SESSIONS_PER_USER,
 	AUTH_SECURITY_STATE_CACHE_TTL_S: process.env.AUTH_SECURITY_STATE_CACHE_TTL_S,
 

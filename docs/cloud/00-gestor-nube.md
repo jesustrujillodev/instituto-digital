@@ -25,12 +25,13 @@ dueños de los datos (hoy, usuarios).
 app/shared/storage/
 ├── storage.port.ts              + listObjects · deleteFiles · disposition
 ├── storage.listing.ts           collectObjects(): recorrido paginado con tope
-└── object-reference.port.ts     IObjectReferenceSource: "¿quién usa esta key?"
+└── object-reference.port.ts     IObjectReferenceSource: "¿quién usa esta key?" y "¿quién la lee?"
 
 app/modules/cloud/
 ├── domain/        cloud.config · cloud.errors · cloud.paths · cloud.rules
 │                  cloud.service (ICloudService) · cloud.types
-├── application/   cloud.service.server.ts
+│                  storage-access.service (IStorageAccessService)
+├── application/   cloud.service.server.ts · storage-access.service.server.ts
 ├── routes/nube/   index.loader · index.action · index.tsx
 ├── components/    path-bar · table · grid · selection-bar · object-sheet
 │                  delete-dialog · orphans-sheet · thumb · badges
@@ -87,6 +88,12 @@ Qué suelta cada fuente:
   Una firma que imprime un certificado ya emitido **no se suelta**: `release` lanza
   `STORAGE_OBJECT_LOCKED` antes de tocar nada y el borrado entero se cancela
   ([ADR 0019](../adr/0019-snapshot-del-diseno-y-puerto-de-exportacion.md)).
+
+- **Material de lecciones y de sesiones** → la key lleva el curso
+  (`documentos/lecciones/<curso>/<lección>/…`, `documentos/sesiones/<curso>/…`;
+  [content/00 §7.2](../content/00-modulos-y-lecciones.md)). Cada fuente nombra la
+  carpeta del curso con su título, y la de lecciones también la de cada lección. Un
+  nombre de carpeta que no es un uuid no lo emitió la subida y no se consulta.
 
 Un módulo nuevo que guarde keys añade aquí su fuente; el gestor no cambia.
 
@@ -158,7 +165,11 @@ navegador → fetch(url) × N                directo al bucket: 0 bytes por el s
 ## 9. Añadir un módulo con archivos
 
 1. Implementar `IObjectReferenceSource` en su `infrastructure/` (`findByKeys`,
-   `release` transaccional, `describeFolders` para sus prefijos).
+   `release` transaccional, `describeFolders` para sus prefijos y `canRead` con el
+   alcance de la pantalla que sirve esos archivos; `false` sin consultar si la key
+   no es suya o su prefijo es público).
 2. Añadirla al array `objectReferenceSources` de `container.server.ts`.
 
-El gestor no cambia.
+El gestor no cambia, y el proxy `/api/storage` autoriza esos archivos con la
+misma fuente (`storageAccessService`,
+[storage/00 §7.0](../storage/00-sistema-almacenamiento.md)).

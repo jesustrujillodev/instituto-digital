@@ -13,13 +13,16 @@ Autenticación por **sesiones de doble token** sobre cookies `httpOnly`:
 
 | Token | Forma | Vida (default) | Dónde vive | Propósito |
 |---|---|---|---|---|
-| **Access token** | JWT firmado (HS256) | 5 min | Cookie `__access_token` + se verifica por petición | Identidad ya verificada: evita tocar la DB en cada petición |
-| **Refresh token** | Opaco (64 bytes aleatorios, hex) | 7 días | Cookie `__refresh_token`; en DB **solo su hash SHA-256** | Renovar el access token; representa la sesión persistida |
+| **Access token** | JWT firmado (HS256) | 5 min | Cookie `__Host-access_token` (`__access_token` sin https) + se verifica por petición | Identidad ya verificada: evita tocar la DB en cada petición |
+| **Refresh token** | Opaco (64 bytes aleatorios, hex) | 7 días | Cookie `__Host-refresh_token` (`__refresh_token` sin https); en DB **solo su hash SHA-256** | Renovar el access token; representa la sesión persistida |
 
 Principios:
 
 - **El cliente nunca maneja tokens con JavaScript** — ambas cookies son
-  `httpOnly`, firmadas (`COOKIE_SECRET`), `SameSite=Lax` y `Secure` en producción.
+  `httpOnly`, firmadas (`COOKIE_SECRET`) y `SameSite=Lax`. `Secure` y el prefijo `__Host-`
+  salen de `APP_BASE_URL` con https, no de `NODE_ENV` (`cookieSecurityOf`): un
+  despliegue sin la variable no las manda en claro, y `__Host-` impide que un
+  subdominio fije o pise la cookie. Por http (desarrollo) van sin los dos.
 - **El estado de sesión vive en la DB**, no en el JWT. El refresh token no
   contiene datos; es una llave aleatoria cuyo hash identifica la fila de sesión.
 - **Rotación en cada refresh** con idempotencia para peticiones concurrentes y
@@ -124,6 +127,11 @@ malformado, el proceso lanza error con el detalle; la app nunca corre degradada.
 |---|---|---|
 | `JWT_SECRET` | — (requerido, ≥32 chars) | Firma HS256 del access token |
 | `COOKIE_SECRET` | — (requerido, ≥32 chars) | Firma de las cookies |
+
+Con `NODE_ENV=production` el arranque además rechaza un secreto que contenga
+`change-me` (el marcador de `.env.example` cumple los 32 caracteres y es público) y
+que `JWT_SECRET` y `COOKIE_SECRET` sean iguales. En desarrollo la plantilla arranca
+tal cual.
 | `AUTH_ACCESS_TOKEN_TTL_S` | `300` (5 min) | Vida del JWT **y** `maxAge` de su cookie. Es también la **latencia máxima de una revocación** (§6.5) |
 | `AUTH_REFRESH_TOKEN_TTL_S` | `604800` (7 días) | Vida de la sesión **y** `maxAge` de su cookie |
 | `AUTH_REFRESH_GRACE_S` | `60` | Ventana de gracia del refresh (idempotencia + tolerancia a red) |
@@ -186,12 +194,14 @@ Claves del diseño:
 
 ### 6.1 Login (`POST /iniciar-sesion`)
 
-1. **Validación del DTO** (valibot): email normalizado (lowercase/trim);
+1. **Validación del DTO** (valibot): email normalizado (lowercase/trim) y de
+   254 caracteres como máximo, que acota también su clave en el limitador;
    password no vacía y ≤ 72 chars (límite efectivo de bcrypt — evita procesar
    entradas gigantes y el matiz de autenticar por truncamiento).
 2. **Rate limiting** (puerto `RateLimiter`): claves por email (límite estricto)
-   y por IP (laxo — la IP es spoofable sin proxy de confianza, por eso nunca es
-   el límite principal). Excedido → error `TOO_MANY_ATTEMPTS` con `retryAfter`.
+   y por IP (laxo, porque una oficina comparte IP; la IP sale de la cabecera
+   del proxy declarado en `CLIENT_IP_SOURCE`, ver [http/00](../http/00-ip-del-cliente.md)).
+   Sin IP solo cuenta el límite por email. Excedido → error `TOO_MANY_ATTEMPTS` con `retryAfter`.
 3. **Verificación timing-safe**: se ejecuta `bcrypt.compare` SIEMPRE — si el
    email no existe, contra un hash dummy memoizado por proceso. Un email no
    registrado tarda lo mismo que uno registrado (no hay enumeración por timing)
@@ -364,9 +374,9 @@ nada.
 | Robo del refresh token (cookie) | Rotación en cada uso + reuso fuera de gracia revoca la familia completa de sesiones |
 | Fuerza bruta de contraseñas | Rate limit por email (estricto) y por IP (laxo) + bcrypt cost 12 |
 | Enumeración de usuarios | Mismo mensaje y misma latencia (dummy compare) exista o no el email |
-| JWT forjado / confusión de algoritmo | Secreto ≥32 chars validado al arrancar; `algorithms`, `issuer` y `audience` fijados |
+| JWT forjado / confusión de algoritmo | Secreto ≥32 chars validado al arrancar, y en producción distinto del marcador de `.env.example` y del de las cookies; `algorithms`, `issuer` y `audience` fijados |
 | Secretos ausentes en producción | Fail-fast al arrancar (la app no corre) |
-| DoS por payloads de login gigantes | `maxLength(72)` en el DTO antes de tocar bcrypt |
+| DoS por payloads de login gigantes | El middleware de root responde `413` a una escritura sin sesión de más de 64 KiB y `411` sin `Content-Length`, antes de que la action lea el cuerpo (`shared/http/body-limit.ts`); `maxLength(72)` en el DTO antes de tocar bcrypt |
 | Crecimiento sin cota de sesiones | Cap por usuario (default 5, configurable) |
 | Logs filtrando credenciales | Puerto `Logger` con redacción automática de claves sensibles (token/cookie/password/secret/authorization) |
 | Escalada por token con rol viejo | El refresh re-lee rol/email de la DB al rotar |
@@ -379,9 +389,10 @@ nada.
 
 **Límites conocidos (aceptados y documentados):**
 
-- La IP (`X-Forwarded-For`) es falsificable sin un proxy de confianza delante;
-  por eso el rate limit por IP es secundario y la IP nunca decide seguridad.
-  Se endurece en despliegue (Cloudflare/nginx sobrescribiendo el header).
+- La IP sale de la cabecera que escribe el proxy que declara el despliegue
+  (`CLIENT_IP_SOURCE`, obligatoria en producción; ver [http/00](../http/00-ip-del-cliente.md)).
+  Si la variable no corresponde al proxy real, la IP vuelve a ser falsificable:
+  hay que ajustarla al cambiar lo que va delante.
 - **Rate limiter compartido con Redis** (ventana deslizante, [redis/00 §3](../redis/00-redis.md));
   sin `REDIS_URL`, o si Redis cae, limita en memoria por proceso y el límite
   efectivo pasa a ser límite × nodos.

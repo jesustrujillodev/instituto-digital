@@ -3,14 +3,17 @@ export {
 	QR_TOKEN_PATTERN as ENROLLMENT_QR_TOKEN_PATTERN,
 } from "@/modules/check-in/domain/check-in.config";
 
-/** Por IP, igual que el escaneo de asistencia. */
+/** Por IP y por persona, igual que el escaneo de asistencia. */
 export const ENROLLMENT_QR_RATE_LIMIT = {
 	limit: 20,
 	windowMs: 60_000,
 } as const;
 
-export const enrollmentQrRateKeyOf = (ip: string | undefined): string =>
-	`enrollment-qr:${ip ?? "unknown"}`;
+export const enrollmentQrRateKeyOf = (ip: string): string =>
+	`enrollment-qr:${ip}`;
+
+export const enrollmentQrUserRateKeyOf = (userId: number): string =>
+	`enrollment-qr:user:${userId}`;
 
 /** La ruta pública que codifica el QR, relativa al origen. */
 export const enrollmentQrPathOf = (token: string): string =>

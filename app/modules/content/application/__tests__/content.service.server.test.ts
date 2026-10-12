@@ -616,7 +616,11 @@ describe("createUploadUrl", () => {
 		expect(result.success).toBe(true);
 		if (!result.success) return;
 
-		expect(result.data.key.startsWith(`${LESSON_MATERIAL_PREFIX}/`)).toBe(true);
+		expect(
+			result.data.key.startsWith(
+				`${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_1}/`,
+			),
+		).toBe(true);
 		expect(result.data.key).not.toContain("/../");
 		expect(calls.uploadUrls).toHaveLength(1);
 		expect(calls.uploadUrls[0]).toMatchObject({
@@ -659,7 +663,7 @@ describe("createUploadUrl", () => {
 });
 
 describe("saveMaterial", () => {
-	const KEY = `${LESSON_MATERIAL_PREFIX}/manual-1700000000.pdf`;
+	const KEY = `${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_1}/manual-1700000000.pdf`;
 	const fileDto = {
 		lessonDocumentId: LESSON_1,
 		type: "FILE" as const,
@@ -727,7 +731,7 @@ describe("saveMaterial", () => {
 	});
 
 	test("reemplazar borra el objeto anterior", async () => {
-		const previous = `${LESSON_MATERIAL_PREFIX}/viejo-1600000000.pdf`;
+		const previous = `${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_1}/viejo-1600000000.pdf`;
 		const { service, calls } = createHarness({
 			lessonType: "FILE",
 			materialFileUrl: `/api/storage?key=${encodeURIComponent(previous)}`,
@@ -736,6 +740,59 @@ describe("saveMaterial", () => {
 		await service.saveMaterial(COURSE_DOC, fileDto, actorOf());
 
 		expect(calls.deleted).toEqual([previous]);
+	});
+
+	// C04: con la key de otro curso, el siguiente guardado borraba su archivo.
+	test.each([
+		[
+			"de otro curso",
+			`${LESSON_MATERIAL_PREFIX}/${OTHER_DOC}/${LESSON_1}/guia-1700000000.pdf`,
+		],
+		[
+			"de otra lección",
+			`${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_2}/guia-1700000000.pdf`,
+		],
+		["sin curso", `${LESSON_MATERIAL_PREFIX}/guia-1700000000.pdf`],
+	])("una key %s no se acepta ni borra nada", async (_case, key) => {
+		const own = `${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_1}/propio-1600000000.pdf`;
+		const { service, calls } = createHarness({
+			lessonType: "FILE",
+			materialFileUrl: `/api/storage?key=${encodeURIComponent(own)}`,
+		});
+
+		const result = await service.saveMaterial(
+			COURSE_DOC,
+			{ ...fileDto, key },
+			actorOf(),
+		);
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.error.code).toBe(CONTENT_ERROR_CODES.UPLOAD_NOT_FOUND);
+		expect(calls.materials).toHaveLength(0);
+		expect(calls.deleted).toEqual([]);
+	});
+
+	// Las keys de antes de ligarlas al curso no llevan carpeta: valen solo si
+	// ya son el material de esta misma lección.
+	test("una key sin curso que ya es el material de la lección se conserva", async () => {
+		const legacy = `${LESSON_MATERIAL_PREFIX}/manual-1600000000.pdf`;
+		const { service, calls } = createHarness({
+			lessonType: "FILE",
+			materialFileUrl: `/api/storage?key=${encodeURIComponent(legacy)}`,
+		});
+
+		const result = await service.saveMaterial(
+			COURSE_DOC,
+			{ ...fileDto, key: legacy },
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({ success: true, data: null });
+		expect(calls.materials[0]).toMatchObject({
+			data: { fileUrl: `/api/storage?key=${encodeURIComponent(legacy)}` },
+		});
+		expect(calls.deleted).toEqual([]);
 	});
 
 	test("guardar un cuerpo de texto no toca el storage", async () => {
@@ -766,7 +823,7 @@ describe("saveMaterial", () => {
 
 describe("borrar una lección con material", () => {
 	test("se lleva su objeto del bucket", async () => {
-		const key = `${LESSON_MATERIAL_PREFIX}/manual-1700000000.pdf`;
+		const key = `${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_1}/manual-1700000000.pdf`;
 		const { service, calls } = createHarness({
 			lessonType: "FILE",
 			materialFileUrl: `/api/storage?key=${encodeURIComponent(key)}`,

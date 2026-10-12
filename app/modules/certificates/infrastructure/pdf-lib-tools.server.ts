@@ -1,129 +1,141 @@
-import {
-	degrees,
-	EncryptedPDFError,
-	PDFDocument,
-	type PDFPage,
-} from "@cantoo/pdf-lib";
+import { Worker } from "node:worker_threads";
+import { PDFDocument } from "@cantoo/pdf-lib";
 import { CertificateBackgroundInvalidError } from "../domain/certificate.errors";
-import type {
-	ICertificatePdfTools,
-	SanitizedPdf,
-} from "../domain/certificate.pdf";
+import type { ICertificatePdfTools } from "../domain/certificate.pdf";
 import { looksLikePdf } from "../domain/certificate-assets.rules";
 import { PAGE_SIDE_PT } from "../domain/design/design-v2.config";
+import type { SanitizeOutcome, SanitizeRequest } from "./pdf-sanitize.protocol";
 
-const normalizedRotation = (page: PDFPage) =>
-	(((page.getRotation().angle % 360) + 360) % 360) as 0 | 90 | 180 | 270;
+/** Cuánto puede descomprimir un fondo de 10 MB, entre todos sus flujos. */
+const MAX_DECODED_BYTES = 32 * 1024 * 1024;
+/** Un fondo legítimo se sanea en menos de un segundo. */
+const SANITIZE_TIMEOUT_MS = 10_000;
+const WORKER_HEAP_MB = 256;
+/** Saneados a la vez: cada uno con su heap, el resto espera turno. */
+const MAX_CONCURRENT_SANITIZES = 2;
+
+type PdfLibToolsOptions = {
+	/** El worker de saneado: el fuente en desarrollo, el build en producción. */
+	sanitizeWorker: URL;
+	timeoutMs?: number;
+};
+
+/** Cola mínima: como mucho `limit` trabajos a la vez. */
+const createGate = (limit: number) => {
+	let running = 0;
+	const waiting: (() => void)[] = [];
+	return async <T>(work: () => Promise<T>): Promise<T> => {
+		if (running >= limit) {
+			await new Promise<void>((resolve) => waiting.push(resolve));
+		}
+		running += 1;
+		try {
+			return await work();
+		} finally {
+			running -= 1;
+			waiting.shift()?.();
+		}
+	};
+};
+
+const isOutOfMemory = (error: unknown) =>
+	(error as { code?: string })?.code === "ERR_WORKER_OUT_OF_MEMORY";
 
 /**
- * Cómo dibujar la página original en una nueva sin rotación, para que se vea
- * igual que con su `/Rotate` (lo mismo que hace pdf.js al rasterizar).
+ * Lanza el worker y espera su respuesta. Plazo vencido o heap agotado son un
+ * PDF demasiado grande; cualquier otro fallo del worker (por ejemplo, que no
+ * esté en el build) es un error de despliegue y se propaga tal cual.
  */
-const placementOf = (rotation: number, width: number, height: number) => {
-	switch (rotation) {
-		case 90:
-			return { x: 0, y: height, rotate: degrees(-90) };
-		case 180:
-			return { x: width, y: height, rotate: degrees(180) };
-		case 270:
-			return { x: width, y: 0, rotate: degrees(90) };
-		default:
-			return { x: 0, y: 0 };
-	}
-};
-
-const load = async (bytes: Uint8Array) => {
-	try {
-		return await PDFDocument.load(bytes, {
-			ignoreEncryption: false,
-			updateMetadata: false,
+const runWorker = (
+	sanitizeWorker: URL,
+	timeoutMs: number,
+	bytes: Uint8Array,
+): Promise<SanitizeOutcome> =>
+	new Promise((resolve, reject) => {
+		const worker = new Worker(sanitizeWorker, {
+			workerData: {
+				bytes,
+				pageSide: { min: PAGE_SIDE_PT.min, max: PAGE_SIDE_PT.max },
+				maxDecodedBytes: MAX_DECODED_BYTES,
+			} satisfies SanitizeRequest,
+			resourceLimits: { maxOldGenerationSizeMb: WORKER_HEAP_MB },
 		});
-	} catch (error) {
-		throw new CertificateBackgroundInvalidError(
-			error instanceof EncryptedPDFError ? "encrypted" : "unreadable",
+		let settled = false;
+		const settle = (finish: () => void) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			void worker.terminate();
+			finish();
+		};
+		const timer = setTimeout(
+			() => settle(() => resolve({ rejected: "too_large" })),
+			timeoutMs,
 		);
-	}
-};
 
-/** Lo que se rechaza viaja con su motivo; cualquier otro fallo es un PDF ilegible. */
-const asRejection = (error: unknown) =>
-	error instanceof CertificateBackgroundInvalidError
-		? error
-		: new CertificateBackgroundInvalidError("unreadable");
-
-const rebuild = async (bytes: Uint8Array): Promise<SanitizedPdf> => {
-	const source = await load(bytes);
-	if (source.getPageCount() < 1) {
-		throw new CertificateBackgroundInvalidError("unreadable");
-	}
-
-	const page = source.getPage(0);
-	const crop = page.getCropBox();
-	const rotation = normalizedRotation(page);
-	const sideways = rotation === 90 || rotation === 270;
-	const widthPt = sideways ? crop.height : crop.width;
-	const heightPt = sideways ? crop.width : crop.height;
-
-	const inRange = (side: number) =>
-		side >= PAGE_SIDE_PT.min && side <= PAGE_SIDE_PT.max;
-	if (!inRange(widthPt) || !inRange(heightPt)) {
-		throw new CertificateBackgroundInvalidError("page_out_of_range");
-	}
-
-	const clean = await PDFDocument.create();
-	const target = clean.addPage([widthPt, heightPt]);
-	// Una página sin contenido es un fondo en blanco: no hay nada que copiar.
-	if (page.node.Contents()) {
-		const embedded = await clean.embedPage(page, {
-			left: crop.x,
-			bottom: crop.y,
-			right: crop.x + crop.width,
-			top: crop.y + crop.height,
-		});
-		target.drawPage(embedded, {
-			...placementOf(rotation, widthPt, heightPt),
-			width: crop.width,
-			height: crop.height,
-		});
-	}
-	return { bytes: await clean.save(), widthPt, heightPt };
-};
+		worker.once("message", (outcome: SanitizeOutcome) =>
+			settle(() => resolve(outcome)),
+		);
+		worker.once("error", (error) =>
+			settle(() =>
+				isOutOfMemory(error)
+					? resolve({ rejected: "too_large" })
+					: reject(error),
+			),
+		);
+		worker.once("exit", (code) =>
+			settle(() =>
+				reject(
+					new Error(`pdf-sanitize: el worker salió sin respuesta (${code})`),
+				),
+			),
+		);
+	});
 
 /**
  * PDF del fondo con pdf-lib (ADR 0029).
  *
- * Sanear es RECONSTRUIR: la página original entra a un documento nuevo como
- * un XObject (`embedPage`), que solo arrastra su contenido y sus recursos.
- * `copyPages` no serviría: copia el diccionario de la página con sus
- * anotaciones (`/Annots`) y acciones (`/AA`).
+ * El saneado reconstruye la página en un documento nuevo
+ * (`pdf-sanitize.worker.server.ts`) y corre en un worker, con presupuesto de
+ * descompresión, plazo y heap propios: un PDF de unos KB que se infla a
+ * decenas de MB no bloquea el proceso que atiende a los demás.
  */
-export const createPdfLibTools = (): ICertificatePdfTools => ({
-	async sanitize(bytes) {
-		if (!looksLikePdf(bytes)) {
-			throw new CertificateBackgroundInvalidError("not_pdf");
-		}
-		try {
-			return await rebuild(bytes);
-		} catch (error) {
-			throw asRejection(error);
-		}
-	},
+export const createPdfLibTools = ({
+	sanitizeWorker,
+	timeoutMs = SANITIZE_TIMEOUT_MS,
+}: PdfLibToolsOptions): ICertificatePdfTools => {
+	const gate = createGate(MAX_CONCURRENT_SANITIZES);
 
-	/**
-	 * Chromium redondea el tamaño de página a su rejilla interna (unas
-	 * centésimas de punto), así que la capa se ancla arriba a la izquierda a su
-	 * tamaño natural en vez de estirarla: los elementos se colocan desde arriba.
-	 */
-	async overlay(base, layer) {
-		const document = await PDFDocument.load(base);
-		const [embedded] = await document.embedPdf(layer, [0]);
-		const page = document.getPage(0);
-		page.drawPage(embedded, {
-			x: 0,
-			y: page.getHeight() - embedded.height,
-			width: embedded.width,
-			height: embedded.height,
-		});
-		return new Uint8Array(await document.save());
-	},
-});
+	return {
+		async sanitize(bytes) {
+			if (!looksLikePdf(bytes)) {
+				throw new CertificateBackgroundInvalidError("not_pdf");
+			}
+			const outcome = await gate(() =>
+				runWorker(sanitizeWorker, timeoutMs, bytes),
+			);
+			if ("rejected" in outcome) {
+				throw new CertificateBackgroundInvalidError(outcome.rejected);
+			}
+			return outcome.ok;
+		},
+
+		/**
+		 * Chromium redondea el tamaño de página a su rejilla interna (unas
+		 * centésimas de punto), así que la capa se ancla arriba a la izquierda a su
+		 * tamaño natural en vez de estirarla: los elementos se colocan desde arriba.
+		 */
+		async overlay(base, layer) {
+			const document = await PDFDocument.load(base);
+			const [embedded] = await document.embedPdf(layer, [0]);
+			const page = document.getPage(0);
+			page.drawPage(embedded, {
+				x: 0,
+				y: page.getHeight() - embedded.height,
+				width: embedded.width,
+				height: embedded.height,
+			});
+			return new Uint8Array(await document.save());
+		},
+	};
+};

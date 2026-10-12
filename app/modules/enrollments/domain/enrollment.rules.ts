@@ -18,6 +18,7 @@ import {
 import {
 	EnrollmentFullError,
 	EnrollmentInvitationRequiredError,
+	EnrollmentParticipantRemovedError,
 	EnrollmentRemoveClosedError,
 	EnrollmentRemovedError,
 	type RemovalBlocker,
@@ -119,7 +120,8 @@ export const canParticipate = (
 ): boolean =>
 	actor.dependencyId !== null && !NON_PARTICIPANT_ROLES.includes(actor.role);
 
-interface EnrollmentWindow {
+/** Lo que decide si un curso admite inscripciones. */
+export interface EnrollmentWindow {
 	status: CourseStatus;
 	format: CourseFormat;
 	enrollmentDeadline: Date | null;
@@ -216,6 +218,27 @@ export const isRemoval = (enrollment: {
 
 export const assertNotRemoved = (enrollment: { removed: boolean } | null) => {
 	if (enrollment?.removed) throw new EnrollmentRemovedError();
+};
+
+/**
+ * Las personas de un lote que una dependencia que no organiza el curso no
+ * puede volver a inscribir: quien organiza las dio de baja. Elegir a una
+ * rechaza el lote; como miembro de un grupo, solo se omite.
+ */
+export const removalsOutOfReach = (
+	states: readonly { userId: number; removed: boolean }[],
+	organizer: boolean,
+	chosen: ReadonlySet<number>,
+): ReadonlySet<number> => {
+	if (organizer) return new Set();
+
+	const removed = new Set(
+		states.filter((state) => state.removed).map((state) => state.userId),
+	);
+	for (const userId of chosen) {
+		if (removed.has(userId)) throw new EnrollmentParticipantRemovedError();
+	}
+	return removed;
 };
 
 /**

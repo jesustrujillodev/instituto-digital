@@ -1,3 +1,5 @@
+# Los puertos solo escuchan en 127.0.0.1: las credenciales son las de ejemplo y
+# no deben quedar abiertas a la red local.
 services:
   postgres:
     image: postgres:17-alpine
@@ -7,7 +9,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: postgres_instituto_digital
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -19,8 +21,8 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000" # API S3 → STORAGE_ENDPOINT
-      - "9001:9001" # consola web (http://localhost:9001)
+      - "127.0.0.1:9000:9000" # API S3 → STORAGE_ENDPOINT
+      - "127.0.0.1:9001:9001" # consola web (http://localhost:9001)
     volumes:
       - minio_data:/data
 
@@ -45,8 +47,8 @@ services:
     image: axllent/mailpit
     container_name: mailpit_instituto_digital
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
   # Redis de desarrollo (REDIS_URL="redis://localhost:6379"). Lo comparten la
   # caché y las colas: nunca expulsa claves (BullMQ perdería trabajos) y guarda
@@ -58,7 +60,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

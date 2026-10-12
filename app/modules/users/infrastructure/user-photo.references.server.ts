@@ -75,5 +75,10 @@ export const createUserPhotoReferenceSource = ({
 				? [{ prefix: ROOT_PREFIX, label: "Fotos de perfil" }]
 				: [];
 		},
+
+		// Prefijo público: el proxy lo sirve sin preguntar.
+		async canRead() {
+			return false;
+		},
 	};
 };

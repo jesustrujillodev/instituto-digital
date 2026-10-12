@@ -7,7 +7,7 @@ import {
 	canChangeUserDependency,
 	USER_MANAGER_ROLES,
 } from "../../../domain/user.access.rules";
-import { roleLockOf } from "../../../domain/user.role.rules";
+import { canChangeRole, roleLockOf } from "../../../domain/user.role.rules";
 import type { SafeUser } from "../../../domain/user.types";
 import { validateFindUser } from "../../../domain/user.validators";
 import { USER_ERROR_MESSAGES } from "../../../utils/user-error-messages";
@@ -49,7 +49,10 @@ export const loader = async ({
 		// La bitácora es informativa: si falla, la pantalla de edición sigue
 		// sirviendo. Cortarla entera por el historial sería peor.
 		history: history.success ? history.data : [],
-		assignableRoles: assignableRoles(auth.role),
+		// Igual para casi todos; a una cuenta externa solo le deja volver a USER.
+		assignableRoles: assignableRoles(auth.role).filter((role) =>
+			canChangeRole(auth, user, role),
+		),
 		roleLock: roleLockOf(auth, user),
 		dependencyChange: await loadDependencyChange(context, auth, user),
 	});

@@ -37,8 +37,13 @@ const SVG = "image/svg+xml";
 const SVG_CSP = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
 
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
-	const { logger, storageProvider, storageBucket, storagePublicBucket } =
-		context;
+	const {
+		logger,
+		storageProvider,
+		storageBucket,
+		storagePublicBucket,
+		storageAccessService,
+	} = context;
 
 	try {
 		const { searchParams } = new URL(request.url);
@@ -72,10 +77,15 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 			publicBucket: storagePublicBucket,
 		});
 
-		// Autorización mixta por prefijo: los objetos privados exigen sesión válida.
-		// requireAuth lanza un redirect a /iniciar-sesion si no hay sesión.
+		// Lo privado exige sesión (requireAuth redirige a /iniciar-sesion) y que
+		// quien pide tenga acceso al dueño del objeto. Lo que no puede leer
+		// responde igual que lo inexistente.
 		if (!isPublicKey(finalKey)) {
-			await requireAuth(request, context);
+			const auth = await requireAuth(request, context);
+			const access = await storageAccessService.canRead(finalKey, auth);
+			if (!access.success || !access.data) {
+				return new Response("File Key Not Found", { status: 404 });
+			}
 		}
 
 		const isInline = searchParams.get("inline") === "true";

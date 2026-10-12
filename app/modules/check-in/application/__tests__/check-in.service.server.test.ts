@@ -64,20 +64,29 @@ interface HarnessOptions {
 	/** Lo que `checkIn` devuelve: `false` = ya estaba marcada por QR. */
 	written?: boolean;
 	now?: Date;
+	/** Quien imparte finaliza el curso mientras el escaneo espera el bloqueo. */
+	finishedOnLock?: boolean;
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
+	let inTransaction = false;
+	let finished = false;
 	const log = {
 		checkIns: [] as { sessionId: number; userId: number; at: Date }[],
 		rotations: [] as { courseId: number; token: string; at: Date }[],
+		/** Cada lectura del curso por el token y cada bloqueo: ¿en la transacción? */
+		courseReads: [] as boolean[],
+		sharedLocks: [] as boolean[],
 	};
 
 	const courseRepository = {
 		findByQrToken: async (token: string) => {
+			log.courseReads.push(inTransaction);
 			if (token !== TOKEN) return null;
 			const status = options.status === undefined ? "ENROLLED" : options.status;
+			const course = options.course ?? qrCourseOf();
 			return {
-				course: options.course ?? qrCourseOf(),
+				course: finished ? { ...course, status: "FINISHED" } : course,
 				viewerEnrollment: status === null ? null : { status },
 			};
 		},
@@ -97,6 +106,20 @@ const createHarness = (options: HarnessOptions = {}) => {
 	const service = createCheckInService({
 		courseRepository,
 		teachingRepository,
+		enrollmentRepository: {
+			lockCourseShared: async () => {
+				log.sharedLocks.push(inTransaction);
+				if (options.finishedOnLock) finished = true;
+			},
+		} as unknown as ICradle["enrollmentRepository"],
+		runInTransaction: (async <T>(work: () => Promise<T>) => {
+			inTransaction = true;
+			try {
+				return await work();
+			} finally {
+				inTransaction = false;
+			}
+		}) as unknown as ICradle["runInTransaction"],
 		clock: { now: () => options.now ?? NOW_INSIDE },
 		logger: silentLogger,
 	});
@@ -204,6 +227,29 @@ describe("register", () => {
 		const result = await service.register(TOKEN, actorOf());
 
 		expect(errorCodeOf(result)).toBe(CHECK_IN_ERROR_CODES.WITHOUT_SESSIONS);
+	});
+});
+
+// Endurecimiento del grupo de C07: el escaneo leía el curso como publicado y
+// escribía la asistencia sin bloqueo, aunque `finish` lo cerrara en medio.
+describe("register durante el cierre del curso", () => {
+	test("si el curso se finalizó mientras esperaba el bloqueo, no registra", async () => {
+		const { service, log } = createHarness({ finishedOnLock: true });
+
+		const result = await service.register(TOKEN, actorOf());
+
+		expect(errorCodeOf(result)).toBe(CHECK_IN_ERROR_CODES.COURSE_NOT_OPEN);
+		expect(log.checkIns).toEqual([]);
+	});
+
+	// Compartido: las cuarenta personas que escanean al entrar no se esperan.
+	test("bloquea en modo compartido y relee el curso antes de escribir", async () => {
+		const { service, log } = createHarness();
+
+		await service.register(TOKEN, actorOf());
+
+		expect(log.sharedLocks).toEqual([true]);
+		expect(log.courseReads).toEqual([false, true]);
 	});
 });
 

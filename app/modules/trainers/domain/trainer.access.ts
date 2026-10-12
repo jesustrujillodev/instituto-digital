@@ -21,12 +21,18 @@ export const canAdministerTrainers = (actorRole: Role): boolean =>
  * Sobre un interno manda la jerarquía de `users`: alcance y rango. Sobre un
  * externo no puede mandar, porque no tiene dependencia y ningún titular lo
  * alcanzaría; ahí basta el rol de administración, que es lo que dice la matriz
- * al no acotar esa fila a "su dep.".
+ * al no acotar esa fila a "su dep.". Eso vale para el externo USER, el único que
+ * `users` deja crear y mantener: uno con otro rol solo lo administra el
+ * superadministrador, para que nadie de rango menor lo alcance (auditoría C09).
  */
 export const canManageTrainer = (
 	actor: Pick<AuthContext, "userId" | "role" | "dependencyId">,
 	target: Pick<SafeUser, "id" | "role" | "dependencyId"> & { type: UserType },
-): boolean =>
-	target.type === "EXTERNAL"
+): boolean => {
+	if (target.type === "INTERNAL") {
+		return canAdministerTrainers(actor.role) && canManageUser(actor, target);
+	}
+	return target.role === "USER"
 		? canAdministerTrainers(actor.role)
-		: canAdministerTrainers(actor.role) && canManageUser(actor, target);
+		: actor.role === "SUPERADMIN";
+};

@@ -330,6 +330,20 @@ const materialKey = v.pipe(
 	),
 );
 
+/**
+ * Carpeta de las keys que emite la subida de una lección. El prefijo del
+ * validador solo separa este flujo de otros módulos; la carpeta liga la key al
+ * curso y la lección que la pidieron.
+ */
+export const lessonMaterialFolderOf = (
+	courseDocumentId: string,
+	lessonDocumentId: string,
+): string =>
+	`${LESSON_MATERIAL_PREFIX}/${courseDocumentId}/${lessonDocumentId}`;
+
+export const isKeyInFolder = (key: string, folder: string): boolean =>
+	key.startsWith(`${folder}/`);
+
 export const materialFileName = v.pipe(
 	v.string("Falta el nombre del archivo."),
 	v.trim(),

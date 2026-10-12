@@ -30,22 +30,35 @@ const resultOf = (status: "RECORDED" | "ALREADY_RECORDED") => ({
 	recordedAt: new Date(0),
 });
 
+const IP = "203.0.113.7";
+
 const createContext = (
 	register: () => Promise<unknown>,
-	allowed = true,
+	allowed: boolean | ((key: string) => boolean) = true,
+	rateKeys: string[] = [],
 ): ActionArgs["context"] =>
 	({
 		authPayload,
+		clientIpPolicy: { source: "proxy", trustedHops: 1 },
 		rateLimiter: {
-			consume: async () => ({ allowed, retryAfterMs: allowed ? 0 : 30_000 }),
+			consume: async (key: string) => {
+				rateKeys.push(key);
+				const ok = typeof allowed === "function" ? allowed(key) : allowed;
+				return { allowed: ok, retryAfterMs: ok ? 0 : 30_000 };
+			},
 		},
 		checkInService: { register },
 	}) as unknown as ActionArgs["context"];
 
-const run = (context: ActionArgs["context"], token = TOKEN) =>
+const run = (
+	context: ActionArgs["context"],
+	token = TOKEN,
+	ip: string | null = IP,
+) =>
 	action({
 		request: new Request(`https://app.example.com/asistencia/${token}`, {
 			method: "POST",
+			headers: ip ? { "X-Forwarded-For": ip } : {},
 		}),
 		context,
 		params: { token },
@@ -125,5 +138,46 @@ describe("escaneo action", () => {
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.error.code).toBe(CHECK_IN_ERROR_CODES.RATE_LIMITED);
+	});
+
+	test("con sesión, la persona tiene su propia cubeta", async () => {
+		let called = false;
+		const rateKeys: string[] = [];
+		const result = await run(
+			createContext(
+				async () => {
+					called = true;
+					return { success: true, data: resultOf("RECORDED") };
+				},
+				(key) => key !== "check-in:user:7",
+				rateKeys,
+			),
+		);
+
+		expect(called).toBe(false);
+		expect(rateKeys).toEqual([`check-in:${IP}`, "check-in:user:7"]);
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.error.code).toBe(CHECK_IN_ERROR_CODES.RATE_LIMITED);
+	});
+
+	test("sin IP solo cuenta la cubeta de la persona", async () => {
+		const rateKeys: string[] = [];
+		const result = await run(
+			createContext(
+				async () => ({
+					success: true,
+					data: resultOf("RECORDED"),
+					timestamp: new Date().toISOString(),
+				}),
+				true,
+				rateKeys,
+			),
+			TOKEN,
+			null,
+		);
+
+		expect(result.success).toBe(true);
+		expect(rateKeys).toEqual(["check-in:user:7"]);
 	});
 });

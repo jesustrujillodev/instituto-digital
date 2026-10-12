@@ -107,12 +107,15 @@ interface HarnessOptions {
 	/** La inscripción de la persona a quien se da de baja. */
 	target?: { status: EnrollmentStatus; completed?: boolean } | null;
 	seats?: { capacity: number | null; enrolled: number };
+	/** Lo que el curso es ya con el bloqueo: otra petición pudo cerrarlo. */
+	windowOnLock?: Partial<EnrollmentCourse>;
 	/** Otra petición cambió alguna de las inscripciones del lote. */
 	batchStateChanged?: boolean;
 	participants?: ParticipantAccount[];
 	groupMembers?: ParticipantAccount[];
 	eligibleGroups?: number;
-	existing?: { userId: number; status: EnrollmentStatus }[];
+	/** `removed`: la baja la dio quien organiza. */
+	existing?: { userId: number; status: EnrollmentStatus; removed?: boolean }[];
 	mine?: MyCourseRecord[];
 	available?: EnrollmentCourse[];
 	/** El limitador niega el siguiente cambio propio. */
@@ -134,6 +137,7 @@ const createHarness = (options: HarnessOptions = {}) => {
 		organizerFilters: [] as unknown[],
 		rosterScopes: [] as (number | null)[],
 		candidateScopes: [] as (number | null)[],
+		withRemovals: [] as boolean[],
 		rateKeys: [] as string[],
 	};
 	let inTransaction = false;
@@ -165,7 +169,10 @@ const createHarness = (options: HarnessOptions = {}) => {
 			calls.rosterScopes.push(dependencyId);
 			return [];
 		},
-		findGroupEnrollable: async () => options.enrollable ?? [],
+		findGroupEnrollable: async (params: { withRemovals: boolean }) => {
+			calls.withRemovals.push(params.withRemovals);
+			return options.enrollable ?? [];
+		},
 		findEnrollment: async () => ownEnrollment(),
 		findEnrollmentByCourseDocumentId: async () => ownEnrollment(),
 		findParticipantEnrollment: async () =>
@@ -188,11 +195,25 @@ const createHarness = (options: HarnessOptions = {}) => {
 			(options.existing ?? []).map((entry) => ({
 				...entry,
 				origin: "SELF",
+				removed: entry.removed ?? false,
 			})),
 		lockCourseSeats: async (courseId: number) => {
 			calls.locks.push(courseId);
 			calls.lockedInTransaction.push(inTransaction);
-			return options.seats ?? { capacity: null, enrolled: 0 };
+			const course = {
+				...(options.course ?? courseOf()),
+				...options.windowOnLock,
+			};
+			return {
+				...(options.seats ?? { capacity: null, enrolled: 0 }),
+				window: {
+					status: course.status,
+					format: course.format,
+					enrollmentDeadline: course.enrollmentDeadline,
+					enrollmentClosedAt: course.enrollmentClosedAt,
+					firstSessionAt: course.firstSessionAt,
+				},
+			};
 		},
 		save: async (data: EnrollmentWrite, expected: EnrollmentStatus | null) => {
 			calls.saved.push({ data, expected });
@@ -220,8 +241,12 @@ const createHarness = (options: HarnessOptions = {}) => {
 			(options.mine ?? []).find(
 				(record) => record.course.documentId === documentId,
 			) ?? null,
-		searchCandidates: async (params: { dependencyId: number | null }) => {
+		searchCandidates: async (params: {
+			dependencyId: number | null;
+			withRemovals: boolean;
+		}) => {
 			calls.candidateScopes.push(params.dependencyId);
+			calls.withRemovals.push(params.withRemovals);
 			return options.candidates ?? [];
 		},
 		findAvailable: async (params: { filters: unknown; filter: unknown }) => {
@@ -508,6 +533,61 @@ describe("enrollmentService.enroll", () => {
 			error: { code: ENROLLMENT_ERROR_CODES.NOT_ELIGIBLE },
 		});
 		expect(calls.courseFilters).toHaveLength(0);
+	});
+});
+
+// Endurecimiento del grupo de C07: la ventana se comprobaba antes de bloquear y
+// no se repetía con el curso bloqueado, donde otra petición pudo cerrarla.
+describe("inscribir con el curso cerrado mientras se esperaba el bloqueo", () => {
+	const head = actorOf("DEPENDENCY_HEAD", { userId: 60, dependencyId: 3 });
+
+	test.each([
+		["cancelado", { status: "CANCELLED" as const }],
+		["finalizado", { status: "FINISHED" as const }],
+		["con la inscripción cerrada a mano", { enrollmentClosedAt: NOW }],
+	])("enroll con el curso %s no inscribe", async (_case, windowOnLock) => {
+		const { service, calls } = createHarness({ windowOnLock });
+
+		const result = await service.enroll(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.CLOSED },
+		});
+		expect(calls.lockedInTransaction).toEqual([true]);
+		expect(calls.saved).toEqual([]);
+		expect(calls.notified).toEqual([]);
+	});
+
+	test("accept con el curso cancelado no ocupa lugar", async () => {
+		const { service, calls } = createHarness({
+			own: "INVITED",
+			windowOnLock: { status: "CANCELLED" },
+		});
+
+		const result = await service.accept(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.CLOSED },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	test("assign con el curso cancelado no escribe el lote", async () => {
+		const { service, calls } = createHarness({
+			windowOnLock: { status: "CANCELLED" },
+		});
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A] },
+			head,
+		);
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.CLOSED },
+		});
+		expect(calls.saved).toEqual([]);
+		expect(calls.batches).toEqual([]);
 	});
 });
 
@@ -853,6 +933,100 @@ describe("enrollmentService.assign", () => {
 	});
 });
 
+// Auditoría C08: la baja que dio quien organiza solo la deshace quien organiza.
+describe("assign sobre una baja de quien organiza", () => {
+	const head = actorOf("DEPENDENCY_HEAD", { userId: 60, dependencyId: 4 });
+	const removedA = { userId: 100, status: "WITHDRAWN" as const, removed: true };
+
+	test("una dependencia que no organiza no reinscribe a quien eligió", async () => {
+		const { service, calls } = createHarness({
+			managed: false,
+			existing: [removedA],
+		});
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A, USER_B] },
+			head,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: ENROLLMENT_ERROR_CODES.PARTICIPANT_REMOVED },
+		});
+		expect(calls.batches).toEqual([]);
+		expect(calls.notified).toEqual([]);
+	});
+
+	test("si llega por un grupo, solo se omite", async () => {
+		const { service, calls } = createHarness({
+			managed: false,
+			existing: [removedA],
+			groupMembers: [participantOf(100, USER_A), participantOf(101, USER_B)],
+		});
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [], groupDocumentIds: [GROUP_ID] },
+			head,
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { affected: 1, skipped: 1 },
+		});
+		expect(calls.saved.map(({ data }) => data.userId)).toEqual([101]);
+	});
+
+	test("quien organiza sí la reinscribe", async () => {
+		const { service, calls } = createHarness({ existing: [removedA] });
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A] },
+			head,
+		);
+
+		expect(result).toMatchObject({ success: true, data: { affected: 1 } });
+		expect(calls.saved[0]?.expected).toBe("WITHDRAWN");
+	});
+
+	test("una baja voluntaria sigue siendo reasignable por cualquiera", async () => {
+		const { service, calls } = createHarness({
+			managed: false,
+			existing: [{ userId: 100, status: "WITHDRAWN" }],
+		});
+
+		const result = await service.assign(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A] },
+			head,
+		);
+
+		expect(result).toMatchObject({ success: true, data: { affected: 1 } });
+		expect(calls.saved[0]?.expected).toBe("WITHDRAWN");
+	});
+
+	test("tampoco la reinvita, si llegara a un curso por invitación", async () => {
+		const { service, calls } = createHarness({
+			managed: false,
+			course: courseOf({ access: "INVITATION" }),
+			existing: [removedA],
+		});
+
+		const result = await service.invite(
+			COURSE_ID,
+			{ userDocumentIds: [USER_A] },
+			head,
+		);
+
+		expect(result).toMatchObject({
+			error: { code: ENROLLMENT_ERROR_CODES.PARTICIPANT_REMOVED },
+		});
+		expect(calls.batches).toEqual([]);
+	});
+});
+
 describe("enrollmentService.invite", () => {
 	const trainer = actorOf("USER", { isTrainer: true });
 	const byInvitation = courseOf({ access: "INVITATION" });
@@ -1080,6 +1254,18 @@ describe("enrollmentService.listRosterOptions", () => {
 				groups: [{ documentId: GROUP_ID, enrollableMemberIds: [USER_A] }],
 			},
 		});
+	});
+
+	// Auditoría C08: lo que no podría asignar, no se le ofrece.
+	test("a quien no organiza no le ofrece a quienes quien organiza dio de baja", async () => {
+		const organizer = createHarness();
+		const other = createHarness({ managed: false });
+
+		await organizer.service.listRosterOptions(COURSE_ID, undefined, head);
+		await other.service.listRosterOptions(COURSE_ID, undefined, head);
+
+		expect(organizer.calls.withRemovals).toEqual([true, true]);
+		expect(other.calls.withRemovals).toEqual([false, false]);
 	});
 });
 

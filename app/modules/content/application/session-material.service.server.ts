@@ -6,17 +6,16 @@ import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { buildObjectKey } from "@/shared/storage/object-key";
 import { toProxyRef } from "@/shared/storage/public-url";
-import {
-	LESSON_UPLOAD_TTL_S,
-	SESSION_MATERIAL_PREFIX,
-} from "../domain/content.config";
+import { LESSON_UPLOAD_TTL_S } from "../domain/content.config";
 import {
 	ContentCourseNotFoundError,
 	ContentSessionMaterialNotFoundError,
 	ContentSessionNotFoundError,
+	ContentUploadNotFoundError,
 } from "../domain/content.errors";
 import {
 	assertUploadAllowed,
+	isKeyInFolder,
 	requireUploadedObject,
 } from "../domain/content.rules";
 import {
@@ -24,6 +23,7 @@ import {
 	assertSessionMaterialsEditable,
 	isSessionMaterialAvailable,
 	sessionMaterialCourseWhere,
+	sessionMaterialFolderOf,
 } from "../domain/session-material.rules";
 import type { ISessionMaterialService } from "../domain/session-material.service";
 import type {
@@ -108,6 +108,7 @@ export const createSessionMaterialService = ({
 
 	/** Cada tipo deja en `null` las columnas de los otros. */
 	const resolveWrite = async (
+		courseDocumentId: string,
 		dto: CreateSessionMaterialDto,
 	): Promise<SessionMaterialWrite> => {
 		const common = {
@@ -121,6 +122,9 @@ export const createSessionMaterialService = ({
 			externalUrl: null,
 		};
 		if (dto.type === "LINK") return { ...common, externalUrl: dto.externalUrl };
+		if (!isKeyInFolder(dto.key, sessionMaterialFolderOf(courseDocumentId))) {
+			throw new ContentUploadNotFoundError();
+		}
 
 		// El objeto ya está en el bucket: aquí se confirma que llegó y que cabe,
 		// que es el tope que la firma de subida no puede imponer.
@@ -221,7 +225,10 @@ export const createSessionMaterialService = ({
 
 				// La key la genera el servidor: nada de lo que mande el cliente
 				// decide dónde cae el objeto.
-				const key = buildObjectKey(SESSION_MATERIAL_PREFIX, dto.fileName);
+				const key = buildObjectKey(
+					sessionMaterialFolderOf(courseDocumentId),
+					dto.fileName,
+				);
 				const uploadUrl = await storageProvider.getUploadUrl(
 					requireBucketOf(key),
 					key,
@@ -248,7 +255,7 @@ export const createSessionMaterialService = ({
 							assertSessionMaterialLimit(session.materialCount);
 							return session;
 						}),
-					resolveWrite(dto),
+					resolveWrite(courseDocumentId, dto),
 				]);
 
 				const created = await sessionMaterialRepository.create(

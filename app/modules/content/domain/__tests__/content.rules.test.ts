@@ -25,7 +25,9 @@ import {
 	assertModuleLimit,
 	assertUploadAllowed,
 	canDeleteContent,
+	isKeyInFolder,
 	lessonBodyRule,
+	lessonMaterialFolderOf,
 	nextOrderOf,
 	requireUploadedObject,
 	resolveContentOrder,
@@ -41,6 +43,7 @@ import {
 	validateSaveMaterial,
 } from "../content.validators";
 import {
+	COURSE_DOC,
 	LESSON_1,
 	LESSON_2,
 	LESSON_3,
@@ -592,5 +595,24 @@ describe("resolveEmbed", () => {
 			href: "javascript:alert(1)",
 		});
 		expect(resolveEmbed("no es una url")).toMatchObject({ kind: "link" });
+	});
+});
+
+describe("carpeta del material de una lección", () => {
+	const folder = lessonMaterialFolderOf(COURSE_DOC, LESSON_1);
+
+	test("lleva el curso y la lección", () => {
+		expect(folder).toBe(`${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/${LESSON_1}`);
+	});
+
+	test.each([
+		[`${folder}/manual-1.pdf`, true],
+		[`${lessonMaterialFolderOf(OTHER_DOC, LESSON_1)}/manual-1.pdf`, false],
+		[`${lessonMaterialFolderOf(COURSE_DOC, LESSON_2)}/manual-1.pdf`, false],
+		[`${LESSON_MATERIAL_PREFIX}/manual-1.pdf`, false],
+		// Sin la barra, otra lección cuyo id empezara igual pasaría.
+		[`${folder}x/manual-1.pdf`, false],
+	])("%s está en la carpeta: %s", (key, expected) => {
+		expect(isKeyInFolder(key, folder)).toBe(expected);
 	});
 });

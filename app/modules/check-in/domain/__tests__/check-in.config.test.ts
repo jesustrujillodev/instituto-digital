@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { checkInRateKeyOf } from "../check-in.config";
+import { checkInRateKeyOf, checkInUserRateKeyOf } from "../check-in.config";
 
 describe("checkInRateKeyOf", () => {
-	test("agrupa por IP, y sin IP todo cae en la misma cubeta", () => {
+	test("agrupa por IP", () => {
 		expect(checkInRateKeyOf("10.0.0.1")).toBe("check-in:10.0.0.1");
-		expect(checkInRateKeyOf(undefined)).toBe("check-in:unknown");
+	});
+
+	test("la cubeta por persona no se cruza con la de una IP", () => {
+		expect(checkInUserRateKeyOf(7)).toBe("check-in:user:7");
 	});
 });

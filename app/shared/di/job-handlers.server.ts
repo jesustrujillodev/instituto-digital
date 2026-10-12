@@ -42,7 +42,10 @@ export const createJobHandlers = (cradle: ICradle): JobHandlers => {
 			createProgressRecalculation(cradle)(payload),
 
 		[JOB_NAMES.deleteObject]: (payload) =>
-			createDeleteObjectJob(cradle.storageProvider)(payload),
+			createDeleteObjectJob(
+				cradle.storageProvider,
+				cradle.objectReferenceSources,
+			)(payload),
 
 		[JOB_NAMES.purgeExpiredSessions]: async () => {
 			const purged = await cradle.sessionRepository.deleteExpired();

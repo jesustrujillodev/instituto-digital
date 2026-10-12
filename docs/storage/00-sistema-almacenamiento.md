@@ -249,6 +249,11 @@ veces con backoff, y un objeto que ya no existe cuenta como borrado; agotado, qu
 en `org.job_failure` y como huérfano en el gestor de nube. Sin Redis corre en el
 momento, best-effort como el resto ([queues/00](../queues/00-colas.md)).
 
+Quien encola soltó **su** referencia, no todas. Antes de borrar, el trabajo pregunta
+a todas las `objectReferenceSources` por la key (una consulta por fuente, en una sola
+fase) y, si alguna fila la sigue usando, deja el objeto. Se comprueba en el trabajo y
+no al encolar porque ahí la escritura que soltó la referencia ya está confirmada.
+
 ### 5.4 Subida en lote y transacción compensatoria
 
 `shared/storage/storage.transaction.ts` provee un **unit-of-work** que hace la
@@ -295,6 +300,12 @@ el video de una lección, no: el proceso cargaría cientos de megas por subida.
 El material de lecciones (`app/modules/content`) usa la otra vía, que es el
 estándar para archivos grandes: **el navegador escribe directo en el bucket**.
 
+Lo que sí pasa por el servidor tiene tope antes de leerse: el middleware de
+`app/root.tsx` responde `413` a una escritura con sesión de más de 16 MiB (el
+fondo raster del certificado, de 15 MB, es la subida más grande por esta vía) y
+`411` a un cuerpo sin `Content-Length` (`app/shared/http/body-limit.ts`). Una
+subida nueva más grande va por URL firmada, no subiendo el tope.
+
 ```
 1. navegador → POST .../contenido/:leccion  intent=upload-url
                  {nombre, tipo, tamaño}
@@ -321,6 +332,13 @@ Tres cosas que no son opcionales:
 3. **El tamaño se comprueba al confirmar.** Una firma de `PUT` fija el
    `Content-Type` pero **no** el tamaño. Sin `statObject`, el tope no existe.
 
+En S3 el `Content-Type` solo queda fijado porque el adaptador lo pide
+(`signableHeaders`): el presigner del SDK lo deja fuera de la firma por defecto, y
+entonces la URL de un PDF servía para subir un HTML. El cliente S3 va además con
+`requestChecksumCalculation: "WHEN_REQUIRED"`, porque el checksum por defecto se
+calcularía sobre un cuerpo vacío. GCS ya firma el tipo en su v4.
+`s3.adapter.presign.test.ts` lo comprueba con el SDK real.
+
 Un objeto subido que nunca se confirma queda huérfano en el bucket; es
 exactamente lo que el escaneo de huérfanos del gestor de nube sabe detectar, con
 su periodo de gracia.
@@ -341,9 +359,12 @@ Orden de resolución del `loader`:
    URL del proxy), delegando en `getKeyFromUrl`. Sin key → `404`.
 2. **Bucket** desde `env.STORAGE_BUCKET_NAME`. Ausente → `500` "Storage
    Misconfigured".
-3. **Autorización mixta por prefijo** (§7): si `!isPublicKey(key)` →
-   `requireAuth(request, context)` (lanza redirect a `/iniciar-sesion` si no hay
-   sesión). Los objetos públicos se sirven sin sesión.
+3. **Autorización** (§7): si `!isPublicKey(key)` → `requireAuth(request, context)`
+   (lanza redirect a `/iniciar-sesion` si no hay sesión) y después
+   `storageAccessService.canRead(key, auth)`. Lo que quien pide no puede leer, y
+   cualquier fallo al decidirlo, responde `404`, igual que lo inexistente, sin
+   firmar ni leer el objeto. Los objetos públicos se sirven sin sesión y sin
+   consultar.
 4. **Dos modos:**
    - `?inline=true` → **streaming del archivo** (`getFile`) con `Content-Type`
      inferido por extensión (`contentTypeForKey`) y `Content-Disposition: inline`.
@@ -358,7 +379,7 @@ Orden de resolución del `loader`:
 5. `try/catch` con el logger del proyecto; un redirect de `requireAuth` (que es un
    `Response`) se re-lanza tal cual; cualquier otro error → `500` controlado.
 
-## 7. Autorización (política por prefijo)
+## 7. Autorización (prefijo y objeto)
 
 `shared/storage/storage.policy.ts` es el **único punto de verdad** de la
 visibilidad: `isPublicKey(key)` comprueba si la key empieza por un prefijo del
@@ -366,7 +387,8 @@ allowlist (`PUBLIC_PREFIXES`). Todo lo que **no** empiece por un prefijo públic
 es privado por defecto (**fail-closed**).
 
 - **Público** (sin sesión): `profile-photos/`, `media/`.
-- **Privado** (exige `requireAuth`): cualquier otro prefijo (p. ej. `documentos/`).
+- **Privado** (exige sesión **y** acceso al dueño del objeto): cualquier otro
+  prefijo (p. ej. `documentos/`).
 
 Las portadas de curso viven en `media/portadas/`: heredan la visibilidad y el
 bucket de `media/` —la política mira el inicio de la key— y la subcarpeta propia
@@ -384,9 +406,32 @@ tiene sesión, y el gestor de nube no puede borrarlas
 ([ADR 0019](../adr/0019-snapshot-del-diseno-y-puerto-de-exportacion.md)).
 
 Cambiar la política = editar `PUBLIC_PREFIXES` en un solo archivo; el proxy la
-consume automáticamente. Para autorización más fina (p. ej. "solo el dueño ve su
-documento") se colgaría de `requireAuth`/`requireRole` en el proxy, igual que en
-el resto de la app.
+consume automáticamente.
+
+### 7.0 Autorización por objeto
+
+Tener sesión no basta para un objeto privado: `storageAccessService`
+(`modules/cloud`) pregunta a cada `objectReferenceSource` con `canRead(key, reader)`
+si quien pide puede leerlo, con el mismo alcance que la pantalla que lo sirve:
+
+| Prefijo | Lo lee |
+|---|---|
+| `documentos/lecciones/` | Quien administra el temario del curso, y el inscrito (`ENROLLED`) en un curso publicado o finalizado, para lecciones vigentes, como el aula |
+| `documentos/sesiones/` | Quien administra o imparte el curso, y el inscrito una vez que el material está disponible (`isSessionMaterialAvailable`, evaluado en la consulta) |
+| `documentos/firmas/<curso>/`, `documentos/certificados/<curso>/` | Quien administra el certificado de ese curso (alcance de escritura), aunque el diseño todavía no lo nombre: el editor lo pinta al subirlo |
+| `documentos/plantillas-certificado/<plantilla>/` | Quien ve la plantilla en la biblioteca (`canSeeTemplate`) |
+
+SUPERADMIN abre cualquier objeto sin consultar: el gestor de nube abre huérfanos
+por `toProxyRef(key)`. Un objeto que ninguna fuente reconoce (un huérfano, un
+prefijo sin fuente) se niega. Cada fuente descarta por prefijo antes de consultar,
+así que las siete se preguntan en una sola fase y en la práctica cuesta **una**
+consulta: medido contra la base de desarrollo, de 0 a 1 consulta por objeto
+privado (80–160 ms en Neon remoto). La redirección se cachea `private` 240 s, así
+que una misma imagen no vuelve a pasar por aquí en cada render.
+
+Los participantes reciben su certificado en PDF generado en el servidor
+(`storageProvider.getFile`), no por el proxy: por eso las firmas no se abren para
+ellos.
 
 ### 7.1 Qué pasa por nuestro servidor y qué no
 
@@ -543,6 +588,11 @@ bun run storage:cors --dry-run   # enseña lo que haría
 bun run storage:cors             # lo aplica
 ```
 
+Los orígenes salen de `CORS_ALLOWED_ORIGINS` (separados por comas) o, si no
+está, de `APP_BASE_URL`. Los de desarrollo (`localhost:5173`, `127.0.0.1:5173`,
+`localhost:3000`) solo entran cuando no hay un origen https: así el bucket de
+producción no acepta subidas desde una página servida en localhost.
+
 Lee el CORS que ya hay y **conserva las reglas ajenas**, porque `PutBucketCors`
 reemplaza la configuración entera; solo sustituye la suya, que se reconoce por su
 `ID`. Antes de escribir deja un respaldo de lo anterior en un `.json`.
@@ -591,7 +641,7 @@ es por-petición) y con él el cliente del SDK.
 
 | Amenaza | Defensa |
 |---|---|
-| Enumeración/lectura de objetos ajenos por el proxy | Política por prefijo **fail-closed** + `requireAuth` en privados (`storage.policy.ts`) |
+| Enumeración/lectura de objetos ajenos por el proxy | Política por prefijo **fail-closed** + sesión y autorización por objeto en privados (`storage.policy.ts`, §7.0) |
 | Acoplamiento de la BD al proveedor | Se persiste la referencia proxy, no la URL del proveedor (`getPublicUrl`) |
 | Exposición de credenciales del proveedor al cliente | Nunca se devuelven URLs del bucket directas; el proxy firma con TTL corto (300 s) |
 | *Path traversal* / colisiones vía nombre de archivo | `buildObjectKey` sanitiza (`[^a-zA-Z0-9.-] → _`) + timestamp |
@@ -646,9 +696,7 @@ por consumidor, y la ruta del proxy si no se usa `/api/storage`.
 
 ## 11. Pendientes conocidos
 
-- **Autorización fina por objeto:** hoy la política es por prefijo (público vs
-  privado). Para "solo el dueño ve su documento" faltaría colgar una comprobación
-  de propiedad de `requireAuth`/`requireRole` en el proxy.
+- **Autorización fina por objeto:** resuelta (§7.0).
 - **Cap de inline pre-descarga:** medir el tamaño con un `HEAD`/metadata antes de
   bajar el objeto requeriría extender el puerto (`getFileMetadata`); hoy el cap se
   aplica tras descargar.

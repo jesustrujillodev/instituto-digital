@@ -11,6 +11,7 @@ import {
 	enrollmentLandingPathOf,
 	enrollmentQrPathOf,
 	enrollmentQrRateKeyOf,
+	enrollmentQrUserRateKeyOf,
 } from "../../../domain/enrollment-qr.config";
 import {
 	EnrollmentQrInvalidTokenError,
@@ -19,6 +20,18 @@ import {
 import { validateEnrollmentQrToken } from "../../../domain/enrollment-qr.validators";
 import { ENROLLMENT_QR_ERROR_MESSAGES } from "../../../utils/enrollment-qr-error-messages";
 import type { Route } from "./+types/index";
+
+const throwIfLimited = (decision: {
+	allowed: boolean;
+	retryAfterMs: number;
+}): void => {
+	if (!decision.allowed) {
+		throw toRouteError(
+			toResponseError(new EnrollmentQrRateLimitedError(decision.retryAfterMs)),
+			ENROLLMENT_QR_ERROR_MESSAGES,
+		);
+	}
+};
 
 /**
  * GET /inscripcion/:token — resuelve el curso y redirige a su ficha del
@@ -30,14 +43,13 @@ export const loader = async ({
 	context,
 	params,
 }: Route.LoaderArgs) => {
-	const decision = await context.rateLimiter.consume(
-		enrollmentQrRateKeyOf(getClientIp(request)),
-		ENROLLMENT_QR_RATE_LIMIT,
-	);
-	if (!decision.allowed) {
-		throw toRouteError(
-			toResponseError(new EnrollmentQrRateLimitedError(decision.retryAfterMs)),
-			ENROLLMENT_QR_ERROR_MESSAGES,
+	const ip = getClientIp(request, context.clientIpPolicy);
+	if (ip) {
+		throwIfLimited(
+			await context.rateLimiter.consume(
+				enrollmentQrRateKeyOf(ip),
+				ENROLLMENT_QR_RATE_LIMIT,
+			),
 		);
 	}
 
@@ -60,6 +72,12 @@ export const loader = async ({
 	}
 
 	const auth = await requireAuth(request, context);
+	throwIfLimited(
+		await context.rateLimiter.consume(
+			enrollmentQrUserRateKeyOf(auth.userId),
+			ENROLLMENT_QR_RATE_LIMIT,
+		),
+	);
 
 	const result = await context.enrollmentQrService.resolve(token, auth);
 	if (!result.success)

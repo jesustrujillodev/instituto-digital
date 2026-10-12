@@ -167,9 +167,12 @@ const createHarness = (
 		sessionId?: number | null;
 		/** El limitador niega el siguiente envío. */
 		rateLimited?: boolean;
+		/** Quien imparte finaliza el curso mientras el envío espera el bloqueo. */
+		finishedOnLock?: boolean;
 	} = {},
 ) => {
 	let inTransaction = false;
+	let finished = false;
 	const calls = {
 		replaced: [] as { owner: QuizOwnerIds; bank: QuizBankWrite }[],
 		replacedQuizIds: [] as (number | null)[],
@@ -188,6 +191,10 @@ const createHarness = (
 		closed: [] as number[],
 		rateKeys: [] as string[],
 		attemptReads: [] as number[],
+		/** Cada lectura del curso del aula: ¿dentro de la transacción? */
+		courseReads: [] as boolean[],
+		/** Cada lectura del curso que se imparte: ¿dentro de la transacción? */
+		teachingReads: [] as boolean[],
 	};
 	const followUps = options.followUps ?? [];
 	const quiz = options.quiz === undefined ? quizOf() : options.quiz;
@@ -217,8 +224,12 @@ const createHarness = (
 	} as unknown as ICradle["contentRepository"];
 
 	const classroomRepository = {
-		findCourse: async () =>
-			options.course === undefined ? classroomCourseOf() : options.course,
+		findCourse: async () => {
+			calls.courseReads.push(inTransaction);
+			const course =
+				options.course === undefined ? classroomCourseOf() : options.course;
+			return course && finished ? { ...course, status: "FINISHED" } : course;
+		},
 		findProgress: async () => [],
 		findLessonStatus: async () => null,
 		saveProgress: async (
@@ -270,18 +281,22 @@ const createHarness = (
 		grantRetake: async (attemptId: number, actorId: number) => {
 			calls.retakes.push({ attemptId, actorId });
 		},
-		findTeachingCourse: async () =>
-			options.teaching === undefined
-				? {
-						id: 7,
-						status: "PUBLISHED",
-						format: "SCHEDULED",
-						dependencyId: 3,
-						completionRule: "ATTENDANCE",
-						requiresEvaluation: false,
-						minPassingGrade: 70,
-					}
-				: options.teaching,
+		findTeachingCourse: async () => {
+			calls.teachingReads.push(inTransaction);
+			const course =
+				options.teaching === undefined
+					? {
+							id: 7,
+							status: "PUBLISHED",
+							format: "SCHEDULED",
+							dependencyId: 3,
+							completionRule: "ATTENDANCE",
+							requiresEvaluation: false,
+							minPassingGrade: 70,
+						}
+					: options.teaching;
+			return course && finished ? { ...course, status: "FINISHED" } : course;
+		},
 		findEnrolledParticipant: async (_courseId: number, documentId: string) =>
 			documentId === ANA.documentId
 				? options.participant === undefined
@@ -318,6 +333,7 @@ const createHarness = (
 	const enrollmentRepository = {
 		lockCourse: async () => {
 			calls.lockedInTransaction.push(inTransaction);
+			if (options.finishedOnLock) finished = true;
 		},
 		saveResults: async (_courseId: number, entries: ResultWrite[]) => {
 			calls.results.push(entries);
@@ -585,6 +601,38 @@ describe("submit: examen final", () => {
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.QUIZ_NOT_EVALUATED },
 		});
+	});
+});
+
+// C07: el envío usaba el curso leído antes del bloqueo y escribía sobre un curso
+// que `finish` acababa de cerrar.
+describe("submit durante el cierre del curso", () => {
+	const submitDto = {
+		...FINAL_QUIZ_OWNER,
+		answers: [{ questionDocumentId: Q1, optionDocumentId: RIGHT }],
+	};
+
+	test("si el curso se finalizó mientras esperaba el bloqueo, no escribe nada", async () => {
+		const { service, calls } = createHarness({ finishedOnLock: true });
+
+		const result = await service.submit(COURSE_DOC, submitDto, ANA);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY },
+		});
+		expect(calls.attempts).toEqual([]);
+		expect(calls.progress).toEqual([]);
+		expect(calls.recalculated).toEqual([]);
+	});
+
+	test("relee el curso una vez bajo el bloqueo, después de tomarlo", async () => {
+		const { service, calls } = createHarness();
+
+		await service.submit(COURSE_DOC, submitDto, ANA);
+
+		expect(calls.courseReads).toEqual([false, true]);
+		expect(calls.lockedInTransaction).toEqual([true]);
 	});
 });
 
@@ -1470,6 +1518,42 @@ describe("evaluaciones de seguimiento (docs/adr/0027)", () => {
 		expect(result.success).toBe(true);
 		expect(calls.closed).toEqual([40]);
 		expect(calls.recalculated).toEqual([undefined]);
+	});
+
+	// Endurecimiento del grupo de C07: cerrar comprobaba el curso antes del
+	// bloqueo y recalculaba notas sobre un curso que `finish` acababa de cerrar.
+	test("si el curso se finalizó mientras esperaba el bloqueo, no cierra ni recalcula", async () => {
+		const { service, calls } = createHarness({
+			followUps: [followUpOf({ availability: "MANUAL", openedAt: NOW })],
+			finishedOnLock: true,
+		});
+
+		const result = await service.closeFollowUp(
+			COURSE_DOC,
+			{ followUpDocumentId: FOLLOW_UP_DOC },
+			TRAINER,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_CLOSED },
+		});
+		expect(calls.closed).toEqual([]);
+		expect(calls.recalculated).toEqual([]);
+	});
+
+	test("cerrar relee el curso una vez bajo el bloqueo", async () => {
+		const { service, calls } = createHarness({
+			followUps: [followUpOf({ availability: "MANUAL", openedAt: NOW })],
+		});
+
+		await service.closeFollowUp(
+			COURSE_DOC,
+			{ followUpDocumentId: FOLLOW_UP_DOC },
+			TRAINER,
+		);
+
+		expect(calls.teachingReads).toEqual([false, true]);
 	});
 
 	test("cerrar es definitivo", async () => {

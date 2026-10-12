@@ -307,7 +307,7 @@ export interface ProgressWrite {
 
 export type EnrollmentState = Pick<
 	StoredEnrollment,
-	"userId" | "status" | "origin"
+	"userId" | "status" | "origin" | "removed"
 >;
 
 export interface ParticipantAccount {

@@ -653,6 +653,29 @@ describe("createUserService — jerarquía en las mutaciones", () => {
 		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
 		expect(calls.updated).toEqual([]);
 	});
+
+	// Auditoría C09: sin dependencia, un externo promovido quedaría al alcance de
+	// cualquier titular o auxiliar desde su perfil de capacitador.
+	test("ni el superadministrador promueve a una cuenta externa", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({
+				type: "EXTERNAL",
+				dependencyId: null,
+				employeeNumber: null,
+			}),
+		});
+
+		const result = await service.update(
+			DOCUMENT_ID,
+			{ role: "SUPERADMIN" },
+			actorOf("SUPERADMIN"),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.code).toBe("FORBIDDEN_SCOPE");
+		expect(calls.updated).toEqual([]);
+		expect(calls.revoked).toEqual([]);
+	});
 });
 
 describe("createUserService — update revoca al cambiar el rol", () => {

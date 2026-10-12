@@ -24,8 +24,7 @@ export const action = async ({
 
 	const result = await context.authService.login(input.data, {
 		userAgent: request.headers.get("User-Agent") ?? undefined,
-		// Validada (formato IPv4/IPv6) y solo informativa — ver shared/http/client-ip
-		ipAddress: getClientIp(request),
+		ipAddress: getClientIp(request, context.clientIpPolicy),
 	});
 
 	if (!result.success) return localizeError(result, AUTH_ERROR_MESSAGES);

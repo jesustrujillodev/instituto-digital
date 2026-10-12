@@ -1,14 +1,25 @@
 import { createCookie } from "react-router";
 import { env } from "./env.server";
 
-const isProduction = env.NODE_ENV === "production";
+/**
+ * `Secure` y el prefijo `__Host-` salen del origen público y no de `NODE_ENV`:
+ * un despliegue que olvidara la variable no las mandaría en claro. `__Host-`
+ * además impide que un subdominio fije o pise la cookie. Por http (desarrollo)
+ * el navegador no admite ninguno de los dos.
+ */
+export const cookieSecurityOf = (appBaseUrl: string | undefined) => {
+	const secure = appBaseUrl?.startsWith("https://") ?? false;
+	return { secure, prefix: secure ? "__Host-" : "__" };
+};
+
+const { secure, prefix } = cookieSecurityOf(env.APP_BASE_URL);
 
 // ── Access token cookie ────────────────────────────────────────────────────────
 // Short-lived JWT. maxAge derives from the SAME env constant the TokenService
 // uses to sign — single source of truth (docs/auth/00-sistema-autenticacion.md §4).
-export const accessTokenCookie = createCookie("__access_token", {
+export const accessTokenCookie = createCookie(`${prefix}access_token`, {
 	httpOnly: true,
-	secure: isProduction,
+	secure,
 	sameSite: "lax",
 	path: "/",
 	maxAge: env.AUTH_ACCESS_TOKEN_TTL_S,
@@ -18,9 +29,9 @@ export const accessTokenCookie = createCookie("__access_token", {
 // ── Refresh token cookie ───────────────────────────────────────────────────────
 // Long-lived opaque token. Stores NO data — the session lives in the database
 // (and only as a hash; the raw token exists solely in this cookie).
-export const refreshTokenCookie = createCookie("__refresh_token", {
+export const refreshTokenCookie = createCookie(`${prefix}refresh_token`, {
 	httpOnly: true,
-	secure: isProduction,
+	secure,
 	sameSite: "lax",
 	path: "/",
 	maxAge: env.AUTH_REFRESH_TOKEN_TTL_S,
@@ -41,9 +52,9 @@ export const refreshTokenCookie = createCookie("__refresh_token", {
 // Sin `secrets` a diferencia de las de auth: no es material secreto ni una
 // credencial. Su peor abuso es que alguien fuerce su propio esquema de color, y
 // el valor se valida contra la allowlist al leerlo (resolveThemeMode).
-export const themeModeCookie = createCookie("__theme_mode", {
+export const themeModeCookie = createCookie(`${prefix}theme_mode`, {
 	httpOnly: true,
-	secure: isProduction,
+	secure,
 	sameSite: "lax",
 	path: "/",
 	maxAge: 60 * 60 * 24 * 365, // un año: la preferencia no caduca sola

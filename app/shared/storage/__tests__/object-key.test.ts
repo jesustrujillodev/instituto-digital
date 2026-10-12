@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
 	buildContentObjectKey,
 	buildObjectKey,
+	isDocumentIdSegment,
 	sanitizeFileName,
 } from "../object-key";
 
@@ -118,5 +119,18 @@ describe("buildContentObjectKey", () => {
 
 		vi.setSystemTime(NOW + 1000);
 		expect(buildContentObjectKey("p", "fondo.pdf", DIGEST)).toBe(first);
+	});
+});
+
+describe("isDocumentIdSegment", () => {
+	test.each([
+		["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", true],
+		["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", true],
+		["viejos", false],
+		["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/x", false],
+		["", false],
+		[undefined, false],
+	])("%s → %s", (segment, expected) => {
+		expect(isDocumentIdSegment(segment)).toBe(expected);
 	});
 });

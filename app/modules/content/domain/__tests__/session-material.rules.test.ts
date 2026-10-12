@@ -11,8 +11,9 @@ import {
 	createSessionMaterialRule,
 	isSessionMaterialAvailable,
 	sessionMaterialCourseWhere,
+	sessionMaterialFolderOf,
 } from "../session-material.rules";
-import { actorOf } from "./content.fixtures";
+import { actorOf, COURSE_DOC } from "./content.fixtures";
 
 const SESSION = "33333333-3333-4333-8333-333333333333";
 const codeOf = (code: string) => expect.objectContaining({ code });
@@ -151,5 +152,13 @@ describe("contrato de alta", () => {
 			v.safeParse(createSessionMaterialRule, linkOf("javascript:alert(1)"))
 				.success,
 		).toBe(false);
+	});
+});
+
+describe("carpeta del material de sesión", () => {
+	test("lleva el curso", () => {
+		expect(sessionMaterialFolderOf(COURSE_DOC)).toBe(
+			`${SESSION_MATERIAL_PREFIX}/${COURSE_DOC}`,
+		);
 	});
 });

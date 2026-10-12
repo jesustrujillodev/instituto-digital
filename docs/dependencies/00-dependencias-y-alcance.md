@@ -134,7 +134,8 @@ para el superadministrador (`ASSIGNABLE_ROLES` no lo incluye para nadie):
 hacerlo se saltaría este relevo. Tampoco se retira desde ahí:
 `canChangeRole` (`users/domain/user.role.rules.ts`) deja guardar sin tocar el
 rol, pero cambiarlo exige poder otorgar el actual y el nuevo, y nadie cambia el
-suyo propio. Además, degradar o archivar al último superadministrador activo
+suyo propio. Una cuenta externa no cambia de rol: solo es `USER`
+(docs/trainers/00 §4). Además, degradar o archivar al último superadministrador activo
 responde `LAST_ACTIVE_SUPERADMIN`; el conteo se toma con `FOR UPDATE` en la
 misma transacción que la escritura.
 

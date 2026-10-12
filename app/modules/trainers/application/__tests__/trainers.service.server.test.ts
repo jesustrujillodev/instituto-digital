@@ -419,6 +419,40 @@ describe("createTrainerService — editar y desactivar", () => {
 		expect(calls.unarchived).toEqual([9]);
 		expect(calls.revoked).toEqual([9, 9]);
 	});
+
+	// Auditoría C09: ni editar ni desactivar ni reactivar, y sobre todo sin
+	// cerrarle las sesiones una y otra vez.
+	test("un titular o auxiliar no toca el perfil de un externo de rango superior", async () => {
+		for (const role of ["SUPERADMIN", "DEPENDENCY_DEPUTY"] as const) {
+			for (const actor of [actorOf(), actorOf("DEPENDENCY_DEPUTY")]) {
+				const { service, calls } = createHarness({
+					user: userOf({
+						role,
+						type: "EXTERNAL",
+						dependencyId: null,
+						employeeNumber: null,
+					}),
+				});
+
+				const results = await Promise.all([
+					service.deactivateProfile(USER_ID, actor),
+					service.reactivateProfile(USER_ID, actor),
+					service.updateProfile(USER_ID, { specialty: "otra" }, actor),
+				]);
+
+				for (const result of results) {
+					expect(result).toMatchObject({
+						success: false,
+						error: { code: TRAINER_ERROR_CODES.FORBIDDEN_SCOPE },
+					});
+				}
+				expect(calls.archived).toEqual([]);
+				expect(calls.unarchived).toEqual([]);
+				expect(calls.updated).toEqual([]);
+				expect(calls.revoked).toEqual([]);
+			}
+		}
+	});
 });
 
 describe("createTrainerService — alta de capacitador externo", () => {

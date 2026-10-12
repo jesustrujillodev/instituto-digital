@@ -116,6 +116,9 @@ const createSource = (
 ) => {
 	const released: string[][] = [];
 	const source: IObjectReferenceSource = {
+		async canRead() {
+			return false;
+		},
 		async findByKeys(keys) {
 			return references.filter((reference) => keys.includes(reference.key));
 		},

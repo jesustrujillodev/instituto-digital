@@ -145,3 +145,74 @@ describe("recursos de plantillas en storage", () => {
 		expect(await source.describeFolders(["media/"])).toEqual([]);
 	});
 });
+
+// C06: el proxy pregunta aquí si quien pide puede leer la imagen de la plantilla.
+describe("canRead", () => {
+	const sourceOf = (
+		ownership: {
+			scope: "INSTITUTIONAL" | "DEPENDENCY";
+			dependencyId: number | null;
+		} | null,
+		asked: string[] = [],
+	) =>
+		createCertificateTemplateReferenceSource({
+			certificateTemplateRepository: {
+				findOwnership: async (documentId: string) => {
+					asked.push(documentId);
+					return ownership;
+				},
+			} as unknown as ICradle["certificateTemplateRepository"],
+		});
+
+	const reader = (
+		dependencyId: number,
+		role = "DEPENDENCY_DEPUTY" as const,
+	) => ({
+		userId: 9,
+		role,
+		dependencyId,
+		isTrainer: false,
+	});
+
+	test("una institucional la lee quien ve la biblioteca", async () => {
+		const asked: string[] = [];
+
+		expect(
+			await sourceOf(
+				{ scope: "INSTITUTIONAL", dependencyId: null },
+				asked,
+			).canRead(USED, reader(3)),
+		).toBe(true);
+		expect(asked).toEqual([TEMPLATE]);
+	});
+
+	test("la de otra dependencia, no", async () => {
+		expect(
+			await sourceOf({ scope: "DEPENDENCY", dependencyId: 4 }).canRead(
+				USED,
+				reader(3),
+			),
+		).toBe(false);
+	});
+
+	test("una plantilla que no existe, no", async () => {
+		expect(await sourceOf(null).canRead(USED, reader(3))).toBe(false);
+	});
+
+	test("sin alcance de cursos ni consulta", async () => {
+		const asked: string[] = [];
+
+		expect(
+			await sourceOf(
+				{ scope: "INSTITUTIONAL", dependencyId: null },
+				asked,
+			).canRead(USED, {
+				userId: 9,
+				role: "USER",
+				dependencyId: 3,
+				isTrainer: false,
+			}),
+		).toBe(false);
+		expect(asked).toEqual([]);
+	});
+});

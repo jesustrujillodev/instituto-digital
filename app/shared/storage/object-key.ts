@@ -50,3 +50,12 @@ export const buildContentObjectKey = (
 	const { base, ext } = splitName(originalName);
 	return `${prefix}/${base}-${digest}${ext}`;
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * ¿Este segmento de una key es un `documentId`? Lo que no lo es no lo emitió
+ * una subida, y buscarlo en una columna uuid haría fallar la consulta.
+ */
+export const isDocumentIdSegment = (segment: string | undefined): boolean =>
+	segment !== undefined && UUID.test(segment);

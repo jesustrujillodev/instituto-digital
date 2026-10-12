@@ -2,10 +2,15 @@ import * as v from "valibot";
 
 // Recorta ANTES de validar el formato: el correo llega pegado desde un gestor de
 // contraseñas o un cliente de correo con espacios alrededor, y `v.email()` los
-// rechazaría. Los espacios internos siguen fallando.
+// rechazaría. Los espacios internos siguen fallando. El tope va antes del formato
+// para no pasar la expresión regular por una cadena de megas.
 const email = v.pipe(
 	v.string("El correo electrónico es obligatorio."),
 	v.trim(),
+	v.maxLength(
+		254,
+		"El correo electrónico no puede exceder los 254 caracteres.",
+	),
 	v.email("Escribe un correo electrónico válido."),
 	v.transform((val) => val.toLowerCase()),
 );

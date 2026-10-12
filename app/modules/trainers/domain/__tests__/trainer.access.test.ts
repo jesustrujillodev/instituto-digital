@@ -77,4 +77,19 @@ describe("canManageTrainer", () => {
 			),
 		).toBe(false);
 	});
+
+	// Auditoría C09: la excepción de los externos relaja el alcance, no el rango.
+	test("a un externo con otro rol que USER solo lo administra el superadministrador", () => {
+		for (const role of ["SUPERADMIN", "DEPENDENCY_DEPUTY"] as const) {
+			const external = targetOf({ role, dependencyId: null, type: "EXTERNAL" });
+
+			expect(canManageTrainer(authOf("DEPENDENCY_HEAD"), external)).toBe(false);
+			expect(canManageTrainer(authOf("DEPENDENCY_DEPUTY"), external)).toBe(
+				false,
+			);
+			expect(
+				canManageTrainer(authOf("SUPERADMIN", false, null), external),
+			).toBe(true);
+		}
+	});
 });

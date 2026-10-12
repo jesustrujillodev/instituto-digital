@@ -73,6 +73,7 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Invitar omite a quien ya está `INVITED` o `ENROLLED` y reinvita a quien rechazó o se dio de baja | `invite` |
 | Quien organiza da de baja a un inscrito mientras el curso está `PUBLISHED` y la persona no lo ha completado, aunque el curso ya haya empezado. Libera su lugar y le avisa (`ENROLLMENT_REMOVED`) | `remove`, `removalBlockerOf` (`ENROLLMENT_REMOVE_CLOSED`) |
 | Una baja con `acted_by_id` distinto de la persona es de quien organiza: la persona no vuelve sola desde el catálogo (`ENROLLMENT_REMOVED`); quien organiza sí puede asignarla o invitarla de nuevo. No hay estado nuevo: sigue siendo `WITHDRAWN` | `isRemoval`, `assertNotRemoved`, `participantPermissionsOf` |
+| Una dependencia que ve el curso sin organizarlo tampoco deshace esa baja: elegir a esa persona rechaza el lote (`ENROLLMENT_PARTICIPANT_REMOVED`) y, si llega como miembro de un grupo, se omite. La lista de candidatos y las cuentas de los grupos no se la ofrecen. Una baja voluntaria sigue siendo reasignable (auditoría C08) | `removalsOutOfReach`, `findEnrollments` (`removed`), `searchCandidates`/`findGroupEnrollable` (`withRemovals`) |
 
 El instante actual llega por el cradle (`clock`) para probar estas reglas con
 fechas fijas.
@@ -162,6 +163,16 @@ imagen se subió una vez y es lo que hace reconocible el curso en las tres.
   de `runInTransaction` y cuenta los `ENROLLED`. Editar el cupo del curso usa el
   mismo bloqueo. Quien solo necesita serializar (cuestionarios, avance,
   impartición) usa `lockCourse`: el mismo `FOR UPDATE`, sin leer el cupo.
+- **Ventana bajo el bloqueo:** `lockCourseSeats` devuelve también la ventana de
+  inscripción (estado, fecha límite, cierre a mano y primera sesión), leída en la
+  misma consulta que el cupo. `enroll`, `accept` y `assign` la comprueban antes de
+  bloquear, para fallar pronto, y otra vez con el curso bloqueado: un curso
+  cancelado, finalizado o cerrado mientras se esperaba responde `ENROLLMENT_CLOSED`
+  sin escribir.
+- **Bloqueo compartido:** `lockCourseShared` (`FOR SHARE`) espera a quien tiene el
+  curso en exclusiva sin hacer esperar a los demás. Lo usan el escaneo del QR y el
+  avance que no recalcula. Si la transacción va a pedir `lockCourse` después, se
+  toma ese desde el principio.
 - **Doble envío:** `save` actualiza solo si la fila sigue en el estado leído. Si
   no, o si dos altas chocan con la unicidad, responde `ENROLLMENT_STATE_CHANGED`.
   Asignar e invitar en lote usan `saveMany`, con la misma regla por grupo: si

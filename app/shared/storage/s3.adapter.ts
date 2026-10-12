@@ -42,6 +42,10 @@ export const createS3StorageProvider = (
 			accessKeyId: config.accessKeyId || "",
 			secretAccessKey: config.secretAccessKey || "",
 		},
+		// Por defecto el SDK firma un checksum en cada PUT; en una URL de subida
+		// lo calcula sobre un cuerpo vacío, y un proveedor que lo valide rechaza
+		// el archivo real.
+		requestChecksumCalculation: "WHEN_REQUIRED",
 	};
 
 	if (config.endpoint) {
@@ -321,8 +325,11 @@ export const createS3StorageProvider = (
 					Key: key,
 					ContentType: options.contentType,
 				});
+				// El presigner deja `content-type` fuera de la firma salvo que se
+				// pida: sin esto, la URL de un PDF sirve para subir un HTML.
 				return await getSignedUrl(client as any, command as any, {
 					expiresIn: options.expiresInSeconds ?? 900,
+					signableHeaders: new Set(["content-type"]),
 				});
 			} catch (error) {
 				logger.error("[S3] fallo al generar URL de subida", {

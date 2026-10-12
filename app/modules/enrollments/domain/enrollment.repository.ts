@@ -6,6 +6,7 @@ import type {
 } from "@/modules/courses/domain/course.access";
 import type { CatalogAccessWhere } from "./enrollment.access";
 import type { EnrollmentStatus } from "./enrollment.config";
+import type { EnrollmentWindow } from "./enrollment.rules";
 import type {
 	AvailableCourseRow,
 	CandidateAccount,
@@ -99,12 +100,26 @@ export interface IEnrollmentRepository {
 	lockCourse(courseId: number): Promise<void>;
 
 	/**
-	 * `lockCourse` y, ya con el bloqueo, el cupo y los inscritos. Solo tiene
-	 * sentido dentro de `runInTransaction`.
+	 * Bloqueo COMPARTIDO de la fila del curso, solo dentro de `runInTransaction`:
+	 * espera a quien la tiene en exclusiva (`finish`, que la cierra) sin hacer
+	 * esperar a los demás que la comparten. Para escrituras de una persona que
+	 * no deben caer en un curso recién cerrado (avance, escaneo del QR). Si la
+	 * transacción va a pedir `lockCourse` después, se toma ese desde el principio:
+	 * subir del compartido al exclusivo deja a dos transacciones esperándose.
 	 */
-	lockCourseSeats(
-		courseId: number,
-	): Promise<{ capacity: number | null; enrolled: number }>;
+	lockCourseShared(courseId: number): Promise<void>;
+
+	/**
+	 * `lockCourse` y, ya con el bloqueo, el cupo, los inscritos y la ventana de
+	 * inscripción: lo que se decide con el curso bloqueado no puede venir de una
+	 * lectura anterior, que otra petición pudo dejar vieja. Solo tiene sentido
+	 * dentro de `runInTransaction`.
+	 */
+	lockCourseSeats(courseId: number): Promise<{
+		capacity: number | null;
+		enrolled: number;
+		window: EnrollmentWindow;
+	}>;
 
 	/**
 	 * Crea la inscripción si `expected` es `null`; si no, la actualiza solo si
@@ -201,17 +216,23 @@ export interface IEnrollmentRepository {
 	/**
 	 * Por grupo, los miembros internos y activos que siguen en la dependencia del
 	 * grupo y aún no están inscritos al curso; con `dependencyId`, solo los de
-	 * esa dependencia.
+	 * esa dependencia. Sin `withRemovals`, tampoco a quienes quien organiza dio
+	 * de baja (`isRemoval`).
 	 */
 	findGroupEnrollable(params: {
 		courseId: number;
 		groupIds: readonly number[];
 		dependencyId: number | null;
+		withRemovals: boolean;
 	}): Promise<{ groupId: number; userDocumentId: string }[]>;
-	/** Personas sin invitación pendiente ni inscripción activa en el curso. */
+	/**
+	 * Personas sin invitación pendiente ni inscripción activa en el curso; sin
+	 * `withRemovals`, tampoco las que quien organiza dio de baja.
+	 */
 	searchCandidates(params: {
 		courseId: number;
 		dependencyId: number | null;
+		withRemovals: boolean;
 		search?: string;
 	}): Promise<CandidateAccount[]>;
 }
