@@ -46,12 +46,6 @@ export const action = async ({
 		);
 		if (!result.success) return localizeError(result, USER_ERROR_MESSAGES);
 
-		// La propia cuenta no se desconecta: revocar aquí echaría al admin de la
-		// sesión desde la que acaba de hacer el cambio.
-		if (result.data.id === auth.userId) {
-			return ok(null, { message: "Contraseña restablecida" });
-		}
-
 		// Un reseteo suele responder a una cuenta olvidada o comprometida: las
 		// sesiones abiertas con la contraseña anterior no deben sobrevivirle.
 		// Best-effort, como la foto: la contraseña ya cambió y deshacerlo sería peor.

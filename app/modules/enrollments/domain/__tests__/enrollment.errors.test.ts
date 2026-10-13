@@ -14,6 +14,7 @@ import {
 	EnrollmentNotEligibleError,
 	EnrollmentNotEnrolledError,
 	EnrollmentParticipantNotEnrolledError,
+	EnrollmentParticipantRemovedError,
 	EnrollmentRateLimitedError,
 	EnrollmentRemoveClosedError,
 	EnrollmentRemovedError,
@@ -64,6 +65,10 @@ describe("códigos estables", () => {
 		],
 		[new EnrollmentStateChangedError(), ENROLLMENT_ERROR_CODES.STATE_CHANGED],
 		[new EnrollmentRemovedError(), ENROLLMENT_ERROR_CODES.REMOVED],
+		[
+			new EnrollmentParticipantRemovedError(),
+			ENROLLMENT_ERROR_CODES.PARTICIPANT_REMOVED,
+		],
 		[
 			new EnrollmentParticipantNotEnrolledError(),
 			ENROLLMENT_ERROR_CODES.PARTICIPANT_NOT_ENROLLED,

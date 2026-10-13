@@ -18,17 +18,24 @@ const authPayload = {
 };
 
 const createHarness = (
-	options: { anonymous?: boolean; allowed?: boolean; failsWith?: string } = {},
+	options: {
+		anonymous?: boolean;
+		allowed?: boolean;
+		limitedKey?: string;
+		failsWith?: string;
+	} = {},
 ) => {
-	const calls = { resolves: 0 };
+	const calls = { resolves: 0, rateKeys: [] as string[] };
 
 	const context = {
 		authPayload: options.anonymous ? null : authPayload,
+		clientIpPolicy: { source: "proxy", trustedHops: 1 },
 		rateLimiter: {
-			consume: async () => ({
-				allowed: options.allowed ?? true,
-				retryAfterMs: options.allowed === false ? 30_000 : 0,
-			}),
+			consume: async (key: string) => {
+				calls.rateKeys.push(key);
+				const allowed = options.allowed !== false && key !== options.limitedKey;
+				return { allowed, retryAfterMs: allowed ? 0 : 30_000 };
+			},
 		},
 		enrollmentQrService: {
 			resolve: async () => {
@@ -51,9 +58,17 @@ const createHarness = (
 	return { context, calls };
 };
 
-const run = (context: LoaderArgs["context"], token = TOKEN) =>
+const IP = "203.0.113.7";
+
+const run = (
+	context: LoaderArgs["context"],
+	token = TOKEN,
+	ip: string | null = IP,
+) =>
 	loader({
-		request: new Request(`https://app.example.com/inscripcion/${token}`),
+		request: new Request(`https://app.example.com/inscripcion/${token}`, {
+			headers: ip ? { "X-Forwarded-For": ip } : {},
+		}),
 		context,
 		params: { token },
 	} as unknown as LoaderArgs);
@@ -105,6 +120,33 @@ describe("escaneo de inscripción loader", () => {
 			404,
 		);
 		expect(calls.resolves).toBe(0);
+	});
+
+	test("con sesión, la persona tiene su propia cubeta", async () => {
+		const { context, calls } = createHarness({
+			limitedKey: "enrollment-qr:user:7",
+		});
+
+		const thrown = (await caught(() => run(context))) as {
+			init?: { status?: number };
+		};
+
+		expect(thrown.init?.status).toBe(429);
+		expect(calls.rateKeys).toEqual([
+			`enrollment-qr:${IP}`,
+			"enrollment-qr:user:7",
+		]);
+		expect(calls.resolves).toBe(0);
+	});
+
+	// Sin IP no hay cubeta común que unos anónimos puedan agotar para todos.
+	test("sin IP solo cuenta la cubeta de la persona", async () => {
+		const { context, calls } = createHarness();
+
+		await caught(() => run(context, TOKEN, null));
+
+		expect(calls.rateKeys).toEqual(["enrollment-qr:user:7"]);
+		expect(calls.resolves).toBe(1);
 	});
 
 	test("el rate limit corta antes de mirar el token", async () => {

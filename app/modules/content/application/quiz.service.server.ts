@@ -41,6 +41,7 @@ import {
 	ContentQuizParticipantNotFoundError,
 	ContentQuizRateLimitedError,
 	ContentQuizRetakeNotAllowedError,
+	ContentQuizSelfRetakeError,
 	ContentSessionNotFoundError,
 	ContentTooManyFollowUpsError,
 } from "../domain/content.errors";
@@ -278,6 +279,21 @@ export const createQuizService = ({
 		return course;
 	};
 
+	/**
+	 * Bloquea la fila del curso y lo vuelve a leer con la inscripción, como
+	 * `lockCourse` de teaching: quien imparte pudo finalizarlo mientras se
+	 * esperaba el bloqueo, y lo leído antes ya no vale.
+	 */
+	const lockClassroomCourse = async (
+		course: ClassroomCourse,
+		actor: AuthContext,
+	): Promise<ClassroomCourse> => {
+		await enrollmentRepository.lockCourse(course.id);
+		const locked = await requireClassroomCourse(course.documentId, actor);
+		assertCanProgress(locked);
+		return locked;
+	};
+
 	/** El curso que el alcance imparte; sin alcance, ni siquiera se busca. */
 	const requireTeachingCourse = async (
 		courseDocumentId: string,
@@ -504,9 +520,9 @@ export const createQuizService = ({
 				const now = clock.now();
 
 				return runInTransaction(async () => {
-					await enrollmentRepository.lockCourse(course.id);
+					const locked = await lockClassroomCourse(course, actor);
 
-					const quiz = await quizRepository.findQuiz(course.id, ids);
+					const quiz = await quizRepository.findQuiz(locked.id, ids);
 					if (!quiz || quiz.questions.length === 0) {
 						throw new ContentQuizNotFoundError();
 					}
@@ -518,15 +534,15 @@ export const createQuizService = ({
 					assertCanSubmit(
 						followUp
 							? await followUpAvailabilityFor(
-									course,
+									locked,
 									followUp,
 									latest,
 									actor.userId,
 									now,
 								)
 							: quizAvailabilityOf(
-									course,
-									course.enrollment,
+									locked,
+									locked.enrollment,
 									latest,
 									kind,
 									quiz.maxAttempts,
@@ -546,7 +562,7 @@ export const createQuizService = ({
 					// su lección aunque se repruebe (docs/adr/0024).
 					if (lessonId !== null) {
 						const stored = await classroomRepository.findLessonStatus(
-							course.id,
+							locked.id,
 							lessonId,
 							actor.userId,
 						);
@@ -562,7 +578,7 @@ export const createQuizService = ({
 					// La nota se recalcula con cualquier envío: una mejor nota puede
 					// acreditar aunque el avance no se mueva. El examen escribe el
 					// resultado por la misma vía, y quien lo firma es quien lo presentó.
-					await progressSync.recalculate(course, actor.userId, now, [
+					await progressSync.recalculate(locked, actor.userId, now, [
 						actor.userId,
 					]);
 
@@ -614,6 +630,9 @@ export const createQuizService = ({
 				]);
 				if (!quiz) throw new ContentQuizNotFoundError();
 				if (!participant) throw new ContentQuizParticipantNotFoundError();
+				if (participant.userId === actor.userId) {
+					throw new ContentQuizSelfRetakeError();
+				}
 				// Ya acreditado, la nota quedó fija: otro intento no la movería.
 				if (isAccredited(participant)) {
 					throw new ContentQuizRetakeNotAllowedError();
@@ -826,9 +845,15 @@ export const createQuizService = ({
 
 				await runInTransaction(async () => {
 					await enrollmentRepository.lockCourse(course.id);
+					// Releído bajo el bloqueo: `finish` pudo cerrar el curso mientras
+					// se esperaba, y sus notas ya no se mueven.
+					const locked = await requireTeachingCourse(courseDocumentId, actor);
+					if (locked.status !== "PUBLISHED") {
+						throw new ContentFollowUpClosedError();
+					}
 
 					const followUp = await requireFollowUp(
-						course.id,
+						locked.id,
 						dto.followUpDocumentId,
 					);
 					if (followUp.availability !== "MANUAL") {
@@ -840,7 +865,7 @@ export const createQuizService = ({
 					await quizRepository.closeFollowUp(followUp.id, now);
 					// Quien no la presentó y cuenta acaba de sacar 0.
 					if (followUp.countsTowardGrade) {
-						await recalculateProgress(course, actor, now);
+						await recalculateProgress(locked, actor, now);
 					}
 				});
 

@@ -3,6 +3,7 @@ import {
 	type EnrollmentCourseRaw,
 	toAvailableCourse,
 	toEnrollmentCourse,
+	toEnrollmentState,
 	toOwnEnrollment,
 	toRosterEntry,
 	withAvailability,
@@ -172,6 +173,24 @@ describe("toOwnEnrollment", () => {
 	test("la baja propia y la inscripción asignada no lo son", () => {
 		expect(toOwnEnrollment(rawOf("WITHDRAWN", 20)).removed).toBe(false);
 		expect(toOwnEnrollment(rawOf("ENROLLED", 3)).removed).toBe(false);
+	});
+});
+
+describe("toEnrollmentState", () => {
+	test("marca la baja de quien organiza y deja fuera quién la dio", () => {
+		expect(
+			toEnrollmentState({
+				userId: 20,
+				status: "WITHDRAWN",
+				origin: "ASSIGNED",
+				actedById: 3,
+			}),
+		).toEqual({
+			userId: 20,
+			status: "WITHDRAWN",
+			origin: "ASSIGNED",
+			removed: true,
+		});
 	});
 });
 

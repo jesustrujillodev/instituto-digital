@@ -14,6 +14,7 @@ export const TEACHING_ERROR_CODES = {
 	SELF_PACED_NOT_FINISHABLE: "TEACHING_SELF_PACED_NOT_FINISHABLE",
 	NOT_SELF_PACED: "TEACHING_NOT_SELF_PACED",
 	CERTIFICATES_NOT_ISSUABLE: "TEACHING_CERTIFICATES_NOT_ISSUABLE",
+	SELF_ATTENDANCE: "TEACHING_SELF_ATTENDANCE",
 } as const;
 
 export abstract class TeachingError extends DomainError {}
@@ -121,5 +122,13 @@ export class TeachingCertificatesNotIssuableError extends TeachingError {
 	readonly code = TEACHING_ERROR_CODES.CERTIFICATES_NOT_ISSUABLE;
 	constructor() {
 		super("Certificates are issued when the course is finished");
+	}
+}
+
+/** Quien imparte e iba inscrito no cambia su propia asistencia. */
+export class TeachingSelfAttendanceError extends TeachingError {
+	readonly code = TEACHING_ERROR_CODES.SELF_ATTENDANCE;
+	constructor() {
+		super("Nobody records their own attendance");
 	}
 }

@@ -20,6 +20,8 @@ export interface StorageObject {
 	key: string;
 	size: number;
 	lastModified: Date | null;
+	/** El `Content-Type` guardado. Solo lo trae `statObject`; el listado no. */
+	contentType?: string | null;
 }
 
 export interface ListObjectsOptions {

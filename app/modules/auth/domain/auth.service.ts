@@ -13,7 +13,17 @@ export interface AuthService {
 		meta: { userAgent?: string; ipAddress?: string },
 	): Promise<AppResponse<AuthTokens>>;
 	logout(refreshToken: string): Promise<AppResponse<null>>;
+	/** Cierra todas las sesiones del usuario y corta en el acto sus access tokens. */
 	logoutAll(userId: number): Promise<AppResponse<null>>;
+	/**
+	 * Cierra las demás sesiones del usuario y corta sus access tokens; la de
+	 * `currentRefreshToken` sigue por el silent refresh. Si ese token no es una
+	 * sesión del usuario, las cierra todas: no hay cuál conservar.
+	 */
+	logoutOthers(
+		userId: number,
+		currentRefreshToken: string | null,
+	): Promise<AppResponse<null>>;
 
 	// ── Consumidos por el middleware: siguen lanzando ───────────────────────────
 	// Excepción DELIBERADA a la regla del envelope. `configureContainer` no es un

@@ -42,8 +42,14 @@ export function meta({ data }: Route.MetaArgs) {
 export default function EditarUsuarioPage({
 	loaderData,
 }: Route.ComponentProps) {
-	const { user, history, assignableRoles, roleLock, dependencyChange } =
-		loaderData.data;
+	const {
+		user,
+		history,
+		assignableRoles,
+		roleLock,
+		canResetPassword,
+		dependencyChange,
+	} = loaderData.data;
 	const navigate = useNavigate();
 	const ids = useUserFormIds();
 	const [resetOpen, setResetOpen] = useState(false);
@@ -85,7 +91,9 @@ export default function EditarUsuarioPage({
 				user={user}
 				assignableRoles={assignableRoles}
 				roleLock={roleLock}
-				onResetPassword={() => setResetOpen(true)}
+				onResetPassword={
+					canResetPassword ? () => setResetOpen(true) : undefined
+				}
 			/>
 
 			{/* La bitácora va como sección de la pantalla que ya tiene el dato, no

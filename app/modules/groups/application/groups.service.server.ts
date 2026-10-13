@@ -11,6 +11,7 @@ import {
 	GroupNotFoundError,
 	MemberOutOfDependencyError,
 } from "../domain/group.errors";
+import { assertGroupEditable } from "../domain/group.rules";
 import type { IGroupService } from "../domain/group.service";
 import type {
 	CreateGroupDto,
@@ -67,6 +68,16 @@ export const createGroupService = ({
 		requireWriteScope(actor);
 
 		return requireGroup(documentId, resolveScope(actor));
+	};
+
+	/** Como `requireWritableGroup`, y además ni archivado ni de una dependencia desactivada. */
+	const requireEditableGroup = async (
+		documentId: string,
+		actor: AuthContext,
+	): Promise<Group> => {
+		const group = await requireWritableGroup(documentId, actor);
+		assertGroupEditable(group);
+		return group;
 	};
 
 	return {
@@ -137,7 +148,7 @@ export const createGroupService = ({
 		},
 		async update(documentId: string, dto: UpdateGroupDto, actor: AuthContext) {
 			return run("update", async () => {
-				await requireWritableGroup(documentId, actor);
+				await requireEditableGroup(documentId, actor);
 
 				return ok(
 					await groupRepository.update(documentId, dto, resolveScope(actor)),
@@ -157,7 +168,9 @@ export const createGroupService = ({
 		},
 		async unarchive(documentId: string, actor: AuthContext) {
 			return run("unarchive", async () => {
-				await requireWritableGroup(documentId, actor);
+				const group = await requireWritableGroup(documentId, actor);
+				// Restaurarlo en una dependencia desactivada lo volvería a abrir.
+				if (group.dependencyArchived) throw new GroupDependencyInactiveError();
 
 				return ok(
 					await groupRepository.unarchive(documentId, resolveScope(actor)),
@@ -170,7 +183,7 @@ export const createGroupService = ({
 			actor: AuthContext,
 		) {
 			return run("addMembers", async () => {
-				const group = await requireWritableGroup(documentId, actor);
+				const group = await requireEditableGroup(documentId, actor);
 
 				const eligible = await groupRepository.findEligibleAccounts({
 					dependencyId: group.dependencyId,
@@ -201,7 +214,7 @@ export const createGroupService = ({
 			actor: AuthContext,
 		) {
 			return run("removeMember", async () => {
-				const group = await requireWritableGroup(documentId, actor);
+				const group = await requireEditableGroup(documentId, actor);
 
 				await groupRepository.removeMember({
 					groupId: group.id,

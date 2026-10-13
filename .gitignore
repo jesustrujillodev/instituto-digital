@@ -1,5 +1,7 @@
 .DS_Store
 .env
+.env.*
+!.env.example
 /node_modules/
 
 # React Router
@@ -28,3 +30,6 @@ graphify-out/
 # Archivos locales generados (renders de certificados)
 /.cache/
 
+
+# Auditoría de seguridad (reporte local, no se versiona)
+/security-audit/

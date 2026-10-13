@@ -25,6 +25,7 @@ const groupOf = (overrides: Partial<Group> = {}): Group => ({
 	documentId: GROUP_ID,
 	dependencyId: 3,
 	dependencyName: "Obras Públicas",
+	dependencyArchived: false,
 	name: "Mandos medios",
 	description: null,
 	memberCount: 0,
@@ -44,6 +45,7 @@ const actorOf = (
 	role,
 	dependencyId,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 const DEPENDENCY_SCOPE: AccessScope = { kind: "dependency", dependencyId: 3 };
@@ -348,5 +350,66 @@ describe("createGroupService — miembros", () => {
 			GROUP_ERROR_CODES.NOT_FOUND,
 		);
 		expect(calls.addedMembers).toEqual([]);
+	});
+});
+
+// Remediación (Fase C): un grupo archivado o de una dependencia desactivada
+// seguía aceptando cambios y miembros nuevos.
+describe("createGroupService — solo lectura", () => {
+	const archived = groupOf({ archivedAt: new Date(0) });
+	const inactive = groupOf({ dependencyArchived: true });
+
+	test.each([
+		["archivado", archived, GROUP_ERROR_CODES.ARCHIVED],
+		[
+			"de una dependencia desactivada",
+			inactive,
+			GROUP_ERROR_CODES.DEPENDENCY_INACTIVE,
+		],
+	])("uno %s no se edita ni cambia de miembros", async (_, group, code) => {
+		const { service, calls } = createHarness({
+			group,
+			eligible: [{ id: 41, documentId: MEMBER_A }],
+		});
+
+		const results = [
+			await service.update(GROUP_ID, { name: "Otro" }, actorOf()),
+			await service.addMembers(GROUP_ID, [MEMBER_A], actorOf()),
+			await service.removeMember(GROUP_ID, MEMBER_A, actorOf()),
+		];
+
+		for (const result of results) {
+			expect(!result.success && result.error.code).toBe(code);
+		}
+		expect(calls.updated).toEqual([]);
+		expect(calls.addedMembers).toEqual([]);
+		expect(calls.removedMembers).toEqual([]);
+	});
+
+	test("uno archivado sí se restaura", async () => {
+		const { service, calls } = createHarness({ group: archived });
+
+		expect((await service.unarchive(GROUP_ID, actorOf())).success).toBe(true);
+		expect(calls.unarchived).toHaveLength(1);
+	});
+
+	test("en una dependencia desactivada no se restaura", async () => {
+		const { service, calls } = createHarness({
+			group: groupOf({ archivedAt: new Date(0), dependencyArchived: true }),
+		});
+
+		const result = await service.unarchive(GROUP_ID, actorOf());
+
+		expect(!result.success && result.error.code).toBe(
+			GROUP_ERROR_CODES.DEPENDENCY_INACTIVE,
+		);
+		expect(calls.unarchived).toEqual([]);
+	});
+
+	test("uno de una dependencia desactivada sí se archiva", async () => {
+		const { service, calls } = createHarness({ group: inactive });
+
+		expect((await service.archive(GROUP_ID, actorOf())).success).toBe(true);
+		expect(calls.archived).toHaveLength(1);
 	});
 });

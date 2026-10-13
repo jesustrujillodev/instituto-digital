@@ -17,7 +17,9 @@ import { themeHtmlClass } from "@/modules/theme/domain/theme.rules";
 import type { ThemeMode } from "@/modules/theme/domain/theme.types";
 import { RouteErrorView } from "@/shared/components/errors/route-error-view";
 import { configureContainer } from "@/shared/di/container.server";
+import { bodyLimitStatusOf } from "@/shared/http/body-limit";
 import { isTrustedOrigin, isWriteMethod } from "@/shared/http/origin";
+import { applySecurityHeaders } from "@/shared/http/security-headers";
 import { containerContext } from "./shared/di/container.types";
 import type { ApiContext } from "./shared/types";
 
@@ -26,6 +28,13 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export const middleware: Route.MiddlewareFunction[] = [
+	// Primero, para que también lleven las cabeceras las respuestas que corta el
+	// paso siguiente (403, 413, redirección al login).
+	async (_args, next) => {
+		const response = await next();
+		applySecurityHeaders(response.headers);
+		return response;
+	},
 	async ({ context, request }, next) => {
 		// 0. CSRF defensa en profundidad: mutaciones con Origin ajeno → 403
 		//    (complementa SameSite=Lax; ver docs/auth/00-sistema-autenticacion.md §8)
@@ -54,7 +63,20 @@ export const middleware: Route.MiddlewareFunction[] = [
 			});
 		}
 
-		// 4. Run the actual loader / action
+		// 4. Cuerpo acotado antes de que la action lo lea: sin sesión solo cabe
+		//    un formulario; con sesión, la subida más grande que pasa por aquí.
+		const bodyLimitStatus = bodyLimitStatusOf(
+			request,
+			cradle.authPayload !== null,
+		);
+		if (bodyLimitStatus) {
+			throw new Response(
+				bodyLimitStatus === 413 ? "Payload Too Large" : "Length Required",
+				{ status: bodyLimitStatus },
+			);
+		}
+
+		// 5. Run the actual loader / action
 		const startedAt = performance.now();
 		const { result: response, stats } = await measureQueries(next);
 		if (stats) {
@@ -67,7 +89,7 @@ export const middleware: Route.MiddlewareFunction[] = [
 			});
 		}
 
-		// 5. Append new cookies if tokens were silently refreshed — unless the
+		// 6. Append new cookies if tokens were silently refreshed — unless the
 		// handler (login/logout) already decided the auth cookies itself.
 		// (shouldRedirectToLogin solo puede activarse ANTES de next() — el refresh
 		// ocurre íntegro en configureContainer; no hay caso post-next que cubrir)

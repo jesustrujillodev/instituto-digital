@@ -1,5 +1,4 @@
 import { Star } from "lucide-react";
-import { formatZonedDate } from "@/lib/date-utils";
 import type { CourseRatingSummary } from "@/modules/ratings/domain/rating.types";
 import { Card, CardContent } from "@/shared/components/ui/card";
 
@@ -27,8 +26,7 @@ export function RatingsPanel({ summary }: { summary: CourseRatingSummary }) {
 								className="flex flex-col gap-1 py-2"
 							>
 								<span className="text-muted-foreground text-xs">
-									{comment.score} de 5 ·{" "}
-									{formatZonedDate(new Date(comment.createdAt))}
+									{comment.score} de 5
 								</span>
 								<p className="text-sm">{comment.comment}</p>
 							</li>

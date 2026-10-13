@@ -12,7 +12,7 @@ decisiones están en [ADR 0028](../adr/0028-editor-libre-documento-v2.md) y
 app/modules/certificates/
 ├── domain/design/           # esquema v1 (congelado) y v2, renderizador v2, presets,
 │                            # tokens, catálogo de fuentes, métricas, maquetado de texto
-├── domain/certificate-assets.rules.ts   # carpetas, propiedad, tipo por bytes, SVG, raster
+├── domain/certificate-assets.rules.ts   # carpetas, propiedad, tipo por bytes, raster
 ├── components/editor/       # el editor: lienzo, capa de selección, paneles
 ├── hooks/                   # iframe del lienzo, gestos, atajos, subidas, pdf.js
 ├── utils/editor/            # lógica pura: historial, geometría, imán, alinear, comandos
@@ -30,7 +30,7 @@ ambos casos lo elegido es un cambio sin guardar, que se puede deshacer.
 
 | Herramienta | Detalle |
 | --- | --- |
-| Insertar | Texto, campo dinámico, rectángulo, elipse, línea, imagen (PNG, JPG, WEBP o SVG ≤ 2 MB), firma (PNG o WEBP) y logos institucionales. Todo entra centrado |
+| Insertar | Texto, campo dinámico, rectángulo, elipse, línea, imagen (PNG, JPG o WEBP ≤ 2 MB), firma (PNG o WEBP) y logos institucionales. Todo entra centrado |
 | Texto en el lienzo | Doble clic para escribir sobre el lienzo con su fuente; la caja crece al escribir (`Crecer caja`) o la letra baja hasta caber (`Reducir letra`) |
 | Mover y transformar | Arrastrar, 8 tiradores, giro (Shift: de 15 en 15), proporción con Shift (siempre en imágenes y QR) |
 | Guías | Imán al centro, bordes y margen de seguridad (18 pt) de la página y a bordes y centros de otros elementos; Alt al arrastrar lo apaga |
@@ -87,12 +87,13 @@ se guarda queda huérfano y lo detecta el gestor de nube pasadas 24 horas
 ([cloud §5](../cloud/00-gestor-nube.md)).
 
 Rechazos de imagen (`CERTIFICATE_ASSET_INVALID`, con el motivo): vacía, más de 2 MB, tipo
-no admitido, SVG de más de 512 KB o con scripts, manejadores, `javascript:`,
-`foreignObject`, entidades, `@import` o recursos externos, o sin medidas.
+no admitido (también SVG) o sin medidas.
 
-Los SVG solo se pintan por `<img>`. El proxy de storage los sirve en línea con
-`Content-Security-Policy: sandbox` y por URL firmada como adjunto; todo lo servido en línea
-lleva `X-Content-Type-Options: nosniff`.
+SVG ya no se acepta, ni en imágenes ni en logos (auditoría, Fase C): el filtro era una
+lista de rechazo que se podía esquivar con escapes CSS. Los que ya estaban subidos se
+siguen pintando por `<img>`; el proxy de storage los sirve en línea con
+`Content-Security-Policy: sandbox` y por URL firmada como adjunto, y todo lo servido en
+línea lleva `X-Content-Type-Options: nosniff`.
 
 ## 5. Pixel perfect
 

@@ -31,17 +31,20 @@ export const loader = async ({
 	params,
 }: Route.LoaderArgs) => {
 	// Antes que nada, también antes de validar: un UUID malformado cuenta igual.
-	const decision = await context.rateLimiter.consume(
-		certificateVerifyRateKeyOf(getClientIp(request)),
-		CERTIFICATE_VERIFY_RATE_LIMIT,
-	);
-	if (!decision.allowed) {
-		throw toRouteError(
-			toResponseError(
-				new CertificateVerifyRateLimitedError(decision.retryAfterMs),
-			),
-			CERTIFICATE_ERROR_MESSAGES,
+	const ip = getClientIp(request, context.clientIpPolicy);
+	if (ip) {
+		const decision = await context.rateLimiter.consume(
+			certificateVerifyRateKeyOf(ip),
+			CERTIFICATE_VERIFY_RATE_LIMIT,
 		);
+		if (!decision.allowed) {
+			throw toRouteError(
+				toResponseError(
+					new CertificateVerifyRateLimitedError(decision.retryAfterMs),
+				),
+				CERTIFICATE_ERROR_MESSAGES,
+			);
+		}
 	}
 
 	// Malformado = inexistente: un 400 aparte diría qué forma tiene un código válido.

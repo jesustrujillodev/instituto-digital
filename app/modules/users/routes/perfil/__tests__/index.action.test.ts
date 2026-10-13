@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { refreshTokenCookie } from "@/core/cookies.server";
 import type { Role } from "@/shared/rules/atoms.rules";
 import {
 	INTENT_FIELD,
@@ -11,12 +12,13 @@ type ActionArgs = Parameters<typeof action>[0];
 const DOCUMENT_ID = "11111111-1111-4111-8111-111111111111";
 const DEPENDENCY_ID = "22222222-2222-4222-8222-222222222222";
 
-const formRequest = (fields: Record<string, string>) => {
+const formRequest = (fields: Record<string, string>, cookie?: string) => {
 	const body = new FormData();
 	for (const [key, value] of Object.entries(fields)) body.append(key, value);
 	return new Request("https://app.example.com/dashboard/perfil", {
 		method: "POST",
 		body,
+		headers: cookie ? { Cookie: cookie } : {},
 	});
 };
 
@@ -53,8 +55,12 @@ const createHarness = (
 						iat: 1_800_000_000,
 					},
 		userService: {
-			changeOwnPassword: async (dto: unknown, actor: unknown) => {
-				calls.password.push({ dto, actor });
+			changeOwnPassword: async (
+				dto: unknown,
+				actor: unknown,
+				refreshToken: string | null,
+			) => {
+				calls.password.push({ dto, actor, refreshToken });
 				return options.passwordFails
 					? failOf(options.passwordFails)
 					: okOf(null);
@@ -91,6 +97,19 @@ describe("perfil action — contraseña", () => {
 
 		expect(result.success && result.message).toBe("Contraseña actualizada");
 		expect(calls.password).toHaveLength(1);
+	});
+
+	// Remediación (Fase C): el servicio cierra las demás sesiones y necesita
+	// saber cuál es la de quien envía.
+	test("le pasa al servicio el refresh token de esta sesión", async () => {
+		const { context, calls } = createHarness();
+		const cookie = (await refreshTokenCookie.serialize("rt-actual")).split(
+			";",
+		)[0];
+
+		await run(formRequest(VALID_PASSWORD, cookie), context);
+
+		expect(calls.password[0]).toMatchObject({ refreshToken: "rt-actual" });
 	});
 
 	// La regla exige la confirmación y la compara: sin eso, un error de tecleo

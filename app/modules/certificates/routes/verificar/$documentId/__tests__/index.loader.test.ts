@@ -28,6 +28,7 @@ const createHarness = (reply: unknown = okReply(valid)) => {
 	const calls: unknown[][] = [];
 	const context = {
 		authPayload: null,
+		clientIpPolicy: { source: "proxy", trustedHops: 1 },
 		rateLimiter: createMemoryRateLimiter(),
 		certificateService: {
 			verify: async (...args: unknown[]) => {
@@ -43,11 +44,11 @@ const createHarness = (reply: unknown = okReply(valid)) => {
 const run = (
 	context: LoaderArgs["context"],
 	documentId = ISSUE_ID,
-	ip = "203.0.113.7",
+	ip: string | null = "203.0.113.7",
 ) =>
 	loader({
 		request: new Request(`https://app.example.com/verificar/${documentId}`, {
-			headers: { "X-Forwarded-For": ip },
+			headers: ip ? { "X-Forwarded-For": ip } : {},
 		}),
 		context,
 		params: { documentId },
@@ -117,6 +118,20 @@ describe("verificación pública", () => {
 		}
 
 		expect(await run(context, ISSUE_ID, "198.51.100.9")).toMatchObject({
+			success: true,
+		});
+	});
+
+	// El hallazgo: sin IP todos compartían `certificate-verify:unknown`, y 30
+	// consultas de cualquiera cerraban la verificación para los demás.
+	test("sin IP, las consultas ajenas no cierran la verificación", async () => {
+		const { context } = createHarness();
+
+		for (let i = 0; i <= CERTIFICATE_VERIFY_RATE_LIMIT.limit; i++) {
+			await run(context, ISSUE_ID, null);
+		}
+
+		expect(await run(context, ISSUE_ID, null)).toMatchObject({
 			success: true,
 		});
 	});

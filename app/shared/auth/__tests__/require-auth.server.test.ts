@@ -14,6 +14,7 @@ const payloadOf = (
 	role: "USER",
 	dependencyId: 3,
 	isTrainer: false,
+	mustChangePassword: false,
 	iat: 1_800_000_000,
 	...overrides,
 });
@@ -35,6 +36,7 @@ describe("requireAuth", () => {
 			role: "USER",
 			dependencyId: 3,
 			isTrainer: false,
+			mustChangePassword: false,
 		});
 	});
 
@@ -45,6 +47,29 @@ describe("requireAuth", () => {
 
 		expect(auth).not.toHaveProperty("iat");
 		expect(auth).not.toHaveProperty("sub");
+	});
+
+	// Remediación (Fase C): la contraseña que puso otra persona se cambia antes
+	// de usar la plataforma.
+	test("con un cambio de contraseña pendiente redirige a «Mi perfil»", async () => {
+		const thrown = await requireAuth(
+			REQUEST,
+			contextOf(payloadOf({ mustChangePassword: true })),
+		).catch((e) => e);
+
+		expect(thrown).toBeInstanceOf(Response);
+		expect((thrown as Response).headers.get("Location")).toBe(
+			"/dashboard/perfil",
+		);
+	});
+
+	test("con el cambio pendiente sí deja entrar a «Mi perfil»", async () => {
+		const auth = await requireAuth(
+			new Request("https://app.example.com/dashboard/perfil.data"),
+			contextOf(payloadOf({ mustChangePassword: true })),
+		);
+
+		expect(auth.mustChangePassword).toBe(true);
 	});
 
 	test("throws a redirect to the login page when there is no payload", async () => {

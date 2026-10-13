@@ -130,6 +130,12 @@ export const createSessionRepository = ({
 			await prisma.session.deleteMany({ where: { userId } });
 		},
 
+		async deleteOthersOfUser(userId, keepSessionId) {
+			await prisma.session.deleteMany({
+				where: { userId, id: { not: keepSessionId } },
+			});
+		},
+
 		async deleteAllExcept(sessionId) {
 			const { count } = await prisma.session.deleteMany({
 				where: { id: { not: sessionId } },

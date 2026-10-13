@@ -1,7 +1,7 @@
 import type { AuthContext } from "@/modules/auth/domain/auth.types";
 import { canManageTrainer } from "@/modules/trainers/domain/trainer.access";
 import type { TrainerDetail } from "@/modules/trainers/domain/trainer.types";
-import { canManageUser } from "../domain/user.access.rules";
+import { canManageUser, canResetPassword } from "../domain/user.access.rules";
 import type { SafeUser } from "../domain/user.types";
 
 /**
@@ -13,8 +13,10 @@ import type { SafeUser } from "../domain/user.types";
  */
 export type UserListItem = SafeUser & {
 	trainerProfile: TrainerDetail | null;
-	/** Editar, archivar, restablecer contraseña o eliminar la cuenta. */
+	/** Editar, archivar o eliminar la cuenta. */
 	canManage: boolean;
+	/** Restablecer su contraseña: la propia no (`canResetPassword`). */
+	canResetPassword: boolean;
 	/** Habilitar, editar o deshabilitar su perfil de capacitador. */
 	canManageTrainer: boolean;
 };
@@ -32,6 +34,7 @@ export const toUserListItems = (
 		...user,
 		trainerProfile: profileOf.get(user.documentId) ?? null,
 		canManage: canManageUser(actor, user),
+		canResetPassword: canResetPassword(actor, user),
 		canManageTrainer: canManageTrainer(actor, user),
 	}));
 };

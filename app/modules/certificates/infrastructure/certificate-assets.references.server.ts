@@ -1,4 +1,9 @@
+import {
+	courseScopeWriteWhere,
+	resolveCourseScope,
+} from "@/modules/courses/domain/course.access";
 import type { ICradle } from "@/shared/di/container.types";
+import { isDocumentIdSegment } from "@/shared/storage/object-key";
 import type {
 	IObjectReferenceSource,
 	ObjectReference,
@@ -153,5 +158,20 @@ export const createCertificateAssetReferenceSource = ({
 				})),
 			),
 		];
+	},
+
+	/**
+	 * Lo lee quien administra el certificado del curso de la key, como el editor.
+	 * No se exige que el diseño ya la nombre: el editor la pinta al subirla,
+	 * antes de guardar.
+	 */
+	async canRead(key, reader) {
+		const course = courseOfCertificateAssetKey(key);
+		if (course === null || !isDocumentIdSegment(course)) return false;
+
+		const where = courseScopeWriteWhere(resolveCourseScope(reader));
+		if (!where) return false;
+
+		return certificateRepository.hasCourse(course, where);
 	},
 });

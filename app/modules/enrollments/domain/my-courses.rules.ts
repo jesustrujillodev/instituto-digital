@@ -6,6 +6,7 @@ import {
 	courseTimelineOf,
 	enrollmentClosesAt,
 	isClosingSoon,
+	withSessionLinksFor,
 } from "./enrollment.rules";
 import type {
 	MyCourseEntry,
@@ -25,6 +26,7 @@ export const toMyCourseEntry = (
 	now: Date,
 ): MyCourseEntry => ({
 	...record,
+	course: withSessionLinksFor(record.course, record.enrollment.status),
 	timeline: courseTimelineOf(record.course, now),
 	gaps: accreditationGapsOf(
 		{ ...record.course, sessionCount: record.course.sessions.length },

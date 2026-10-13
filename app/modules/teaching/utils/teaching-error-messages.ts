@@ -65,5 +65,9 @@ export const TEACHING_ERROR_MESSAGES: ErrorMessageMap = {
 			"Los certificados se emiten al finalizar la capacitación: todavía no se sabe quién la acreditó.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[TEACHING_ERROR_CODES.SELF_ATTENDANCE]: {
+		message: "No puedes registrar tu propia asistencia.",
+		status: HTTP_STATUS.FORBIDDEN,
+	},
 	[RESPONSE_ERROR_CODES.UNEXPECTED]: "Ha ocurrido un error inesperado.",
 };

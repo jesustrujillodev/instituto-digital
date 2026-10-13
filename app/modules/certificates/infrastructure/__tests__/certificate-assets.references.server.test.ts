@@ -249,3 +249,60 @@ describe("diseño ilegible en la base", () => {
 		expect(calls.removed).toEqual([]);
 	});
 });
+
+// C06: el proxy pregunta aquí si quien pide puede leer la imagen o la firma.
+describe("canRead", () => {
+	const sourceOf = (has: boolean, asked: unknown[] = []) =>
+		createCertificateAssetReferenceSource({
+			certificateRepository: {
+				hasCourse: async (course: string, where: unknown) => {
+					asked.push({ course, where });
+					return has;
+				},
+			} as unknown as ICradle["certificateRepository"],
+		});
+
+	const head = {
+		userId: 9,
+		role: "DEPENDENCY_HEAD" as const,
+		dependencyId: 3,
+		isTrainer: false,
+	};
+
+	test.each([IN_DRAFT, `documentos/certificados/${COURSE}/imagenes/sello.png`])(
+		"lo lee quien administra el curso de la key: %s",
+		async (key) => {
+			const asked: unknown[] = [];
+
+			expect(await sourceOf(true, asked).canRead(key, head)).toBe(true);
+			expect(asked).toEqual([{ course: COURSE, where: { dependencyId: 3 } }]);
+		},
+	);
+
+	test("fuera de su alcance, no", async () => {
+		expect(await sourceOf(false).canRead(IN_DRAFT, head)).toBe(false);
+	});
+
+	test("sin alcance de cursos ni consulta", async () => {
+		const asked: unknown[] = [];
+
+		expect(
+			await sourceOf(true, asked).canRead(IN_DRAFT, {
+				...head,
+				role: "USER",
+			}),
+		).toBe(false);
+		expect(asked).toEqual([]);
+	});
+
+	test.each([
+		"documentos/firmas/plana.png",
+		"documentos/firmas/no-es-uuid/firma.png",
+		"documentos/lecciones/manual.pdf",
+	])("una key que no es de un curso no consulta: %s", async (key) => {
+		const asked: unknown[] = [];
+
+		expect(await sourceOf(true, asked).canRead(key, head)).toBe(false);
+		expect(asked).toEqual([]);
+	});
+});

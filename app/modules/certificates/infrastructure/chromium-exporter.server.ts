@@ -2,6 +2,7 @@ import puppeteer, { type Browser } from "puppeteer-core";
 import type { Logger } from "@/shared/logging/logger";
 import { CERTIFICATE_EXPORT } from "../domain/certificate.config";
 import {
+	CertificateExportBusyError,
 	CertificateExportFailedError,
 	CertificateExportUnavailableError,
 } from "../domain/certificate.errors";
@@ -15,14 +16,19 @@ type Options = {
 	logger: Logger;
 };
 
-/** Un contador de páginas abiertas; la siguiente espera a que se libere una. */
-const createGate = (limit: number) => {
+/**
+ * Un contador de páginas abiertas; la siguiente espera a que se libere una. Con
+ * la fila llena responde «ocupado»: cada espera retiene su petición y su memoria.
+ */
+export const createExportGate = (limit: number, maxQueued: number) => {
 	let open = 0;
 	const waiting: (() => void)[] = [];
 
 	return async <T>(task: () => Promise<T>): Promise<T> => {
-		if (open >= limit)
+		if (open >= limit) {
+			if (waiting.length >= maxQueued) throw new CertificateExportBusyError();
 			await new Promise<void>((resolve) => waiting.push(resolve));
+		}
 		open++;
 		try {
 			return await task();
@@ -47,7 +53,10 @@ export const createChromiumExporter = ({
 	logger,
 }: Options): ICertificateExporter => {
 	const log = logger.child({ module: "certificates", layer: "exporter" });
-	const withPage = createGate(CERTIFICATE_EXPORT.maxConcurrentPages);
+	const withPage = createExportGate(
+		CERTIFICATE_EXPORT.maxConcurrentPages,
+		CERTIFICATE_EXPORT.maxQueued,
+	);
 	let browser: Promise<Browser> | null = null;
 
 	const openBrowser = (path: string) => {

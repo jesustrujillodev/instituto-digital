@@ -20,6 +20,7 @@ const payloadOf = (role: Role): VerifiedAccessTokenPayload => ({
 	role,
 	dependencyId: 3,
 	isTrainer: false,
+	mustChangePassword: false,
 	iat: 1_800_000_000,
 });
 

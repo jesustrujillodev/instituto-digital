@@ -107,5 +107,6 @@ export const actorOf = (overrides: Partial<AuthContext> = {}): AuthContext => ({
 	role: "USER",
 	dependencyId: 3,
 	isTrainer: true,
+	mustChangePassword: false,
 	...overrides,
 });

@@ -24,7 +24,7 @@ import { createSessionMaterialService } from "../session-material.service.server
 const NOW = new Date("2026-10-10T18:00:00.000Z");
 const SESSION = "33333333-3333-4333-8333-333333333333";
 const MATERIAL = "44444444-4444-4444-8444-444444444444";
-const KEY = `${SESSION_MATERIAL_PREFIX}/presentacion-1700000000.pdf`;
+const KEY = `${SESSION_MATERIAL_PREFIX}/${COURSE_DOC}/presentacion-1700000000.pdf`;
 
 const silentLogger: Logger = {
 	debug: () => {},
@@ -67,7 +67,7 @@ const createHarness = (
 		sessions?: SessionMaterialsRaw[];
 		/** `null`: quien pregunta no está inscrito. */
 		participantSessions?: SessionMaterialsRaw[] | null;
-		stat?: { size: number } | null;
+		stat?: { size: number; contentType?: string | null } | null;
 	} = {},
 ) => {
 	const calls = {
@@ -124,7 +124,7 @@ const createHarness = (
 		},
 		statObject: async (_bucket: string, key: string) =>
 			options.stat === undefined
-				? { key, size: 1024, lastModified: NOW }
+				? { key, size: 1024, lastModified: NOW, contentType: "application/pdf" }
 				: options.stat,
 	} as unknown as ICradle["storageProvider"];
 
@@ -356,7 +356,7 @@ describe("createUploadUrl", () => {
 		size: 2048,
 	};
 
-	test("emite una key del prefijo de sesiones", async () => {
+	test("emite una key de la carpeta del curso", async () => {
 		const { service } = createHarness();
 
 		const result = await service.createUploadUrl(
@@ -366,7 +366,7 @@ describe("createUploadUrl", () => {
 		);
 
 		expect(result.success && result.data.key).toMatch(
-			new RegExp(`^${SESSION_MATERIAL_PREFIX}/`),
+			new RegExp(`^${SESSION_MATERIAL_PREFIX}/${COURSE_DOC}/[^/]+$`),
 		);
 	});
 
@@ -398,7 +398,9 @@ describe("createUploadUrl", () => {
 
 describe("create", () => {
 	test("guarda el archivo por su referencia del proxy y su tamaño real", async () => {
-		const { service, calls } = createHarness({ stat: { size: 4096 } });
+		const { service, calls } = createHarness({
+			stat: { size: 4096, contentType: "application/pdf" },
+		});
 
 		const result = await service.create(COURSE_DOC, fileDto, actorOf());
 
@@ -443,6 +445,25 @@ describe("create", () => {
 			fileName: null,
 			externalUrl: "https://forms.example/x",
 		});
+	});
+
+	// C05: quitar después ese material borraba el archivo del otro curso.
+	test.each([
+		[
+			"de otro curso",
+			`${SESSION_MATERIAL_PREFIX}/66666666-6666-4666-8666-666666666666/acta-1700000000.pdf`,
+		],
+		["sin curso", `${SESSION_MATERIAL_PREFIX}/acta-1700000000.pdf`],
+	])("una key %s no se acepta", async (_case, key) => {
+		const { service, calls } = createHarness();
+
+		expect(
+			await service.create(COURSE_DOC, { ...fileDto, key }, actorOf()),
+		).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.UPLOAD_NOT_FOUND },
+		});
+		expect(calls.created).toHaveLength(0);
 	});
 
 	test("una subida que no llegó no se guarda", async () => {

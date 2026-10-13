@@ -10,6 +10,7 @@ const authOf = (role: Role, dependencyId: number | null = 3): AuthContext => ({
 	role,
 	dependencyId,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 describe("resolveScope", () => {

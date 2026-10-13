@@ -40,6 +40,7 @@ import { attemptsLeftOf, quizAvailabilityOf } from "../domain/quiz.rules";
 type Dependencies = {
 	classroomRepository: ICradle["classroomRepository"];
 	contentRepository: ICradle["contentRepository"];
+	enrollmentRepository: ICradle["enrollmentRepository"];
 	lessonMaterialReader: ICradle["lessonMaterialReader"];
 	progressSync: ICradle["progressSync"];
 	quizRepository: ICradle["quizRepository"];
@@ -51,6 +52,7 @@ type Dependencies = {
 export const createClassroomService = ({
 	classroomRepository,
 	contentRepository,
+	enrollmentRepository,
 	lessonMaterialReader,
 	progressSync,
 	quizRepository,
@@ -276,8 +278,22 @@ export const createClassroomService = ({
 				const now = clock.now();
 
 				return runInTransaction(async () => {
+					// Quien imparte pudo finalizar el curso desde la lectura de arriba:
+					// bajo el bloqueo se relee y se vuelve a comprobar, como en el envío
+					// de un cuestionario. Completar recalcula, y el recálculo toma el
+					// bloqueo exclusivo: se toma ya, porque subir desde el compartido
+					// dejaría a dos avances esperándose el uno al otro. Empezar una
+					// lección no recalcula y comparte: los demás no esperan.
+					if (dto.status === "COMPLETED") {
+						await enrollmentRepository.lockCourse(course.id);
+					} else {
+						await enrollmentRepository.lockCourseShared(course.id);
+					}
+					const locked = await requireCourse(courseDocumentId, actor);
+					assertCanProgress(locked);
+
 					const stored = await classroomRepository.findLessonStatus(
-						course.id,
+						locked.id,
 						lesson.id,
 						actor.userId,
 					);
@@ -295,15 +311,15 @@ export const createClassroomService = ({
 					// Empezar una lección no mueve el porcentaje; completarla sí,
 					// y puede ser la que termina el curso.
 					const current = {
-						percent: course.enrollment?.progressPercent ?? 0,
-						contentCompleted: Boolean(course.enrollment?.contentCompletedAt),
+						percent: locked.enrollment?.progressPercent ?? 0,
+						contentCompleted: Boolean(locked.enrollment?.contentCompletedAt),
 					};
 					if (status !== "COMPLETED" || stored === "COMPLETED") {
 						return ok(current);
 					}
 
 					const [state] = await progressSync.recalculate(
-						course,
+						locked,
 						actor.userId,
 						now,
 						[actor.userId],

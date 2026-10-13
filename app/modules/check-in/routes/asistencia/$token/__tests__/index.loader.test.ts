@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { CONTENT_ERROR_CODES } from "@/modules/content/domain/content.errors";
+import { createMemoryRateLimiter } from "@/shared/rate-limit/rate-limiter.memory";
 import { CHECK_IN_ERROR_CODES } from "../../../../domain/check-in.errors";
 import { loader } from "../index.loader";
 
@@ -30,22 +31,26 @@ const createHarness = (
 	options: {
 		anonymous?: boolean;
 		allowed?: boolean;
+		limitedKey?: string;
 		materialsFail?: boolean;
 	} = {},
 ) => {
 	const calls = {
 		previews: 0,
+		rateKeys: [] as string[],
 		followUps: [] as unknown[][],
 		materials: [] as unknown[][],
 	};
 
 	const context = {
 		authPayload: options.anonymous ? null : authPayload,
+		clientIpPolicy: { source: "proxy", trustedHops: 1 },
 		rateLimiter: {
-			consume: async () => ({
-				allowed: options.allowed ?? true,
-				retryAfterMs: options.allowed === false ? 30_000 : 0,
-			}),
+			consume: async (key: string) => {
+				calls.rateKeys.push(key);
+				const allowed = options.allowed !== false && key !== options.limitedKey;
+				return { allowed, retryAfterMs: allowed ? 0 : 30_000 };
+			},
 		},
 		checkInService: {
 			preview: async () => {
@@ -85,9 +90,17 @@ const createHarness = (
 	return { context, calls };
 };
 
-const run = (context: LoaderArgs["context"], token = TOKEN) =>
+const IP = "203.0.113.7";
+
+const run = (
+	context: LoaderArgs["context"],
+	token = TOKEN,
+	ip: string | null = IP,
+) =>
 	loader({
-		request: new Request(`https://app.example.com/asistencia/${token}`),
+		request: new Request(`https://app.example.com/asistencia/${token}`, {
+			headers: ip ? { "X-Forwarded-For": ip } : {},
+		}),
 		context,
 		params: { token },
 	} as unknown as LoaderArgs);
@@ -181,9 +194,46 @@ describe("escaneo loader", () => {
 		expect(calls.previews).toBe(0);
 	});
 
+	test("con sesión, la persona tiene su propia cubeta", async () => {
+		const { context, calls } = createHarness({
+			limitedKey: "check-in:user:7",
+		});
+
+		expect(statusOf(await caught(() => run(context)))).toBe(429);
+		expect(calls.rateKeys).toEqual([`check-in:${IP}`, "check-in:user:7"]);
+		expect(calls.previews).toBe(0);
+	});
+
+	test("sin IP no se consume ninguna cubeta por IP", async () => {
+		const { context, calls } = createHarness();
+
+		await run(context, TOKEN, null);
+
+		expect(calls.rateKeys).toEqual(["check-in:user:7"]);
+	});
+
+	// El hallazgo: sin IP todos caían en `check-in:unknown`, y 20 peticiones
+	// anónimas con token basura dejaban sin escaneo a quien llegaba después.
+	test("los anónimos sin IP no agotan el cupo de un participante", async () => {
+		const rateLimiter = createMemoryRateLimiter();
+		const anonymous = createHarness({ anonymous: true }).context;
+		Object.assign(anonymous, { rateLimiter });
+		for (let i = 0; i < 25; i++) {
+			await caught(() => run(anonymous, "no-es-un-token", null));
+		}
+
+		const { context, calls } = createHarness();
+		Object.assign(context, { rateLimiter });
+		const result = await run(context, TOKEN, null);
+
+		expect(result.success).toBe(true);
+		expect(calls.previews).toBe(1);
+	});
+
 	test("un rechazo del servicio viaja con su código estable", async () => {
 		const context = {
 			authPayload,
+			clientIpPolicy: { source: "proxy", trustedHops: 1 },
 			rateLimiter: {
 				consume: async () => ({ allowed: true, retryAfterMs: 0 }),
 			},

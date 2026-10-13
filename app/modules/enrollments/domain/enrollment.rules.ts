@@ -11,6 +11,7 @@ import {
 import type { Role } from "@/shared/rules/atoms.rules";
 import { createListRule } from "@/shared/rules/list.rules";
 import {
+	ACTIVE_ENROLLMENT_STATUSES,
 	ENROLLMENT_BATCH_LIMIT,
 	ENROLLMENT_CLOSING_SOON_DAYS,
 	type EnrollmentStatus,
@@ -18,6 +19,7 @@ import {
 import {
 	EnrollmentFullError,
 	EnrollmentInvitationRequiredError,
+	EnrollmentParticipantRemovedError,
 	EnrollmentRemoveClosedError,
 	EnrollmentRemovedError,
 	type RemovalBlocker,
@@ -119,7 +121,8 @@ export const canParticipate = (
 ): boolean =>
 	actor.dependencyId !== null && !NON_PARTICIPANT_ROLES.includes(actor.role);
 
-interface EnrollmentWindow {
+/** Lo que decide si un curso admite inscripciones. */
+export interface EnrollmentWindow {
 	status: CourseStatus;
 	format: CourseFormat;
 	enrollmentDeadline: Date | null;
@@ -216,6 +219,48 @@ export const isRemoval = (enrollment: {
 
 export const assertNotRemoved = (enrollment: { removed: boolean } | null) => {
 	if (enrollment?.removed) throw new EnrollmentRemovedError();
+};
+
+/**
+ * El enlace de videollamada solo le llega a quien tiene la inscripción activa,
+ * igual que el calendario: no a quien se dio de baja ni a quien solo ve el
+ * curso en el catálogo.
+ */
+export const withSessionLinksFor = <
+	T extends { sessions: readonly { link: string | null }[] },
+>(
+	course: T,
+	status: EnrollmentStatus | null,
+): T =>
+	status !== null && ACTIVE_ENROLLMENT_STATUSES.includes(status)
+		? course
+		: {
+				...course,
+				sessions: course.sessions.map((session) => ({
+					...session,
+					link: null,
+				})),
+			};
+
+/**
+ * Las personas de un lote que una dependencia que no organiza el curso no
+ * puede volver a inscribir: quien organiza las dio de baja. Elegir a una
+ * rechaza el lote; como miembro de un grupo, solo se omite.
+ */
+export const removalsOutOfReach = (
+	states: readonly { userId: number; removed: boolean }[],
+	organizer: boolean,
+	chosen: ReadonlySet<number>,
+): ReadonlySet<number> => {
+	if (organizer) return new Set();
+
+	const removed = new Set(
+		states.filter((state) => state.removed).map((state) => state.userId),
+	);
+	for (const userId of chosen) {
+		if (removed.has(userId)) throw new EnrollmentParticipantRemovedError();
+	}
+	return removed;
 };
 
 /**

@@ -286,8 +286,119 @@ describe("pertenencia a grupos", () => {
 				courseId: 7,
 				groupIds: [1],
 				dependencyId: null,
+				withRemovals: true,
 			}),
 		).resolves.toEqual([{ groupId: 1, userDocumentId: "doc-50" }]);
+	});
+});
+
+// Auditoría C08: una dependencia que no organiza no deshace la baja que dio
+// quien organiza, así que tampoco se le ofrece a esa persona.
+describe("bajas de quien organiza", () => {
+	const userIdRef = { name: "userId", modelName: "Enrollment" };
+	const removal = {
+		status: "WITHDRAWN",
+		NOT: { actedById: { equals: userIdRef } },
+	};
+
+	const createRemovalHarness = (rows: unknown[] = []) => {
+		const calls: Record<string, Record<string, unknown>[]> = {
+			enrollments: [],
+			users: [],
+			members: [],
+		};
+		const repository = createEnrollmentRepository({
+			prisma: {
+				enrollment: {
+					fields: { userId: userIdRef },
+					findMany: async (args: Record<string, unknown>) => {
+						calls.enrollments.push(args);
+						return rows;
+					},
+				},
+				user: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.users.push(args);
+						return [];
+					},
+				},
+				groupMember: {
+					findMany: async (args: Record<string, unknown>) => {
+						calls.members.push(args);
+						return [];
+					},
+				},
+			} as unknown as ICradle["prisma"],
+			assetUrlResolver: (key: string) => `/api/storage?key=${key}`,
+		});
+		return { repository, calls };
+	};
+
+	test("findEnrollments marca la baja que dio alguien que no es la persona", async () => {
+		const { repository, calls } = createRemovalHarness([
+			{ userId: 1, status: "WITHDRAWN", origin: "SELF", actedById: 9 },
+			{ userId: 2, status: "WITHDRAWN", origin: "SELF", actedById: 2 },
+			{ userId: 3, status: "ENROLLED", origin: "ASSIGNED", actedById: 9 },
+		]);
+
+		await expect(repository.findEnrollments(7, [1, 2, 3])).resolves.toEqual([
+			{ userId: 1, status: "WITHDRAWN", origin: "SELF", removed: true },
+			{ userId: 2, status: "WITHDRAWN", origin: "SELF", removed: false },
+			{ userId: 3, status: "ENROLLED", origin: "ASSIGNED", removed: false },
+		]);
+		expect(calls.enrollments[0]?.select).toEqual({
+			userId: true,
+			status: true,
+			origin: true,
+			actedById: true,
+		});
+	});
+
+	test("searchCandidates sin bajas excluye también a quien quien organiza dio de baja", async () => {
+		const { repository, calls } = createRemovalHarness();
+
+		await repository.searchCandidates({
+			courseId: 7,
+			dependencyId: 3,
+			withRemovals: false,
+		});
+		await repository.searchCandidates({
+			courseId: 7,
+			dependencyId: 3,
+			withRemovals: true,
+		});
+
+		const [without, withAll] = calls.users.map(
+			(args) => (args.where as Record<string, unknown>).enrollments,
+		);
+		expect(without).toEqual({
+			none: {
+				courseId: 7,
+				OR: [{ status: { in: ["INVITED", "ENROLLED"] } }, removal],
+			},
+		});
+		expect(withAll).toEqual({
+			none: { courseId: 7, OR: [{ status: { in: ["INVITED", "ENROLLED"] } }] },
+		});
+	});
+
+	test("findGroupEnrollable sin bajas tampoco cuenta a quien quien organiza dio de baja", async () => {
+		const { repository, calls } = createRemovalHarness();
+
+		await repository.findGroupEnrollable({
+			courseId: 7,
+			groupIds: [1],
+			dependencyId: 3,
+			withRemovals: false,
+		});
+
+		expect(calls.members[0]?.where).toMatchObject({
+			user: {
+				enrollments: {
+					none: { courseId: 7, OR: [{ status: "ENROLLED" }, removal] },
+				},
+			},
+		});
 	});
 });
 
@@ -381,8 +492,11 @@ describe("findEnrollmentByCourseDocumentId", () => {
 });
 
 describe("bloqueo del curso", () => {
+	const FIRST_SESSION = new Date("2026-10-20T23:00:00.000Z");
+
 	const createLockHarness = () => {
 		const ops: string[] = [];
+		const courseReads: unknown[] = [];
 		const repository = createEnrollmentRepository({
 			prisma: {
 				$queryRaw: async (strings: TemplateStringsArray) => {
@@ -390,9 +504,17 @@ describe("bloqueo del curso", () => {
 					return [];
 				},
 				course: {
-					findUniqueOrThrow: async () => {
+					findUniqueOrThrow: async (args: unknown) => {
 						ops.push("capacity");
-						return { capacity: 20 };
+						courseReads.push(args);
+						return {
+							capacity: 20,
+							status: "PUBLISHED",
+							format: "SCHEDULED",
+							enrollmentDeadline: null,
+							enrollmentClosedAt: null,
+							sessions: [{ startsAt: FIRST_SESSION }],
+						};
 					},
 				},
 				enrollment: {
@@ -404,7 +526,7 @@ describe("bloqueo del curso", () => {
 			} as unknown as ICradle["prisma"],
 			assetUrlResolver: (key: string) => key,
 		});
-		return { repository, ops };
+		return { repository, ops, courseReads };
 	};
 
 	test("lockCourse solo bloquea la fila, sin leer cupo ni inscritos", async () => {
@@ -417,17 +539,59 @@ describe("bloqueo del curso", () => {
 		]);
 	});
 
+	test("lockCourseShared bloquea la fila en modo compartido, sin leer nada", async () => {
+		const { repository, ops } = createLockHarness();
+
+		await repository.lockCourseShared(10);
+
+		expect(ops).toEqual([
+			'SELECT id FROM "org"."courses" WHERE id = ? FOR SHARE',
+		]);
+	});
+
 	test("lockCourseSeats bloquea primero y lee cupo e inscritos después", async () => {
 		const { repository, ops } = createLockHarness();
 
 		expect(await repository.lockCourseSeats(10)).toEqual({
 			capacity: 20,
 			enrolled: 3,
+			window: {
+				status: "PUBLISHED",
+				format: "SCHEDULED",
+				enrollmentDeadline: null,
+				enrollmentClosedAt: null,
+				firstSessionAt: FIRST_SESSION,
+			},
 		});
 		expect(ops[0]).toBe(
 			'SELECT id FROM "org"."courses" WHERE id = ? FOR UPDATE',
 		);
 		expect([...ops.slice(1)].sort()).toEqual(["capacity", "count"]);
+	});
+
+	// La ventana viaja en la misma lectura que el cupo: no suma sentencias.
+	test("lockCourseSeats lee la ventana con el cupo, y solo la primera sesión", async () => {
+		const { repository, courseReads } = createLockHarness();
+
+		await repository.lockCourseSeats(10);
+
+		expect(courseReads).toEqual([
+			{
+				where: { id: 10 },
+				select: {
+					capacity: true,
+					status: true,
+					format: true,
+					enrollmentDeadline: true,
+					enrollmentClosedAt: true,
+					sessions: {
+						select: { startsAt: true },
+						orderBy: { startsAt: "asc" },
+						take: 1,
+					},
+				},
+			},
+		]);
 	});
 });
 

@@ -1,9 +1,12 @@
 import * as v from "valibot";
 import { describe, expect, test } from "vitest";
+import { GROUP_ERROR_CODES } from "../group.errors";
 import {
 	addMembersRule,
+	assertGroupEditable,
 	createGroupRule,
 	groupSchema,
+	isGroupEditable,
 	listGroupsRule,
 	removeMemberRule,
 	updateGroupRule,
@@ -92,6 +95,7 @@ describe("groupSchema", () => {
 				documentId: UUID_A,
 				dependencyId: 3,
 				dependencyName: "Obras Públicas",
+				dependencyArchived: false,
 				name: "Mandos medios",
 				description: null,
 				memberCount: 0,
@@ -100,5 +104,36 @@ describe("groupSchema", () => {
 				updatedAt: new Date(0),
 			}).success,
 		).toBe(true);
+	});
+});
+
+// Remediación (Fase C): un grupo archivado o de una dependencia desactivada
+// seguía aceptando cambios y miembros nuevos.
+describe("assertGroupEditable", () => {
+	const codeOf = (group: Parameters<typeof assertGroupEditable>[0]) => {
+		try {
+			assertGroupEditable(group);
+			return null;
+		} catch (error) {
+			return (error as { code: string }).code;
+		}
+	};
+
+	test("uno activo de una dependencia activa se edita", () => {
+		const group = { archivedAt: null, dependencyArchived: false };
+		expect(codeOf(group)).toBeNull();
+		expect(isGroupEditable(group)).toBe(true);
+	});
+
+	test("uno archivado no", () => {
+		const group = { archivedAt: new Date(0), dependencyArchived: false };
+		expect(codeOf(group)).toBe(GROUP_ERROR_CODES.ARCHIVED);
+		expect(isGroupEditable(group)).toBe(false);
+	});
+
+	test("uno de una dependencia desactivada no, aunque esté activo", () => {
+		const group = { archivedAt: null, dependencyArchived: true };
+		expect(codeOf(group)).toBe(GROUP_ERROR_CODES.DEPENDENCY_INACTIVE);
+		expect(isGroupEditable(group)).toBe(false);
 	});
 });

@@ -5,12 +5,12 @@ import type { Group } from "./group.types";
 /**
  * Fila cruda de persistencia → grupo de dominio.
  *
- * Ni `memberCount` ni `dependencyName` son columnas: llegan del `_count` y del
- * join, y se aplanan aquí para que ninguna capa de arriba conozca su forma.
+ * Ni `memberCount` ni lo de la dependencia son columnas: llegan del `_count` y
+ * del join, y se aplanan aquí para que ninguna capa de arriba conozca su forma.
  */
 export const toDomain = (raw: {
 	_count?: { members: number };
-	dependency?: { name: string };
+	dependency?: { name: string; archivedAt?: Date | null };
 	[key: string]: unknown;
 }): Group => {
 	const { _count, dependency, ...rest } = raw;
@@ -18,6 +18,7 @@ export const toDomain = (raw: {
 	return v.parse(groupSchema, {
 		...rest,
 		dependencyName: dependency?.name ?? "",
+		dependencyArchived: Boolean(dependency?.archivedAt),
 		memberCount: _count?.members ?? 0,
 	});
 };

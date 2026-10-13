@@ -1,10 +1,15 @@
 import type { ICradle } from "@/shared/di/container.types";
+import { isDocumentIdSegment } from "@/shared/storage/object-key";
 import type {
 	IObjectReferenceSource,
 	ObjectReference,
 } from "@/shared/storage/object-reference.port";
 import { toProxyRef } from "@/shared/storage/public-url";
 import { StorageObjectLockedError } from "@/shared/storage/storage.errors";
+import {
+	canSeeTemplate,
+	templateVisibilityOf,
+} from "../domain/certificate-template.access";
 import {
 	CERTIFICATE_TEMPLATE,
 	templateOfAssetKey,
@@ -116,5 +121,16 @@ export const createCertificateTemplateReferenceSource = ({
 				href: `${TEMPLATES_PATH}/${template.documentId}/editor`,
 			})),
 		];
+	},
+
+	/** Lo lee quien ve la plantilla en la biblioteca (`canSeeTemplate`). */
+	async canRead(key, reader) {
+		const template = templateOfAssetKey(key);
+		if (template === null || !isDocumentIdSegment(template)) return false;
+		if (templateVisibilityOf(reader).kind === "none") return false;
+
+		const ownership =
+			await certificateTemplateRepository.findOwnership(template);
+		return ownership !== null && canSeeTemplate(reader, ownership);
 	},
 });

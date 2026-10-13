@@ -35,6 +35,7 @@ const userOf = (overrides: Partial<SafeUser> = {}): SafeUser =>
 		photoUrl: null,
 		dependencyId: 3,
 		isTrainer: false,
+		mustChangePassword: false,
 		archivedAt: null,
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
@@ -70,6 +71,7 @@ const actorOf = (
 	role,
 	dependencyId,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 /**
@@ -419,6 +421,40 @@ describe("createTrainerService — editar y desactivar", () => {
 		expect(calls.unarchived).toEqual([9]);
 		expect(calls.revoked).toEqual([9, 9]);
 	});
+
+	// Auditoría C09: ni editar ni desactivar ni reactivar, y sobre todo sin
+	// cerrarle las sesiones una y otra vez.
+	test("un titular o auxiliar no toca el perfil de un externo de rango superior", async () => {
+		for (const role of ["SUPERADMIN", "DEPENDENCY_DEPUTY"] as const) {
+			for (const actor of [actorOf(), actorOf("DEPENDENCY_DEPUTY")]) {
+				const { service, calls } = createHarness({
+					user: userOf({
+						role,
+						type: "EXTERNAL",
+						dependencyId: null,
+						employeeNumber: null,
+					}),
+				});
+
+				const results = await Promise.all([
+					service.deactivateProfile(USER_ID, actor),
+					service.reactivateProfile(USER_ID, actor),
+					service.updateProfile(USER_ID, { specialty: "otra" }, actor),
+				]);
+
+				for (const result of results) {
+					expect(result).toMatchObject({
+						success: false,
+						error: { code: TRAINER_ERROR_CODES.FORBIDDEN_SCOPE },
+					});
+				}
+				expect(calls.archived).toEqual([]);
+				expect(calls.unarchived).toEqual([]);
+				expect(calls.updated).toEqual([]);
+				expect(calls.revoked).toEqual([]);
+			}
+		}
+	});
 });
 
 describe("createTrainerService — alta de capacitador externo", () => {
@@ -449,6 +485,8 @@ describe("createTrainerService — alta de capacitador externo", () => {
 				role: "USER",
 				type: "EXTERNAL",
 				dependencyId: null,
+				// La contraseña la puso quien registró: la cambia al entrar.
+				mustChangePassword: true,
 			},
 		]);
 		expect(calls.created).toEqual([

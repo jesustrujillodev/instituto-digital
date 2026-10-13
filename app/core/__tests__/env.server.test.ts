@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 /**
@@ -29,6 +30,8 @@ const STORAGE_VARS = [
 	"EMAIL_WORKER_ENABLED",
 	"CHROMIUM_PATH",
 	"CHROMIUM_NO_SANDBOX",
+	"CLIENT_IP_SOURCE",
+	"TRUSTED_PROXY_HOPS",
 ];
 
 /**
@@ -90,6 +93,176 @@ describe("env.server — fail-fast", () => {
 		await expect(importEnv({ NODE_ENV: "staging" })).rejects.toThrow(
 			"Invalid environment configuration",
 		);
+	});
+});
+
+/**
+ * El marcador se lee de la plantilla versionada, no se copia: si alguien lo
+ * cambia por un texto sin `change-me`, la guarda deja de cubrirlo y estas
+ * pruebas lo hacen visible.
+ */
+const examplePlaceholderOf = (name: string): string => {
+	const line = readFileSync(".env.example", "utf8")
+		.split("\n")
+		.find((l) => l.startsWith(`${name}=`));
+	if (!line) throw new Error(`${name} no está en .env.example`);
+	return line
+		.slice(name.length + 1)
+		.trim()
+		.replace(/^"|"$/g, "");
+};
+
+describe("env.server — secretos en producción", () => {
+	const JWT = "jwt-secreto-propio-de-al-menos-32-caracteres";
+	const COOKIE = "cookie-secreto-propio-de-al-menos-32-chars";
+
+	test("rechaza los secretos tal como vienen en .env.example", async () => {
+		const error = await importEnv({
+			NODE_ENV: "production",
+			JWT_SECRET: examplePlaceholderOf("JWT_SECRET"),
+			COOKIE_SECRET: examplePlaceholderOf("COOKIE_SECRET"),
+		}).catch((e) => e);
+
+		expect(error.message).toContain("JWT_SECRET");
+		expect(error.message).toContain("COOKIE_SECRET");
+	});
+
+	test("rechaza cualquier secreto que conserve «change-me»", async () => {
+		await expect(
+			importEnv({
+				NODE_ENV: "production",
+				JWT_SECRET: "CHANGE-ME-pero-con-otro-texto-largo-de-relleno",
+				COOKIE_SECRET: COOKIE,
+			}),
+		).rejects.toThrow("JWT_SECRET");
+	});
+
+	test("rechaza el mismo valor para los dos secretos", async () => {
+		await expect(
+			importEnv({
+				NODE_ENV: "production",
+				JWT_SECRET: JWT,
+				COOKIE_SECRET: JWT,
+			}),
+		).rejects.toThrow("JWT_SECRET y COOKIE_SECRET deben ser distintos");
+	});
+
+	test("arranca con dos secretos propios y distintos", async () => {
+		const { env } = await importEnv({
+			NODE_ENV: "production",
+			JWT_SECRET: JWT,
+			COOKIE_SECRET: COOKIE,
+			CLIENT_IP_SOURCE: "proxy",
+			APP_BASE_URL: "https://capacitacion.gob.mx",
+		});
+
+		expect(env.JWT_SECRET).toBe(JWT);
+		expect(env.COOKIE_SECRET).toBe(COOKIE);
+	});
+
+	// Quien copió .env.example para desarrollar sigue arrancando: la guarda es
+	// del despliegue, no del entorno local.
+	test("fuera de producción admite el marcador de la plantilla", async () => {
+		const placeholder = examplePlaceholderOf("JWT_SECRET");
+		const { env } = await importEnv({
+			NODE_ENV: "development",
+			JWT_SECRET: placeholder,
+			COOKIE_SECRET: placeholder,
+		});
+
+		expect(env.JWT_SECRET).toBe(placeholder);
+	});
+});
+
+describe("env.server — IP del cliente", () => {
+	const PRODUCTION = {
+		NODE_ENV: "production",
+		JWT_SECRET: "jwt-secreto-propio-de-al-menos-32-caracteres",
+		COOKIE_SECRET: "cookie-secreto-propio-de-al-menos-32-chars",
+		APP_BASE_URL: "https://capacitacion.gob.mx",
+	};
+
+	// Sin declararla, el despliegue confiaría en una cabecera que no sabe quién
+	// escribió: la fuente la elige quien conoce el proxy.
+	test("en producción no arranca sin CLIENT_IP_SOURCE", async () => {
+		await expect(importEnv(PRODUCTION)).rejects.toThrow(
+			"CLIENT_IP_SOURCE es obligatoria en producción",
+		);
+	});
+
+	test("en producción arranca con la fuente declarada", async () => {
+		const { env } = await importEnv({
+			...PRODUCTION,
+			CLIENT_IP_SOURCE: "proxy",
+			TRUSTED_PROXY_HOPS: "2",
+		});
+
+		expect(env.CLIENT_IP_SOURCE).toBe("proxy");
+		expect(env.TRUSTED_PROXY_HOPS).toBe(2);
+	});
+
+	test("fuera de producción es opcional y los saltos valen 1", async () => {
+		const { env } = await importEnv({ NODE_ENV: "development" });
+
+		expect(env.CLIENT_IP_SOURCE).toBeUndefined();
+		expect(env.TRUSTED_PROXY_HOPS).toBe(1);
+	});
+
+	test("rechaza una fuente desconocida", async () => {
+		await expect(importEnv({ CLIENT_IP_SOURCE: "xff" })).rejects.toThrow(
+			"CLIENT_IP_SOURCE",
+		);
+	});
+});
+
+// Remediación (Fase C): de ella salen los enlaces y el `Secure` de las cookies.
+describe("env.server — origen público en producción", () => {
+	const PRODUCTION = {
+		NODE_ENV: "production",
+		JWT_SECRET: "jwt-secreto-propio-de-al-menos-32-caracteres",
+		COOKIE_SECRET: "cookie-secreto-propio-de-al-menos-32-chars",
+		CLIENT_IP_SOURCE: "proxy",
+	};
+
+	test("no arranca sin APP_BASE_URL", async () => {
+		await expect(importEnv(PRODUCTION)).rejects.toThrow(
+			"APP_BASE_URL es obligatoria en producción",
+		);
+	});
+
+	test("en Railway la deriva del dominio público", async () => {
+		const { env } = await importEnv({
+			...PRODUCTION,
+			RAILWAY_PUBLIC_DOMAIN: "instituto-qa.up.railway.app",
+		});
+
+		expect(env.APP_BASE_URL).toBe("https://instituto-qa.up.railway.app");
+	});
+
+	test("fuera de producción sigue siendo opcional", async () => {
+		const { env } = await importEnv({ NODE_ENV: "development" });
+
+		expect(env.APP_BASE_URL).toBeUndefined();
+	});
+});
+
+describe("env.server — buckets", () => {
+	test("el público no puede ser el mismo que el privado", async () => {
+		await expect(
+			importEnv({
+				STORAGE_BUCKET_NAME: "instituto",
+				STORAGE_PUBLIC_BUCKET_NAME: "instituto",
+			}),
+		).rejects.toThrow("STORAGE_PUBLIC_BUCKET_NAME debe ser distinto");
+	});
+
+	test("dos buckets distintos arrancan", async () => {
+		const { env } = await importEnv({
+			STORAGE_BUCKET_NAME: "instituto-privado",
+			STORAGE_PUBLIC_BUCKET_NAME: "instituto-publico",
+		});
+
+		expect(env.STORAGE_PUBLIC_BUCKET_NAME).toBe("instituto-publico");
 	});
 });
 

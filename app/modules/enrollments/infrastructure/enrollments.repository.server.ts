@@ -13,6 +13,7 @@ import {
 import { EnrollmentStateChangedError } from "../domain/enrollment.errors";
 import {
 	toEnrollmentCourse,
+	toEnrollmentState,
 	toOwnEnrollment,
 	toRosterEntry,
 } from "../domain/enrollment.mapper";
@@ -216,6 +217,19 @@ export const createEnrollmentRepository = ({
 	const resolveCover = (reference: string | null) =>
 		resolveAssetRef(assetUrlResolver, reference);
 
+	/** La forma en la base de `isRemoval`: baja dada por alguien que no es la persona. */
+	const removalsUnless = (
+		withRemovals: boolean,
+	): Prisma.EnrollmentWhereInput[] =>
+		withRemovals
+			? []
+			: [
+					{
+						status: "WITHDRAWN",
+						NOT: { actedById: { equals: prisma.enrollment.fields.userId } },
+					},
+				];
+
 	// Prisma no expresa `FOR UPDATE`: serializa las escrituras de ESE curso hasta
 	// el commit (docs/adr/0004).
 	const lockCourse = async (courseId: number) => {
@@ -394,13 +408,23 @@ export const createEnrollmentRepository = ({
 		async findEnrollments(courseId, userIds) {
 			if (userIds.length === 0) return [];
 
-			return prisma.enrollment.findMany({
+			const rows = await prisma.enrollment.findMany({
 				where: { courseId, userId: { in: [...userIds] } },
-				select: { userId: true, status: true, origin: true },
+				select: { userId: true, status: true, origin: true, actedById: true },
 			});
+			return rows.map(toEnrollmentState);
 		},
 
 		lockCourse,
+
+		// Compartido y no `FOR UPDATE`: el avance o el escaneo de una persona no
+		// tiene por qué esperar a los de las demás, solo a que `finish` suelte el
+		// curso (auditoría C07). Prisma tampoco expresa `FOR SHARE`.
+		async lockCourseShared(courseId) {
+			await prisma.$queryRaw<
+				{ id: number }[]
+			>`SELECT id FROM "org"."courses" WHERE id = ${courseId} FOR SHARE`;
+		},
 
 		async lockCourseSeats(courseId) {
 			await lockCourse(courseId);
@@ -408,12 +432,33 @@ export const createEnrollmentRepository = ({
 			const [course, enrolled] = await Promise.all([
 				prisma.course.findUniqueOrThrow({
 					where: { id: courseId },
-					select: { capacity: true },
+					select: {
+						capacity: true,
+						status: true,
+						format: true,
+						enrollmentDeadline: true,
+						enrollmentClosedAt: true,
+						sessions: {
+							select: { startsAt: true },
+							orderBy: { startsAt: "asc" },
+							take: 1,
+						},
+					},
 				}),
 				prisma.enrollment.count({ where: { courseId, status: "ENROLLED" } }),
 			]);
 
-			return { capacity: course.capacity, enrolled };
+			return {
+				capacity: course.capacity,
+				enrolled,
+				window: {
+					status: course.status,
+					format: course.format,
+					enrollmentDeadline: course.enrollmentDeadline,
+					enrollmentClosedAt: course.enrollmentClosedAt,
+					firstSessionAt: course.sessions.at(0)?.startsAt ?? null,
+				},
+			};
 		},
 
 		async save(data, expected) {
@@ -698,7 +743,12 @@ export const createEnrollmentRepository = ({
 			return toParticipants([...members.values()]);
 		},
 
-		async findGroupEnrollable({ courseId, groupIds, dependencyId }) {
+		async findGroupEnrollable({
+			courseId,
+			groupIds,
+			dependencyId,
+			withRemovals,
+		}) {
 			if (groupIds.length === 0) return [];
 
 			const rows = await prisma.groupMember.findMany({
@@ -708,7 +758,12 @@ export const createEnrollmentRepository = ({
 						type: "INTERNAL",
 						archivedAt: null,
 						dependencyId: dependencyId ?? { not: null },
-						enrollments: { none: { courseId, status: "ENROLLED" } },
+						enrollments: {
+							none: {
+								courseId,
+								OR: [{ status: "ENROLLED" }, ...removalsUnless(withRemovals)],
+							},
+						},
 					},
 				},
 				select: {
@@ -726,13 +781,21 @@ export const createEnrollmentRepository = ({
 				}));
 		},
 
-		async searchCandidates({ courseId, dependencyId, search }) {
+		async searchCandidates({ courseId, dependencyId, withRemovals, search }) {
 			const rows = await prisma.user.findMany({
 				where: {
 					type: "INTERNAL",
 					archivedAt: null,
 					dependencyId: dependencyId ?? { not: null },
-					enrollments: { none: { courseId, status: { in: activeStatuses } } },
+					enrollments: {
+						none: {
+							courseId,
+							OR: [
+								{ status: { in: activeStatuses } },
+								...removalsUnless(withRemovals),
+							],
+						},
+					},
 					...(search && {
 						OR: CANDIDATE_SEARCHABLE_FIELDS.map((field) => ({
 							[field]: insensitive(search),

@@ -30,9 +30,9 @@ export const TEACHABLE_STATUSES = [
 export type TeachableStatus = (typeof TEACHABLE_STATUSES)[number];
 
 /**
- * El pase de lista manual está oculto a pedido del cliente: la asistencia se
- * registra solo por QR. El intent `attendance` sigue vivo en el servidor, así
- * que encenderlo devuelve la lista con casillas sin tocar nada más.
+ * El pase de lista manual está apagado a pedido del cliente: la asistencia se
+ * registra solo por QR, y la action rechaza el intent `attendance`. Encenderlo
+ * devuelve la lista con casillas sin tocar nada más.
  */
 export const MANUAL_ATTENDANCE_ENABLED = false;
 

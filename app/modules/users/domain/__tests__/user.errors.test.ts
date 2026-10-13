@@ -4,6 +4,8 @@ import {
 	DuplicateEmailError,
 	InvalidUploadError,
 	LastActiveSuperadminError,
+	OwnPasswordResetError,
+	PasswordChangeRateLimitedError,
 	USER_ERROR_CODES,
 	UserError,
 	UserHasRelatedRecordsError,
@@ -18,6 +20,8 @@ const ALL_ERRORS = [
 	new UserHasRelatedRecordsError(),
 	new InvalidUploadError("tipo no permitido"),
 	new LastActiveSuperadminError(),
+	new PasswordChangeRateLimitedError(60_000),
+	new OwnPasswordResetError(),
 ];
 
 describe("USER_ERROR_CODES", () => {
@@ -34,6 +38,8 @@ describe("USER_ERROR_CODES", () => {
 			HEAD_CANNOT_LEAVE: "HEAD_CANNOT_LEAVE_DEPENDENCY",
 			FORBIDDEN_SCOPE: "FORBIDDEN_SCOPE",
 			INVALID_CURRENT_PASSWORD: "INVALID_CURRENT_PASSWORD",
+			PASSWORD_CHANGE_RATE_LIMITED: "PASSWORD_CHANGE_RATE_LIMITED",
+			OWN_PASSWORD_RESET: "OWN_PASSWORD_RESET",
 			NOT_ARCHIVED: "USER_NOT_ARCHIVED",
 			HAS_RELATED_RECORDS: "USER_HAS_RELATED_RECORDS",
 			INVALID_UPLOAD: "INVALID_UPLOAD",
@@ -53,6 +59,10 @@ describe("errores del módulo de usuarios", () => {
 		);
 		expect(new InvalidUploadError("x").code).toBe("INVALID_UPLOAD");
 		expect(new LastActiveSuperadminError().code).toBe("LAST_ACTIVE_SUPERADMIN");
+		expect(new PasswordChangeRateLimitedError(1).code).toBe(
+			"PASSWORD_CHANGE_RATE_LIMITED",
+		);
+		expect(new OwnPasswordResetError().code).toBe("OWN_PASSWORD_RESET");
 	});
 
 	// Sin esto, `toResponseError` los trataría como desconocidos: el envelope
@@ -93,6 +103,14 @@ describe("InvalidUploadError", () => {
 		expect(new InvalidUploadError("archivo vacío").message).toContain(
 			"archivo vacío",
 		);
+	});
+});
+
+describe("PasswordChangeRateLimitedError", () => {
+	test("lleva cuánto falta para volver a intentarlo", () => {
+		expect(new PasswordChangeRateLimitedError(60_000).details).toEqual({
+			retryAfterMs: 60_000,
+		});
 	});
 });
 

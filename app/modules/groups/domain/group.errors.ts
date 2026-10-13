@@ -6,6 +6,7 @@ export const GROUP_ERROR_CODES = {
 	NOT_FOUND: "GROUP_NOT_FOUND",
 	DUPLICATE_NAME: "DUPLICATE_GROUP_NAME",
 	DEPENDENCY_INACTIVE: "GROUP_DEPENDENCY_INACTIVE",
+	ARCHIVED: "GROUP_ARCHIVED",
 	MEMBER_OUT_OF_DEPENDENCY: "MEMBER_OUT_OF_DEPENDENCY",
 	EXTERNAL_CANNOT_JOIN: "EXTERNAL_CANNOT_JOIN_GROUP",
 	MEMBER_ALREADY_IN_GROUP: "MEMBER_ALREADY_IN_GROUP",
@@ -39,6 +40,14 @@ export class GroupDependencyInactiveError extends GroupError {
 	readonly code = GROUP_ERROR_CODES.DEPENDENCY_INACTIVE;
 	constructor() {
 		super("Dependency is archived");
+	}
+}
+
+/** Un grupo archivado no se edita ni cambia de miembros hasta restaurarlo. */
+export class GroupArchivedError extends GroupError {
+	readonly code = GROUP_ERROR_CODES.ARCHIVED;
+	constructor() {
+		super("Group is archived");
 	}
 }
 

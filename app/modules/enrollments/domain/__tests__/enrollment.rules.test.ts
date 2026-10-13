@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
 	ENROLLMENT_ERROR_CODES,
+	EnrollmentParticipantRemovedError,
 	EnrollmentRemoveClosedError,
 	EnrollmentRemovedError,
 } from "../enrollment.errors";
@@ -21,7 +22,9 @@ import {
 	isRemoval,
 	participantPermissionsOf,
 	removalBlockerOf,
+	removalsOutOfReach,
 	seatsLeftOf,
+	withSessionLinksFor,
 } from "../enrollment.rules";
 
 const FIRST_SESSION = new Date("2026-10-20T23:00:00.000Z");
@@ -486,5 +489,57 @@ describe("assertNotRemoved", () => {
 		);
 		expect(() => assertNotRemoved({ removed: false })).not.toThrow();
 		expect(() => assertNotRemoved(null)).not.toThrow();
+	});
+});
+
+// Auditoría C08.
+// Remediación (Fase C): de baja, «Mis cursos» seguía entregando la videollamada.
+describe("withSessionLinksFor", () => {
+	const course = {
+		title: "x",
+		sessions: [{ documentId: "s1", link: "https://meet.example.com/x" }],
+	};
+
+	test.each(["INVITED", "ENROLLED"] as const)(
+		"con la inscripción %s conserva el enlace",
+		(status) => {
+			expect(withSessionLinksFor(course, status)).toBe(course);
+		},
+	);
+
+	test.each(["WITHDRAWN", "DECLINED", null] as const)(
+		"con %s lo quita y conserva lo demás",
+		(status) => {
+			expect(withSessionLinksFor(course, status)).toEqual({
+				title: "x",
+				sessions: [{ documentId: "s1", link: null }],
+			});
+		},
+	);
+});
+
+describe("removalsOutOfReach", () => {
+	const states = [
+		{ userId: 1, removed: true },
+		{ userId: 2, removed: false },
+		{ userId: 3, removed: true },
+	];
+
+	test("quien organiza alcanza a todos: no deja a nadie fuera", () => {
+		expect(removalsOutOfReach(states, true, new Set([1, 3]))).toEqual(
+			new Set(),
+		);
+	});
+
+	test("a otra dependencia, elegir a alguien dado de baja le rechaza el lote", () => {
+		expect(() => removalsOutOfReach(states, false, new Set([2, 3]))).toThrow(
+			EnrollmentParticipantRemovedError,
+		);
+	});
+
+	test("las bajas que llegan por un grupo solo se apartan", () => {
+		expect(removalsOutOfReach(states, false, new Set([2]))).toEqual(
+			new Set([1, 3]),
+		);
 	});
 });

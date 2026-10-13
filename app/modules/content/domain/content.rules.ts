@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import type { CourseStatus } from "@/modules/courses/domain/course.rules";
+import { isHttpUrl } from "@/shared/rules/url.rules";
 import {
 	type UploadCandidate,
 	validateUploadInput,
@@ -15,6 +16,7 @@ import {
 	LESSON_MATERIAL_PREFIX,
 	LESSON_MAX_ESTIMATED_MINUTES,
 	LESSON_VIDEO,
+	MATERIAL_EXTENSIONS,
 } from "./content.config";
 import {
 	ContentDeleteLockedError,
@@ -172,16 +174,6 @@ export const reorderContentRule = v.object({
 // sostiene esa promesa es esta lista blanca —un nodo desconocido se rechaza, no
 // se ignora— y el filtro de protocolo del enlace.
 
-/** Solo http(s): un `javascript:` guardado es una inyección con fecha diferida. */
-export const isHttpUrl = (value: string): boolean => {
-	try {
-		const { protocol } = new URL(value);
-		return protocol === "http:" || protocol === "https:";
-	} catch {
-		return false;
-	}
-};
-
 export const httpUrl = (message: string) =>
 	v.pipe(
 		v.string(message),
@@ -330,6 +322,20 @@ const materialKey = v.pipe(
 	),
 );
 
+/**
+ * Carpeta de las keys que emite la subida de una lección. El prefijo del
+ * validador solo separa este flujo de otros módulos; la carpeta liga la key al
+ * curso y la lección que la pidieron.
+ */
+export const lessonMaterialFolderOf = (
+	courseDocumentId: string,
+	lessonDocumentId: string,
+): string =>
+	`${LESSON_MATERIAL_PREFIX}/${courseDocumentId}/${lessonDocumentId}`;
+
+export const isKeyInFolder = (key: string, folder: string): boolean =>
+	key.startsWith(`${folder}/`);
+
 export const materialFileName = v.pipe(
 	v.string("Falta el nombre del archivo."),
 	v.trim(),
@@ -347,7 +353,6 @@ export const materialMimeType = v.pipe(
 const uploadedMaterial = {
 	key: materialKey,
 	fileName: materialFileName,
-	mimeType: materialMimeType,
 };
 
 export const findMaterialRule = v.object({ lessonDocumentId: documentId });
@@ -568,23 +573,49 @@ export const assertUploadAllowed = (
 };
 
 /**
+ * El nombre con el que se arma la key de una subida: el del archivo, con la
+ * extensión del tipo que se firma (`MATERIAL_EXTENSIONS`). Llamarla después
+ * de `assertUploadAllowed`, que garantiza que el tipo es uno admitido.
+ */
+export const uploadFileNameOf = (fileName: string, contentType: string) => {
+	const dot = fileName.lastIndexOf(".");
+	const base = dot > 0 ? fileName.slice(0, dot) : fileName;
+	const ext =
+		MATERIAL_EXTENSIONS[contentType as keyof typeof MATERIAL_EXTENSIONS] ?? "";
+	return `${base}${ext}`;
+};
+
+/**
  * El control que la firma no puede dar.
  *
  * Una URL firmada de `PUT` fija el `Content-Type` pero no el tamaño, así que el
  * tope solo existe si se comprueba el objeto ya escrito.
  */
-export const requireUploadedObject = <T extends { size: number }>(
+export const requireUploadedObject = <
+	T extends { size: number; contentType?: string | null },
+>(
 	kind: LessonUploadKind,
 	object: T | null,
-): T => {
+): T & { contentType: string } => {
 	if (!object) throw new ContentUploadNotFoundError();
 
-	const { maxBytes } = uploadLimitsOf(kind);
+	const { maxBytes, allowedTypes } = uploadLimitsOf(kind);
 	if (object.size > maxBytes) {
 		throw new ContentUploadTooLargeError(maxBytes, object.size);
 	}
+	// El tipo que se guarda es el del objeto, no el que declara el navegador al
+	// terminar: el de la subida va firmado.
+	const { contentType } = object;
+	if (
+		!contentType ||
+		!(allowedTypes as readonly string[]).includes(contentType)
+	) {
+		throw new ContentUploadInvalidError(
+			`tipo no permitido: ${contentType || "desconocido"}`,
+		);
+	}
 
-	return object;
+	return { ...object, contentType };
 };
 
 export const assertMaterialMatchesLesson = (

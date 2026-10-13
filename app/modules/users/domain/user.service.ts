@@ -73,7 +73,8 @@ export interface IUserService {
 	): Promise<UserResponse>;
 	/**
 	 * Reseteo administrativo: no exige la contraseña anterior. Devuelve la cuenta
-	 * para que quien orquesta pueda cerrar sus sesiones por su id numérico.
+	 * para que quien orquesta pueda cerrar sus sesiones por su id numérico. La
+	 * propia no se restablece (`OWN_PASSWORD_RESET`): se cambia con la actual.
 	 */
 	resetPassword(
 		documentId: string,
@@ -97,13 +98,15 @@ export interface IUserService {
 	 * demostrar que se conoce la anterior, que es justo lo que protege de una sesión
 	 * ajena abierta en un equipo compartido.
 	 *
-	 * No revoca sesiones: quien la cambia conoce la nueva y echarlo de la suya justo
-	 * después sería gratuito. Para una cuenta comprometida el camino es el reseteo
-	 * administrativo, que sí las cierra.
+	 * Cierra las DEMÁS sesiones de la cuenta y corta sus access tokens: una sesión
+	 * robada no sobrevive al cambio. La de `currentRefreshToken` sigue abierta,
+	 * porque quien la cambia conoce la nueva y echarlo sería gratuito. Tiene tope
+	 * de intentos (`PASSWORD_CHANGE_RATE_LIMIT`).
 	 */
 	changeOwnPassword(
 		dto: ChangePasswordDto,
 		actor: AuthContext,
+		currentRefreshToken: string | null,
 	): Promise<UserVoidResponse>;
 	/**
 	 * Cambio de adscripción, inmediato y sin aprobación.

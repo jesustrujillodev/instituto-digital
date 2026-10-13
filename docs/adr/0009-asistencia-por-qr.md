@@ -123,19 +123,27 @@ que `recorded_at` conserve el instante del primero.
 Inferir el origen de `recorded_by_id` —"si es la propia persona, fue QR"— sería
 frágil: un capacitador inscrito en su propio curso la rompe.
 
-### 2.7 Sin transacción ni bloqueo del curso
+### 2.7 Bloqueo compartido del curso
 
 `teachingService.saveAttendance` toma `SELECT … FOR UPDATE` sobre el curso
 porque recalcula créditos sobre el roster entero. El escaneo escribe **una** fila
 con clave primaria compuesta `(session_id, user_id)`: el upsert ya es atómico y
-el curso está `PUBLISHED`, así que no hay créditos que mover.
+no hay créditos que mover.
 
-Bloquear el curso serializaría a las cuarenta personas que escanean al entrar al
-aula. Sería activamente dañino.
+Bloquear el curso en exclusiva serializaría a las cuarenta personas que escanean
+al entrar al aula. Sería activamente dañino.
 
-Corolario: `assertCheckInOpen` exige `PUBLISHED`, así que un escaneo **nunca**
-toca un curso finalizado y `syncCompletion` no entra en juego. Recalcular
-créditos sigue siendo un acto deliberado de quien imparte o de la dependencia.
+Sin ningún bloqueo, en cambio, un escaneo que leyó el curso `PUBLISHED` justo
+antes de que `finish` lo cerrara escribía la asistencia sobre un curso ya
+finalizado (auditoría, endurecimiento del grupo de C07). Desde el 10-10-2026
+`register` escribe dentro de `runInTransaction` con `lockCourseShared`
+(`SELECT … FOR SHARE`): los escaneos no se esperan entre sí, solo a que `finish`
+suelte el curso, y bajo el bloqueo se repiten las guardas de `resolve`.
+
+Corolario: `assertCheckInOpen` exige `PUBLISHED` y se comprueba con el curso
+bloqueado, así que un escaneo **nunca** toca un curso finalizado y
+`syncCompletion` no entra en juego. Recalcular créditos sigue siendo un acto
+deliberado de quien imparte o de la dependencia.
 
 ## 3. Consecuencias
 

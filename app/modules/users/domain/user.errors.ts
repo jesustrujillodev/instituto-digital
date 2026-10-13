@@ -23,6 +23,8 @@ export const USER_ERROR_CODES = {
 	HEAD_CANNOT_LEAVE: "HEAD_CANNOT_LEAVE_DEPENDENCY",
 	FORBIDDEN_SCOPE: "FORBIDDEN_SCOPE",
 	INVALID_CURRENT_PASSWORD: "INVALID_CURRENT_PASSWORD",
+	PASSWORD_CHANGE_RATE_LIMITED: "PASSWORD_CHANGE_RATE_LIMITED",
+	OWN_PASSWORD_RESET: "OWN_PASSWORD_RESET",
 	NOT_ARCHIVED: "USER_NOT_ARCHIVED",
 	HAS_RELATED_RECORDS: "USER_HAS_RELATED_RECORDS",
 	INVALID_UPLOAD: "INVALID_UPLOAD",
@@ -153,6 +155,24 @@ export class InvalidCurrentPasswordError extends UserError {
 	readonly code = USER_ERROR_CODES.INVALID_CURRENT_PASSWORD;
 	constructor() {
 		super("Current password does not match");
+	}
+}
+
+/** La propia contraseña no se restablece: se cambia con la actual (`canResetPassword`). */
+export class OwnPasswordResetError extends UserError {
+	readonly code = USER_ERROR_CODES.OWN_PASSWORD_RESET;
+	constructor() {
+		super("Own password cannot be reset, only changed");
+	}
+}
+
+/** Demasiados intentos de cambiar la propia contraseña (`PASSWORD_CHANGE_RATE_LIMIT`). */
+export class PasswordChangeRateLimitedError extends UserError {
+	readonly code = USER_ERROR_CODES.PASSWORD_CHANGE_RATE_LIMITED;
+	readonly details: { retryAfterMs: number };
+	constructor(retryAfterMs: number) {
+		super("Too many password change attempts");
+		this.details = { retryAfterMs };
 	}
 }
 

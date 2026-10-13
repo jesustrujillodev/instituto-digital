@@ -51,8 +51,12 @@ export const createAnnualPlanService = ({
 		return scope;
 	};
 
-	/** La línea dentro del alcance de escritura y de un plan que no ha pasado. */
+	/**
+	 * La línea del plan indicado, dentro del alcance de escritura y de un plan
+	 * que no ha pasado. La de otro plan, aunque esté en alcance, no existe aquí.
+	 */
 	const requireWritableLine = async (
+		planDocumentId: string,
 		lineDocumentId: string,
 		scope: AccessScope,
 	): Promise<StoredLineWithPlan> => {
@@ -60,7 +64,9 @@ export const createAnnualPlanService = ({
 			lineDocumentId,
 			planScopeWhere(scope),
 		);
-		if (!line) throw new AnnualPlanLineNotFoundError();
+		if (!line || line.plan.documentId !== planDocumentId) {
+			throw new AnnualPlanLineNotFoundError();
+		}
 		assertPlanWritable(line.plan, clock.now());
 		return line;
 	};
@@ -185,12 +191,14 @@ export const createAnnualPlanService = ({
 		},
 
 		async updateLine(
+			planDocumentId: string,
 			lineDocumentId: string,
 			dto: PlanLineDto,
 			actor: AuthContext,
 		) {
 			return run("updateLine", async () => {
 				const line = await requireWritableLine(
+					planDocumentId,
 					lineDocumentId,
 					requireManager(actor),
 				);
@@ -201,9 +209,14 @@ export const createAnnualPlanService = ({
 			});
 		},
 
-		async cancelLine(lineDocumentId: string, actor: AuthContext) {
+		async cancelLine(
+			planDocumentId: string,
+			lineDocumentId: string,
+			actor: AuthContext,
+		) {
 			return run("cancelLine", async () => {
 				const line = await requireWritableLine(
+					planDocumentId,
 					lineDocumentId,
 					requireManager(actor),
 				);
@@ -217,9 +230,14 @@ export const createAnnualPlanService = ({
 			});
 		},
 
-		async reactivateLine(lineDocumentId: string, actor: AuthContext) {
+		async reactivateLine(
+			planDocumentId: string,
+			lineDocumentId: string,
+			actor: AuthContext,
+		) {
 			return run("reactivateLine", async () => {
 				const line = await requireWritableLine(
+					planDocumentId,
 					lineDocumentId,
 					requireManager(actor),
 				);
@@ -230,9 +248,14 @@ export const createAnnualPlanService = ({
 			});
 		},
 
-		async deleteLine(lineDocumentId: string, actor: AuthContext) {
+		async deleteLine(
+			planDocumentId: string,
+			lineDocumentId: string,
+			actor: AuthContext,
+		) {
 			return run("deleteLine", async () => {
 				const line = await requireWritableLine(
+					planDocumentId,
 					lineDocumentId,
 					requireManager(actor),
 				);

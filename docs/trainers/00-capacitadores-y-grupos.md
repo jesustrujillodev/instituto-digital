@@ -104,6 +104,14 @@ pide datos: el perfil deshabilitado conserva su especialidad.
 dependencia, así que `canManageUser` dejaría fuera a cualquier titular. Es lo que
 dice la matriz al no acotar esa fila a "su dep.".
 
+Esa excepción relaja el alcance, no el rango, y por eso **un externo solo es
+`USER`** (auditoría C09). `trainers.createExternal` lo crea así y `users` no deja
+cambiarlo: `roleLockOf` devuelve `external` y `canChangeRole` solo acepta volver
+a `USER` a un externo que ya tuviera otro rol. Para ese caso, que no debería
+existir, `canManageTrainer` reserva su perfil al superadministrador: si no, un
+titular o auxiliar de cualquier dependencia podría desactivarlo y reactivarlo,
+cerrándole las sesiones cada vez.
+
 ## 5. El alta de un externo, la escritura compuesta
 
 Una fila en `auth.users` y otra en `org.trainer_profiles`, **las dos o ninguna**.
@@ -191,6 +199,12 @@ dependencia del grupo, su pertenencia vuelve a contar.
 `group_members` no tiene soft delete por el mismo motivo: dar de baja a alguien
 es un `DELETE`.
 
+**Un grupo archivado o de una dependencia desactivada es de solo lectura**
+(`assertGroupEditable`): no se edita ni cambia de miembros (`GROUP_ARCHIVED`,
+`GROUP_DEPENDENCY_INACTIVE`). Archivar siempre se puede; restaurar, solo si la
+dependencia sigue activa. La proyección del grupo trae `dependencyArchived` en la
+misma consulta, y la edición no ofrece formulario ni miembros (`canManage`).
+
 ## 8. Lo que impone la base, y por qué no la aplicación
 
 ```sql
@@ -215,6 +229,7 @@ caminos de escritura, que están contados y tienen prueba.
 | Un participante cualquiera administra perfiles | El action del perfil exige `TRAINER_ADMIN_ROLES` |
 | Un titular activa el perfil a alguien de otra dependencia | `canManageTrainer` reúne alcance y rango; fuera de alcance responde 404 |
 | Un titular edita o archiva la cuenta de un externo | `scopeWriteWhere` no lo alcanza; la fila ni ofrece la acción (`canManage`) |
+| Un externo con un rol alto queda al alcance de cualquier titular o auxiliar | Un externo no cambia de rol (`roleLockOf` → `external`), y si ya lo tuviera, su perfil solo lo administra el superadministrador (`canManageTrainer`) |
 | Un formulario manipulado cambia a quién se habilita | La cuenta sale del parámetro de la URL, no de un campo |
 | Se crea un externo sin perfil de capacitador | Transacción en `createExternal` y rechazo en `usersService.create`: son los dos únicos caminos |
 | Dos activaciones simultáneas duplican el perfil | La PK de `trainer_profiles` es la FK: la segunda choca con P2002 |
@@ -223,6 +238,7 @@ caminos de escritura, que están contados y tienen prueba.
 | Un alta parcial deja una lista incompleta sin avisar | El lote se rechaza entero si alguna cuenta no cumple |
 | El superadministrador edita grupos que no le tocan | `canManageGroups` solo admite alcance de dependencia |
 | Un grupo archivado bloquea su nombre para siempre | El índice único es parcial sobre `archived_at IS NULL` |
+| Se editan o se llenan grupos archivados o de una dependencia desactivada | `assertGroupEditable` en `update`, `addMembers` y `removeMember`; `unarchive` exige la dependencia activa |
 | Un titular sin dependencia ve o escribe algo | `groupScopeWhere` devuelve un predicado imposible y `groupScopeWriteWhere` devuelve `null` |
 
 ## 10. Estadísticas del perfil

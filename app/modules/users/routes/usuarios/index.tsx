@@ -272,7 +272,7 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 				label: "Restablecer contraseña",
 				// Una cuenta archivada no puede entrar: la contraseña se atiende al
 				// restaurarla, no antes.
-				show: (user) => user.canManage && !user.archivedAt,
+				show: (user) => user.canResetPassword && !user.archivedAt,
 				onClick: (user) =>
 					setResetTarget({
 						documentId: user.documentId,

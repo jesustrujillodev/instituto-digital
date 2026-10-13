@@ -5,6 +5,7 @@ import {
 	canManageGroups,
 	GROUP_ACCESS_ROLES,
 } from "../../../domain/group.access";
+import { isGroupEditable } from "../../../domain/group.rules";
 import {
 	validateFindGroup,
 	validateListCandidates,
@@ -47,7 +48,7 @@ export const loader = async ({
 		group: group.data,
 		members: members.data,
 		candidates: candidates.data,
-		canManage: canManageGroups(scope),
+		canManage: canManageGroups(scope) && isGroupEditable(group.data),
 		memberSearch: search ?? "",
 	});
 };

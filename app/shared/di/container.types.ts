@@ -31,6 +31,7 @@ import type { ICertificateTemplateRepository } from "@/modules/certificates/doma
 import type { ICertificateTemplateService } from "@/modules/certificates/domain/certificate-template.service";
 import type { ICheckInService } from "@/modules/check-in/domain/check-in.service";
 import type { ICloudService } from "@/modules/cloud/domain/cloud.service";
+import type { IStorageAccessService } from "@/modules/cloud/domain/storage-access.service";
 import type { IClassroomRepository } from "@/modules/content/domain/classroom.repository";
 import type {
 	IClassroomService,
@@ -76,6 +77,7 @@ import type { IUserRepository } from "@/modules/users/domain/user.repository";
 import type { IUserService } from "@/modules/users/domain/user.service";
 import type { VersionedCache } from "@/shared/cache/versioned-cache";
 import type { SingleFlight } from "@/shared/concurrency/single-flight";
+import type { ClientIpPolicy } from "@/shared/http/client-ip";
 import type { Logger } from "@/shared/logging/logger";
 import type { IMailer } from "@/shared/mail/mailer.port";
 import type { JobDispatcher } from "@/shared/queue/job-dispatcher";
@@ -101,6 +103,9 @@ export interface ICradle {
 	// Entorno YA validado. Se resuelve por el cradle y nunca por import directo:
 	// un adaptador que importa `env` no se puede ejercitar sin el .env real.
 	env: Env;
+	// De qué cabecera sale la IP del cliente (CLIENT_IP_SOURCE). Las rutas la
+	// pasan a getClientIp; nunca leen el entorno.
+	clientIpPolicy: ClientIpPolicy;
 	// Bucket de objetos, derivado de env en el composition root. Los casos de uso
 	// reciben ESTO y no `env`: application no debe conocer nombres de variables de
 	// entorno (mismo criterio por el que existe authConfig).
@@ -134,6 +139,8 @@ export interface ICradle {
 	// Gestor de archivos en la nube (panel de admin): listar, descargar, borrar
 	// en cascada y detectar huérfanos sobre los dos buckets.
 	cloudService: ICloudService;
+	// Autorización por objeto del proxy /api/storage, sobre las mismas fuentes.
+	storageAccessService: IStorageAccessService;
 	userRepository: IUserRepository;
 	userService: IUserService;
 	dependencyRepository: IDependencyRepository;

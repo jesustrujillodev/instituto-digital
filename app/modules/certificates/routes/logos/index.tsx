@@ -25,7 +25,7 @@ export function meta() {
 	return [{ title: "Logos institucionales" }];
 }
 
-const ACCEPT = "image/png,image/webp,image/svg+xml";
+const ACCEPT = "image/png,image/webp";
 
 function LogoCard({ logo }: { logo: LogoOption }) {
 	const fetcher = useFetcher<LogoActionData>();
@@ -186,9 +186,9 @@ function UploadForm() {
 				Subir logo
 			</Button>
 			<p className="w-full text-muted-foreground text-xs">
-				PNG, WEBP o SVG de hasta 2 MB, idealmente con fondo transparente. Un
-				logo no se borra: reemplazarlo crea uno nuevo y los certificados ya
-				emitidos conservan el anterior.
+				PNG o WEBP de hasta 2 MB, idealmente con fondo transparente. Un logo no
+				se borra: reemplazarlo crea uno nuevo y los certificados ya emitidos
+				conservan el anterior.
 			</p>
 		</form>
 	);

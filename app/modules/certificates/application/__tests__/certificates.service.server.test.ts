@@ -51,6 +51,7 @@ const actorOf = (overrides: Partial<AuthContext> = {}): AuthContext => ({
 	role: "DEPENDENCY_HEAD",
 	dependencyId: 3,
 	isTrainer: false,
+	mustChangePassword: false,
 	...overrides,
 });
 
@@ -202,6 +203,8 @@ const createHarness = (
 		sanitizeError?: CertificateBackgroundInvalidError;
 		/** Keys que ya no están en storage. */
 		missing?: string[];
+		/** El limitador de exportaciones niega el cupo. */
+		exportLimited?: boolean;
 	} = {},
 ) => {
 	const calls = {
@@ -223,6 +226,7 @@ const createHarness = (
 		mineFor: [] as number[],
 		mineTake: [] as (number | undefined)[],
 		myIssueFor: [] as { documentId: string; userId: number }[],
+		rateKeys: [] as string[],
 	};
 
 	const certificateRepository = {
@@ -345,12 +349,22 @@ const createHarness = (
 		},
 	} as unknown as ICradle["certificatePdfTools"];
 
+	const rateLimiter = {
+		consume: async (key: string) => {
+			calls.rateKeys.push(key);
+			return options.exportLimited
+				? { allowed: false, retryAfterMs: 30_000 }
+				: { allowed: true, retryAfterMs: 0 };
+		},
+	} as unknown as ICradle["rateLimiter"];
+
 	const service = createCertificateService({
 		certificateRepository,
 		certificateAssetSource,
 		certificateExporter,
 		certificateLogoRepository,
 		certificatePdfTools,
+		rateLimiter,
 		appBaseUrl: "https://capacitacion.test",
 		clock: { now: () => NOW },
 		logger: silentLogger,
@@ -745,7 +759,9 @@ describe("certificateService.uploadImage", () => {
 		expect(first.success && first.data).toEqual(second.success && second.data);
 	});
 
-	test("acepta un SVG de dibujo", async () => {
+	// Remediación (Fase C): el filtro de SVG era una lista de rechazo que se
+	// podía esquivar; ahora no se admite ninguno.
+	test("rechaza un SVG, aunque sea solo dibujo", async () => {
 		const { service, calls } = createHarness();
 		const svg = text(
 			'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20"/></svg>',
@@ -758,11 +774,13 @@ describe("certificateService.uploadImage", () => {
 		);
 
 		expect(result).toMatchObject({
-			success: true,
-			data: { widthPx: 40, heightPx: 20 },
+			success: false,
+			error: {
+				code: CERTIFICATE_ERROR_CODES.ASSET_INVALID,
+				details: { reason: "no es una imagen de un formato admitido" },
+			},
 		});
-		expect(calls.uploaded[0].key).toMatch(/\.svg$/);
-		expect(calls.uploaded[0].type).toBe("image/svg+xml");
+		expect(calls.uploaded).toEqual([]);
 	});
 
 	test.each([
@@ -771,11 +789,6 @@ describe("certificateService.uploadImage", () => {
 			"algo que no es imagen",
 			text("GIF89a......"),
 			"no es una imagen de un formato admitido",
-		],
-		[
-			"un SVG con scripts",
-			text("<svg><script>alert(1)</script></svg>"),
-			"el SVG contiene scripts",
 		],
 		[
 			"una imagen de más de 2 MB",
@@ -1324,5 +1337,61 @@ describe("certificateService.downloadMine", () => {
 			error: { code: CERTIFICATE_ERROR_CODES.DOWNLOAD_DISABLED },
 		});
 		expect(calls.exported).toEqual([]);
+	});
+});
+
+// Remediación (Fase C): las exportaciones no tenían límite y cada una abre una
+// página de Chromium.
+describe("límite de exportaciones", () => {
+	test.each([
+		[
+			"downloadIssue",
+			(service: ReturnType<typeof createHarness>["service"]) =>
+				service.downloadIssue(
+					{ documentId: ISSUE_DOC, format: "pdf" },
+					actorOf(),
+				),
+		],
+		[
+			"downloadMine",
+			(service: ReturnType<typeof createHarness>["service"]) =>
+				service.downloadMine(
+					{ documentId: ISSUE_DOC, format: "pdf" },
+					actorOf(),
+				),
+		],
+		[
+			"downloadSample",
+			(service: ReturnType<typeof createHarness>["service"]) =>
+				service.downloadSample(
+					{ documentId: COURSE_DOC, version: "draft", format: "pdf" },
+					actorOf(),
+				),
+		],
+	])("%s sin cupo no lee ni exporta", async (_, download) => {
+		const { service, calls } = createHarness({ exportLimited: true });
+
+		expect(await download(service)).toMatchObject({
+			success: false,
+			error: {
+				code: CERTIFICATE_ERROR_CODES.EXPORT_RATE_LIMITED,
+				details: { retryAfterMs: 30_000 },
+			},
+		});
+		expect(calls.findIssue).toEqual([]);
+		expect(calls.myIssueFor).toEqual([]);
+		expect(calls.findCourse).toEqual([]);
+		expect(calls.exported).toEqual([]);
+	});
+
+	test("el cupo es por persona", async () => {
+		const { service, calls } = createHarness();
+
+		await service.downloadMine(
+			{ documentId: ISSUE_DOC, format: "pdf" },
+			actorOf({ userId: 42 }),
+		);
+
+		expect(calls.rateKeys).toEqual(["certificate-export:42"]);
 	});
 });

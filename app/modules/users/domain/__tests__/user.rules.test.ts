@@ -85,6 +85,7 @@ describe("userSchema / safeUserSchema", () => {
 		jobTitle: null,
 		dependencyId: 3,
 		isTrainer: false,
+		mustChangePassword: false,
 		archivedAt: null,
 		createdAt: new Date(0),
 		updatedAt: new Date(0),

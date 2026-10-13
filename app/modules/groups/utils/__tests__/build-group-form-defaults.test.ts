@@ -7,6 +7,7 @@ const group: Group = {
 	documentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 	dependencyId: 3,
 	dependencyName: "Obras Públicas",
+	dependencyArchived: false,
 	name: "Mandos medios",
 	description: null,
 	memberCount: 0,

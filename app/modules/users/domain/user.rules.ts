@@ -102,6 +102,11 @@ export const userSchema = v.object({
 	dependencyId: v.nullable(v.number()),
 	/** Derivado de `trainer_profiles`, no es columna. Lo arma el mapper. */
 	isTrainer: v.boolean(),
+	/**
+	 * La contraseña la puso otra persona: hasta cambiarla solo entra a «Mi
+	 * perfil». El refresh relee al usuario por aquí para firmar el claim.
+	 */
+	mustChangePassword: v.boolean(),
 	// Soft-delete: null = activo, fecha = instante en que se archivó.
 	archivedAt: v.nullable(v.date()),
 	createdAt: v.date(),

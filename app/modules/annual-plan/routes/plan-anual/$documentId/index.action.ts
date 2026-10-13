@@ -31,6 +31,7 @@ export const action = async ({
 }: Route.ActionArgs): Promise<PlanActionData> => {
 	const { auth } = await requireScope(request, context, PLAN_ACCESS_ROLES);
 	const form = parsePlanFormData(await request.formData());
+	const planId = () => validateFindPlan(params).documentId;
 	const lineId = () =>
 		validateFindPlan({ documentId: form.lineDocumentId }).documentId;
 	const service = context.annualPlanService;
@@ -43,7 +44,7 @@ export const action = async ({
 	switch (form.intent) {
 		case PLAN_INTENTS.addLine: {
 			const input = parseInput(() => ({
-				planId: validateFindPlan(params).documentId,
+				planId: planId(),
 				dto: validatePlanLine(form.payload),
 			}));
 			if (!input.success)
@@ -56,6 +57,7 @@ export const action = async ({
 		}
 		case PLAN_INTENTS.updateLine: {
 			const input = parseInput(() => ({
+				planId: planId(),
 				lineId: lineId(),
 				dto: validatePlanLine(form.payload),
 			}));
@@ -63,14 +65,22 @@ export const action = async ({
 				return localizeError(input, ANNUAL_PLAN_ERROR_MESSAGES);
 
 			return respond(
-				await service.updateLine(input.data.lineId, input.data.dto, auth),
+				await service.updateLine(
+					input.data.planId,
+					input.data.lineId,
+					input.data.dto,
+					auth,
+				),
 				LINE_MESSAGES[form.intent],
 			);
 		}
 		case PLAN_INTENTS.cancelLine:
 		case PLAN_INTENTS.reactivateLine:
 		case PLAN_INTENTS.deleteLine: {
-			const input = parseInput(lineId);
+			const input = parseInput(() => ({
+				planId: planId(),
+				lineId: lineId(),
+			}));
 			if (!input.success)
 				return localizeError(input, ANNUAL_PLAN_ERROR_MESSAGES);
 
@@ -81,7 +91,7 @@ export const action = async ({
 			}[form.intent];
 
 			return respond(
-				await operation(input.data, auth),
+				await operation(input.data.planId, input.data.lineId, auth),
 				LINE_MESSAGES[form.intent],
 			);
 		}

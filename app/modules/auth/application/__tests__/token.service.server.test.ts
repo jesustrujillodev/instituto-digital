@@ -25,6 +25,7 @@ const PAYLOAD: AccessTokenPayload = {
 	role: "SUPERADMIN",
 	dependencyId: null,
 	isTrainer: false,
+	mustChangePassword: false,
 };
 
 afterEach(() => {
@@ -167,6 +168,7 @@ describe("createTokenService — sign and verify", () => {
 			"iat",
 			"isTrainer",
 			"iss",
+			"mustChangePassword",
 			"role",
 			"sub",
 			"userId",

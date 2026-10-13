@@ -41,7 +41,7 @@ const GROUP_SELECT = {
 	archivedAt: true,
 	createdAt: true,
 	updatedAt: true,
-	dependency: { select: { name: true } },
+	dependency: { select: { name: true, archivedAt: true } },
 	_count: { select: { members: true } },
 } as const;
 

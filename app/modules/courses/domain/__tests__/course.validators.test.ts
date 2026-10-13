@@ -90,6 +90,17 @@ describe("validateCourseSession", () => {
 		).toMatchObject({ date: "2026-10-05", startTime: "09:00" });
 	});
 
+	test("acepta un enlace https", () => {
+		expect(
+			validateCourseSession({
+				date: "2026-10-05",
+				startTime: "09:00",
+				endTime: "13:00",
+				link: " https://meet.google.com/abc-defg-hij ",
+			}).link,
+		).toBe("https://meet.google.com/abc-defg-hij");
+	});
+
 	test("conserva el documentId de una sesión existente", () => {
 		expect(
 			validateCourseSession({
@@ -108,6 +119,9 @@ describe("validateCourseSession", () => {
 		// El enlace es de la sesión, no del curso: la plataforma no aloja
 		// contenido y cada sesión puede tener el suyo.
 		["un enlace que no es URL", { link: "meet.example" }],
+		// Remediación (Fase C): se pinta como `href`; v.url los aceptaba.
+		["un enlace javascript:", { link: "javascript:alert(1)" }],
+		["un enlace data:", { link: "data:text/html,<b>hola</b>" }],
 	])("rechaza %s", (_case, override) => {
 		expect(() =>
 			validateCourseSession({

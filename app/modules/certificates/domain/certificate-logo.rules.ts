@@ -4,9 +4,8 @@ import type { AuthContext } from "@/modules/auth/domain/auth.types";
 export const INSTITUTIONAL_LOGO = {
 	/** Público y con CDN: un logo no es dato sensible y se cachea para siempre. */
 	prefix: "media/logos",
-	types: ["png", "webp", "svg"] as const,
+	types: ["png", "webp"] as const,
 	maxBytes: 2 * 1024 * 1024,
-	maxSvgBytes: 512 * 1024,
 	nameMax: 60,
 } as const;
 

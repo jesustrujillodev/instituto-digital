@@ -32,11 +32,10 @@ const loadImage = (file: File): Promise<HTMLImageElement> =>
 /**
  * Reduce una imagen grande antes de subirla. Una firma sale en PNG: es trazo
  * fino sobre transparencia y la compresión con pérdida la ensucia en el borde.
- * Un SVG sube tal cual. Si el navegador no puede, sube el original: el
- * servidor valida tipo y tamaño de todas formas.
+ * Si el navegador no puede, sube el original: el servidor valida tipo y tamaño
+ * de todas formas.
  */
 const prepare = async (file: File, signature: boolean): Promise<File> => {
-	if (file.type === "image/svg+xml") return file;
 	try {
 		const image = await loadImage(file);
 		const size = fittedSizeOf(

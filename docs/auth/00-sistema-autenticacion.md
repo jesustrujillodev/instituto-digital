@@ -13,13 +13,16 @@ Autenticación por **sesiones de doble token** sobre cookies `httpOnly`:
 
 | Token | Forma | Vida (default) | Dónde vive | Propósito |
 |---|---|---|---|---|
-| **Access token** | JWT firmado (HS256) | 5 min | Cookie `__access_token` + se verifica por petición | Identidad ya verificada: evita tocar la DB en cada petición |
-| **Refresh token** | Opaco (64 bytes aleatorios, hex) | 7 días | Cookie `__refresh_token`; en DB **solo su hash SHA-256** | Renovar el access token; representa la sesión persistida |
+| **Access token** | JWT firmado (HS256) | 5 min | Cookie `__Host-access_token` (`__access_token` sin https) + se verifica por petición | Identidad ya verificada: evita tocar la DB en cada petición |
+| **Refresh token** | Opaco (64 bytes aleatorios, hex) | 7 días | Cookie `__Host-refresh_token` (`__refresh_token` sin https); en DB **solo su hash SHA-256** | Renovar el access token; representa la sesión persistida |
 
 Principios:
 
 - **El cliente nunca maneja tokens con JavaScript** — ambas cookies son
-  `httpOnly`, firmadas (`COOKIE_SECRET`), `SameSite=Lax` y `Secure` en producción.
+  `httpOnly`, firmadas (`COOKIE_SECRET`) y `SameSite=Lax`. `Secure` y el prefijo `__Host-`
+  salen de `APP_BASE_URL` con https, no de `NODE_ENV` (`cookieSecurityOf`): un
+  despliegue sin la variable no las manda en claro, y `__Host-` impide que un
+  subdominio fije o pise la cookie. Por http (desarrollo) van sin los dos.
 - **El estado de sesión vive en la DB**, no en el JWT. El refresh token no
   contiene datos; es una llave aleatoria cuyo hash identifica la fila de sesión.
 - **Rotación en cada refresh** con idempotencia para peticiones concurrentes y
@@ -124,6 +127,11 @@ malformado, el proceso lanza error con el detalle; la app nunca corre degradada.
 |---|---|---|
 | `JWT_SECRET` | — (requerido, ≥32 chars) | Firma HS256 del access token |
 | `COOKIE_SECRET` | — (requerido, ≥32 chars) | Firma de las cookies |
+
+Con `NODE_ENV=production` el arranque además rechaza un secreto que contenga
+`change-me` (el marcador de `.env.example` cumple los 32 caracteres y es público) y
+que `JWT_SECRET` y `COOKIE_SECRET` sean iguales. En desarrollo la plantilla arranca
+tal cual.
 | `AUTH_ACCESS_TOKEN_TTL_S` | `300` (5 min) | Vida del JWT **y** `maxAge` de su cookie. Es también la **latencia máxima de una revocación** (§6.5) |
 | `AUTH_REFRESH_TOKEN_TTL_S` | `604800` (7 días) | Vida de la sesión **y** `maxAge` de su cookie |
 | `AUTH_REFRESH_GRACE_S` | `60` | Ventana de gracia del refresh (idempotencia + tolerancia a red) |
@@ -186,12 +194,14 @@ Claves del diseño:
 
 ### 6.1 Login (`POST /iniciar-sesion`)
 
-1. **Validación del DTO** (valibot): email normalizado (lowercase/trim);
+1. **Validación del DTO** (valibot): email normalizado (lowercase/trim) y de
+   254 caracteres como máximo, que acota también su clave en el limitador;
    password no vacía y ≤ 72 chars (límite efectivo de bcrypt — evita procesar
    entradas gigantes y el matiz de autenticar por truncamiento).
 2. **Rate limiting** (puerto `RateLimiter`): claves por email (límite estricto)
-   y por IP (laxo — la IP es spoofable sin proxy de confianza, por eso nunca es
-   el límite principal). Excedido → error `TOO_MANY_ATTEMPTS` con `retryAfter`.
+   y por IP (laxo, porque una oficina comparte IP; la IP sale de la cabecera
+   del proxy declarado en `CLIENT_IP_SOURCE`, ver [http/00](../http/00-ip-del-cliente.md)).
+   Sin IP solo cuenta el límite por email. Excedido → error `TOO_MANY_ATTEMPTS` con `retryAfter`.
 3. **Verificación timing-safe**: se ejecuta `bcrypt.compare` SIEMPRE — si el
    email no existe, contra un hash dummy memoizado por proceso. Un email no
    registrado tarda lo mismo que uno registrado (no hay enumeración por timing)
@@ -253,7 +263,46 @@ el navegador los aplique antes de seguir el redirect.
 
 Requiere autenticación; revoca **todas** las sesiones del usuario
 (`logoutAll(userId)`) — el mismo caso de uso que dispara la detección de reuso
-— y limpia cookies.
+— y limpia cookies. Además sube el epoch del usuario: sin él, los demás
+dispositivos seguían dentro hasta que expiraba su access token.
+
+### 6.4.1 Contraseñas
+
+- **Cambiar la propia** (`/dashboard/perfil`, `changeOwnPassword`): pide la
+  actual, tiene tope de intentos (`PASSWORD_CHANGE_RATE_LIMIT`: 5 cada 15 min por
+  cuenta) y lee y escribe por el mismo `documentId`. Al terminar cierra las
+  **demás** sesiones de la cuenta y sube su epoch (`logoutOthers`): una sesión
+  robada no sobrevive al cambio. La de quien la cambió sigue por el silent
+  refresh, como en el cierre global del panel.
+- **Restablecer** (edición de usuario, `resetPassword`): no pide la actual y
+  cierra las sesiones de la cuenta. La propia no se restablece
+  (`canResetPassword`, `OWN_PASSWORD_RESET`): una sesión ajena abierta bastaría
+  para quedarse con la cuenta; se cambia desde «Mi perfil».
+- **Longitud**: bcrypt solo mira los primeros 72 **bytes** en UTF-8. La regla
+  cuenta bytes (`v.maxBytes`), en el alta y en el login: una «ñ» o una vocal
+  acentuada ocupan 2.
+- **Generador** (`app/lib/password-generator.ts`): `crypto.getRandomValues` con
+  muestreo por rechazo, no `Math.random`.
+- **Cambio obligatorio en el primer acceso**: la columna `must_change_password`
+  queda en `true` cuando la contraseña la puso otra persona (alta de una cuenta,
+  interna o externa, restablecimiento y `bun run bootstrap`) y en `false` cuando
+  la cambia la propia persona. Viaja en el access token como claim
+  (`mustChangePassword`), igual que `isTrainer`, así que no cuesta consultas:
+  `requireAuth` redirige a «Mi perfil» mientras esté en `true`, salvo esa pantalla,
+  cerrar sesión y el proxy de storage (`allowsPendingPasswordChange`). Cambiarla
+  sube el epoch del usuario y el silent refresh firma el claim nuevo.
+- **Iniciar sesión con otra cuenta** en el mismo navegador cierra la sesión
+  anterior (su refresh token llega en la cookie). Sin esto seguía válida en la
+  base hasta 7 días. Un login fallido no la toca.
+
+### 6.4.2 Arranque de un entorno (`bun run bootstrap`)
+
+`scripts/bootstrap.ts` crea la fila de `security_state` y el primer
+superadministrador, con su contraseña de una variable y el cambio obligatorio
+en el primer acceso. No borra nada, rechaza las contraseñas que están en el
+repositorio (`user.bootstrap.rules.ts`) y, si ya hay un superadministrador
+activo, no hace nada. El seed queda solo para desarrollo y se niega a correr
+con `NODE_ENV=production` (auditoría V04).
 
 ### 6.5 Monitor de sesiones (`/dashboard/sesiones`, solo SUPERADMIN)
 
@@ -364,9 +413,9 @@ nada.
 | Robo del refresh token (cookie) | Rotación en cada uso + reuso fuera de gracia revoca la familia completa de sesiones |
 | Fuerza bruta de contraseñas | Rate limit por email (estricto) y por IP (laxo) + bcrypt cost 12 |
 | Enumeración de usuarios | Mismo mensaje y misma latencia (dummy compare) exista o no el email |
-| JWT forjado / confusión de algoritmo | Secreto ≥32 chars validado al arrancar; `algorithms`, `issuer` y `audience` fijados |
+| JWT forjado / confusión de algoritmo | Secreto ≥32 chars validado al arrancar, y en producción distinto del marcador de `.env.example` y del de las cookies; `algorithms`, `issuer` y `audience` fijados |
 | Secretos ausentes en producción | Fail-fast al arrancar (la app no corre) |
-| DoS por payloads de login gigantes | `maxLength(72)` en el DTO antes de tocar bcrypt |
+| DoS por payloads de login gigantes | El middleware de root responde `413` a una escritura sin sesión de más de 64 KiB y `411` sin `Content-Length`, antes de que la action lea el cuerpo (`shared/http/body-limit.ts`); `maxLength(72)` en el DTO antes de tocar bcrypt |
 | Crecimiento sin cota de sesiones | Cap por usuario (default 5, configurable) |
 | Logs filtrando credenciales | Puerto `Logger` con redacción automática de claves sensibles (token/cookie/password/secret/authorization) |
 | Escalada por token con rol viejo | El refresh re-lee rol/email de la DB al rotar |
@@ -379,15 +428,28 @@ nada.
 
 **Límites conocidos (aceptados y documentados):**
 
-- La IP (`X-Forwarded-For`) es falsificable sin un proxy de confianza delante;
-  por eso el rate limit por IP es secundario y la IP nunca decide seguridad.
-  Se endurece en despliegue (Cloudflare/nginx sobrescribiendo el header).
+- La IP sale de la cabecera que escribe el proxy que declara el despliegue
+  (`CLIENT_IP_SOURCE`, obligatoria en producción; ver [http/00](../http/00-ip-del-cliente.md)).
+  Si la variable no corresponde al proxy real, la IP vuelve a ser falsificable:
+  hay que ajustarla al cambiar lo que va delante.
 - **Rate limiter compartido con Redis** (ventana deslizante, [redis/00 §3](../redis/00-redis.md));
   sin `REDIS_URL`, o si Redis cae, limita en memoria por proceso y el límite
   efectivo pasa a ser límite × nodos.
 - **El single-flight sigue en memoria a propósito.** Con varios nodos, las capas
   de DB mantienen la corrección (CAS + gracia persistida); llevarlo a Redis
   guardaría pares de tokens fuera de la base ([ADR 0032](../adr/0032-redis-opcional-cache-y-coordinacion.md)).
+- **La ventana de gracia del refresh se queda en 60 s** (`AUTH_REFRESH_GRACE_S`).
+  Dentro de ella, quien presenta el refresh anterior recibe el par nuevo; es lo que
+  evita cerrar la sesión de dos pestañas que renuevan a la vez o de una red lenta.
+  Un par cacheado ya no sobrevive a la revocación (C01, [02](./02-revocacion-inmediata-epoch.md)),
+  y fuera de la ventana el reuso revoca la familia (auditoría, Fase C, 13-10-2026).
+- **Sin CSP completa.** Toda respuesta lleva HSTS, `frame-ancestors 'self'`,
+  `X-Frame-Options`, `nosniff` y `Referrer-Policy` (`shared/http/security-headers.ts`),
+  que es el mínimo que pidió la auditoría. Una política de scripts tendría que
+  admitir los scripts en línea que React Router escribe para hidratar, con nonce por
+  petición en `entry.server.tsx`; se deja para cuando se pueda probar pantalla por
+  pantalla. Lo servido desde el proxy de storage ya lleva su propia CSP `sandbox`
+  (auditoría, Fase C, 13-10-2026).
 
 ## 9. Manejo de errores y observabilidad
 

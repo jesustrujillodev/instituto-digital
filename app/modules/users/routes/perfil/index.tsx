@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useSubmit } from "react-router";
 import { ConfirmDialog } from "@/shared/components/common/confirm-dialog";
 import { PageHeader } from "@/shared/components/common/page-header";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import {
 	Avatar,
 	AvatarFallback,
@@ -40,7 +41,7 @@ function Dato({ label, value }: { label: string; value: string }) {
 
 export default function PerfilPage({ loaderData }: Route.ComponentProps) {
 	const {
-		data: { user, dependencyName, history },
+		data: { user, dependencyName, history, mustChangePassword },
 	} = loaderData;
 
 	// Un externo no tiene número de empleado, puesto ni dependencia: sus filas
@@ -50,7 +51,9 @@ export default function PerfilPage({ loaderData }: Route.ComponentProps) {
 	const transferred = history.some((entry) => entry.fromDependencyName);
 
 	// En un diálogo: abierto en la página, parecía la tarea del perfil.
-	const [changingPassword, setChangingPassword] = useState(false);
+	// Con la contraseña que puso otra persona, el diálogo se abre solo: es lo
+	// único que puede hacer hasta cambiarla.
+	const [changingPassword, setChangingPassword] = useState(mustChangePassword);
 
 	// Navegación completa y no fetcher: la acción borra las cookies y redirige
 	// al login, igual que "Cerrar sesión".
@@ -60,6 +63,15 @@ export default function PerfilPage({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="flex flex-col gap-4">
 			<PageHeader title="Mi perfil" />
+
+			{mustChangePassword && (
+				<Alert>
+					<AlertDescription>
+						Tu contraseña la asignó otra persona. Cámbiala para seguir usando la
+						plataforma.
+					</AlertDescription>
+				</Alert>
+			)}
 
 			<Card>
 				<CardContent className="flex flex-col gap-6">

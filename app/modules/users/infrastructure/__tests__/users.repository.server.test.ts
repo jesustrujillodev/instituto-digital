@@ -114,3 +114,59 @@ describe("lockActiveSuperadminIds", () => {
 		]);
 	});
 });
+
+describe("findPasswordHash", () => {
+	// Remediación (Fase C): el cambio de la propia contraseña leía por correo y
+	// escribía por documentId; ahora lee solo el hash, por el mismo documentId.
+	test("lee solo el hash, por documentId", async () => {
+		const queries: unknown[] = [];
+		const repository = createUserRepository({
+			prisma: {
+				user: {
+					findUnique: async (args: unknown) => {
+						queries.push(args);
+						return { password: "hash-guardado" };
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		await expect(repository.findPasswordHash("doc-1")).resolves.toBe(
+			"hash-guardado",
+		);
+		expect(queries).toEqual([
+			{ where: { documentId: "doc-1" }, select: { password: true } },
+		]);
+	});
+
+	test("una cuenta inexistente da null", async () => {
+		const repository = createUserRepository({
+			prisma: {
+				user: { findUnique: async () => null },
+			} as unknown as ICradle["prisma"],
+		});
+
+		await expect(repository.findPasswordHash("doc-1")).resolves.toBeNull();
+	});
+});
+
+describe("updatePassword", () => {
+	// Remediación (Fase C): el hash y el cambio pendiente van en la misma
+	// escritura.
+	test("escribe el hash y si hay que cambiarla al entrar", async () => {
+		const updates: unknown[] = [];
+		const repository = createUserRepository({
+			prisma: {
+				user: {
+					update: async (args: { data: unknown }) => {
+						updates.push(args.data);
+					},
+				},
+			} as unknown as ICradle["prisma"],
+		});
+
+		await repository.updatePassword("doc-1", "hash", { kind: "global" }, true);
+
+		expect(updates).toEqual([{ password: "hash", mustChangePassword: true }]);
+	});
+});

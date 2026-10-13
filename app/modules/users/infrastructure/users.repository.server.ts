@@ -208,6 +208,13 @@ export const createUserRepository = ({
 			// para compararla. Pasa por el mapper igual que el resto.
 			return user ? toDomainWithPassword(user) : null;
 		},
+		async findPasswordHash(documentId: string) {
+			const user = await prisma.user.findUnique({
+				where: { documentId },
+				select: { password: true },
+			});
+			return user?.password ?? null;
+		},
 		async create(data: CreateUserData) {
 			try {
 				const user = await prisma.user.create({
@@ -254,11 +261,12 @@ export const createUserRepository = ({
 			documentId: string,
 			hashedPassword: string,
 			scope: AccessScope,
+			mustChangePassword: boolean,
 		) {
 			try {
 				await prisma.user.update({
 					where: writeWhere(documentId, scope),
-					data: { password: hashedPassword },
+					data: { password: hashedPassword, mustChangePassword },
 				});
 			} catch (error) {
 				translatePrismaError(error);

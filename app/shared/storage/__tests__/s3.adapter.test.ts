@@ -190,11 +190,20 @@ describe("getUploadUrl", () => {
 describe("statObject", () => {
 	test("devuelve el tamaño que confirma la subida", async () => {
 		const lastModified = new Date("2026-09-22T12:00:00.000Z");
-		send.mockResolvedValue({ ContentLength: 2048, LastModified: lastModified });
+		send.mockResolvedValue({
+			ContentLength: 2048,
+			LastModified: lastModified,
+			ContentType: "application/pdf",
+		});
 
 		expect(
 			await provider().statObject("b", "documentos/lecciones/m.pdf"),
-		).toEqual({ key: "documentos/lecciones/m.pdf", size: 2048, lastModified });
+		).toEqual({
+			key: "documentos/lecciones/m.pdf",
+			size: 2048,
+			lastModified,
+			contentType: "application/pdf",
+		});
 		expect(sentAt(0).__name).toBe("HeadObject");
 	});
 

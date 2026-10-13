@@ -55,9 +55,12 @@ import {
 	canParticipate,
 	canTransition,
 	canWithdraw,
+	type EnrollmentWindow,
 	enrollmentClosesAt,
 	isEnrollmentOpen,
 	participantPermissionsOf,
+	removalsOutOfReach,
+	withSessionLinksFor,
 } from "../domain/enrollment.rules";
 import type { IEnrollmentService } from "../domain/enrollment.service";
 import type {
@@ -209,7 +212,7 @@ export const createEnrollmentService = ({
 		lastName: null,
 	});
 
-	const requireOpen = (course: EnrollmentCourse, now: Date) => {
+	const requireOpen = (course: EnrollmentWindow, now: Date) => {
 		if (!isEnrollmentOpen(course, now)) {
 			throw new EnrollmentClosedError(enrollmentClosesAt(course));
 		}
@@ -299,7 +302,11 @@ export const createEnrollmentService = ({
 			}
 		}
 
-		return { reachable, requested: requested.size };
+		return {
+			reachable,
+			chosen: new Set(people.map((participant) => participant.id)),
+			requested: requested.size,
+		};
 	};
 
 	return {
@@ -366,7 +373,10 @@ export const createEnrollmentService = ({
 				]);
 				const course = await requireCourse(courseDocumentId, filter);
 				const now = clock.now();
-				const detail = withAvailability(course, now);
+				const detail = withAvailability(
+					withSessionLinksFor(course, enrollment?.status ?? null),
+					now,
+				);
 				return ok({
 					course: detail,
 					enrollment: enrollment && {
@@ -410,9 +420,10 @@ export const createEnrollmentService = ({
 				if (!record) return ok(null);
 
 				const now = clock.now();
+				const entry = toMyCourseEntry(record, now);
 				return ok({
-					...toMyCourseEntry(record, now),
-					course: withAvailability(record.course, now),
+					...entry,
+					course: withAvailability(entry.course, now),
 					can: participantPermissionsOf(
 						record.course,
 						record.enrollment.status,
@@ -471,6 +482,7 @@ export const createEnrollmentService = ({
 						dependencyId: acceptsInvitations(course)
 							? access.inviteLimit
 							: assignLimit,
+						withRemovals: access.organizer,
 						search,
 					}),
 					groupRepository.findActive(toAudienceScope(access.scope)),
@@ -480,6 +492,7 @@ export const createEnrollmentService = ({
 					courseId: course.id,
 					groupIds: groups.map((group) => group.id),
 					dependencyId: assignLimit,
+					withRemovals: access.organizer,
 				});
 
 				return ok({
@@ -513,6 +526,8 @@ export const createEnrollmentService = ({
 
 				await runInTransaction(async () => {
 					const seats = await enrollmentRepository.lockCourseSeats(course.id);
+					// La ventana leída arriba pudo cerrarse mientras se esperaba el bloqueo.
+					requireOpen(seats.window, now);
 					const current = await enrollmentRepository.findEnrollment(
 						course.id,
 						actor.userId,
@@ -607,6 +622,8 @@ export const createEnrollmentService = ({
 
 				await runInTransaction(async () => {
 					const seats = await enrollmentRepository.lockCourseSeats(course.id);
+					// La ventana leída arriba pudo cerrarse mientras se esperaba el bloqueo.
+					requireOpen(seats.window, now);
 					assertSeatsFor(seats.capacity, seats.enrolled, 1);
 
 					await persist(
@@ -675,7 +692,7 @@ export const createEnrollmentService = ({
 				const now = clock.now();
 				requireOpen(course, now);
 
-				const { reachable, requested } = await resolveBatch(
+				const { reachable, chosen, requested } = await resolveBatch(
 					dto,
 					access,
 					access.assignLimit,
@@ -684,15 +701,24 @@ export const createEnrollmentService = ({
 				return ok(
 					await runInTransaction(async () => {
 						const seats = await enrollmentRepository.lockCourseSeats(course.id);
+						// La ventana leída arriba pudo cerrarse mientras se esperaba el bloqueo.
+						requireOpen(seats.window, now);
+						const states = await enrollmentRepository.findEnrollments(
+							course.id,
+							[...reachable.keys()],
+						);
+						const removed = removalsOutOfReach(
+							states,
+							access.organizer,
+							chosen,
+						);
 						const existing = new Map(
-							(
-								await enrollmentRepository.findEnrollments(course.id, [
-									...reachable.keys(),
-								])
-							).map((entry) => [entry.userId, entry.status]),
+							states.map((entry) => [entry.userId, entry.status]),
 						);
 						const pending = [...reachable.values()].filter(
-							(participant) => existing.get(participant.id) !== "ENROLLED",
+							(participant) =>
+								existing.get(participant.id) !== "ENROLLED" &&
+								!removed.has(participant.id),
 						);
 
 						assertSeatsFor(seats.capacity, seats.enrolled, pending.length);
@@ -736,7 +762,7 @@ export const createEnrollmentService = ({
 				const now = clock.now();
 				requireOpen(course, now);
 
-				const { reachable, requested } = await resolveBatch(
+				const { reachable, chosen, requested } = await resolveBatch(
 					dto,
 					access,
 					access.inviteLimit,
@@ -744,16 +770,26 @@ export const createEnrollmentService = ({
 
 				return ok(
 					await runInTransaction(async () => {
+						const states = await enrollmentRepository.findEnrollments(
+							course.id,
+							[...reachable.keys()],
+						);
+						// Hoy una dependencia que no organiza no llega a un curso por
+						// invitación; si llegara, tampoco deshace una baja.
+						const removed = removalsOutOfReach(
+							states,
+							access.organizer,
+							chosen,
+						);
 						const existing = new Map(
-							(
-								await enrollmentRepository.findEnrollments(course.id, [
-									...reachable.keys(),
-								])
-							).map((entry) => [entry.userId, entry.status]),
+							states.map((entry) => [entry.userId, entry.status]),
 						);
 						const pending = [...reachable.values()].filter((participant) => {
 							const status = existing.get(participant.id);
-							return !status || !ACTIVE_ENROLLMENT_STATUSES.includes(status);
+							return (
+								(!status || !ACTIVE_ENROLLMENT_STATUSES.includes(status)) &&
+								!removed.has(participant.id)
+							);
 						});
 
 						await persistMany(

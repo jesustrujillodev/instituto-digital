@@ -8,6 +8,7 @@ import {
 	canChangeUserDependency,
 	canManageDeputies,
 	canManageUser,
+	canResetPassword,
 	listScopeWhere,
 	roleAfterDependencyChange,
 	scopeWhere,
@@ -258,6 +259,36 @@ describe("canManageUser", () => {
 	test("un titular sin dependencia no administra a nadie", () => {
 		expect(
 			canManageUser(actorOf("DEPENDENCY_HEAD", null), targetOf("USER", null)),
+		).toBe(false);
+	});
+});
+
+describe("canResetPassword", () => {
+	test("restablece la de quien administra", () => {
+		expect(
+			canResetPassword(actorOf("DEPENDENCY_HEAD"), targetOf("USER", 3, 7)),
+		).toBe(true);
+	});
+
+	// Remediación (Fase C): la propia se cambia con la actual, en «Mi perfil».
+	test("la propia no, ni siendo superadministrador", () => {
+		expect(
+			canResetPassword(
+				actorOf("SUPERADMIN", null, 7),
+				targetOf("SUPERADMIN", null, 7),
+			),
+		).toBe(false);
+	});
+
+	test("fuera de su alcance o de su rango, tampoco", () => {
+		expect(
+			canResetPassword(actorOf("DEPENDENCY_HEAD"), targetOf("USER", 4, 7)),
+		).toBe(false);
+		expect(
+			canResetPassword(
+				actorOf("DEPENDENCY_DEPUTY"),
+				targetOf("DEPENDENCY_HEAD", 3, 7),
+			),
 		).toBe(false);
 	});
 });

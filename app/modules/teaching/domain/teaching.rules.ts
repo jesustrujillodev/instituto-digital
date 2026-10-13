@@ -22,6 +22,7 @@ import {
 	TeachingFinishTooEarlyError,
 	TeachingNotPublishedError,
 	TeachingNotSelfPacedError,
+	TeachingSelfAttendanceError,
 	TeachingSelfPacedNotFinishableError,
 	TeachingUnknownParticipantError,
 	TeachingWithoutSessionsError,
@@ -369,12 +370,13 @@ const participantsByDocument = (course: TeachingCourse) =>
  *
  * Una marca igual a la guardada no se reescribe: `recordedBy` debe decir quién
  * hizo el último cambio, no quién pulsó guardar después. Si alguien del envío no
- * está inscrito se rechaza el envío entero.
+ * está inscrito, o quien envía cambia su propia marca, se rechaza el envío entero.
  */
 export const resolveAttendanceMarks = (
 	course: TeachingCourse,
 	sessionId: number,
 	marks: SaveAttendanceDto["marks"],
+	actorUserId: number,
 ): { userId: number; attended: boolean }[] => {
 	const participants = participantsByDocument(course);
 
@@ -385,8 +387,12 @@ export const resolveAttendanceMarks = (
 		const stored = participant.attendance.find(
 			(row) => row.sessionId === sessionId,
 		);
-		return stored?.attended === mark.attended
-			? []
-			: [{ userId: participant.userId, attended: mark.attended }];
+		if (stored?.attended === mark.attended) return [];
+		if (participant.userId === actorUserId) {
+			// Sin fila, la casilla propia viaja en `false`: no es un cambio.
+			if ((stored?.attended ?? false) === mark.attended) return [];
+			throw new TeachingSelfAttendanceError();
+		}
+		return [{ userId: participant.userId, attended: mark.attended }];
 	});
 };

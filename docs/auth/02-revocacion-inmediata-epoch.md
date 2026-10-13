@@ -126,11 +126,36 @@ Petición con access token
 No se añadió una salida nueva: se reutiliza la degradación existente, que ya
 está probada y ya limpia cookies antes de redirigir.
 
-**Efecto colateral que cierra un hueco.** `refresh` cachea su resultado en el
-single-flight durante `AUTH_REFRESH_GRACE_S` (60 s). Antes, un token acuñado
-justo antes de una revocación podía seguir sirviéndose durante esa ventana. Con
-el epoch, ese token cacheado tiene `iat < epoch` y el middleware lo rechaza en
-la petición siguiente. No hizo falta tocar el single-flight.
+**El par cacheado del refresh.** `refresh` cachea su resultado en el
+single-flight durante `AUTH_REFRESH_GRACE_S` (60 s), para que dos pestañas que
+renuevan a la vez reciban el mismo par. Se creía que el epoch bastaba para
+cortarlo, pero no: la rama de refresco de `configureContainer` no evalúa el epoch
+del token recién emitido, y con el refresh token ya rotado el par cacheado seguía
+autenticando hasta 60 s después de revocar (auditoría C01).
+
+La corrección vive en `refresh`: el single-flight guarda, junto al par, el id de
+la sesión que lo emitió. Cuando el par sale de la caché (no de una rotación en esa
+misma llamada), se comprueba que la sesión siga existiendo y, si no, se rechaza
+con `INVALID_SESSION`. Basta porque toda revocación borra la fila: logout,
+`revokeAllForUser` (reseteo, archivado, cambio de rol, dependencia o capacitador),
+cerrar todas y el lockdown, que purga las sesiones de los roles que no exime. Se
+busca por id y no por hash: si la sesión volvió a rotar dentro de la ventana, el
+hash del rezagado ya no está en la fila, pero la sesión sigue siendo suya. Cuesta
+una consulta solo en un acierto de caché.
+
+Además, el par cacheado pasa por `evaluateToken` como el access token de una
+cookie: se acuñó antes y puede ser anterior a un corte que no cerró su sesión (la
+de quien ejecuta "cerrar todas" o un lockdown que lo exime). Con lockdown para su
+rol se rechaza (`PLATFORM_LOCKED`); anterior al epoch, se acuña un access token con
+los datos frescos de la base y se devuelve con el mismo refresh, en vez de servir
+claims de antes del corte o expulsar a quien revocó.
+
+Lo acuñado en la misma llamada no se evalúa contra el epoch: sale de datos leídos
+ahora y es posterior al corte por construcción. Evaluarlo, en `configureContainer`
+o en `refresh`, rechazaría por el truncado de `iat` a segundos un token renovado
+dentro del mismo segundo que el corte, y la rama de refresco no tiene a dónde
+caer: limpiaría las cookies. A quien ejecutó el corte lo sacaría de la sesión en
+la petición siguiente.
 
 ## 6. Configuración
 

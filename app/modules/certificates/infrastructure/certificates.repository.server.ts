@@ -33,6 +33,14 @@ const asJson = (value: CertificateDesign | CertificateRenderData) =>
 
 const asCourseWhere = (where: unknown) => where as Prisma.CourseWhereInput;
 
+/** El mismo filtro para `findCourse` y `hasCourse`: no pueden divergir en alcance. */
+const scopedCourseWhere = (
+	courseDocumentId: string,
+	where: unknown,
+): Prisma.CourseWhereInput => ({
+	AND: [{ documentId: courseDocumentId }, asCourseWhere(where)],
+});
+
 const COURSE_SELECT = {
 	id: true,
 	documentId: true,
@@ -129,12 +137,18 @@ export const createCertificateRepository = ({
 	return {
 		async findCourse(courseDocumentId, where) {
 			const course = await prisma.course.findFirst({
-				where: {
-					AND: [{ documentId: courseDocumentId }, asCourseWhere(where)],
-				},
+				where: scopedCourseWhere(courseDocumentId, where),
 				select: COURSE_SELECT,
 			});
 			return course ? toCourse(course) : null;
+		},
+
+		async hasCourse(courseDocumentId, where) {
+			const course = await prisma.course.findFirst({
+				where: scopedCourseWhere(courseDocumentId, where),
+				select: { id: true },
+			});
+			return course !== null;
 		},
 
 		async findCourseById(courseId) {

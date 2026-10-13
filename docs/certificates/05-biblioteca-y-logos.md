@@ -33,7 +33,7 @@ Las decisiones están en [ADR 0030](../adr/0030-biblioteca-de-plantillas-y-logos
 
 | Acción | Qué hace |
 | --- | --- |
-| Subir | PNG, WEBP o SVG ≤ 2 MB a `media/logos/`, con sus medidas |
+| Subir | PNG o WEBP ≤ 2 MB a `media/logos/`, con sus medidas (SVG ya no, ver 04 §4) |
 | Reemplazar | Fila nueva con el mismo nombre; la anterior se archiva |
 | Archivar / restaurar | Deja de ofrecerse en el editor; lo emitido lo sigue pintando |
 

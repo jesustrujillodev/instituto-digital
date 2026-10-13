@@ -134,10 +134,13 @@ const createHarness = (
 		moduleAttempts?: QuizAttemptRow[];
 		/** Los cursos con aula de quien pregunta; sin él, solo el del fixture. */
 		classroomCourses?: { id: number; documentId: string }[];
+		/** Quien imparte finaliza el curso mientras el avance espera el bloqueo. */
+		finishedOnLock?: boolean;
 	} = {},
 ) => {
 	let progress = structuredClone(options.progress ?? []);
 	let inTransaction = false;
+	let finished = false;
 	const calls = {
 		saved: [] as { lessonId: number; status: LessonProgressStatus }[],
 		recalculated: [] as {
@@ -146,6 +149,10 @@ const createHarness = (
 		}[],
 		batchReads: [] as { read: string; courseIds: readonly number[] }[],
 		statusReads: [] as number[],
+		/** Cada bloqueo, compartido o exclusivo, y cada lectura del curso: ¿en la transacción? */
+		sharedLocks: [] as boolean[],
+		exclusiveLocks: [] as boolean[],
+		courseReads: [] as boolean[],
 	};
 	const treeOf = () =>
 		structuredClone(options.moduleQuiz ? treeWithModuleQuiz() : TREE);
@@ -172,12 +179,16 @@ const createHarness = (
 	};
 
 	const classroomRepository = {
-		findCourse: async (documentId: string) =>
-			documentId === COURSE_DOC
-				? options.course === undefined
-					? courseOf()
-					: options.course
-				: null,
+		findCourse: async (documentId: string) => {
+			calls.courseReads.push(inTransaction);
+			const course =
+				documentId === COURSE_DOC
+					? options.course === undefined
+						? courseOf()
+						: options.course
+					: null;
+			return course && finished ? { ...course, status: "FINISHED" } : course;
+		},
 		findProgress: async () => structuredClone(progress),
 		findLessonStatus: async (_courseId: number, lessonId: number) => {
 			calls.statusReads.push(lessonId);
@@ -255,6 +266,16 @@ const createHarness = (
 	const service = createClassroomService({
 		classroomRepository,
 		contentRepository,
+		enrollmentRepository: {
+			lockCourse: async () => {
+				calls.exclusiveLocks.push(inTransaction);
+				if (options.finishedOnLock) finished = true;
+			},
+			lockCourseShared: async () => {
+				calls.sharedLocks.push(inTransaction);
+				if (options.finishedOnLock) finished = true;
+			},
+		} as unknown as ICradle["enrollmentRepository"],
 		lessonMaterialReader: {
 			sign: async (material) => material,
 		} as ICradle["lessonMaterialReader"],
@@ -413,6 +434,72 @@ describe("recordProgress", () => {
 			success: false,
 			error: { code: CONTENT_ERROR_CODES.LESSON_NOT_FOUND },
 		});
+	});
+});
+
+// C07: el avance se escribía sin bloqueo, con el curso leído antes, y fijaba el
+// contenido completado en un curso que `finish` acababa de cerrar.
+describe("recordProgress durante el cierre del curso", () => {
+	test("si el curso se finalizó mientras esperaba el bloqueo, no escribe nada", async () => {
+		const { service, calls } = createHarness({ finishedOnLock: true });
+
+		const result = await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_1, status: "COMPLETED" },
+			ANA,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY },
+		});
+		expect(calls.saved).toEqual([]);
+		expect(calls.recalculated).toEqual([]);
+	});
+
+	test("empezar una lección tampoco escribe sobre un curso recién finalizado", async () => {
+		const { service, calls } = createHarness({ finishedOnLock: true });
+
+		const result = await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_1, status: "IN_PROGRESS" },
+			ANA,
+		);
+
+		expect(result).toMatchObject({
+			error: { code: CONTENT_ERROR_CODES.CLASSROOM_READ_ONLY },
+		});
+		expect(calls.saved).toEqual([]);
+	});
+
+	// El recálculo pide el bloqueo exclusivo: tomarlo desde el compartido
+	// dejaría a dos avances simultáneos esperándose el uno al otro.
+	test("completar toma el bloqueo exclusivo y relee el curso antes de leer el avance", async () => {
+		const { service, calls } = createHarness();
+
+		await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_1, status: "COMPLETED" },
+			ANA,
+		);
+
+		expect(calls.exclusiveLocks).toEqual([true]);
+		expect(calls.sharedLocks).toEqual([]);
+		expect(calls.courseReads).toEqual([false, true]);
+	});
+
+	test("empezar una lección comparte el bloqueo: los demás no esperan", async () => {
+		const { service, calls } = createHarness();
+
+		await service.recordProgress(
+			COURSE_DOC,
+			{ lessonDocumentId: LESSON_1, status: "IN_PROGRESS" },
+			ANA,
+		);
+
+		expect(calls.sharedLocks).toEqual([true]);
+		expect(calls.exclusiveLocks).toEqual([]);
+		expect(calls.courseReads).toEqual([false, true]);
 	});
 });
 

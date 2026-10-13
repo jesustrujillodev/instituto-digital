@@ -28,6 +28,7 @@ export const CONTENT_ERROR_CODES = {
 	QUIZ_COMPLETES_ON_SUBMIT: "CONTENT_QUIZ_COMPLETES_ON_SUBMIT",
 	QUIZ_RETAKE_NOT_ALLOWED: "CONTENT_QUIZ_RETAKE_NOT_ALLOWED",
 	QUIZ_PARTICIPANT_NOT_FOUND: "CONTENT_QUIZ_PARTICIPANT_NOT_FOUND",
+	QUIZ_SELF_RETAKE: "CONTENT_QUIZ_SELF_RETAKE",
 	SESSION_NOT_FOUND: "CONTENT_SESSION_NOT_FOUND",
 	SESSION_MATERIAL_NOT_FOUND: "CONTENT_SESSION_MATERIAL_NOT_FOUND",
 	TOO_MANY_SESSION_MATERIALS: "CONTENT_TOO_MANY_SESSION_MATERIALS",
@@ -262,6 +263,14 @@ export class ContentQuizRetakeNotAllowedError extends ContentError {
 	readonly code = CONTENT_ERROR_CODES.QUIZ_RETAKE_NOT_ALLOWED;
 	constructor() {
 		super("Only a failed latest attempt with no attempts left can be retaken");
+	}
+}
+
+/** Quien imparte e iba inscrito no se habilita otro intento a sí mismo. */
+export class ContentQuizSelfRetakeError extends ContentError {
+	readonly code = CONTENT_ERROR_CODES.QUIZ_SELF_RETAKE;
+	constructor() {
+		super("Nobody grants a retake to themselves");
 	}
 }
 

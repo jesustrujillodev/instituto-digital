@@ -16,9 +16,13 @@ import type {
 	AuthTokens,
 	LoginDto,
 	RefreshResult,
+	Session,
 } from "../domain/auth.types";
 import { validateAccessTokenPayload } from "../domain/auth.validators";
-import { isLockedOutForRole } from "../domain/security-state.rules";
+import {
+	evaluateToken,
+	isLockedOutForRole,
+} from "../domain/security-state.rules";
 
 type Dependencies = {
 	sessionRepository: ICradle["sessionRepository"];
@@ -68,6 +72,7 @@ export const createAuthService = ({
 			role: string;
 			dependencyId: number | null;
 			isTrainer: boolean;
+			mustChangePassword: boolean;
 		},
 		userId: number,
 	): AccessTokenPayload =>
@@ -79,6 +84,7 @@ export const createAuthService = ({
 			role: user.role,
 			dependencyId: user.dependencyId,
 			isTrainer: user.isTrainer,
+			mustChangePassword: user.mustChangePassword,
 		});
 
 	// ── Login ────────────────────────────────────────────────────────────────────
@@ -100,8 +106,8 @@ export const createAuthService = ({
 			throw new PlatformLockedError();
 		}
 
-		// Rate limiting por email y por IP (la IP es informativa/espoofable sin
-		// proxy de confianza; por eso el límite por email es el estricto).
+		// Por email (estricto) y por IP (laxo: una oficina comparte IP). Sin IP
+		// solo cuenta el email; una cubeta común la agotaría cualquiera.
 		const windowMs = authConfig.loginWindowS * 1000;
 		const decisions = await Promise.all([
 			rateLimiter.consume(loginEmailRateKeyOf(dto.email), {
@@ -187,10 +193,39 @@ export const createAuthService = ({
 	// procesos) y ventana de gracia + detección de reuso (capa 3).
 	// Diseño: docs/auth/00-sistema-autenticacion.md §6.2
 
+	/**
+	 * Un access token nuevo para una sesión que ya no se rota: el rezagado de la
+	 * ventana de gracia y el par cacheado que quedó antes de un epoch. Las mismas
+	 * comprobaciones que la rotación normal: es otro camino que emite access
+	 * tokens, así que cerrar solo uno de los dos no cierra nada.
+	 */
+	const mintAccessFor = async (session: Session, now: Date) => {
+		if (session.expiresAt < now) throw new SessionExpiredError();
+		const user = await userRepository.findByInternalId(session.userId);
+		if (!user) throw new InvalidSessionError();
+
+		if (user.archivedAt) {
+			log.warn("refresh rejected without rotation: archived account", {
+				userId: user.id,
+			});
+			await sessionRepository.deleteAllByUserId(session.userId);
+			throw new InvalidSessionError();
+		}
+
+		if (isLockedOutForRole(await securityStateRepository.get(), user.role)) {
+			throw new PlatformLockedError();
+		}
+
+		return tokenService.signAccessToken(buildPayload(user, session.userId));
+	};
+
+	/** Lo que comparte el single-flight: el par y la sesión que lo emitió. */
+	type Rotation = { tokens: RefreshResult; sessionId: string };
+
 	const rotate = async (
 		incomingHash: string,
 		attempt = 0,
-	): Promise<RefreshResult> => {
+	): Promise<Rotation> => {
 		const session = await sessionRepository.findByTokenHash(incomingHash);
 
 		// Hash desconocido: token inválido/corrupto o sesión ya revocada.
@@ -249,7 +284,10 @@ export const createAuthService = ({
 			const accessToken = await tokenService.signAccessToken(
 				buildPayload(user, session.userId),
 			);
-			return { accessToken, refreshToken: newRefreshToken };
+			return {
+				tokens: { accessToken, refreshToken: newRefreshToken },
+				sessionId: session.id,
+			};
 		}
 
 		// ── Coincide con el token ANTERIOR (prevTokenHash) ───────────────────────
@@ -262,30 +300,12 @@ export const createAuthService = ({
 			// rotado. No se rota de nuevo ni se puede reemitir el refresh vigente
 			// (en DB solo hay hashes) — solo access token; la cookie de refresh del
 			// cliente converge en su próximo refresh.
-			if (session.expiresAt < now) throw new SessionExpiredError();
-			const user = await userRepository.findByInternalId(session.userId);
-			if (!user) throw new InvalidSessionError();
-
-			// La misma comprobación que en la rotación normal, y por el mismo motivo:
-			// la ventana de gracia es otro camino que emite access tokens, así que
-			// cerrar solo uno de los dos no cierra nada.
-			if (user.archivedAt) {
-				log.warn("refresh grace rejected: archived account", {
-					userId: user.id,
-				});
-				await sessionRepository.deleteAllByUserId(session.userId);
-				throw new InvalidSessionError();
-			}
-
-			if (isLockedOutForRole(await securityStateRepository.get(), user.role)) {
-				throw new PlatformLockedError();
-			}
-
+			const accessToken = await mintAccessFor(session, now);
 			log.debug("refresh grace hit (DB fallback)", { sessionId: session.id });
-			const accessToken = await tokenService.signAccessToken(
-				buildPayload(user, session.userId),
-			);
-			return { accessToken, refreshToken: null };
+			return {
+				tokens: { accessToken, refreshToken: null },
+				sessionId: session.id,
+			};
 		}
 
 		// ── Reuso fuera de la gracia → robo presunto ─────────────────────────────
@@ -315,9 +335,45 @@ export const createAuthService = ({
 		// El hash del token entrante ES la clave de idempotencia. El resultado
 		// queda cacheado toda la ventana de gracia: concurrentes y rezagados
 		// reciben el MISMO par de tokens.
-		return singleFlight.run(`auth:refresh:${incomingHash}`, graceMs, () =>
-			rotate(incomingHash),
+		let rotatedHere = false;
+		const { tokens, sessionId } = await singleFlight.run(
+			`auth:refresh:${incomingHash}`,
+			graceMs,
+			() => {
+				rotatedHere = true;
+				return rotate(incomingHash);
+			},
 		);
+
+		// Lo acuñado en esta llamada salió de datos leídos ahora: es posterior a
+		// cualquier corte por construcción. Lo que sale de la caché se acuñó antes
+		// y se trata como el access token de una cookie.
+		if (rotatedHere) return tokens;
+
+		// El par cacheado no sobrevive a la revocación de su sesión: toda
+		// revocación (logout, revokeAllForUser, cerrar todas, lockdown) borra la
+		// fila. Por id y no por hash: si la sesión volvió a rotar dentro de la
+		// ventana, el hash del rezagado ya no está en ella, pero sigue siendo suya.
+		const session = await sessionRepository.findById(sessionId);
+		if (!session) throw new InvalidSessionError();
+
+		const cached = await tokenService.verifyAccessToken(tokens.accessToken);
+		const verdict = cached
+			? evaluateToken(cached, securitySnapshot)
+			: ({ allowed: false, reason: "GLOBAL_EPOCH" } as const);
+		if (verdict.allowed) return tokens;
+		if (verdict.reason === "LOCKDOWN") throw new PlatformLockedError();
+
+		// Acuñado antes de un epoch que no cerró esta sesión (quien revoca
+		// conserva la suya): access nuevo con datos frescos y el mismo refresh, en
+		// vez de servir claims de antes del corte o expulsar a quien revocó.
+		log.debug("cached refresh pair predates the epoch — reminting access", {
+			sessionId,
+		});
+		return {
+			accessToken: await mintAccessFor(session, new Date()),
+			refreshToken: tokens.refreshToken,
+		};
 	};
 
 	// ── Logout ───────────────────────────────────────────────────────────────────
@@ -337,9 +393,36 @@ export const createAuthService = ({
 		});
 
 	// ── Logout all devices ───────────────────────────────────────────────────────
+	// El borrado mata la renovación y el epoch del usuario el acceso en curso:
+	// sin él, los demás dispositivos seguían dentro hasta que su access token
+	// expiraba (auditoría, Fase C).
 	const logoutAll: AuthService["logoutAll"] = (userId) =>
 		run("logoutAll", async () => {
 			await sessionRepository.deleteAllByUserId(userId);
+			await securityStateRepository.revokeUserTokens(userId);
+
+			return ok(null);
+		});
+
+	// Como el cierre global del panel: el epoch también corta el access token de
+	// quien lo pide, pero su sesión sobrevive y el silent refresh le acuña otro.
+	const logoutOthers: AuthService["logoutOthers"] = (
+		userId,
+		currentRefreshToken,
+	) =>
+		run("logoutOthers", async () => {
+			const current = currentRefreshToken
+				? await sessionRepository.findByTokenHash(
+						tokenService.hashRefreshToken(currentRefreshToken),
+					)
+				: null;
+
+			if (current?.userId === userId) {
+				await sessionRepository.deleteOthersOfUser(userId, current.id);
+			} else {
+				await sessionRepository.deleteAllByUserId(userId);
+			}
+			await securityStateRepository.revokeUserTokens(userId);
 
 			return ok(null);
 		});
@@ -348,7 +431,14 @@ export const createAuthService = ({
 	const verifyAccessToken: AuthService["verifyAccessToken"] = (token) =>
 		tokenService.verifyAccessToken(token);
 
-	return { login, refresh, logout, logoutAll, verifyAccessToken };
+	return {
+		login,
+		refresh,
+		logout,
+		logoutAll,
+		logoutOthers,
+		verifyAccessToken,
+	};
 };
 
 export type { AuthService };

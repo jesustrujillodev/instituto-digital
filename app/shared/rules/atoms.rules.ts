@@ -2,29 +2,41 @@ import * as v from "valibot";
 
 // Recorta ANTES de validar el formato: el correo llega pegado desde un gestor de
 // contraseñas o un cliente de correo con espacios alrededor, y `v.email()` los
-// rechazaría. Los espacios internos siguen fallando.
+// rechazaría. Los espacios internos siguen fallando. El tope va antes del formato
+// para no pasar la expresión regular por una cadena de megas.
 const email = v.pipe(
 	v.string("El correo electrónico es obligatorio."),
 	v.trim(),
+	v.maxLength(
+		254,
+		"El correo electrónico no puede exceder los 254 caracteres.",
+	),
 	v.email("Escribe un correo electrónico válido."),
 	v.transform((val) => val.toLowerCase()),
 );
 
-// Para LOGIN: solo "no vacía" — la política no se revela en el login.
-// maxLength 72: bcrypt trunca a 72 bytes; el cap evita procesar entradas
-// gigantes en el body y que `password + basura` autentique por truncamiento.
+// bcrypt solo mira los primeros 72 BYTES en UTF-8, no 72 caracteres: una "ñ" o
+// una vocal acentuada ocupan 2 y un emoji 4. Contar caracteres dejaba pasar
+// contraseñas que bcrypt recorta en silencio.
+const BCRYPT_MAX_BYTES = 72;
+
+// Para LOGIN: solo "no vacía" — la política no se revela en el login. El tope
+// evita procesar entradas gigantes y que `password + basura` autentique por
+// truncamiento.
 const password = v.pipe(
 	v.string("La contraseña es obligatoria."),
 	v.minLength(1, "La contraseña es obligatoria."),
-	v.maxLength(72, "La contraseña excede la longitud máxima."),
+	v.maxBytes(BCRYPT_MAX_BYTES, "La contraseña excede la longitud máxima."),
 );
 
 // Para CREAR/CAMBIAR contraseña: aquí sí aplica la política.
-// maxLength 72: límite efectivo de bcrypt (bytes); más allá se trunca.
 const newPassword = v.pipe(
 	v.string("La contraseña es obligatoria."),
 	v.minLength(8, "La contraseña debe tener al menos 8 caracteres."),
-	v.maxLength(72, "La contraseña no puede exceder los 72 caracteres."),
+	v.maxBytes(
+		BCRYPT_MAX_BYTES,
+		"La contraseña es demasiado larga: admite hasta 72 caracteres, y los acentos, la ñ y los símbolos especiales cuentan por más de uno.",
+	),
 );
 
 // ── Roles ──────────────────────────────────────────────────────────────────────

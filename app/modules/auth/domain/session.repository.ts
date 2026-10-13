@@ -43,6 +43,10 @@ export interface SessionRepository {
 
 	deleteAllByUserId(userId: number): Promise<void>;
 
+	// Las sesiones del usuario salvo la indicada: la de quien cambió su
+	// contraseña sigue abierta.
+	deleteOthersOfUser(userId: number, keepSessionId: string): Promise<void>;
+
 	// Cierre global del monitor: revoca todo SALVO la sesión indicada —la de
 	// quien ejecuta la acción— para que no se expulse a sí mismo del panel.
 	// Devuelve cuántas se revocaron.

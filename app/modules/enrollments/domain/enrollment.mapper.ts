@@ -21,6 +21,7 @@ import {
 import type {
 	AvailableCourse,
 	EnrollmentCourse,
+	EnrollmentState,
 	OwnEnrollment,
 	RosterEntry,
 } from "./enrollment.types";
@@ -164,6 +165,15 @@ export const toOwnEnrollment = (raw: OwnEnrollmentRaw): OwnEnrollment => ({
 	origin: raw.origin,
 	status: raw.status,
 	result: raw.result,
+	removed: isRemoval(raw),
+});
+
+export const toEnrollmentState = (
+	raw: Omit<OwnEnrollmentRaw, "documentId" | "result">,
+): EnrollmentState => ({
+	userId: raw.userId,
+	status: raw.status,
+	origin: raw.origin,
 	removed: isRemoval(raw),
 });
 

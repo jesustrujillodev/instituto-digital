@@ -27,11 +27,13 @@ export interface RatingWrite {
 	comment: string | null;
 }
 
-/** Sin autor: los comentarios se muestran anónimos para todos (§6.10). */
+/**
+ * Sin autor ni fecha: los comentarios se muestran anónimos para todos (§6.10).
+ * En un curso pequeño, la fecha bastaría para saber quién lo escribió.
+ */
 export interface RatingComment {
 	score: number;
 	comment: string;
-	createdAt: Date;
 }
 
 export interface CourseRatingSummary {

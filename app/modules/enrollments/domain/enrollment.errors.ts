@@ -16,6 +16,7 @@ export const ENROLLMENT_ERROR_CODES = {
 	INVITATION_REQUIRED: "ENROLLMENT_INVITATION_REQUIRED",
 	STATE_CHANGED: "ENROLLMENT_STATE_CHANGED",
 	REMOVED: "ENROLLMENT_REMOVED",
+	PARTICIPANT_REMOVED: "ENROLLMENT_PARTICIPANT_REMOVED",
 	PARTICIPANT_NOT_ENROLLED: "ENROLLMENT_PARTICIPANT_NOT_ENROLLED",
 	REMOVE_CLOSED: "ENROLLMENT_REMOVE_CLOSED",
 	RATE_LIMITED: "ENROLLMENT_RATE_LIMITED",
@@ -136,6 +137,17 @@ export class EnrollmentRemovedError extends EnrollmentError {
 	readonly code = ENROLLMENT_ERROR_CODES.REMOVED;
 	constructor() {
 		super("Removed by the organizer");
+	}
+}
+
+/**
+ * Una dependencia que no organiza el curso eligió a alguien a quien quien
+ * organiza dio de baja: esa baja solo la deshace quien organiza.
+ */
+export class EnrollmentParticipantRemovedError extends EnrollmentError {
+	readonly code = ENROLLMENT_ERROR_CODES.PARTICIPANT_REMOVED;
+	constructor() {
+		super("Participant was removed by the organizer");
 	}
 }
 

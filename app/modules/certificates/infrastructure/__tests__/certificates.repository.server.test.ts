@@ -522,3 +522,47 @@ describe("entrega al participante", () => {
 		]);
 	});
 });
+
+describe("hasCourse", () => {
+	const repositoryOf = (found: unknown, asked: unknown[]) =>
+		createCertificateRepository({
+			prisma: {
+				course: {
+					findFirst: async (args: unknown) => {
+						asked.push(args);
+						return found;
+					},
+				},
+			} as unknown as ICradle["prisma"],
+			logger: {
+				debug: () => {},
+				info: () => {},
+				warn: () => {},
+				error: () => {},
+				child: () => ({}) as Logger,
+			},
+		});
+
+	// El mismo filtro que `findCourse`, sin leer el curso.
+	test("filtra por el curso y el alcance, y solo lee el id", async () => {
+		const asked: unknown[] = [];
+
+		expect(
+			await repositoryOf({ id: 4 }, asked).hasCourse("curso-1", {
+				dependencyId: 3,
+			}),
+		).toBe(true);
+		expect(asked).toEqual([
+			{
+				where: { AND: [{ documentId: "curso-1" }, { dependencyId: 3 }] },
+				select: { id: true },
+			},
+		]);
+	});
+
+	test("fuera de alcance, no", async () => {
+		expect(
+			await repositoryOf(null, []).hasCourse("curso-1", { dependencyId: 3 }),
+		).toBe(false);
+	});
+});

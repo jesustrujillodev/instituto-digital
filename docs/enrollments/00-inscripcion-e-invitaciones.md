@@ -73,6 +73,7 @@ del servicio pasa por ella antes de llegar al repositorio.
 | Invitar omite a quien ya está `INVITED` o `ENROLLED` y reinvita a quien rechazó o se dio de baja | `invite` |
 | Quien organiza da de baja a un inscrito mientras el curso está `PUBLISHED` y la persona no lo ha completado, aunque el curso ya haya empezado. Libera su lugar y le avisa (`ENROLLMENT_REMOVED`) | `remove`, `removalBlockerOf` (`ENROLLMENT_REMOVE_CLOSED`) |
 | Una baja con `acted_by_id` distinto de la persona es de quien organiza: la persona no vuelve sola desde el catálogo (`ENROLLMENT_REMOVED`); quien organiza sí puede asignarla o invitarla de nuevo. No hay estado nuevo: sigue siendo `WITHDRAWN` | `isRemoval`, `assertNotRemoved`, `participantPermissionsOf` |
+| Una dependencia que ve el curso sin organizarlo tampoco deshace esa baja: elegir a esa persona rechaza el lote (`ENROLLMENT_PARTICIPANT_REMOVED`) y, si llega como miembro de un grupo, se omite. La lista de candidatos y las cuentas de los grupos no se la ofrecen. Una baja voluntaria sigue siendo reasignable (auditoría C08) | `removalsOutOfReach`, `findEnrollments` (`removed`), `searchCandidates`/`findGroupEnrollable` (`withRemovals`) |
 
 El instante actual llega por el cradle (`clock`) para probar estas reglas con
 fechas fijas.
@@ -103,6 +104,11 @@ Un curso fuera de alcance responde **404**, igual que uno inexistente.
 | `/dashboard/mis-capacitaciones` | `requireParticipant` | Secciones apiladas: «Te invitaron», «En curso», «Próximos» y «Finalizados»; las «Inscripciones canceladas» (`WITHDRAWN`) solo aparecen al pedirlas desde «Filtrar». Finalizados y canceladas enseñan una fila y «Ver todos» despliega el resto. Buscador (título o dependencia, sin acentos) y filtros por estado, modalidad, formato y dependencia, en el navegador. En curso, la barra mide el temario («3 de 5 lecciones», de `classroomService.summarizeMine`) o las sesiones ya transcurridas con la próxima; «empieza en N días» y las sesiones transcurridas los calcula el servidor (`courseTimelineOf`). Intents `accept`, `decline`. Cada tarjeta lleva a la ficha propia |
 | `/dashboard/mis-capacitaciones/:documentId` | `requireParticipant` | Ficha propia del curso para quien lo cursa (`INVITED`, `ENROLLED` o `WITHDRAWN`): estado, avance, resultado, aula, certificado y valoración; «volver» y el rastro regresan a Mis capacitaciones. Intents `enroll` («Volver a inscribirme» tras una baja propia; el avance se conserva), `withdraw`, `accept`, `decline`. Sin inscripción o con la invitación rechazada, redirige a la ficha del catálogo. A ella llevan también el calendario (lentes inscrito/invitado), Mis créditos y los correos del curso |
 | `/dashboard/mis-capacitaciones/finalizados.xlsx` | `requireParticipant` | Ruta de recurso: descarga los finalizados en Excel, con una hoja "Cursos" y otra "Sesiones". El libro lo arma `spreadsheetWriter` (exceljs), y las fechas salen en la hora del instituto |
+
+**El enlace de videollamada solo le llega a quien tiene la inscripción activa**
+(`INVITED` o `ENROLLED`), igual que el calendario (`withSessionLinksFor`). La
+ficha del catálogo, «Mis capacitaciones», la ficha propia y el Excel lo entregan
+en `null` a quien se dio de baja o solo ve el curso.
 | `/dashboard/capacitaciones/:documentId/inscripciones` | `requireCourseScope` | Pestañas Personas y Grupos, con aviso de cupo antes de enviar (`planBatch`), y la lista de inscritos e invitados. Intents `assign`, `invite` y `remove`; la baja se ofrece desde «Acreditación» en la impartición y envía aquí. Una dependencia que no organiza el curso entra también: ve solo a su personal y sus migas vuelven al catálogo |
 
 El menú muestra "Catálogo de capacitaciones" y "Mis capacitaciones" a `USER`, `DEPENDENCY_HEAD` y
@@ -162,6 +168,16 @@ imagen se subió una vez y es lo que hace reconocible el curso en las tres.
   de `runInTransaction` y cuenta los `ENROLLED`. Editar el cupo del curso usa el
   mismo bloqueo. Quien solo necesita serializar (cuestionarios, avance,
   impartición) usa `lockCourse`: el mismo `FOR UPDATE`, sin leer el cupo.
+- **Ventana bajo el bloqueo:** `lockCourseSeats` devuelve también la ventana de
+  inscripción (estado, fecha límite, cierre a mano y primera sesión), leída en la
+  misma consulta que el cupo. `enroll`, `accept` y `assign` la comprueban antes de
+  bloquear, para fallar pronto, y otra vez con el curso bloqueado: un curso
+  cancelado, finalizado o cerrado mientras se esperaba responde `ENROLLMENT_CLOSED`
+  sin escribir.
+- **Bloqueo compartido:** `lockCourseShared` (`FOR SHARE`) espera a quien tiene el
+  curso en exclusiva sin hacer esperar a los demás. Lo usan el escaneo del QR y el
+  avance que no recalcula. Si la transacción va a pedir `lockCourse` después, se
+  toma ese desde el principio.
 - **Doble envío:** `save` actualiza solo si la fila sigue en el estado leído. Si
   no, o si dos altas chocan con la unicidad, responde `ENROLLMENT_STATE_CHANGED`.
   Asignar e invitar en lote usan `saveMany`, con la misma regla por grupo: si

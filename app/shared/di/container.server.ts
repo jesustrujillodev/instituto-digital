@@ -1,3 +1,5 @@
+import { resolve as resolvePath } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
 	asFunction,
 	asValue,
@@ -42,6 +44,7 @@ import { createChromiumExporter } from "@/modules/certificates/infrastructure/ch
 import { createPdfLibTools } from "@/modules/certificates/infrastructure/pdf-lib-tools.server";
 import { createCheckInService } from "@/modules/check-in/application/check-in.service.server";
 import { createCloudService } from "@/modules/cloud/application/cloud.service.server";
+import { createStorageAccessService } from "@/modules/cloud/application/storage-access.service.server";
 import { createClassroomService } from "@/modules/content/application/classroom.service.server";
 import { createContentService } from "@/modules/content/application/content.service.server";
 import { createLessonMaterialReader } from "@/modules/content/application/lesson-material.reader.server";
@@ -94,6 +97,7 @@ import { createUserRepository } from "@/modules/users/infrastructure/users.repos
 import { createInvalidationBus } from "@/shared/cache/invalidation-bus.factory.server";
 import { createVersionedCache } from "@/shared/cache/versioned-cache.factory.server";
 import { createMemorySingleFlight } from "@/shared/concurrency/single-flight.memory";
+import { clientIpPolicyOf } from "@/shared/http/client-ip";
 import { createConsoleLogger } from "@/shared/logging/logger.console";
 import { createThrottledLog } from "@/shared/logging/throttled-log";
 import { createMailerFromEnv } from "@/shared/mail/mailer.factory.server";
@@ -169,6 +173,7 @@ const assetUrlResolver = createAssetUrlResolver(env.STORAGE_PUBLIC_DOMAIN);
 // fuera de cualquier transacción de petición.
 const mailer = createMailerFromEnv(env, logger);
 const appBaseUrl = env.APP_BASE_URL ?? "http://localhost:5173";
+const clientIpPolicy = clientIpPolicyOf(env);
 
 // Chromium y las fuentes incrustadas son de proceso: abrir un navegador o leer
 // las fuentes por petición costaría segundos y memoria en cada descarga.
@@ -182,7 +187,23 @@ const certificateAssetSource = createCertificateAssetSource({
 	storageBucket: env.STORAGE_BUCKET_NAME ?? null,
 	storagePublicBucket: env.STORAGE_PUBLIC_BUCKET_NAME ?? null,
 });
-const certificatePdfTools = createPdfLibTools();
+/**
+ * El worker que sanea los fondos PDF. En producción, el que `vite.worker.config.ts`
+ * deja en `build/worker/`, resuelto desde el directorio de arranque como
+ * `node build/http/index.js`: los bundles parten el código en
+ * chunks, así que `import.meta.url` no sirve de ancla. En desarrollo, el
+ * fuente, que Node ejecuta quitando los tipos; va por variable porque con un
+ * literal Vite reescribiría el `new URL` como un asset.
+ */
+const DEV_PDF_SANITIZE_WORKER =
+	"../../modules/certificates/infrastructure/pdf-sanitize.worker.server.ts";
+const pdfSanitizeWorker =
+	env.NODE_ENV === "production"
+		? pathToFileURL(resolvePath("build/worker/pdf-sanitize.js"))
+		: new URL(DEV_PDF_SANITIZE_WORKER, import.meta.url);
+const certificatePdfTools = createPdfLibTools({
+	sanitizeWorker: pdfSanitizeWorker,
+});
 
 // Con colas, el correo lo entrega el worker de BullMQ y su barrido; el poller
 // solo existe sin Redis (docs/notifications/00-notificaciones.md).
@@ -259,6 +280,7 @@ const createAppContainer = () => {
 		clock: asValue(systemClock),
 		authConfig: asValue(authConfig),
 		env: asValue(env),
+		clientIpPolicy: asValue(clientIpPolicy),
 		storageBucket: asValue(env.STORAGE_BUCKET_NAME ?? null),
 		storagePublicBucket: asValue(env.STORAGE_PUBLIC_BUCKET_NAME ?? null),
 		assetUrlResolver: asValue(assetUrlResolver),
@@ -354,6 +376,7 @@ const createAppContainer = () => {
 			createCertificateTemplateReferenceSource(cradle),
 		]),
 		cloudService: asSingleton((cradle: ICradle) => createCloudService(cradle)),
+		storageAccessService: asSingleton(createStorageAccessService),
 		jobFailureRepository: asSingleton(createJobFailureRepository),
 		operationsService: asSingleton(createOperationsService),
 		jobDispatcher: asSingleton((cradle) =>

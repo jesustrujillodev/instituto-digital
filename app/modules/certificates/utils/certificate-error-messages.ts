@@ -43,7 +43,7 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 			const reason = reasonOf(error);
 			return reason
 				? `La imagen no se puede usar: ${reason}.`
-				: "La imagen debe ser PNG, JPG, WEBP o SVG de hasta 2 MB.";
+				: "La imagen debe ser PNG, JPG o WEBP de hasta 2 MB.";
 		},
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
@@ -76,7 +76,7 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 			const reason = reasonOf(error);
 			return reason
 				? `El logo no se puede usar: ${reason}.`
-				: "El logo debe ser PNG, WEBP o SVG de hasta 2 MB.";
+				: "El logo debe ser PNG o WEBP de hasta 2 MB.";
 		},
 		status: HTTP_STATUS.BAD_REQUEST,
 	},
@@ -105,6 +105,23 @@ export const CERTIFICATE_ERROR_MESSAGES: ErrorMessageMap = {
 		message:
 			"No se pudo generar el archivo del certificado. Inténtalo de nuevo.",
 		status: HTTP_STATUS.BAD_GATEWAY,
+	},
+	[CERTIFICATE_ERROR_CODES.EXPORT_RATE_LIMITED]: {
+		message: (error) => {
+			const ms = (error.details as { retryAfterMs?: number } | undefined)
+				?.retryAfterMs;
+			if (!ms)
+				return "Demasiadas descargas seguidas. Intenta de nuevo en un momento.";
+
+			const seconds = Math.ceil(ms / 1000);
+			return `Demasiadas descargas seguidas. Intenta de nuevo en ${seconds} ${seconds === 1 ? "segundo" : "segundos"}.`;
+		},
+		status: HTTP_STATUS.TOO_MANY_REQUESTS,
+	},
+	[CERTIFICATE_ERROR_CODES.EXPORT_BUSY]: {
+		message:
+			"Hay muchas descargas de certificados en curso. Intenta de nuevo en unos segundos.",
+		status: HTTP_STATUS.SERVICE_UNAVAILABLE,
 	},
 	[CERTIFICATE_ERROR_CODES.VERIFY_RATE_LIMITED]: {
 		message: (error) => {

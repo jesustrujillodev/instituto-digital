@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useFetcherPromise } from "@/shared/hooks/use-fetcher-promise";
+import { isHttpUrl } from "@/shared/rules/url.rules";
 import { LESSON_MAX_ESTIMATED_MINUTES } from "../domain/content.config";
-import { isHttpUrl, type LessonType } from "../domain/content.rules";
+import type { LessonType } from "../domain/content.rules";
 import type { ContentLesson } from "../domain/content.types";
 import {
 	CONTENT_INTENTS,

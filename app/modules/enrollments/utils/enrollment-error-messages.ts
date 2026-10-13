@@ -58,6 +58,8 @@ export const ENROLLMENT_ERROR_MESSAGES: ErrorMessageMap = {
 		"La inscripción cambió mientras se procesaba. Recarga e inténtalo de nuevo.",
 	[ENROLLMENT_ERROR_CODES.REMOVED]:
 		"Quien organiza la capacitación te dio de baja: solo esa persona puede volver a inscribirte.",
+	[ENROLLMENT_ERROR_CODES.PARTICIPANT_REMOVED]:
+		"Quien organiza la capacitación dio de baja a una de las personas elegidas: solo quien organiza puede volver a inscribirla.",
 	[ENROLLMENT_ERROR_CODES.PARTICIPANT_NOT_ENROLLED]:
 		"Esa persona ya no está inscrita en la capacitación.",
 	[ENROLLMENT_ERROR_CODES.REMOVE_CLOSED]: {

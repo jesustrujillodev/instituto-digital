@@ -23,8 +23,8 @@ en calidad de imprenta.
    recursos: nada de JavaScript, acciones (`/AA`), anotaciones, formularios ni adjuntos.
    `copyPages` no sirve: copia el diccionario de la página entero.
 3. Respeta `/Rotate` y el CropBox, igual que pdf.js, para que raster y vector coincidan.
-4. Rechaza: no es PDF, cifrado, ilegible, más de 10 MB, lado fuera de 200–1191 pt (A7–A3),
-   o un raster que no mide página × dpi / 72 (±2 px).
+4. Rechaza: no es PDF, cifrado, ilegible, más de 10 MB, más de 32 MiB descomprimidos (§2.3),
+   lado fuera de 200–1191 pt (A7–A3), o un raster que no mide página × dpi / 72 (±2 px).
 5. Guarda el PDF reconstruido (nunca el original) y el raster en
    `documentos/certificados/<curso>/fondos/`, privados. La página adopta el tamaño del PDF.
 
@@ -38,9 +38,34 @@ en calidad de imprenta.
 Chromium redondea el tamaño de página a su rejilla (unas centésimas de punto); por eso la
 capa se ancla a su tamaño natural en vez de estirarla.
 
+### 2.3 Saneado aislado y acotado (remediación C02/C03, 10-10-2026)
+
+Un PDF de unos cientos de bytes podía inflarse a decenas de MB al cargarlo (`/ObjStm` con
+Flate encadenado) o al copiar la página (`/Contents` repetido), y pdf-lib lo descomprime de
+forma síncrona: el único proceso web quedaba bloqueado segundos. Ahora:
+
+1. `sanitize` corre en un `worker_thread` nuevo por subida
+   (`pdf-sanitize.worker.server.ts`), con 256 MB de heap, 10 s de plazo y como mucho dos a la
+   vez; el resto espera turno. Plazo vencido o heap agotado → `too_large`.
+2. Dentro del worker, `DecodeStream.ensureBuffer` lleva un presupuesto de **32 MiB
+   descomprimidos entre todos los flujos**: es el único punto por el que crece la salida de
+   cualquier filtro, en la carga y en `embedPage`. Cuenta lo más alto que pide cada flujo
+   (no la capacidad del búfer, que crece al doble). Como el parser se traga la excepción y
+   guarda el objeto como inválido, el rechazo sale de una bandera comprobada al final.
+3. Un fallo del worker que no es plazo ni heap (por ejemplo, que no esté en el build) no es
+   un PDF malo: sale como error inesperado.
+4. En producción el worker es `build/worker/pdf-sanitize.js`, que construye
+   `vite.worker.config.ts` junto al worker de colas y se resuelve desde el directorio de
+   arranque. En desarrollo y en pruebas Node ejecuta el fuente quitando los tipos: hace
+   falta Node 22.18 o posterior.
+
+Arrancar el worker cuesta unos 0,8 s por subida (cargar pdf-lib en un hilo nuevo); a cambio
+el resto de las peticiones no espera.
+
 ## 3. Consecuencias
 
-- Puerto nuevo `certificatePdfTools` (de proceso, `asValue`).
+- Puerto nuevo `certificatePdfTools` (de proceso, `asValue`); recibe la URL del worker de
+  saneado desde el composition root (§2.3).
 - `pdfjs-dist` es dependencia de desarrollo: solo la usa el bundle del cliente.
 - Una página sin contenido es un fondo en blanco válido.
 - El raster y el vector difieren solo en el antialiasing de pdf.js.

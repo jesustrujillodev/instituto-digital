@@ -77,6 +77,13 @@ const sessionMaterialKey = v.pipe(
 	),
 );
 
+/**
+ * Carpeta de las keys que emite la subida de material de sesión. Solo el
+ * curso: el alta pide la subida antes de guardar la sesión.
+ */
+export const sessionMaterialFolderOf = (courseDocumentId: string): string =>
+	`${SESSION_MATERIAL_PREFIX}/${courseDocumentId}`;
+
 const materialTitle = v.pipe(
 	v.string("Escribe el nombre del material."),
 	v.trim(),
@@ -118,7 +125,6 @@ const uploadedSessionMaterial = {
 	availableFromSession,
 	key: sessionMaterialKey,
 	fileName: materialFileName,
-	mimeType: materialMimeType,
 };
 
 export const createSessionMaterialRule = v.variant(

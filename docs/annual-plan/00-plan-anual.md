@@ -60,6 +60,10 @@ El avance es `realizadas / (total − canceladas)` (`planProgressOf`), y es `nul
 La pantalla calcula los mismos permisos por línea (`toPlanLineView.can`) para
 mostrar solo las acciones válidas. El servidor los vuelve a comprobar.
 
+Editar, cancelar, reactivar y borrar reciben el plan de la URL junto con la
+línea: una línea de otro plan, aunque esté dentro del alcance, responde
+`ANNUAL_PLAN_LINE_NOT_FOUND` (`requireWritableLine`).
+
 ## 5. Vincular un curso a una línea
 
 Hay dos caminos, y los dos acaban en `claimPlanLine`:

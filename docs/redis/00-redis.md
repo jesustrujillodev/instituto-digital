@@ -107,6 +107,11 @@ Mientras dure la caída:
 - cada nodo cuenta por su cuenta, así que el límite efectivo es límite × nodos;
 - los contadores empiezan de cero.
 
+El limitador en memoria barre las ventanas vencidas como mucho una vez por
+segundo, no en cada intento: recorrer todas las claves por petición hacía que el
+costo creciera con el cuadrado de la tasa. Las vencidas que esperan al barrido no
+bloquean a nadie, porque cada intento compara con su propio vencimiento.
+
 El login nunca se queda sin freno: el límite por email y bcrypt siguen
 protegiéndolo ([auth/00 §8](../auth/00-sistema-autenticacion.md)). Cada intento
 vuelve a probar Redis, así que la recuperación es automática.

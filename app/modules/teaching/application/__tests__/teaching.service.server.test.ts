@@ -307,6 +307,21 @@ describe("teachingService.saveAttendance", () => {
 		expect(log.locks).toEqual([]);
 	});
 
+	// Remediación (Fase C): quien imparte e iba inscrito se pasaba lista.
+	test("quien imparte no cambia su propia asistencia", async () => {
+		const { service, log } = createHarness(
+			courseOf({ participants: [participantOf({ userId: actorOf().userId })] }),
+		);
+
+		const result = await attend(service, 0, { [ANA_DOC]: true });
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: TEACHING_ERROR_CODES.SELF_ATTENDANCE },
+		});
+		expect(log.attendance).toEqual([]);
+	});
+
 	test("en un curso publicado no toca créditos", async () => {
 		const { service, log } = createHarness();
 

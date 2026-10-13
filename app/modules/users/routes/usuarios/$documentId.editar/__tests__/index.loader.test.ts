@@ -178,6 +178,31 @@ describe("usuarios/editar loader — rol fijo", () => {
 	});
 });
 
+// Remediación (Fase C): la propia contraseña se cambia con la actual.
+describe("usuarios/editar loader — restablecer contraseña", () => {
+	test("sobre su propia cuenta no se ofrece", async () => {
+		const { context } = createHarness({
+			role: "SUPERADMIN",
+			user: userOf({ id: 7, role: "SUPERADMIN", dependencyId: null }),
+		});
+
+		const result = await run(context);
+
+		expect(result.data.canResetPassword).toBe(false);
+	});
+
+	test("sobre alguien de su alcance sí", async () => {
+		const { context } = createHarness({
+			role: "DEPENDENCY_HEAD",
+			actorDependencyId: 3,
+		});
+
+		const result = await run(context);
+
+		expect(result.data.canResetPassword).toBe(true);
+	});
+});
+
 describe("usuarios/editar loader — traslado de dependencia", () => {
 	test("al superadministrador le ofrece las demás dependencias activas", async () => {
 		const { context } = createHarness({ role: "SUPERADMIN" });

@@ -34,5 +34,6 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 		user,
 		dependencyName: dependency?.success === true ? dependency.data.name : null,
 		history: history.success ? history.data : [],
+		mustChangePassword: auth.mustChangePassword,
 	});
 };

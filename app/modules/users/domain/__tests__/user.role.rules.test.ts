@@ -18,10 +18,16 @@ const targetOf = (
 	role: Role,
 	id = 7,
 	dependencyId: number | null = role === "SUPERADMIN" ? null : 1,
-): Pick<SafeUser, "id" | "role" | "dependencyId"> => ({
+): Pick<SafeUser, "id" | "role" | "dependencyId" | "type"> => ({
 	id,
 	role,
 	dependencyId,
+	type: "INTERNAL",
+});
+
+const externalOf = (role: Role) => ({
+	...targetOf(role, 7, null),
+	type: "EXTERNAL" as const,
 });
 
 describe("roleLockOf / canChangeRole", () => {
@@ -96,6 +102,32 @@ describe("roleLockOf / canChangeRole", () => {
 
 		expect(roleLockOf(actor, superadmin)).toBe("rank");
 		expect(canChangeRole(actor, superadmin, "USER")).toBe(false);
+	});
+
+	// Auditoría C09: sin dependencia, un externo con otro rol quedaría al
+	// alcance de cualquier titular o auxiliar desde su perfil de capacitador.
+	test("nadie promueve a un externo, ni el superadministrador", () => {
+		for (const actorRole of ROLES) {
+			const actor = actorOf(actorRole);
+			const external = externalOf("USER");
+
+			expect(roleLockOf(actor, external)).toBe("external");
+			for (const role of ROLES.filter((role) => role !== "USER")) {
+				expect(canChangeRole(actor, external, role)).toBe(false);
+			}
+		}
+	});
+
+	test("a un externo que ya tiene otro rol solo se le devuelve a USER", () => {
+		const actor = actorOf("SUPERADMIN");
+		const external = externalOf("SUPERADMIN");
+
+		expect(roleLockOf(actor, external)).toBeNull();
+		expect(canChangeRole(actor, external, "USER")).toBe(true);
+		expect(canChangeRole(actor, external, "DEPENDENCY_DEPUTY")).toBe(false);
+		expect(canChangeRole(actorOf("DEPENDENCY_HEAD"), external, "USER")).toBe(
+			false,
+		);
 	});
 });
 

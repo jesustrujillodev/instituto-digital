@@ -29,7 +29,9 @@ así que el material sobrevive a cambios de fecha, horario o lugar.
 Mismas listas de tipos y topes (`LESSON_FILE`, `LESSON_VIDEO`), misma subida firmada directa
 al bucket con `statObject` al confirmar, misma firma de lectura (`signReference`). Prefijo
 privado propio, `documentos/sesiones/`, con su fuente de referencias para el gestor de la
-nube. La key se valida contra ese prefijo: una key de otro módulo no se acepta.
+nube. La key se valida contra ese prefijo: una key de otro módulo no se acepta. Desde la
+remediación C05 la key cuelga además de la carpeta del curso (`documentos/sesiones/<curso>/`),
+y una key de otro curso tampoco se acepta.
 
 ### 2.3 Lo administra quien edita el curso y quien lo imparte
 

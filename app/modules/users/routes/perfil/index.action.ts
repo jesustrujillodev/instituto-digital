@@ -1,3 +1,4 @@
+import { parseTokenCookies } from "@/core/cookies.server";
 import { requireAuth } from "@/shared/auth/require-auth.server";
 import { fail, ok, parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
@@ -37,7 +38,14 @@ export const action = async ({
 	const input = parseInput(() => validateChangePassword(fields));
 	if (!input.success) return localizeError(input, USER_ERROR_MESSAGES);
 
-	const result = await context.userService.changeOwnPassword(input.data, auth);
+	const { refreshToken } = await parseTokenCookies(
+		request.headers.get("Cookie"),
+	);
+	const result = await context.userService.changeOwnPassword(
+		input.data,
+		auth,
+		refreshToken,
+	);
 	if (!result.success) return localizeError(result, USER_ERROR_MESSAGES);
 
 	return ok(null, { message: "Contraseña actualizada" });

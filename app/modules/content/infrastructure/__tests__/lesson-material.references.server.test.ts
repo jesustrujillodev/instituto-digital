@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { ICradle } from "@/shared/di/container.types";
 import { toProxyRef } from "@/shared/storage/public-url";
+import { lessonMaterialReadWhere } from "../../domain/content.access";
 import { LESSON_MATERIAL_PREFIX } from "../../domain/content.config";
 import { createLessonMaterialReferenceSource } from "../lesson-material.references.server";
 
@@ -125,5 +126,142 @@ describe("material de lecciones como referencias de storage", () => {
 		).toEqual([
 			{ prefix: `${LESSON_MATERIAL_PREFIX}/`, label: "Material de lecciones" },
 		]);
+	});
+
+	describe("carpetas por curso y por lección", () => {
+		const LESSON_DOC = "33333333-3333-4333-8333-333333333333";
+		const COURSE_FOLDER = `${LESSON_MATERIAL_PREFIX}/${COURSE_DOC}/`;
+		const LESSON_FOLDER = `${COURSE_FOLDER}${LESSON_DOC}/`;
+
+		const prismaOf = (
+			lessonCourse: string,
+			asked: { courses?: unknown; lessons?: unknown } = {},
+		) =>
+			({
+				course: {
+					findMany: async (args: { where: unknown }) => {
+						asked.courses = args.where;
+						return [{ documentId: COURSE_DOC, title: "Transparencia" }];
+					},
+				},
+				lesson: {
+					findMany: async (args: { where: unknown }) => {
+						asked.lessons = args.where;
+						return [
+							{
+								documentId: LESSON_DOC,
+								title: "Marco legal",
+								module: { course: { documentId: lessonCourse } },
+							},
+						];
+					},
+				},
+			}) as unknown as ICradle["prisma"];
+
+		test("nombra la del curso y la de la lección con sus títulos, en una fase", async () => {
+			const asked: { courses?: unknown; lessons?: unknown } = {};
+			const source = createLessonMaterialReferenceSource({
+				prisma: prismaOf(COURSE_DOC, asked),
+			});
+
+			expect(
+				await source.describeFolders([
+					`${LESSON_MATERIAL_PREFIX}/`,
+					COURSE_FOLDER,
+					LESSON_FOLDER,
+				]),
+			).toEqual([
+				{
+					prefix: `${LESSON_MATERIAL_PREFIX}/`,
+					label: "Material de lecciones",
+				},
+				{
+					prefix: COURSE_FOLDER,
+					label: "Transparencia",
+					href: `/dashboard/capacitaciones/${COURSE_DOC}/contenido`,
+				},
+				{
+					prefix: LESSON_FOLDER,
+					label: "Marco legal",
+					href: `/dashboard/capacitaciones/${COURSE_DOC}/contenido`,
+				},
+			]);
+			expect(asked).toEqual({
+				courses: { documentId: { in: [COURSE_DOC] } },
+				lessons: { documentId: { in: [LESSON_DOC] } },
+			});
+		});
+
+		test("una lección de otro curso no nombra la carpeta", async () => {
+			const source = createLessonMaterialReferenceSource({
+				prisma: prismaOf("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+			});
+
+			expect(await source.describeFolders([LESSON_FOLDER])).toEqual([]);
+		});
+
+		// En una columna uuid, un nombre cualquiera haría fallar la consulta.
+		test("una carpeta que no emitió la subida no consulta la base", async () => {
+			const source = createLessonMaterialReferenceSource({
+				prisma: {} as unknown as ICradle["prisma"],
+			});
+
+			expect(
+				await source.describeFolders([
+					`${LESSON_MATERIAL_PREFIX}/viejos/`,
+					`${COURSE_FOLDER}otra/`,
+					`${LESSON_FOLDER}mas/`,
+				]),
+			).toEqual([]);
+		});
+	});
+
+	// C06: el proxy pregunta aquí si quien pide puede leer el material.
+	describe("canRead", () => {
+		const READER = {
+			userId: 9,
+			role: "USER" as const,
+			dependencyId: 3,
+			isTrainer: false,
+		};
+
+		test("busca la fila por su referencia y con el alcance de quien pide", async () => {
+			let where: unknown;
+			const source = createLessonMaterialReferenceSource({
+				prisma: {
+					lessonContent: {
+						findFirst: async (args: { where: unknown }) => {
+							where = args.where;
+							return { id: 1 };
+						},
+					},
+				} as unknown as ICradle["prisma"],
+			});
+
+			expect(await source.canRead(KEY, READER)).toBe(true);
+			expect(where).toEqual({
+				AND: [{ fileUrl: toProxyRef(KEY) }, lessonMaterialReadWhere(READER)],
+			});
+		});
+
+		test("sin fila al alcance, no", async () => {
+			const source = createLessonMaterialReferenceSource({
+				prisma: {
+					lessonContent: { findFirst: async () => null },
+				} as unknown as ICradle["prisma"],
+			});
+
+			expect(await source.canRead(KEY, READER)).toBe(false);
+		});
+
+		test("una key de otra carpeta no consulta la base", async () => {
+			const source = createLessonMaterialReferenceSource({
+				prisma: {} as unknown as ICradle["prisma"],
+			});
+
+			expect(
+				await source.canRead("documentos/sesiones/acta-1.pdf", READER),
+			).toBe(false);
+		});
 	});
 });

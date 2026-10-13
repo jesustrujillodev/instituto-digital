@@ -149,7 +149,7 @@ accesos.
 | | Interno | Externo |
 | --- | --- | --- |
 | Tipo de cuenta | `INTERNAL` | `EXTERNAL` |
-| Rol | El que tenga | `USER` |
+| Rol | El que tenga | `USER`, y no se le cambia (`roleLockOf` → `external`) |
 | Dependencia | Sí | No (lo impone la base, §2) |
 | Imparte | Sí | Sí |
 | Crea cursos | Sí, en su dependencia | No: sin dependencia no hay dónde crearlos |

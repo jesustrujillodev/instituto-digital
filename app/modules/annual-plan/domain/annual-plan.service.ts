@@ -45,20 +45,25 @@ export interface IAnnualPlanService {
 		dto: PlanLineDto,
 		actor: AuthContext,
 	): Promise<PlanMutationResponse>;
+	/** Las operaciones de línea exigen que la línea sea del plan de la URL. */
 	updateLine(
+		planDocumentId: string,
 		lineDocumentId: string,
 		dto: PlanLineDto,
 		actor: AuthContext,
 	): Promise<PlanMutationResponse>;
 	cancelLine(
+		planDocumentId: string,
 		lineDocumentId: string,
 		actor: AuthContext,
 	): Promise<PlanMutationResponse>;
 	reactivateLine(
+		planDocumentId: string,
 		lineDocumentId: string,
 		actor: AuthContext,
 	): Promise<PlanMutationResponse>;
 	deleteLine(
+		planDocumentId: string,
 		lineDocumentId: string,
 		actor: AuthContext,
 	): Promise<PlanMutationResponse>;

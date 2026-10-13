@@ -9,6 +9,7 @@ import {
 	SORT_DIRECTIONS,
 	type SortDirection,
 } from "@/shared/rules/list.rules";
+import { isHttpUrl } from "@/shared/rules/url.rules";
 import {
 	COURSE_HOURS_LIMITS,
 	COURSE_MAX_SESSIONS,
@@ -86,11 +87,14 @@ const venue = v.pipe(
 	v.maxLength(200, "La sede no puede superar los 200 caracteres."),
 );
 
-/** Enlace externo: la plataforma no aloja contenido (§6.5). */
+/**
+ * Enlace externo: la plataforma no aloja contenido (§6.5). Solo http(s):
+ * `v.url` admitía `javascript:` y `data:`, y el enlace se pinta como `href`.
+ */
 const link = v.pipe(
 	v.string("El enlace de la sesión debe ser texto."),
 	v.trim(),
-	v.url("Escribe un enlace válido, con https://"),
+	v.check(isHttpUrl, "Escribe un enlace válido, con https://"),
 	v.maxLength(500, "El enlace no puede superar los 500 caracteres."),
 );
 

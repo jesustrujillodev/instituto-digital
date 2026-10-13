@@ -12,6 +12,7 @@ import {
 	CHECK_IN_RATE_LIMIT,
 	checkInPathOf,
 	checkInRateKeyOf,
+	checkInUserRateKeyOf,
 } from "../../../domain/check-in.config";
 import {
 	CheckInInvalidTokenError,
@@ -20,6 +21,18 @@ import {
 import { validateCheckInToken } from "../../../domain/check-in.validators";
 import { CHECK_IN_ERROR_MESSAGES } from "../../../utils/check-in-error-messages";
 import type { Route } from "./+types/index";
+
+const throwIfLimited = (decision: {
+	allowed: boolean;
+	retryAfterMs: number;
+}): void => {
+	if (!decision.allowed) {
+		throw toRouteError(
+			toResponseError(new CheckInRateLimitedError(decision.retryAfterMs)),
+			CHECK_IN_ERROR_MESSAGES,
+		);
+	}
+};
 
 /**
  * GET /asistencia/:token — valida el escaneo sin escribir nada, y trae las
@@ -34,14 +47,13 @@ export const loader = async ({
 	context,
 	params,
 }: Route.LoaderArgs) => {
-	const decision = await context.rateLimiter.consume(
-		checkInRateKeyOf(getClientIp(request)),
-		CHECK_IN_RATE_LIMIT,
-	);
-	if (!decision.allowed) {
-		throw toRouteError(
-			toResponseError(new CheckInRateLimitedError(decision.retryAfterMs)),
-			CHECK_IN_ERROR_MESSAGES,
+	const ip = getClientIp(request, context.clientIpPolicy);
+	if (ip) {
+		throwIfLimited(
+			await context.rateLimiter.consume(
+				checkInRateKeyOf(ip),
+				CHECK_IN_RATE_LIMIT,
+			),
 		);
 	}
 
@@ -65,6 +77,12 @@ export const loader = async ({
 	}
 
 	const auth = await requireAuth(request, context);
+	throwIfLimited(
+		await context.rateLimiter.consume(
+			checkInUserRateKeyOf(auth.userId),
+			CHECK_IN_RATE_LIMIT,
+		),
+	);
 
 	const result = await context.checkInService.preview(token, auth);
 	if (!result.success)

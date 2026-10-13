@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { refreshTokenCookie } from "@/core/cookies.server";
 import type { AppResponse } from "@/shared/response/response.types";
 import type { AuthTokens } from "../../../domain/auth.types";
 import { action } from "../index.action";
@@ -18,7 +19,7 @@ const formRequest = (
 	});
 };
 
-/** Cradle mínimo: el action solo toca `authService.login`. */
+/** Cradle mínimo: el action solo toca `authService.login` y `logout`. */
 const createHarness = (
 	result: AppResponse<AuthTokens> = {
 		success: true,
@@ -26,13 +27,18 @@ const createHarness = (
 		timestamp: new Date().toISOString(),
 	},
 ) => {
-	const calls = { login: [] as unknown[] };
+	const calls = { login: [] as unknown[], logout: [] as string[] };
 
 	const context = {
+		clientIpPolicy: { source: "proxy", trustedHops: 1 },
 		authService: {
 			login: async (dto: unknown, meta: unknown) => {
 				calls.login.push({ dto, meta });
 				return result;
+			},
+			logout: async (refreshToken: string) => {
+				calls.logout.push(refreshToken);
+				return { success: true, data: null, timestamp: "" };
 			},
 		},
 	} as unknown as ActionArgs["context"];
@@ -106,8 +112,8 @@ describe("iniciar-sesion action — success", () => {
 		);
 	});
 
-	// El user-agent y la IP acaban en la fila de la sesión: son informativos (el
-	// monitor los pinta), pero tienen que llegar.
+	// El user-agent y la IP acaban en la fila de la sesión. La IP es la que
+	// agregó el proxy al final de la cadena, no la que el cliente puso delante.
 	test("forwards the user agent and the validated client IP", async () => {
 		const { context, calls } = createHarness();
 
@@ -125,7 +131,7 @@ describe("iniciar-sesion action — success", () => {
 		).catch(() => {});
 
 		expect(calls.login[0]).toMatchObject({
-			meta: { userAgent: "Mozilla/5.0", ipAddress: "203.0.113.7" },
+			meta: { userAgent: "Mozilla/5.0", ipAddress: "70.41.3.18" },
 		});
 	});
 
@@ -158,6 +164,56 @@ describe("iniciar-sesion action — success", () => {
 		expect(calls.login[0]).toMatchObject({
 			dto: { email: "ana@empresa.com" },
 		});
+	});
+});
+
+// Remediación (Fase C): entrar con otra cuenta en el mismo navegador dejaba la
+// sesión anterior válida en la base hasta 7 días.
+describe("iniciar-sesion action — sesión anterior", () => {
+	const previousCookie = async () =>
+		(await refreshTokenCookie.serialize("rt-anterior")).split(";")[0];
+
+	test("un login correcto cierra la sesión anterior de este navegador", async () => {
+		const { context, calls } = createHarness();
+
+		await run(
+			formRequest(
+				{ email: "ana@empresa.com", password: "contrasena1" },
+				{ headers: { Cookie: await previousCookie() } },
+			),
+			context,
+		).catch(() => {});
+
+		expect(calls.logout).toEqual(["rt-anterior"]);
+	});
+
+	test("uno fallido no la cierra", async () => {
+		const { context, calls } = createHarness({
+			success: false,
+			error: { code: "INVALID_CREDENTIALS", message: "x" },
+			timestamp: new Date().toISOString(),
+		});
+
+		await run(
+			formRequest(
+				{ email: "ana@empresa.com", password: "x" },
+				{ headers: { Cookie: await previousCookie() } },
+			),
+			context,
+		);
+
+		expect(calls.logout).toEqual([]);
+	});
+
+	test("sin sesión anterior no cierra nada", async () => {
+		const { context, calls } = createHarness();
+
+		await run(
+			formRequest({ email: "ana@empresa.com", password: "contrasena1" }),
+			context,
+		).catch(() => {});
+
+		expect(calls.logout).toEqual([]);
 	});
 });
 

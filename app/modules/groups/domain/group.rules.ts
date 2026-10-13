@@ -4,6 +4,10 @@ import {
 	SORT_DIRECTIONS,
 	type SortDirection,
 } from "@/shared/rules/list.rules";
+import {
+	GroupArchivedError,
+	GroupDependencyInactiveError,
+} from "./group.errors";
 
 // ── Átomos del módulo ─────────────────────────────────────────────────────────
 
@@ -38,6 +42,8 @@ export const groupSchema = v.object({
 	dependencyId: v.number(),
 	/** Aplanado del join. El superadministrador ve grupos de varias. */
 	dependencyName: v.string(),
+	/** La dependencia está desactivada: el grupo queda de solo lectura. */
+	dependencyArchived: v.boolean(),
 	name: v.string(),
 	description: v.nullable(v.string()),
 	/** Derivado del conteo de `group_members`, no es columna. */
@@ -115,6 +121,23 @@ export const listCandidatesRule = v.object({
 		),
 	),
 });
+
+// ── Escritura ─────────────────────────────────────────────────────────────────
+
+/** Un grupo archivado o de una dependencia desactivada es de solo lectura. */
+export const isGroupEditable = (group: {
+	archivedAt: Date | null;
+	dependencyArchived: boolean;
+}): boolean => group.archivedAt === null && !group.dependencyArchived;
+
+/** Para editarlo o tocar sus miembros, primero se restaura. */
+export const assertGroupEditable = (group: {
+	archivedAt: Date | null;
+	dependencyArchived: boolean;
+}): void => {
+	if (group.dependencyArchived) throw new GroupDependencyInactiveError();
+	if (group.archivedAt !== null) throw new GroupArchivedError();
+};
 
 export const groupRules = {
 	create: createGroupRule,

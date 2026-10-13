@@ -11,6 +11,7 @@ import type { AppResponse } from "@/shared/response/response.types";
 import {
 	CHECK_IN_RATE_LIMIT,
 	checkInRateKeyOf,
+	checkInUserRateKeyOf,
 } from "../../../domain/check-in.config";
 import {
 	CheckInInvalidTokenError,
@@ -37,18 +38,28 @@ export const action = async ({
 	context,
 	params,
 }: Route.ActionArgs): Promise<CheckInActionData> => {
-	const decision = await context.rateLimiter.consume(
-		checkInRateKeyOf(getClientIp(request)),
-		CHECK_IN_RATE_LIMIT,
-	);
-	if (!decision.allowed) {
-		return rejected(new CheckInRateLimitedError(decision.retryAfterMs));
+	const ip = getClientIp(request, context.clientIpPolicy);
+	if (ip) {
+		const decision = await context.rateLimiter.consume(
+			checkInRateKeyOf(ip),
+			CHECK_IN_RATE_LIMIT,
+		);
+		if (!decision.allowed) {
+			return rejected(new CheckInRateLimitedError(decision.retryAfterMs));
+		}
 	}
 
 	const input = parseInput(() => validateCheckInToken(params.token));
 	if (!input.success) return rejected(new CheckInInvalidTokenError());
 
 	const auth = await requireAuth(request, context);
+	const userDecision = await context.rateLimiter.consume(
+		checkInUserRateKeyOf(auth.userId),
+		CHECK_IN_RATE_LIMIT,
+	);
+	if (!userDecision.allowed) {
+		return rejected(new CheckInRateLimitedError(userDecision.retryAfterMs));
+	}
 
 	const result = await context.checkInService.register(input.data, auth);
 	if (!result.success) return localizeError(result, CHECK_IN_ERROR_MESSAGES);
