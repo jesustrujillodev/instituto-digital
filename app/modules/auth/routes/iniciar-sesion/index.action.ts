@@ -1,5 +1,5 @@
 import { redirect } from "react-router";
-import { serializeAuthCookies } from "@/core/cookies.server";
+import { parseTokenCookies, serializeAuthCookies } from "@/core/cookies.server";
 import { validateLogin } from "@/modules/auth/domain/auth.validators";
 import { AUTH_ERROR_MESSAGES } from "@/modules/auth/utils/auth-error-messages";
 import { safeReturnTo } from "@/shared/auth/return-to";
@@ -28,6 +28,14 @@ export const action = async ({
 	});
 
 	if (!result.success) return localizeError(result, AUTH_ERROR_MESSAGES);
+
+	// Las cookies nuevas reemplazan a las de una sesión anterior en este
+	// navegador, que sin esto seguía válida en la base hasta 7 días. Solo tras un
+	// login correcto: uno fallido no cierra la sesión que ya estaba abierta.
+	const previous = await parseTokenCookies(request.headers.get("Cookie"));
+	if (previous.refreshToken) {
+		await context.authService.logout(previous.refreshToken);
+	}
 
 	const cookies = await serializeAuthCookies(result.data);
 

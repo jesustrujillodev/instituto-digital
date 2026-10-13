@@ -16,6 +16,7 @@ const baseUser: SafeUser = {
 	jobTitle: "Coordinadora",
 	dependencyId: 3,
 	isTrainer: false,
+	mustChangePassword: false,
 	archivedAt: null,
 	createdAt: new Date("2026-01-01T10:00:00Z"),
 	updatedAt: new Date("2026-01-02T10:00:00Z"),

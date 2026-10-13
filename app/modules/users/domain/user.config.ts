@@ -29,3 +29,16 @@ export const USER_LIST_DEFAULTS = {
 	page: 1,
 	pageSize: 10,
 } as const;
+
+/**
+ * Intentos de cambiar la propia contraseña, por cuenta. Cada uno compara la
+ * actual con bcrypt: sin tope, una sesión ajena abierta podría probar
+ * contraseñas hasta dar con la actual.
+ */
+export const PASSWORD_CHANGE_RATE_LIMIT = {
+	limit: 5,
+	windowMs: 15 * 60_000,
+} as const;
+
+export const passwordChangeRateKeyOf = (userId: number): string =>
+	`password-change:${userId}`;

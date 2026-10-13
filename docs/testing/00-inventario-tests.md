@@ -339,6 +339,22 @@ que sus mutaciones sí.
 | `parse-trainer-form-data.test.ts` | 4 | Que los campos vacíos se descarten y la intención viaje aparte. |
 | `trainer-error-messages.test.ts` | 3 | Que el diccionario cubra todos los códigos del módulo y tenga su entrada de reserva. |
 
+### Sesiones y contraseñas (remediación, Fase C)
+
+| Archivo | Qué protege |
+|---|---|
+| `auth/…/auth.service.login.server.test.ts` | `logoutAll` sube el epoch del usuario; `logoutOthers` conserva la sesión actual y cierra las demás, y con un token ajeno o sin token las cierra todas. |
+| `auth/…/session.repository.server.test.ts` | `deleteOthersOfUser` borra las del usuario salvo la indicada. |
+| `users/…/users.service.server.test.ts` | **Cambiar la propia con el tope agotado no compara ni escribe**; lee el hash por el mismo `documentId`; cierra las demás sesiones con el refresh token actual. **Restablecer la propia da `OWN_PASSWORD_RESET` sin hashear ni escribir.** |
+| `users/…/user.access.rules.test.ts` · `to-user-rows.test.ts` · editar `index.loader.test.ts` | `canResetPassword`: la propia no; la fila y la edición propias no lo ofrecen. |
+| `users/…/perfil/index.action.test.ts` | Pasa al servicio el refresh token de la cookie. |
+| `shared/auth/…/password-change.test.ts` · `require-auth.server.test.ts` | **Con el cambio de contraseña pendiente, `requireAuth` redirige a «Mi perfil»** salvo esa pantalla (también `.data`), cerrar sesión y el proxy de storage. |
+| `users/…/users.service.server.test.ts` · `users.repository.server.test.ts` | El alta y el restablecimiento dejan `mustChangePassword` en `true`; cambiar la propia, en `false`; el repositorio lo escribe junto al hash. |
+| `auth/…/auth.service.login.server.test.ts` · `token.service.server.test.ts` | El claim `mustChangePassword` se firma desde la cuenta. |
+| `trainers/…/trainers.service.server.test.ts` | El alta de un externo también pide el cambio. |
+| `users/…/user.bootstrap.rules.test.ts` | El bootstrap rechaza las contraseñas del repositorio y la que no cumple la política; con un superadministrador activo no hace nada; no promueve una cuenta existente. |
+| `auth/…/iniciar-sesion/index.action.test.ts` | Un login correcto cierra la sesión anterior de ese navegador; uno fallido no. |
+
 ### Externos solo `USER` (remediación C09)
 
 | Archivo | Qué protege |
@@ -740,7 +756,7 @@ cliente**—, `localizeError`/`failFrom`, y el runner que registra los conocidos
 | Archivo | Tests | Qué protege |
 |---|---:|---|
 | `response.rules.test.ts` | 15 | La unión discriminada rechaza estados imposibles (`{ success: true, error }`); ningún código transversal es un status HTTP. |
-| `atoms.rules.test.ts` | 17 | `hasRole`; el cap de 72 caracteres de bcrypt (sin él, `password + basura` autenticaría por truncamiento); el correo de 254 caracteres como máximo; el picklist de roles. |
+| `atoms.rules.test.ts` | 17 | `hasRole`; el cap de 72 bytes UTF-8 de bcrypt, no caracteres (sin él, `password + basura` autenticaría por truncamiento); el correo de 254 caracteres como máximo; el picklist de roles. |
 | `list.rules.test.ts` | 9 | `page >= 1` y el tope de `pageSize`, que es la defensa contra un `?pageSize=100000`. |
 | `format-vali-error.test.ts` | 5 | Primer mensaje por campo; las incidencias **sin path se descartan**. |
 
@@ -869,7 +885,7 @@ mensaje de un error de infraestructura viajaría al cliente.
 |---|---:|---|
 | `string-utils.test.ts` | 18 | Las tres formas de truncar y la normalización sin diacríticos; `null`/`undefined` → `""`. |
 | `form-data.test.ts` | 9 | `File[]` bajo la misma clave; `null`/`undefined` **omitidos** —el servidor no distingue "no enviado" de "borrar"—; `0` y `""` sí viajan. |
-| `password-generator.test.ts` | 6 | Garantía de mayúscula y dígito sobre 100 generaciones; el caso límite de `length < 2`. |
+| `password-generator.test.ts` | 8 | Garantía de mayúscula y dígito sobre 100 generaciones; el caso límite de `length < 2`; que no use `Math.random` sino `crypto.getRandomValues`, y que vuelva a sortear lo que cae fuera del último múltiplo. |
 | `utils.test.ts` | 5 | `cn` resolviendo conflictos de Tailwind. |
 | `date-utils.test.ts` | 11 | Desfase de 7 horas en verano y de 8 en invierno, el día del cambio de horario, y la ida y vuelta formulario ↔ UTC. |
 

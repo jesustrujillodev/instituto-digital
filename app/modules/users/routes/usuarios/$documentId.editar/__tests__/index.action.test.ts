@@ -278,15 +278,20 @@ describe("usuarios/editar action — restablecer contraseña", () => {
 		);
 	});
 
-	test("no desconecta al admin cuando restablece su propia cuenta", async () => {
+	// Remediación (Fase C): la propia ya no se restablece; el servicio lo
+	// rechaza y no hay sesiones que tocar.
+	test("restablecer la propia responde con su copia sin tocar las sesiones", async () => {
 		const { context, calls } = createHarness({
-			resetUser: { id: 7, documentId: DOCUMENT_ID } as SafeUser,
+			resetFails: "OWN_PASSWORD_RESET",
 		});
 
 		const result = await run(formRequest(RESET_FIELDS), context);
 
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.message).toContain("«Mi perfil»");
+		}
 		expect(calls.revokeAllForUser).toEqual([]);
-		expect(result.success && result.message).toBe("Contraseña restablecida");
 	});
 
 	// Best-effort: la contraseña ya cambió; se da por buena y se avisa.

@@ -190,6 +190,7 @@ export const createTrainerService = ({
 								role: "USER",
 								type: "EXTERNAL",
 								dependencyId: null,
+								mustChangePassword: true,
 							});
 
 							const profile = await trainerRepository.create({

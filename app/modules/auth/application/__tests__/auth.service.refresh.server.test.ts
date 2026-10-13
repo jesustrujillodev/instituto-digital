@@ -72,6 +72,7 @@ const createHarness = (
 			role: string;
 			dependencyId: number | null;
 			isTrainer?: boolean;
+			mustChangePassword?: boolean;
 			archivedAt?: Date | null;
 		} | null;
 		rotateOutcomes?: RotateOutcome[];
@@ -129,6 +130,7 @@ const createHarness = (
 						role: "USER",
 						dependencyId: 3,
 						isTrainer: false,
+						mustChangePassword: false,
 						archivedAt: null,
 					}
 				: options.user,
@@ -246,6 +248,7 @@ describe("createAuthService — normal rotation", () => {
 				role: "SUPERADMIN",
 				dependencyId: null,
 				isTrainer: false,
+				mustChangePassword: false,
 			},
 		});
 
@@ -442,6 +445,7 @@ describe("createAuthService — el par cacheado y la revocación", () => {
 					role: "DEPENDENCY_HEAD",
 					dependencyId: 3,
 					isTrainer: false,
+					mustChangePassword: false,
 					archivedAt: null,
 				},
 			},
@@ -535,6 +539,7 @@ describe("createAuthService — lockdown except-admin during refresh", () => {
 		role,
 		dependencyId: 3,
 		isTrainer: false,
+		mustChangePassword: false,
 	});
 
 	// El alcance `all` corta al principio de `refresh`, antes del single-flight.
@@ -615,6 +620,7 @@ describe("createAuthService — cuenta archivada durante el refresh", () => {
 		role: "USER",
 		dependencyId: 3,
 		isTrainer: false,
+		mustChangePassword: false,
 		archivedAt: new Date(),
 	};
 

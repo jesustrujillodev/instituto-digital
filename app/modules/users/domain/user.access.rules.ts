@@ -215,6 +215,18 @@ export const canManageUser = (
 };
 
 /**
+ * ¿Puede este actor restablecer la contraseña de esta cuenta?
+ *
+ * La suya no: el restablecimiento no pide la actual, así que una sesión ajena
+ * abierta bastaría para quedarse con la cuenta. La propia se cambia desde «Mi
+ * perfil», que sí la pide (`changeOwnPassword`).
+ */
+export const canResetPassword = (
+	actor: Pick<AuthContext, "userId" | "role" | "dependencyId">,
+	target: Pick<SafeUser, "id" | "role" | "dependencyId">,
+): boolean => target.id !== actor.userId && canManageUser(actor, target);
+
+/**
  * ¿Puede este actor mover esta cuenta a otra dependencia?
  *
  * Nadie se cambia a sí mismo: la adscripción la decide quien administra. El

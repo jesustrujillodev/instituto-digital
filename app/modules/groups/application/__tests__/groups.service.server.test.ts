@@ -44,6 +44,7 @@ const actorOf = (
 	role,
 	dependencyId,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 const DEPENDENCY_SCOPE: AccessScope = { kind: "dependency", dependencyId: 3 };

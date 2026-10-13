@@ -83,6 +83,7 @@ const actorOf = (
 	role,
 	dependencyId: 4,
 	isTrainer: false,
+	mustChangePassword: false,
 	...overrides,
 });
 

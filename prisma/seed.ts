@@ -17,6 +17,15 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+	// Borra todo y siembra cuentas con una contraseña pública (Password123!):
+	// es solo para desarrollo. Una base de producción se arranca con
+	// `bun run bootstrap` (auditoría V04).
+	if (env.NODE_ENV === "production") {
+		throw new Error(
+			"El seed es solo para desarrollo: borra la base y usa contraseñas públicas. En producción usa `bun run bootstrap`.",
+		);
+	}
+
 	console.log("🌱 Seeding database...");
 
 	// Clean existing test data (idempotent on re-runs). El orden lo fijan dos FK

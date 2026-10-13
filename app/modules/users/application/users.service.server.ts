@@ -13,9 +13,15 @@ import {
 	canAssignRole,
 	canChangeUserDependency,
 	canManageUser,
+	canResetPassword,
 	roleAfterDependencyChange,
 } from "../domain/user.access.rules";
-import { USER_LIST_DEFAULTS, USER_PHOTO } from "../domain/user.config";
+import {
+	PASSWORD_CHANGE_RATE_LIMIT,
+	passwordChangeRateKeyOf,
+	USER_LIST_DEFAULTS,
+	USER_PHOTO,
+} from "../domain/user.config";
 import {
 	EmployeeNumberRequiredError,
 	ExternalUserRequiresTrainerProfileError,
@@ -24,6 +30,8 @@ import {
 	InvalidCurrentPasswordError,
 	InvalidUploadError,
 	LastActiveSuperadminError,
+	OwnPasswordResetError,
+	PasswordChangeRateLimitedError,
 	UserDependencyInactiveError,
 	UserDependencyNotFoundError,
 	UserNotArchivedError,
@@ -48,7 +56,10 @@ type Dependencies = {
 	// Corta el acceso en el acto cuando cambia el rol o la dependencia: el epoch
 	// invalida el access token vivo y el borrado de sesiones mata la renovación.
 	sessionMonitorService: ICradle["sessionMonitorService"];
+	// Cierra las demás sesiones de quien cambia su propia contraseña.
+	authService: ICradle["authService"];
 	passwordService: ICradle["passwordService"];
+	rateLimiter: ICradle["rateLimiter"];
 	storageProvider: ICradle["storageProvider"];
 	// El bucket llega resuelto desde el composition root: este caso de uso no lee
 	// `env` ni conoce el nombre de la variable (docs/reglas.md §11.4).
@@ -63,7 +74,9 @@ export const createUserService = ({
 	userRepository,
 	dependencyRepository,
 	sessionMonitorService,
+	authService,
 	passwordService,
+	rateLimiter,
 	storageProvider,
 	storageBucket,
 	storagePublicBucket,
@@ -237,6 +250,7 @@ export const createUserService = ({
 							...rest,
 							password: hashedPassword,
 							dependencyId,
+							mustChangePassword: true,
 						});
 						// El aviso nunca lleva la contraseña: se entrega por canal privado (§6.1).
 						await notificationService.notify([
@@ -330,6 +344,7 @@ export const createUserService = ({
 		) {
 			return run("resetPassword", async () => {
 				const { user, scope } = await requireManageable(documentId, actor);
+				if (!canResetPassword(actor, user)) throw new OwnPasswordResetError();
 
 				const hashedPassword = await passwordService.hash(newPassword);
 				await runInTransaction(async () => {
@@ -337,6 +352,7 @@ export const createUserService = ({
 						documentId,
 						hashedPassword,
 						scope,
+						true,
 					);
 					await notificationService.notify([
 						{ template: "PASSWORD_RESET", to: user },
@@ -393,24 +409,47 @@ export const createUserService = ({
 			});
 		},
 
-		async changeOwnPassword(dto, actor: AuthContext) {
+		async changeOwnPassword(
+			dto,
+			actor: AuthContext,
+			currentRefreshToken: string | null,
+		) {
 			return run("changeOwnPassword", async () => {
-				// Se relee por correo porque es la única lectura que conserva el hash: el
-				// resto del módulo devuelve SafeUser justamente para que no circule.
-				const user = await userRepository.findByEmail(actor.email);
-				if (!user?.password) throw new UserNotFoundError();
-
-				const valid = await passwordService.compare(
-					dto.currentPassword,
-					user.password,
+				const decision = await rateLimiter.consume(
+					passwordChangeRateKeyOf(actor.userId),
+					PASSWORD_CHANGE_RATE_LIMIT,
 				);
+				if (!decision.allowed) {
+					throw new PasswordChangeRateLimitedError(decision.retryAfterMs);
+				}
+
+				// Se lee y se escribe por el mismo `documentId`: leer por correo podía
+				// comparar contra una cuenta y escribir en otra.
+				const hash = await userRepository.findPasswordHash(actor.documentId);
+				if (!hash) throw new UserNotFoundError();
+
+				const valid = await passwordService.compare(dto.currentPassword, hash);
 				if (!valid) throw new InvalidCurrentPasswordError();
 
 				await userRepository.updatePassword(
 					actor.documentId,
 					await passwordService.hash(dto.newPassword),
 					resolveScope(actor),
+					false,
 				);
+
+				const closed = await authService.logoutOthers(
+					actor.userId,
+					currentRefreshToken,
+				);
+				// La contraseña ya cambió: un fallo al cerrar las demás no la deshace,
+				// se registra para revisarlo.
+				if (!closed.success) {
+					log.error("password changed but other sessions were not closed", {
+						userId: actor.userId,
+						code: closed.error.code,
+					});
+				}
 
 				return ok(null);
 			});

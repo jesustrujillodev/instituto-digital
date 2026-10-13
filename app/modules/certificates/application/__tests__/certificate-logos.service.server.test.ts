@@ -27,6 +27,7 @@ const actorOf = (role = "SUPERADMIN"): AuthContext => ({
 	role: role as AuthContext["role"],
 	dependencyId: null,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 const logoOf = (

@@ -35,6 +35,7 @@ type FakeUser = {
 	role: string;
 	dependencyId: number | null;
 	isTrainer: boolean;
+	mustChangePassword: boolean;
 	archivedAt: Date | null;
 };
 
@@ -46,12 +47,14 @@ const userOf = (overrides: Partial<FakeUser> = {}): FakeUser => ({
 	role: "USER",
 	dependencyId: 3,
 	isTrainer: false,
+	mustChangePassword: false,
 	archivedAt: null,
 	...overrides,
 });
 
 /**
- * Dobles mínimos: solo lo que tocan `login`, `logout` y `logoutAll`. El lockdown
+ * Dobles mínimos: solo lo que tocan `login`, `logout`, `logoutAll` y
+ * `logoutOthers`. El lockdown
  * tiene su propio archivo (auth.service.server.test.ts) y la rotación el suyo.
  */
 const createHarness = (
@@ -59,7 +62,7 @@ const createHarness = (
 		user?: FakeUser | null;
 		passwordMatches?: boolean;
 		limiterDecisions?: Record<string, RateLimitDecision>;
-		session?: { id: string } | null;
+		session?: { id: string; userId?: number } | null;
 	} = {},
 ) => {
 	const calls = {
@@ -71,6 +74,9 @@ const createHarness = (
 		capped: [] as { userId: number; keep: number }[],
 		deleteById: [] as string[],
 		deleteAllByUserId: [] as number[],
+		deleteOthersOfUser: [] as { userId: number; keep: string }[],
+		signed: [] as Record<string, unknown>[],
+		userEpochs: [] as number[],
 	};
 
 	const passwordService = {
@@ -105,10 +111,16 @@ const createHarness = (
 		deleteAllByUserId: async (userId: number) => {
 			calls.deleteAllByUserId.push(userId);
 		},
+		deleteOthersOfUser: async (userId: number, keep: string) => {
+			calls.deleteOthersOfUser.push({ userId, keep });
+		},
 	} as unknown as ICradle["sessionRepository"];
 
 	const tokenService = {
-		signAccessToken: async () => "access-firmado",
+		signAccessToken: async (payload: Record<string, unknown>) => {
+			calls.signed.push(payload);
+			return "access-firmado";
+		},
 		generateRefreshToken: () => "refresh-crudo",
 		hashRefreshToken: (raw: string) => `sha256:${raw}`,
 		getRefreshTokenExpiry: () => new Date(Date.now() + 86_400_000),
@@ -140,6 +152,9 @@ const createHarness = (
 		} as AuthConfig,
 		securityStateRepository: {
 			get: async () => snapshotOf(),
+			revokeUserTokens: async (userId: number) => {
+				calls.userEpochs.push(userId);
+			},
 		} as unknown as ICradle["securityStateRepository"],
 	});
 
@@ -147,6 +162,20 @@ const createHarness = (
 };
 
 describe("createAuthService — login happy path", () => {
+	// Remediación (Fase C): `requireAuth` decide con el claim, sin leer la base.
+	test("firma si la cuenta debe cambiar su contraseña", async () => {
+		const { service, calls } = createHarness({
+			user: userOf({ mustChangePassword: true }),
+		});
+
+		await service.login(
+			{ email: "ana@empresa.com", password: "contrasena1" },
+			{},
+		);
+
+		expect(calls.signed[0]).toMatchObject({ mustChangePassword: true });
+	});
+
 	test("returns the token pair inside the envelope", async () => {
 		const { service } = createHarness();
 
@@ -390,6 +419,49 @@ describe("createAuthService — logoutAll", () => {
 
 		expect(result.success).toBe(true);
 		expect(calls.deleteAllByUserId).toEqual([7]);
+	});
+
+	// Remediación (Fase C): sin el epoch, los demás dispositivos seguían dentro
+	// hasta que expiraba su access token.
+	test("corta en el acto los access tokens del usuario", async () => {
+		const { service, calls } = createHarness();
+
+		await service.logoutAll(7);
+
+		expect(calls.userEpochs).toEqual([7]);
+	});
+});
+
+describe("createAuthService — logoutOthers", () => {
+	test("conserva la sesión actual y cierra las demás del usuario", async () => {
+		const { service, calls } = createHarness({
+			session: { id: SESSION_ID, userId: 7 },
+		});
+
+		const result = await service.logoutOthers(7, "refresh-crudo");
+
+		expect(result.success).toBe(true);
+		expect(calls.deleteOthersOfUser).toEqual([{ userId: 7, keep: SESSION_ID }]);
+		expect(calls.deleteAllByUserId).toEqual([]);
+		expect(calls.userEpochs).toEqual([7]);
+	});
+
+	// Sin una sesión propia que conservar no se protege la de otro: se cierran
+	// todas las del usuario.
+	test("con un token ajeno o sin token, las cierra todas", async () => {
+		for (const [session, token] of [
+			[{ id: SESSION_ID, userId: 99 }, "refresh-crudo"],
+			[null, "refresh-crudo"],
+			[{ id: SESSION_ID, userId: 7 }, null],
+		] as const) {
+			const { service, calls } = createHarness({ session });
+
+			await service.logoutOthers(7, token);
+
+			expect(calls.deleteOthersOfUser).toEqual([]);
+			expect(calls.deleteAllByUserId).toEqual([7]);
+			expect(calls.userEpochs).toEqual([7]);
+		}
 	});
 });
 

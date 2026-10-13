@@ -19,6 +19,7 @@
 		"verify:commit": "bun run lint:staged && bun run lint:arch && bun run lint:sql && bun run typecheck",
 		"verify:push": "bun run test",
 		"seed": "bun prisma/seed.ts",
+		"bootstrap": "bun scripts/bootstrap.ts",
 		"lockdown": "bun scripts/lockdown.ts",
 		"prepare": "husky",
 		"storage:cors": "bun scripts/setup-storage-cors.ts",

@@ -35,6 +35,11 @@ export interface IUserRepository {
 	count(filters: ListUsersDto, scope: AccessScope): Promise<number>;
 	/** Sin alcance: la consume el LOGIN, que ocurre antes de que exista sesión. */
 	findByEmail(email: string): Promise<User | null>;
+	/**
+	 * Solo el hash de la contraseña de esa cuenta, o `null`. Lo consume el
+	 * cambio de la propia contraseña, que escribe por el mismo `documentId`.
+	 */
+	findPasswordHash(documentId: string): Promise<string | null>;
 	findById(documentId: string, scope: AccessScope): Promise<SafeUser | null>;
 	/**
 	 * Búsqueda por PK interna. Sin alcance: la consume el refresh de `auth` para
@@ -56,10 +61,12 @@ export interface IUserRepository {
 		scope: AccessScope,
 	): Promise<SafeUser>;
 	// Recibe el hash, nunca la contraseña en claro: el hashing es del servicio.
+	// `mustChangePassword`: si la puso otra persona y hay que cambiarla al entrar.
 	updatePassword(
 		documentId: string,
 		hashedPassword: string,
 		scope: AccessScope,
+		mustChangePassword: boolean,
 	): Promise<void>;
 	/**
 	 * Bloquea las cuentas de superadministrador activas hasta el final de la

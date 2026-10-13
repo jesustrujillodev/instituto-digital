@@ -51,6 +51,7 @@ const actorOf = (
 	role,
 	dependencyId,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 const photoOf = (overrides: Partial<UploadInput> = {}): UploadInput => ({
@@ -76,7 +77,12 @@ const createHarness = (
 		dependency?: { id: number; archivedAt: Date | null } | null;
 		revokeFails?: boolean;
 		passwordMatches?: boolean;
-		userWithPassword?: { password: string | null } | null;
+		/** El hash guardado; `null`, una cuenta sin contraseña. */
+		passwordHash?: string | null;
+		/** El limitador niega el siguiente intento de cambiar la contraseña. */
+		rateLimited?: boolean;
+		/** La sesión del refresh token presentado; `null`, ninguna. */
+		currentSession?: { id: string; userId: number } | null;
 		activeSuperadminIds?: number[];
 	} = {},
 ) => {
@@ -91,13 +97,20 @@ const createHarness = (
 		hashed: [] as string[],
 		uploaded: [] as { bucket: string; key: string }[],
 		photoUrl: [] as string[],
-		updatePassword: [] as { hash: string; scope: unknown }[],
+		updatePassword: [] as {
+			hash: string;
+			scope: unknown;
+			mustChangePassword: boolean;
+		}[],
 		archived: [] as unknown[],
 		unarchived: [] as unknown[],
 		deleted: [] as unknown[],
 		changeDependency: [] as unknown[],
 		history: [] as unknown[],
 		revoked: [] as number[],
+		passwordHashReads: [] as string[],
+		rateKeys: [] as string[],
+		loggedOutOthers: [] as { userId: number; token: string | null }[],
 		superadminLocks: [] as { inTransaction: boolean }[],
 	};
 
@@ -114,10 +127,12 @@ const createHarness = (
 			calls.findByIdScopes.push(scope);
 			return options.user === undefined ? userOf() : options.user;
 		},
-		findByEmail: async () =>
-			options.userWithPassword === undefined
-				? { ...userOf(), password: "hash-en-base" }
-				: options.userWithPassword,
+		findPasswordHash: async (documentId: string) => {
+			calls.passwordHashReads.push(documentId);
+			return options.passwordHash === undefined
+				? "hash-en-base"
+				: options.passwordHash;
+		},
 		create: async (data: Record<string, unknown>) => {
 			calls.created.push(data);
 			return userOf();
@@ -134,8 +149,9 @@ const createHarness = (
 			_documentId: string,
 			hash: string,
 			scope: unknown,
+			mustChangePassword: boolean,
 		) => {
-			calls.updatePassword.push({ hash, scope });
+			calls.updatePassword.push({ hash, scope, mustChangePassword });
 		},
 		lockActiveSuperadminIds: async () => {
 			calls.superadminLocks.push({ inTransaction: txDepth > 0 });
@@ -200,6 +216,26 @@ const createHarness = (
 		},
 	} as unknown as ICradle["sessionMonitorService"];
 
+	const authService = {
+		logoutOthers: async (userId: number, token: string | null) => {
+			calls.loggedOutOthers.push({ userId, token });
+			return {
+				success: true as const,
+				data: null,
+				timestamp: new Date().toISOString(),
+			};
+		},
+	} as unknown as ICradle["authService"];
+
+	const rateLimiter = {
+		consume: async (key: string) => {
+			calls.rateKeys.push(key);
+			return options.rateLimited
+				? { allowed: false, retryAfterMs: 60_000 }
+				: { allowed: true, retryAfterMs: 0 };
+		},
+	} as unknown as ICradle["rateLimiter"];
+
 	const passwordService = {
 		hash: async (plain: string) => {
 			calls.hashed.push(plain);
@@ -233,7 +269,9 @@ const createHarness = (
 		userRepository,
 		dependencyRepository,
 		sessionMonitorService,
+		authService,
 		passwordService,
+		rateLimiter,
 		storageProvider,
 		storageBucket:
 			options.storageBucket === undefined ? BUCKET : options.storageBucket,
@@ -325,6 +363,15 @@ describe("createUserService — create", () => {
 		expect(calls.hashed).toEqual(["contrasena1"]);
 		expect(calls.created[0].password).toBe("hash-de-contrasena1");
 		expect(calls.created[0].password).not.toBe("contrasena1");
+	});
+
+	// Remediación (Fase C): la contraseña la eligió quien da de alta.
+	test("la cuenta nueva tiene que cambiar su contraseña al entrar", async () => {
+		const { service, calls } = createHarness();
+
+		await service.create(validDto, actorOf());
+
+		expect(calls.created[0].mustChangePassword).toBe(true);
 	});
 
 	// El dto de frontera habla en documentId; la columna, en id interno. Si el
@@ -1102,6 +1149,8 @@ describe("createUserService — resetPassword", () => {
 		expect(result.success).toBe(true);
 		expect(calls.hashed).toEqual(["contrasenaNueva1"]);
 		expect(calls.updatePassword[0].hash).toBe("hash-de-contrasenaNueva1");
+		// Remediación (Fase C): la puso otra persona; la cambia al entrar.
+		expect(calls.updatePassword[0].mustChangePassword).toBe(true);
 	});
 
 	test("una cuenta fuera de alcance no se hashea ni se persiste", async () => {
@@ -1112,6 +1161,29 @@ describe("createUserService — resetPassword", () => {
 		expect(result.success).toBe(false);
 		expect(calls.hashed).toEqual([]);
 		expect(calls.updatePassword).toEqual([]);
+	});
+
+	// Remediación (Fase C): sin pedir la actual, una sesión ajena abierta
+	// bastaba para quedarse con la cuenta del propio administrador.
+	test("la propia no se restablece: OWN_PASSWORD_RESET sin hashear ni escribir", async () => {
+		const actor = actorOf();
+		const { service, calls } = createHarness({
+			user: userOf({ id: actor.userId }),
+		});
+
+		const result = await service.resetPassword(
+			DOCUMENT_ID,
+			"contrasenaNueva1",
+			actor,
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: "OWN_PASSWORD_RESET" },
+		});
+		expect(calls.hashed).toEqual([]);
+		expect(calls.updatePassword).toEqual([]);
+		expect(calls.notified).toEqual([]);
 	});
 });
 
@@ -1125,10 +1197,43 @@ describe("createUserService — changeOwnPassword", () => {
 	test("comprueba la anterior antes de escribir la nueva", async () => {
 		const { service, calls } = createHarness();
 
-		const result = await service.changeOwnPassword(dto, actorOf("USER", 3));
+		const result = await service.changeOwnPassword(
+			dto,
+			actorOf("USER", 3),
+			"rt-actual",
+		);
 
 		expect(result.success).toBe(true);
 		expect(calls.updatePassword[0].hash).toBe("hash-de-contrasena1");
+		// La eligió la persona: se acaba el cambio pendiente.
+		expect(calls.updatePassword[0].mustChangePassword).toBe(false);
+	});
+
+	// Remediación (Fase C): leía por correo y escribía por documentId.
+	test("lee el hash por el mismo documentId en el que escribe", async () => {
+		const { service, calls } = createHarness();
+		const actor = actorOf("USER", 3);
+
+		await service.changeOwnPassword(dto, actor, "rt-actual");
+
+		expect(calls.passwordHashReads).toEqual([actor.documentId]);
+	});
+
+	// Remediación (Fase C): cada intento compara con bcrypt; sin tope, una
+	// sesión ajena abierta podría adivinar la actual.
+	test("con el tope de intentos agotado no compara ni escribe", async () => {
+		const { service, calls } = createHarness({ rateLimited: true });
+		const actor = actorOf("USER", 3);
+
+		const result = await service.changeOwnPassword(dto, actor, "rt-actual");
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: "PASSWORD_CHANGE_RATE_LIMITED" },
+		});
+		expect(calls.rateKeys).toEqual([`password-change:${actor.userId}`]);
+		expect(calls.passwordHashReads).toEqual([]);
+		expect(calls.updatePassword).toEqual([]);
 	});
 
 	// Es lo que separa el autoservicio del reseteo administrativo: sin la
@@ -1137,32 +1242,43 @@ describe("createUserService — changeOwnPassword", () => {
 	test("una contraseña actual incorrecta no escribe nada", async () => {
 		const { service, calls } = createHarness({ passwordMatches: false });
 
-		const result = await service.changeOwnPassword(dto, actorOf("USER", 3));
+		const result = await service.changeOwnPassword(
+			dto,
+			actorOf("USER", 3),
+			"rt-actual",
+		);
 
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(result.error.code).toBe("INVALID_CURRENT_PASSWORD");
 		}
 		expect(calls.updatePassword).toEqual([]);
+		expect(calls.loggedOutOthers).toEqual([]);
 	});
 
-	// No revoca: quien la cambia conoce la nueva y echarlo de su propia sesión
-	// justo después sería gratuito.
-	test("no revoca las sesiones propias", async () => {
+	// Remediación (Fase C): una sesión robada sobrevivía al cambio. Se cierran
+	// las demás; la de quien la cambia sigue, porque conoce la nueva.
+	test("cierra las demás sesiones y conserva la actual", async () => {
 		const { service, calls } = createHarness();
+		const actor = actorOf("USER", 3);
 
-		await service.changeOwnPassword(dto, actorOf("USER", 3));
+		await service.changeOwnPassword(dto, actor, "rt-actual");
 
+		expect(calls.loggedOutOthers).toEqual([
+			{ userId: actor.userId, token: "rt-actual" },
+		]);
 		expect(calls.revoked).toEqual([]);
 	});
 
 	// Una cuenta sin contraseña (alta a medias) no puede compararse contra nada.
 	test("una cuenta sin contraseña falla en vez de aceptar cualquiera", async () => {
-		const { service, calls } = createHarness({
-			userWithPassword: { password: null },
-		});
+		const { service, calls } = createHarness({ passwordHash: null });
 
-		const result = await service.changeOwnPassword(dto, actorOf("USER", 3));
+		const result = await service.changeOwnPassword(
+			dto,
+			actorOf("USER", 3),
+			"rt-actual",
+		);
 
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.error.code).toBe("USER_NOT_FOUND");

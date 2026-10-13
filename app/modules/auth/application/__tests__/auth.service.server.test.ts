@@ -55,6 +55,7 @@ const createHarness = (
 			role,
 			dependencyId: null,
 			isTrainer: false,
+			mustChangePassword: false,
 		}),
 		findByInternalId: async () => ({
 			id: 1,
@@ -63,6 +64,7 @@ const createHarness = (
 			role,
 			dependencyId: null,
 			isTrainer: false,
+			mustChangePassword: false,
 		}),
 	} as unknown as ICradle["userRepository"];
 

@@ -23,6 +23,7 @@ const userOf = (overrides: Partial<SafeUser> = {}): SafeUser => ({
 	jobTitle: null,
 	dependencyId: null,
 	isTrainer: false,
+	mustChangePassword: false,
 	archivedAt: null,
 	createdAt: new Date("2026-01-01T00:00:00.000Z"),
 	updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -33,6 +34,7 @@ const itemOf = (overrides: Partial<UserListItem> = {}): UserListItem => ({
 	...userOf(),
 	trainerProfile: null,
 	canManage: true,
+	canResetPassword: true,
 	canManageTrainer: true,
 	...overrides,
 });
@@ -171,7 +173,21 @@ describe("toUserListItems", () => {
 		const [own] = toUserListItems([userOf({ dependencyId: 3 })], [], HEAD);
 
 		expect(own.canManage).toBe(true);
+		expect(own.canResetPassword).toBe(true);
 		expect(own.canManageTrainer).toBe(true);
+	});
+
+	// Remediación (Fase C): la propia contraseña se cambia con la actual, desde
+	// «Mi perfil»; la fila propia no ofrece restablecerla.
+	test("la cuenta propia se administra, pero su contraseña no se restablece", () => {
+		const [self] = toUserListItems(
+			[userOf({ id: HEAD.userId, dependencyId: 3, role: "DEPENDENCY_HEAD" })],
+			[],
+			HEAD,
+		);
+
+		expect(self.canManage).toBe(true);
+		expect(self.canResetPassword).toBe(false);
 	});
 
 	test("nadie administra a alguien de rango superior", () => {

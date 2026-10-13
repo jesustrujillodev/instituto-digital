@@ -35,6 +35,7 @@ const userOf = (overrides: Partial<SafeUser> = {}): SafeUser =>
 		photoUrl: null,
 		dependencyId: 3,
 		isTrainer: false,
+		mustChangePassword: false,
 		archivedAt: null,
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
@@ -70,6 +71,7 @@ const actorOf = (
 	role,
 	dependencyId,
 	isTrainer: false,
+	mustChangePassword: false,
 });
 
 /**
@@ -483,6 +485,8 @@ describe("createTrainerService — alta de capacitador externo", () => {
 				role: "USER",
 				type: "EXTERNAL",
 				dependencyId: null,
+				// La contraseña la puso quien registró: la cambia al entrar.
+				mustChangePassword: true,
 			},
 		]);
 		expect(calls.created).toEqual([

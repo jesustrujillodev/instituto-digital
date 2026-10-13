@@ -105,6 +105,7 @@ describe("accessTokenPayloadSchema", () => {
 		role: "SUPERADMIN",
 		dependencyId: null,
 		isTrainer: false,
+		mustChangePassword: false,
 	};
 
 	test("accepts a valid payload", () => {
@@ -135,6 +136,7 @@ describe("verifiedAccessTokenPayloadSchema", () => {
 		role: "USER",
 		dependencyId: 3,
 		isTrainer: false,
+		mustChangePassword: false,
 		iat: 1_800_000_000,
 	};
 

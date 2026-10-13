@@ -6,7 +6,9 @@
  *
  * La hora es la de Redis (`TIME`), no la del proceso: con varios nodos, un reloj
  * desfasado no estira ni acorta la ventana. Un intento rechazado no se registra,
- * así que el ZSET nunca pasa de `limit` miembros y todo bloqueo termina.
+ * así que el ZSET nunca pasa de `limit` miembros y todo bloqueo termina. La
+ * espera se acota a la ventana: si el reloj de Redis retrocede (NTP), la marca
+ * más vieja puede quedar en el futuro.
  */
 export const SLIDING_WINDOW_LUA = `
 local t = redis.call('TIME')
@@ -29,6 +31,9 @@ if oldest[2] then
 end
 if retry < 1 then
   retry = 1
+end
+if retry > window then
+  retry = window
 end
 return {0, retry}
 `;

@@ -5,6 +5,7 @@ import { ok, parseInput } from "@/shared/response/response.helpers";
 import {
 	assignableRoles,
 	canChangeUserDependency,
+	canResetPassword,
 	USER_MANAGER_ROLES,
 } from "../../../domain/user.access.rules";
 import { canChangeRole, roleLockOf } from "../../../domain/user.role.rules";
@@ -54,6 +55,7 @@ export const loader = async ({
 			canChangeRole(auth, user, role),
 		),
 		roleLock: roleLockOf(auth, user),
+		canResetPassword: canResetPassword(auth, user),
 		dependencyChange: await loadDependencyChange(context, auth, user),
 	});
 };

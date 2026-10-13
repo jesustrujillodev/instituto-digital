@@ -59,6 +59,11 @@ model User {
   /// docs/auth/02-revocacion-inmediata-epoch.md).
   tokensValidAfter DateTime? @map("tokens_valid_after")
 
+  /// La contraseña la puso otra persona (alta o restablecimiento administrativo,
+  /// o el bootstrap): hasta que la cambie, solo puede usar «Mi perfil». Viaja
+  /// en el access token como claim, igual que `isTrainer`.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+
   /// Preferencia de esquema de color: "light" | "dark" | "system".
   /// null = nunca eligió; la resolución cae a la cookie o a "system".
   ///

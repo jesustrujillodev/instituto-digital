@@ -44,6 +44,7 @@ export interface AuthContext {
 	/** Alcance de la sesión: lo traduce `resolveScope` en shared/auth. */
 	dependencyId: AccessTokenPayload["dependencyId"];
 	isTrainer: AccessTokenPayload["isTrainer"];
+	mustChangePassword: AccessTokenPayload["mustChangePassword"];
 }
 
 export type LoginDto = v.InferInput<typeof loginRule>;

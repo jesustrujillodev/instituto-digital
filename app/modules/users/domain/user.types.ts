@@ -41,6 +41,8 @@ export type CreateUserDto = Omit<
 export type CreateUserData = Omit<CreateUserDto, "dependency" | "password"> & {
 	password: string;
 	dependencyId?: number | null;
+	/** La pone quien crea la cuenta: la persona tiene que cambiarla al entrar. */
+	mustChangePassword: boolean;
 };
 /** Salida y no entrada: el teléfono vacío ya llega convertido en `null`. */
 export type UpdateUserDto = v.InferOutput<typeof updateUserRule>;

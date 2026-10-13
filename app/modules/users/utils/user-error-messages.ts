@@ -67,6 +67,16 @@ export const USER_ERROR_MESSAGES: ErrorMessageMap = {
 		message: "La contraseña actual no es correcta.",
 		fieldErrors: { currentPassword: "La contraseña actual no es correcta" },
 	},
+	[USER_ERROR_CODES.OWN_PASSWORD_RESET]: {
+		message:
+			"Tu propia contraseña se cambia desde «Mi perfil», escribiendo la actual.",
+		status: HTTP_STATUS.FORBIDDEN,
+	},
+	[USER_ERROR_CODES.PASSWORD_CHANGE_RATE_LIMITED]: {
+		message:
+			"Hiciste demasiados intentos de cambiar la contraseña. Espera unos minutos e inténtalo de nuevo.",
+		status: HTTP_STATUS.TOO_MANY_REQUESTS,
+	},
 	[USER_ERROR_CODES.NOT_ARCHIVED]:
 		"Archiva el usuario antes de eliminarlo permanentemente.",
 	[USER_ERROR_CODES.HAS_RELATED_RECORDS]:

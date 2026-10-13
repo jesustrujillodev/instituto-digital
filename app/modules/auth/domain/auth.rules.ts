@@ -46,6 +46,11 @@ export const accessTokenPayloadSchema = v.object({
 	dependencyId: v.nullable(v.number()),
 	/** Perfil de capacitador activo. Se revoca el token al activarlo o desactivarlo. */
 	isTrainer: v.boolean(),
+	/**
+	 * Debe cambiar la contraseña que le puso otra persona: `requireAuth` solo le
+	 * deja «Mi perfil». Cambiarla sube su epoch, así que el refresh lo apaga.
+	 */
+	mustChangePassword: v.boolean(),
 });
 
 /**

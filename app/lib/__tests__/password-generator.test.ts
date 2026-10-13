@@ -35,17 +35,44 @@ describe("generateSecurePassword", () => {
 		}
 	});
 
-	// Con Math.random fijado el shuffle de Fisher-Yates es determinista: si alguien
-	// reordena el algoritmo, este test lo nota.
-	test("is deterministic once Math.random is pinned", () => {
-		vi.spyOn(Math, "random").mockReturnValue(0);
+	// Remediación (Fase C): Math.random no es un generador criptográfico.
+	test("no usa Math.random, sino el generador criptográfico", () => {
+		const mathRandom = vi.spyOn(Math, "random");
+		const getRandomValues = vi.spyOn(crypto, "getRandomValues");
 
-		const first = generateSecurePassword(10);
+		generateSecurePassword(16);
 
-		vi.spyOn(Math, "random").mockReturnValue(0);
-		const second = generateSecurePassword(10);
+		expect(mathRandom).not.toHaveBeenCalled();
+		expect(getRandomValues).toHaveBeenCalled();
+	});
 
-		expect(second).toBe(first);
+	// Con el generador fijado el shuffle de Fisher-Yates es determinista: si
+	// alguien reordena el algoritmo, este test lo nota.
+	test("is deterministic once the random source is pinned", () => {
+		const pinned = <T extends ArrayBufferView | null>(array: T): T => {
+			if (array instanceof Uint32Array) array.fill(0);
+			return array;
+		};
+		vi.spyOn(crypto, "getRandomValues").mockImplementation(pinned);
+
+		expect(generateSecurePassword(10)).toBe(generateSecurePassword(10));
+	});
+
+	// Sin descartar, `% n` favorece los primeros valores; lo que cae por
+	// encima del último múltiplo se vuelve a sortear.
+	test("vuelve a sortear lo que cae fuera del último múltiplo", () => {
+		const draws = [2 ** 32 - 1, 5];
+		const getRandomValues = vi
+			.spyOn(crypto, "getRandomValues")
+			.mockImplementation(<T extends ArrayBufferView | null>(array: T): T => {
+				if (array instanceof Uint32Array) array[0] = draws.shift() ?? 0;
+				return array;
+			});
+
+		generateSecurePassword(2);
+
+		expect(getRandomValues.mock.calls.length).toBeGreaterThanOrEqual(3);
+		expect(draws).toEqual([]);
 	});
 
 	// Comportamiento real, no deseable: con length < 2 los dos caracteres

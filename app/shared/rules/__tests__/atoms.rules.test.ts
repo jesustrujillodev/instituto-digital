@@ -95,9 +95,15 @@ describe("atoms.password", () => {
 
 	// El cap de 72 es el límite efectivo de bcrypt en bytes. Sin él, `password +
 	// basura` autenticaría por truncamiento.
-	test("caps at bcrypt's 72-character limit", () => {
+	test("caps at bcrypt's 72-byte limit", () => {
 		expect(v.safeParse(atoms.password, "a".repeat(72)).success).toBe(true);
 		expect(v.safeParse(atoms.password, "a".repeat(73)).success).toBe(false);
+	});
+
+	// Remediación (Fase C): 37 «ñ» son 37 caracteres pero 74 bytes.
+	test("counts UTF-8 bytes, not characters", () => {
+		expect(v.safeParse(atoms.password, "ñ".repeat(36)).success).toBe(true);
+		expect(v.safeParse(atoms.password, "ñ".repeat(37)).success).toBe(false);
 	});
 });
 
@@ -107,8 +113,19 @@ describe("atoms.newPassword", () => {
 		expect(v.safeParse(atoms.newPassword, "1234567").success).toBe(false);
 	});
 
-	test("caps at bcrypt's 72-character limit", () => {
+	test("caps at bcrypt's 72-byte limit", () => {
 		expect(v.safeParse(atoms.newPassword, "a".repeat(73)).success).toBe(false);
+	});
+
+	// Remediación (Fase C): bcrypt recortaba en silencio lo que pasara de 72
+	// bytes, así que una contraseña con acentos valía menos de lo que parecía.
+	test("rejects 72 characters that are more than 72 bytes", () => {
+		expect(v.safeParse(atoms.newPassword, `Aa1${"é".repeat(35)}`).success).toBe(
+			false,
+		);
+		expect(v.safeParse(atoms.newPassword, `Aa1${"é".repeat(34)}`).success).toBe(
+			true,
+		);
 	});
 });
 

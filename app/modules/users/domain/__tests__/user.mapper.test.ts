@@ -15,6 +15,7 @@ const rawUserOf = (overrides: Record<string, unknown> = {}) => ({
 	employeeNumber: "EMP-0007",
 	jobTitle: "Coordinadora",
 	dependencyId: 3,
+	mustChangePassword: false,
 	archivedAt: null,
 	createdAt: new Date("2026-01-01T00:00:00.000Z"),
 	updatedAt: new Date("2026-01-01T00:00:00.000Z"),

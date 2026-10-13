@@ -28,6 +28,7 @@ const actorOf = (overrides: Partial<AuthContext> = {}): AuthContext => ({
 	role: "USER",
 	dependencyId: 4,
 	isTrainer: false,
+	mustChangePassword: false,
 	...overrides,
 });
 

@@ -168,13 +168,23 @@ Ese es el momento de agregar Redis y el worker.
   `DATABASE_URL` de ese entorno, **antes** de desplegar la versión que la necesita.
   La imagen no aplica cambios a la base por sí sola.
 - **Entorno nuevo:** además de la estructura, la base necesita una fila de
-  configuración de seguridad y una primera cuenta de superadministrador. Hoy lo
-  único que las crea es `bun run seed`, que también crea cuentas de prueba con la
-  contraseña `Password123!`, que está publicada en el repositorio. Después de sembrar un entorno que no
-  es de desarrollo, hay que cambiar esas contraseñas o archivar esas cuentas. Hay
-  un script de arranque más seguro pendiente (`REMEDIACION-CHECKLIST.md`, Fase C).
-- ⚠ **`bun run seed` borra todos los datos antes de sembrar.** Nunca contra una
-  base con datos reales.
+  configuración de seguridad y una primera cuenta de superadministrador. Las crea
+  `bun run bootstrap`, desde una computadora y apuntando al `DATABASE_URL` de ese
+  entorno:
+
+  ```
+  BOOTSTRAP_SUPERADMIN_EMAIL=… BOOTSTRAP_SUPERADMIN_PASSWORD=… bun run bootstrap
+  ```
+
+  No borra nada y se puede repetir: si ya hay un superadministrador activo, no
+  hace nada. Rechaza las contraseñas que están en el repositorio y las que no
+  cumplen la política. Ese superadministrador tiene que cambiar la contraseña en
+  su primer acceso. Opcionales: `BOOTSTRAP_SUPERADMIN_EMPLOYEE_NUMBER` (por
+  defecto `ADMIN-0001`), `BOOTSTRAP_SUPERADMIN_FIRST_NAME` y
+  `BOOTSTRAP_SUPERADMIN_LAST_NAME`.
+- ⚠ **`bun run seed` es solo para desarrollo:** borra todos los datos y crea
+  cuentas con la contraseña `Password123!`, que está publicada en el repositorio.
+  Con `NODE_ENV=production` se niega a correr.
 
 ## 6. Lista antes de desplegar
 
@@ -192,7 +202,9 @@ Ese es el momento de agregar Redis y el worker.
 
 **En la base:**
 - [ ] La estructura está al día (`bunx prisma db push`) si la versión cambia el esquema.
-- [ ] Si se sembró con el seed: las cuentas de prueba ya no tienen `Password123!`.
+- [ ] Entorno nuevo: `bun run bootstrap`, no el seed.
+- [ ] Si alguna vez se sembró con el seed: las cuentas de prueba ya no tienen `Password123!` (o están archivadas).
+- [ ] Al desplegar esta versión: `bunx prisma db push` agrega la columna `must_change_password`.
 
 ## 7. Comprobar después de desplegar
 

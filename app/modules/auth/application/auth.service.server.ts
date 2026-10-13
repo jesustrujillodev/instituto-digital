@@ -72,6 +72,7 @@ export const createAuthService = ({
 			role: string;
 			dependencyId: number | null;
 			isTrainer: boolean;
+			mustChangePassword: boolean;
 		},
 		userId: number,
 	): AccessTokenPayload =>
@@ -83,6 +84,7 @@ export const createAuthService = ({
 			role: user.role,
 			dependencyId: user.dependencyId,
 			isTrainer: user.isTrainer,
+			mustChangePassword: user.mustChangePassword,
 		});
 
 	// ── Login ────────────────────────────────────────────────────────────────────
@@ -391,9 +393,36 @@ export const createAuthService = ({
 		});
 
 	// ── Logout all devices ───────────────────────────────────────────────────────
+	// El borrado mata la renovación y el epoch del usuario el acceso en curso:
+	// sin él, los demás dispositivos seguían dentro hasta que su access token
+	// expiraba (auditoría, Fase C).
 	const logoutAll: AuthService["logoutAll"] = (userId) =>
 		run("logoutAll", async () => {
 			await sessionRepository.deleteAllByUserId(userId);
+			await securityStateRepository.revokeUserTokens(userId);
+
+			return ok(null);
+		});
+
+	// Como el cierre global del panel: el epoch también corta el access token de
+	// quien lo pide, pero su sesión sobrevive y el silent refresh le acuña otro.
+	const logoutOthers: AuthService["logoutOthers"] = (
+		userId,
+		currentRefreshToken,
+	) =>
+		run("logoutOthers", async () => {
+			const current = currentRefreshToken
+				? await sessionRepository.findByTokenHash(
+						tokenService.hashRefreshToken(currentRefreshToken),
+					)
+				: null;
+
+			if (current?.userId === userId) {
+				await sessionRepository.deleteOthersOfUser(userId, current.id);
+			} else {
+				await sessionRepository.deleteAllByUserId(userId);
+			}
+			await securityStateRepository.revokeUserTokens(userId);
 
 			return ok(null);
 		});
@@ -402,7 +431,14 @@ export const createAuthService = ({
 	const verifyAccessToken: AuthService["verifyAccessToken"] = (token) =>
 		tokenService.verifyAccessToken(token);
 
-	return { login, refresh, logout, logoutAll, verifyAccessToken };
+	return {
+		login,
+		refresh,
+		logout,
+		logoutAll,
+		logoutOthers,
+		verifyAccessToken,
+	};
 };
 
 export type { AuthService };

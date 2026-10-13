@@ -263,7 +263,46 @@ el navegador los aplique antes de seguir el redirect.
 
 Requiere autenticación; revoca **todas** las sesiones del usuario
 (`logoutAll(userId)`) — el mismo caso de uso que dispara la detección de reuso
-— y limpia cookies.
+— y limpia cookies. Además sube el epoch del usuario: sin él, los demás
+dispositivos seguían dentro hasta que expiraba su access token.
+
+### 6.4.1 Contraseñas
+
+- **Cambiar la propia** (`/dashboard/perfil`, `changeOwnPassword`): pide la
+  actual, tiene tope de intentos (`PASSWORD_CHANGE_RATE_LIMIT`: 5 cada 15 min por
+  cuenta) y lee y escribe por el mismo `documentId`. Al terminar cierra las
+  **demás** sesiones de la cuenta y sube su epoch (`logoutOthers`): una sesión
+  robada no sobrevive al cambio. La de quien la cambió sigue por el silent
+  refresh, como en el cierre global del panel.
+- **Restablecer** (edición de usuario, `resetPassword`): no pide la actual y
+  cierra las sesiones de la cuenta. La propia no se restablece
+  (`canResetPassword`, `OWN_PASSWORD_RESET`): una sesión ajena abierta bastaría
+  para quedarse con la cuenta; se cambia desde «Mi perfil».
+- **Longitud**: bcrypt solo mira los primeros 72 **bytes** en UTF-8. La regla
+  cuenta bytes (`v.maxBytes`), en el alta y en el login: una «ñ» o una vocal
+  acentuada ocupan 2.
+- **Generador** (`app/lib/password-generator.ts`): `crypto.getRandomValues` con
+  muestreo por rechazo, no `Math.random`.
+- **Cambio obligatorio en el primer acceso**: la columna `must_change_password`
+  queda en `true` cuando la contraseña la puso otra persona (alta de una cuenta,
+  interna o externa, restablecimiento y `bun run bootstrap`) y en `false` cuando
+  la cambia la propia persona. Viaja en el access token como claim
+  (`mustChangePassword`), igual que `isTrainer`, así que no cuesta consultas:
+  `requireAuth` redirige a «Mi perfil» mientras esté en `true`, salvo esa pantalla,
+  cerrar sesión y el proxy de storage (`allowsPendingPasswordChange`). Cambiarla
+  sube el epoch del usuario y el silent refresh firma el claim nuevo.
+- **Iniciar sesión con otra cuenta** en el mismo navegador cierra la sesión
+  anterior (su refresh token llega en la cookie). Sin esto seguía válida en la
+  base hasta 7 días. Un login fallido no la toca.
+
+### 6.4.2 Arranque de un entorno (`bun run bootstrap`)
+
+`scripts/bootstrap.ts` crea la fila de `security_state` y el primer
+superadministrador, con su contraseña de una variable y el cambio obligatorio
+en el primer acceso. No borra nada, rechaza las contraseñas que están en el
+repositorio (`user.bootstrap.rules.ts`) y, si ya hay un superadministrador
+activo, no hace nada. El seed queda solo para desarrollo y se niega a correr
+con `NODE_ENV=production` (auditoría V04).
 
 ### 6.5 Monitor de sesiones (`/dashboard/sesiones`, solo SUPERADMIN)
 
