@@ -1289,6 +1289,28 @@ describe("enrollmentService.findAvailable", () => {
 		});
 	});
 
+	// Remediación (Fase C): la ficha del catálogo entregaba la videollamada a
+	// quien solo veía el curso.
+	test.each([
+		["sin inscripción", undefined, null],
+		["inscrito", "ENROLLED", "https://meet.example.com/x"],
+	] as const)("%s: el enlace de la sesión es %s", async (_, own, link) => {
+		const { service } = createHarness({
+			own,
+			course: courseOf({
+				sessions: [
+					{ ...courseOf().sessions[0], link: "https://meet.example.com/x" },
+				],
+			}),
+		});
+
+		const result = await service.findAvailable(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			data: { course: { sessions: [{ link }] } },
+		});
+	});
+
 	// Por URL directa tampoco: la ficha usa el mismo filtro que el listado.
 	test("la ficha exige la regla de invitación del catálogo", async () => {
 		const { service, calls } = createHarness();
@@ -1504,6 +1526,29 @@ describe("enrollmentService.findMyCourse", () => {
 				enrollment: { status: "WITHDRAWN", withdrawnAt: NOW },
 				can: { enroll: true, withdraw: false },
 			},
+		});
+	});
+
+	// Remediación (Fase C): de baja, la ficha seguía entregando la videollamada.
+	test.each([
+		["inscrito", "ENROLLED", "https://meet.example.com/x"],
+		["invitado", "INVITED", "https://meet.example.com/x"],
+		["de baja", "WITHDRAWN", null],
+	] as const)("%s: el enlace de la sesión es %s", async (_, status, link) => {
+		const { service } = createHarness({
+			mine: [
+				myCourseOf(status, {
+					sessions: [
+						{ ...courseOf().sessions[0], link: "https://meet.example.com/x" },
+					],
+				}),
+			],
+		});
+
+		const result = await service.findMyCourse(COURSE_ID, actorOf());
+
+		expect(result).toMatchObject({
+			data: { course: { sessions: [{ link }] } },
 		});
 	});
 

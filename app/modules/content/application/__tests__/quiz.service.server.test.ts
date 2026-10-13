@@ -1168,6 +1168,24 @@ describe("otro intento (docs/adr/0016, 0024)", () => {
 		expect(calls.retakes).toEqual([]);
 	});
 
+	// Remediación (Fase C): quien imparte e iba inscrito se habilitaba intentos.
+	test("quien imparte no se lo habilita a sí mismo", async () => {
+		const { service, calls } = createHarness({
+			attempt: attemptOf(),
+			participant: {
+				userId: TRAINER.userId,
+				result: "PENDING",
+				completed: false,
+			},
+		});
+
+		expect(await service.grantRetake(COURSE_DOC, dto, TRAINER)).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.QUIZ_SELF_RETAKE },
+		});
+		expect(calls.retakes).toEqual([]);
+	});
+
 	test("a quien ya no está inscrito no se le habilita", async () => {
 		const { service, calls } = createHarness({
 			attempt: attemptOf(),

@@ -42,11 +42,12 @@ Lo que **no** hace todavía:
 
 ## 3. Pase de lista y resultados
 
-> **Oculto en la interfaz.** Con `MANUAL_ATTENDANCE_ENABLED = false`
+> **Apagado.** Con `MANUAL_ATTENDANCE_ENABLED = false`
 > (`domain/teaching.config.ts`) la ficha no ofrece casillas ni "Guardar lista": la
 > pestaña Asistencia muestra el QR y un registro de solo lectura por sesión, y el
-> listado dice "Ver asistencia". El intent `attendance` y todo lo de abajo siguen
-> vivos; volver a `true` reactiva el pase de lista sin más cambios.
+> listado dice "Ver asistencia". La action rechaza el intent `attendance` como
+> acción no reconocida, así que la asistencia solo entra por QR. Lo de abajo sigue
+> en el servicio; volver a `true` reactiva el pase de lista sin más cambios.
 
 - Se pasa lista **por sesión** a los inscritos `ENROLLED`, desde el inicio del día
   local de la sesión (`isSessionOpen`).
@@ -59,6 +60,9 @@ Lo que **no** hace todavía:
   que aparece donde la nota se calcula sola, es de solo lectura.
 - Si alguien del envío ya no está inscrito, se rechaza el envío entero
   (`TEACHING_UNKNOWN_PARTICIPANT`).
+- **Nadie cambia su propia asistencia.** Quien imparte puede estar inscrito; si el
+  envío cambia su propia marca, se rechaza entero (`TEACHING_SELF_ATTENDANCE`). Su
+  casilla viaja sin cambios en la lista completa y la pantalla la deshabilita.
 - La lista viaja como un JSON en el campo `payload`, igual que el formulario de
   cursos.
 
@@ -184,7 +188,8 @@ La pestaña Evaluaciones lista el seguimiento de cada sesión con su estado
 abren y cierran desde ahí (`open-follow-up`, `close-follow-up` contra
 `/dashboard/imparticion/:id/cuestionarios`); cerrar es definitivo y recalcula la
 nota con los ceros. Otro intento se habilita desde Intentos, como el resto de
-cuestionarios.
+cuestionarios. Nadie se lo habilita a sí mismo: si quien imparte está inscrito, su
+fila no ofrece el botón y el servidor responde `CONTENT_QUIZ_SELF_RETAKE`.
 
 ## 5. Corrección posterior
 
@@ -222,8 +227,10 @@ alcance global, como en cursos.
 - "Mis capacitaciones" enseña el diálogo en la tarjeta del curso finalizado, junto con
   asistencia, nota y si completó.
 - El resumen (promedio a un decimal, número y comentarios) lo ven los mismos que
-  pasan lista, y la proyección **no lee** `user_id`: el anonimato empieza en la
-  consulta.
+  pasan lista, y la proyección **no lee** `user_id` **ni la fecha**: el anonimato
+  empieza en la consulta. Los comentarios se ordenan por calificación y texto, no
+  por llegada; en un curso pequeño, la fecha o el orden bastarían para saber
+  quién escribió cada uno.
 - La ficha del capacitador calcula "cursos impartidos" (finalizados en
   `course_trainers`) y "valoración promedio" (de esos cursos), con `null` sin
   valoraciones en lugar de un cero que mentiría.

@@ -2,6 +2,7 @@ import { CHECK_IN_ERROR_MESSAGES } from "@/modules/check-in/utils/check-in-error
 import { fail, ok, parseInput } from "@/shared/response/response.helpers";
 import { localizeError } from "@/shared/response/response.messages";
 import { RESPONSE_ERROR_CODES } from "@/shared/rules/response.rules";
+import { MANUAL_ATTENDANCE_ENABLED } from "../../../domain/teaching.config";
 import {
 	validateFindTeachingCourse,
 	validateSaveAttendance,
@@ -22,6 +23,12 @@ const savedMessage = (affected: number, what: string) =>
 		? "No había cambios que guardar."
 		: `${what}: ${plural(affected, "cambio", "cambios")}.`;
 
+const unknownIntent = () =>
+	fail({
+		code: RESPONSE_ERROR_CODES.VALIDATION,
+		message: "Acción no reconocida.",
+	});
+
 /**
  * POST /dashboard/imparticion/:documentId — lista, resultados, cierre, emisión
  * de certificados pendientes o, en un autogestivo, abrir y cerrar sus
@@ -38,6 +45,8 @@ export const action = async ({
 
 	switch (form.intent) {
 		case TEACHING_INTENTS.attendance: {
+			// Con el pase de lista manual apagado, la asistencia solo entra por QR.
+			if (!MANUAL_ATTENDANCE_ENABLED) return unknownIntent();
 			const input = parseInput(() => ({
 				documentId: documentId(),
 				dto: validateSaveAttendance(form.payload),
@@ -123,9 +132,6 @@ export const action = async ({
 			});
 		}
 		default:
-			return fail({
-				code: RESPONSE_ERROR_CODES.VALIDATION,
-				message: "Acción no reconocida.",
-			});
+			return unknownIntent();
 	}
 };

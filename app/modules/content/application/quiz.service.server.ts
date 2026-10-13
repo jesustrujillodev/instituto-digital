@@ -41,6 +41,7 @@ import {
 	ContentQuizParticipantNotFoundError,
 	ContentQuizRateLimitedError,
 	ContentQuizRetakeNotAllowedError,
+	ContentQuizSelfRetakeError,
 	ContentSessionNotFoundError,
 	ContentTooManyFollowUpsError,
 } from "../domain/content.errors";
@@ -629,6 +630,9 @@ export const createQuizService = ({
 				]);
 				if (!quiz) throw new ContentQuizNotFoundError();
 				if (!participant) throw new ContentQuizParticipantNotFoundError();
+				if (participant.userId === actor.userId) {
+					throw new ContentQuizSelfRetakeError();
+				}
 				// Ya acreditado, la nota quedó fija: otro intento no la movería.
 				if (isAccredited(participant)) {
 					throw new ContentQuizRetakeNotAllowedError();

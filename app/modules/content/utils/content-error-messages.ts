@@ -179,6 +179,10 @@ export const CONTENT_ERROR_MESSAGES: ErrorMessageMap = {
 			"Solo se habilita otro intento en una capacitación en curso, a quien no lo ha acreditado, cuando el último quedó reprobado, agotó sus intentos y no tiene otro pendiente.",
 		status: HTTP_STATUS.CONFLICT,
 	},
+	[CONTENT_ERROR_CODES.QUIZ_SELF_RETAKE]: {
+		message: "No puedes habilitarte otro intento.",
+		status: HTTP_STATUS.FORBIDDEN,
+	},
 	[CONTENT_ERROR_CODES.QUIZ_PARTICIPANT_NOT_FOUND]: {
 		message: "Esa persona ya no está inscrita en la capacitación.",
 		status: HTTP_STATUS.NOT_FOUND,

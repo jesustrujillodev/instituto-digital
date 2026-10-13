@@ -366,6 +366,19 @@ que sus mutaciones sí.
 | `certificates/…/certificate-assets.rules.test.ts` · `certificates.service.server.test.ts` | Un SVG ya no se acepta, ni aunque sea solo dibujo. |
 | `content/…/content.rules.test.ts` · `content.service.server.test.ts` · `object-key.test.ts` | La key de una subida firmada lleva un identificador aleatorio y la extensión del tipo firmado; al confirmar se guarda el tipo del objeto, y uno de otra clase o sin tipo se rechaza. |
 
+### Lógica de negocio (remediación, Fase C)
+
+| Archivo | Qué protege |
+|---|---|
+| `teaching/…/teaching.rules.test.ts` · `teaching.service.server.test.ts` | **Quien imparte e iba inscrito no cambia su propia asistencia** (`TEACHING_SELF_ATTENDANCE`, sin escribir); su marca sin cambios en la lista completa no estorba. |
+| `content/…/quiz.service.server.test.ts` | **Quien imparte no se habilita otro intento** (`CONTENT_QUIZ_SELF_RETAKE`, sin escribir). |
+| `teaching/…/imparticion/$documentId/…/index.action.test.ts` | Con `MANUAL_ATTENDANCE_ENABLED` apagado, el intent `attendance` no llega al servicio. |
+| `enrollments/…/enrollment.rules.test.ts` · `enrollments.service.server.test.ts` | **El enlace de videollamada no le llega a quien se dio de baja ni a quien solo ve el curso en el catálogo**; invitado e inscrito lo conservan. |
+| `annual-plan/…/annual-plan.service.server.test.ts` · `plan-anual/$documentId/…/index.action.test.ts` | Una línea de otro plan da `ANNUAL_PLAN_LINE_NOT_FOUND` sin escribir; la action pasa el plan de la URL. |
+| `groups/…/group.rules.test.ts` · `groups.service.server.test.ts` · `group.mapper.test.ts` | **Un grupo archivado o de una dependencia desactivada no se edita ni cambia de miembros**; se archiva siempre y se restaura solo con la dependencia activa. |
+| `ratings/…/rating.rules.test.ts` · `ratings.repository.server.test.ts` | Los comentarios anónimos no llevan fecha ni se ordenan por llegada. |
+| `shared/query/…/bracket-params.test.ts` | `a[toString][x]` y `b[hasOwnProperty]` son claves nuevas: nada se escribe en el prototipo. |
+
 ### Externos solo `USER` (remediación C09)
 
 | Archivo | Qué protege |

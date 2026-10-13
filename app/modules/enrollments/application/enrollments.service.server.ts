@@ -60,6 +60,7 @@ import {
 	isEnrollmentOpen,
 	participantPermissionsOf,
 	removalsOutOfReach,
+	withSessionLinksFor,
 } from "../domain/enrollment.rules";
 import type { IEnrollmentService } from "../domain/enrollment.service";
 import type {
@@ -372,7 +373,10 @@ export const createEnrollmentService = ({
 				]);
 				const course = await requireCourse(courseDocumentId, filter);
 				const now = clock.now();
-				const detail = withAvailability(course, now);
+				const detail = withAvailability(
+					withSessionLinksFor(course, enrollment?.status ?? null),
+					now,
+				);
 				return ok({
 					course: detail,
 					enrollment: enrollment && {
@@ -416,9 +420,10 @@ export const createEnrollmentService = ({
 				if (!record) return ok(null);
 
 				const now = clock.now();
+				const entry = toMyCourseEntry(record, now);
 				return ok({
-					...toMyCourseEntry(record, now),
-					course: withAvailability(record.course, now),
+					...entry,
+					course: withAvailability(entry.course, now),
 					can: participantPermissionsOf(
 						record.course,
 						record.enrollment.status,

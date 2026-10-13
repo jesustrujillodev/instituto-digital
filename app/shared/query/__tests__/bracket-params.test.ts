@@ -84,6 +84,23 @@ describe("parseBrackets", () => {
 		});
 	});
 
+	// Remediación (Fase C): una clave heredada se tomaba por rama existente y la
+	// escritura caía en la función compartida del prototipo.
+	test("treats inherited names as new keys and never writes on the prototype", () => {
+		const tree = parseBrackets(
+			new URLSearchParams("a[toString][x]=1&b[hasOwnProperty]=2&valueOf=3"),
+		);
+
+		expect(tree).toEqual({
+			a: { toString: { x: "1" } },
+			b: { hasOwnProperty: "2" },
+			valueOf: "3",
+		});
+		expect(
+			(Object.prototype.toString as unknown as Record<string, unknown>).x,
+		).toBeUndefined();
+	});
+
 	test("keeps the first value when the same key repeats", () => {
 		expect(parseBrackets(new URLSearchParams("a=1&a=2"))).toEqual({ a: "1" });
 	});

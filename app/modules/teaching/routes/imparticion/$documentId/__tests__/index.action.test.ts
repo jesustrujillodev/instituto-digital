@@ -1,5 +1,18 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { action } from "../index.action";
+
+const flags = vi.hoisted(() => ({ manualAttendance: true }));
+
+vi.mock("../../../../domain/teaching.config", async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	get MANUAL_ATTENDANCE_ENABLED() {
+		return flags.manualAttendance;
+	},
+}));
+
+afterEach(() => {
+	flags.manualAttendance = true;
+});
 
 type ActionArgs = Parameters<typeof action>[0];
 
@@ -83,6 +96,27 @@ describe("impartición action", () => {
 				marks: [{ userDocumentId: ANA_DOC, attended: true }],
 			},
 		]);
+	});
+
+	// Remediación (Fase C): con el pase de lista manual apagado, el intent
+	// seguía guardando la lista.
+	test("con el pase de lista manual apagado, la lista no llega al servicio", async () => {
+		flags.manualAttendance = false;
+		const { context, calls } = createHarness();
+
+		const result = await run(context, {
+			intent: "attendance",
+			payload: JSON.stringify({
+				sessionDocumentId: SESSION_DOC,
+				marks: [{ userDocumentId: ANA_DOC, attended: true }],
+			}),
+		});
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: "VALIDATION_ERROR" },
+		});
+		expect(calls).toHaveLength(0);
 	});
 
 	test("un JSON roto responde error de validación sin llamar al servicio", async () => {

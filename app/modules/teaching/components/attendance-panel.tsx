@@ -15,6 +15,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
+import { useAuth } from "@/shared/hooks/use-auth";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import type { TeachingDetail } from "../domain/teaching.types";
 import {
@@ -42,6 +43,7 @@ export function AttendancePanel({
 	manual: boolean;
 }) {
 	const { sessions, participants, can } = detail;
+	const viewerDocumentId = useAuth().documentId;
 	const fetcher = useFetcher<TeachingActionData>();
 	useFetcherToast(fetcher);
 
@@ -168,7 +170,10 @@ export function AttendancePanel({
 									<Label className="flex cursor-pointer items-center gap-3">
 										<Checkbox
 											checked={marks[participant.userDocumentId] ?? false}
-											disabled={!editable}
+											disabled={
+												!editable ||
+												participant.userDocumentId === viewerDocumentId
+											}
 											onCheckedChange={(checked) =>
 												setMarks((previous) => ({
 													...previous,

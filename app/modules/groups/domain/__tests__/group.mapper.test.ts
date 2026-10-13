@@ -24,6 +24,16 @@ describe("toDomain", () => {
 		expect(group.dependencyName).toBe("Obras Públicas");
 	});
 
+	test("aplana si la dependencia está desactivada", () => {
+		expect(toDomain(raw).dependencyArchived).toBe(false);
+		expect(
+			toDomain({
+				...raw,
+				dependency: { name: "Obras Públicas", archivedAt: new Date(0) },
+			}).dependencyArchived,
+		).toBe(true);
+	});
+
 	test("sin miembros el conteo es cero, no undefined", () => {
 		const { _count: _, ...sinConteo } = raw;
 

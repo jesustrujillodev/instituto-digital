@@ -81,19 +81,18 @@ describe("toCourseRatingSummary", () => {
 		});
 	});
 
-	test("promedia a un decimal y solo lista los comentarios escritos", () => {
-		const createdAt = new Date("2026-09-10T00:00:00.000Z");
-
+	// Remediación (Fase C): cada comentario llevaba su fecha exacta.
+	test("promedia a un decimal y solo lista los comentarios escritos, sin fecha", () => {
 		expect(
 			toCourseRatingSummary([
-				{ score: 5, comment: "Muy práctico", createdAt },
-				{ score: 4, comment: null, createdAt },
-				{ score: 4, comment: null, createdAt },
+				{ score: 5, comment: "Muy práctico" },
+				{ score: 4, comment: null },
+				{ score: 4, comment: null },
 			]),
 		).toEqual({
 			average: 4.3,
 			count: 3,
-			comments: [{ score: 5, comment: "Muy práctico", createdAt }],
+			comments: [{ score: 5, comment: "Muy práctico" }],
 		});
 	});
 });

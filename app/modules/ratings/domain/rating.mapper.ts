@@ -2,10 +2,10 @@ import type { CourseRatingSummary } from "./rating.types";
 
 /**
  * Promedio a un decimal y comentarios sin autor. La fila de entrada no trae
- * `userId`: el anonimato se garantiza desde la proyección, no desde aquí.
+ * `userId` ni fecha: el anonimato se garantiza desde la proyección, no desde aquí.
  */
 export const toCourseRatingSummary = (
-	rows: readonly { score: number; comment: string | null; createdAt: Date }[],
+	rows: readonly { score: number; comment: string | null }[],
 ): CourseRatingSummary => {
 	if (rows.length === 0) return { average: null, count: 0, comments: [] };
 
@@ -15,9 +15,7 @@ export const toCourseRatingSummary = (
 		average: Math.round((total / rows.length) * 10) / 10,
 		count: rows.length,
 		comments: rows.flatMap((row) =>
-			row.comment
-				? [{ score: row.score, comment: row.comment, createdAt: row.createdAt }]
-				: [],
+			row.comment ? [{ score: row.score, comment: row.comment }] : [],
 		),
 	};
 };

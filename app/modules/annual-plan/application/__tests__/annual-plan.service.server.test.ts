@@ -243,15 +243,20 @@ describe("annualPlanService — líneas", () => {
 	test("editar, cancelar, reactivar y borrar en éxito", async () => {
 		const { service, calls } = createHarness();
 
-		expect((await service.updateLine(LINE_DOC, DTO, actorOf())).success).toBe(
-			true,
-		);
-		expect((await service.cancelLine(LINE_DOC, actorOf())).success).toBe(true);
-		expect((await service.deleteLine(LINE_DOC, actorOf())).success).toBe(true);
+		expect(
+			(await service.updateLine(PLAN_DOC, LINE_DOC, DTO, actorOf())).success,
+		).toBe(true);
+		expect(
+			(await service.cancelLine(PLAN_DOC, LINE_DOC, actorOf())).success,
+		).toBe(true);
+		expect(
+			(await service.deleteLine(PLAN_DOC, LINE_DOC, actorOf())).success,
+		).toBe(true);
 
 		const cancelled = createHarness({ line: lineOf({ cancelledAt: NOW }) });
 		expect(
-			(await cancelled.service.reactivateLine(LINE_DOC, actorOf())).success,
+			(await cancelled.service.reactivateLine(PLAN_DOC, LINE_DOC, actorOf()))
+				.success,
 		).toBe(true);
 
 		expect(calls.updatedLines).toEqual([[21, DTO]]);
@@ -287,11 +292,11 @@ describe("annualPlanService — líneas", () => {
 		});
 
 		expectCode(
-			await withCourse.service.cancelLine(LINE_DOC, actorOf()),
+			await withCourse.service.cancelLine(PLAN_DOC, LINE_DOC, actorOf()),
 			ANNUAL_PLAN_ERROR_CODES.LINE_HAS_ACTIVE_COURSE,
 		);
 		expectCode(
-			await withHistory.service.deleteLine(LINE_DOC, actorOf()),
+			await withHistory.service.deleteLine(PLAN_DOC, LINE_DOC, actorOf()),
 			ANNUAL_PLAN_ERROR_CODES.LINE_HAS_COURSES,
 		);
 		expect(withCourse.calls.cancellations).toEqual([]);
@@ -302,16 +307,33 @@ describe("annualPlanService — líneas", () => {
 		const { service } = createHarness({ line: null });
 
 		expectCode(
-			await service.updateLine(LINE_DOC, DTO, actorOf()),
+			await service.updateLine(PLAN_DOC, LINE_DOC, DTO, actorOf()),
 			ANNUAL_PLAN_ERROR_CODES.LINE_NOT_FOUND,
 		);
+	});
+
+	// Remediación (Fase C): la línea no se ataba al plan de la URL.
+	test("una línea de otro plan responde LINE_NOT_FOUND y no se toca", async () => {
+		const { service, calls } = createHarness();
+		const OTHER_PLAN = "33333333-3333-4333-8333-333333333333";
+
+		expectCode(
+			await service.updateLine(OTHER_PLAN, LINE_DOC, DTO, actorOf()),
+			ANNUAL_PLAN_ERROR_CODES.LINE_NOT_FOUND,
+		);
+		expectCode(
+			await service.cancelLine(OTHER_PLAN, LINE_DOC, actorOf()),
+			ANNUAL_PLAN_ERROR_CODES.LINE_NOT_FOUND,
+		);
+		expect(calls.updatedLines).toEqual([]);
+		expect(calls.cancellations).toEqual([]);
 	});
 
 	test("el superadministrador no escribe líneas", async () => {
 		const { service, calls } = createHarness();
 
 		expectCode(
-			await service.cancelLine(LINE_DOC, SUPERADMIN),
+			await service.cancelLine(PLAN_DOC, LINE_DOC, SUPERADMIN),
 			ANNUAL_PLAN_ERROR_CODES.FORBIDDEN_SCOPE,
 		);
 		expect(calls.wheres).toEqual([]);

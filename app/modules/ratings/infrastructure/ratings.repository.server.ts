@@ -83,9 +83,10 @@ export const createRatingRepository = ({
 	async summarizeCourse(courseDocumentId, where) {
 		const rows = await prisma.courseRating.findMany({
 			where: { course: courseWhereOf(courseDocumentId, where) },
-			orderBy: { createdAt: "desc" },
-			// Sin `userId`: el anonimato empieza en la proyección.
-			select: { score: true, comment: true, createdAt: true },
+			// Ni `userId` ni la fecha, y un orden que no sigue al de llegada: el
+			// anonimato empieza en la proyección.
+			orderBy: [{ score: "desc" }, { comment: "asc" }],
+			select: { score: true, comment: true },
 		});
 
 		return toCourseRatingSummary(rows);

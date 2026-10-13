@@ -84,7 +84,7 @@ describe("plan anual action", () => {
 		expect(calls).toEqual([]);
 	});
 
-	test("cancelar, reactivar y borrar reciben la línea del envío", async () => {
+	test("cancelar, reactivar y borrar reciben el plan de la URL y la línea del envío", async () => {
 		const { context, calls } = createHarness();
 
 		for (const intent of ["cancelLine", "reactivateLine", "deleteLine"]) {
@@ -92,9 +92,9 @@ describe("plan anual action", () => {
 		}
 
 		expect(calls).toEqual([
-			{ method: "cancelLine", args: [LINE_DOC] },
-			{ method: "reactivateLine", args: [LINE_DOC] },
-			{ method: "deleteLine", args: [LINE_DOC] },
+			{ method: "cancelLine", args: [PLAN_DOC, LINE_DOC] },
+			{ method: "reactivateLine", args: [PLAN_DOC, LINE_DOC] },
+			{ method: "deleteLine", args: [PLAN_DOC, LINE_DOC] },
 		]);
 	});
 

@@ -69,10 +69,18 @@ const toSegments = (key: string): string[] | null => {
 		: segments;
 };
 
+/**
+ * El valor propio del nodo, nunca uno heredado. Sin `Object.hasOwn`,
+ * `a[toString][x]=1` toma `Object.prototype.toString` por una rama existente y
+ * escribe `x` en esa función, compartida por todo el proceso.
+ */
+const ownValue = (node: BracketNode, key: string): BracketValue | undefined =>
+	Object.hasOwn(node, key) ? node[key] : undefined;
+
 /** Índice libre más bajo para `campo[]=a&campo[]=b`, que se vuelve `0`, `1`… */
 const nextIndex = (node: BracketNode): string => {
 	let index = 0;
-	while (node[String(index)] !== undefined) index += 1;
+	while (Object.hasOwn(node, String(index))) index += 1;
 	return String(index);
 };
 
@@ -105,7 +113,7 @@ export const parseBrackets = (params: URLSearchParams): BracketNode => {
 		for (let index = 0; index < segments.length - 1; index += 1) {
 			const segment =
 				segments[index] === "" ? nextIndex(cursor) : segments[index];
-			const existing = cursor[segment];
+			const existing = ownValue(cursor, segment);
 
 			if (existing === undefined) {
 				const branch: BracketNode = {};
@@ -126,7 +134,7 @@ export const parseBrackets = (params: URLSearchParams): BracketNode => {
 
 		const last = segments[segments.length - 1];
 		const leaf = last === "" ? nextIndex(cursor) : last;
-		if (cursor[leaf] === undefined) cursor[leaf] = rawValue;
+		if (!Object.hasOwn(cursor, leaf)) cursor[leaf] = rawValue;
 	}
 
 	return root;

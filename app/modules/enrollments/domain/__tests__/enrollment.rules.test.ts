@@ -24,6 +24,7 @@ import {
 	removalBlockerOf,
 	removalsOutOfReach,
 	seatsLeftOf,
+	withSessionLinksFor,
 } from "../enrollment.rules";
 
 const FIRST_SESSION = new Date("2026-10-20T23:00:00.000Z");
@@ -492,6 +493,31 @@ describe("assertNotRemoved", () => {
 });
 
 // Auditoría C08.
+// Remediación (Fase C): de baja, «Mis cursos» seguía entregando la videollamada.
+describe("withSessionLinksFor", () => {
+	const course = {
+		title: "x",
+		sessions: [{ documentId: "s1", link: "https://meet.example.com/x" }],
+	};
+
+	test.each(["INVITED", "ENROLLED"] as const)(
+		"con la inscripción %s conserva el enlace",
+		(status) => {
+			expect(withSessionLinksFor(course, status)).toBe(course);
+		},
+	);
+
+	test.each(["WITHDRAWN", "DECLINED", null] as const)(
+		"con %s lo quita y conserva lo demás",
+		(status) => {
+			expect(withSessionLinksFor(course, status)).toEqual({
+				title: "x",
+				sessions: [{ documentId: "s1", link: null }],
+			});
+		},
+	);
+});
+
 describe("removalsOutOfReach", () => {
 	const states = [
 		{ userId: 1, removed: true },

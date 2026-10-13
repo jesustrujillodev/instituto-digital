@@ -41,16 +41,18 @@ const createHarness = (options: { createError?: Error } = {}) => {
 };
 
 describe("ratingRepository", () => {
-	test("el resumen nunca proyecta al autor", async () => {
+	// Remediación (Fase C): la fecha y el orden de llegada delataban al autor
+	// en un curso pequeño.
+	test("el resumen nunca proyecta al autor ni la fecha, ni ordena por llegada", async () => {
 		const { repository, calls } = createHarness();
 
 		await repository.summarizeCourse("c-doc", { dependencyId: 3 } as never);
 
-		expect(calls.findMany[0].select).toEqual({
-			score: true,
-			comment: true,
-			createdAt: true,
-		});
+		expect(calls.findMany[0].select).toEqual({ score: true, comment: true });
+		expect(calls.findMany[0].orderBy).toEqual([
+			{ score: "desc" },
+			{ comment: "asc" },
+		]);
 	});
 
 	test("el resumen se acota con el mismo filtro de curso que findCourseId", async () => {

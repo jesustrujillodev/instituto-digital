@@ -476,6 +476,7 @@ describe("assertWritable", () => {
 
 describe("resolveAttendanceMarks", () => {
 	const session = courseOf().sessions[0];
+	const TRAINER_ID = 9;
 
 	test("solo devuelve las marcas que cambian algo", () => {
 		const course = courseOf({
@@ -488,19 +489,66 @@ describe("resolveAttendanceMarks", () => {
 		});
 
 		expect(
-			resolveAttendanceMarks(course, session.id, [
-				{ userDocumentId: ANA_DOC, attended: true },
-				{ userDocumentId: LUIS_DOC, attended: false },
-			]),
+			resolveAttendanceMarks(
+				course,
+				session.id,
+				[
+					{ userDocumentId: ANA_DOC, attended: true },
+					{ userDocumentId: LUIS_DOC, attended: false },
+				],
+				TRAINER_ID,
+			),
 		).toEqual([{ userId: 51, attended: false }]);
+	});
+
+	// Remediación (Fase C): quien imparte e iba inscrito se pasaba lista.
+	test("rechaza el envío si quien envía cambia su propia marca", () => {
+		const course = courseOf({
+			participants: [participantOf({ userId: TRAINER_ID })],
+		});
+
+		expect(
+			codeOf(() =>
+				resolveAttendanceMarks(
+					course,
+					session.id,
+					[{ userDocumentId: ANA_DOC, attended: true }],
+					TRAINER_ID,
+				),
+			),
+		).toBe(TEACHING_ERROR_CODES.SELF_ATTENDANCE);
+	});
+
+	test("la propia marca sin cambios viaja en la lista completa y no estorba", () => {
+		const course = courseOf({
+			participants: [
+				participantOf({ userId: TRAINER_ID }),
+				participantOf({ userId: 51, userDocumentId: LUIS_DOC }),
+			],
+		});
+
+		expect(
+			resolveAttendanceMarks(
+				course,
+				session.id,
+				[
+					{ userDocumentId: ANA_DOC, attended: false },
+					{ userDocumentId: LUIS_DOC, attended: true },
+				],
+				TRAINER_ID,
+			),
+		).toEqual([{ userId: 51, attended: true }]);
 	});
 
 	test("rechaza el envío entero si alguien no está inscrito", () => {
 		expect(
 			codeOf(() =>
-				resolveAttendanceMarks(courseOf(), session.id, [
-					{ userDocumentId: LUIS_DOC, attended: true },
-				]),
+				resolveAttendanceMarks(
+					courseOf(),
+					session.id,
+					[{ userDocumentId: LUIS_DOC, attended: true }],
+					TRAINER_ID,
+				),
 			),
 		).toBe(TEACHING_ERROR_CODES.UNKNOWN_PARTICIPANT);
 	});

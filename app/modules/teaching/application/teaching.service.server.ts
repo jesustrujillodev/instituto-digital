@@ -189,7 +189,12 @@ export const createTeachingService = ({
 						throw new TeachingSessionNotStartedError(sessionOpensAt(session));
 					}
 
-					const marks = resolveAttendanceMarks(course, session.id, dto.marks);
+					const marks = resolveAttendanceMarks(
+						course,
+						session.id,
+						dto.marks,
+						actor.userId,
+					);
 					if (marks.length === 0) return 0;
 
 					await teachingRepository.saveAttendance(

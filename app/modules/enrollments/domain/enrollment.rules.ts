@@ -11,6 +11,7 @@ import {
 import type { Role } from "@/shared/rules/atoms.rules";
 import { createListRule } from "@/shared/rules/list.rules";
 import {
+	ACTIVE_ENROLLMENT_STATUSES,
 	ENROLLMENT_BATCH_LIMIT,
 	ENROLLMENT_CLOSING_SOON_DAYS,
 	type EnrollmentStatus,
@@ -219,6 +220,27 @@ export const isRemoval = (enrollment: {
 export const assertNotRemoved = (enrollment: { removed: boolean } | null) => {
 	if (enrollment?.removed) throw new EnrollmentRemovedError();
 };
+
+/**
+ * El enlace de videollamada solo le llega a quien tiene la inscripción activa,
+ * igual que el calendario: no a quien se dio de baja ni a quien solo ve el
+ * curso en el catálogo.
+ */
+export const withSessionLinksFor = <
+	T extends { sessions: readonly { link: string | null }[] },
+>(
+	course: T,
+	status: EnrollmentStatus | null,
+): T =>
+	status !== null && ACTIVE_ENROLLMENT_STATUSES.includes(status)
+		? course
+		: {
+				...course,
+				sessions: course.sessions.map((session) => ({
+					...session,
+					link: null,
+				})),
+			};
 
 /**
  * Las personas de un lote que una dependencia que no organiza el curso no

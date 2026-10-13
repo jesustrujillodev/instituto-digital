@@ -25,7 +25,9 @@ export const GROUP_ERROR_MESSAGES: ErrorMessageMap = {
 		status: HTTP_STATUS.CONFLICT,
 	},
 	[GROUP_ERROR_CODES.DEPENDENCY_INACTIVE]:
-		"Tu dependencia está desactivada y no admite grupos nuevos.",
+		"Tu dependencia está desactivada: no admite grupos nuevos ni cambios en los que tiene.",
+	[GROUP_ERROR_CODES.ARCHIVED]:
+		"El grupo está archivado. Restáuralo para editarlo o cambiar sus miembros.",
 	[GROUP_ERROR_CODES.MEMBER_OUT_OF_DEPENDENCY]:
 		"Solo puedes agregar personal interno y activo de la dependencia del grupo.",
 	[GROUP_ERROR_CODES.EXTERNAL_CANNOT_JOIN]:

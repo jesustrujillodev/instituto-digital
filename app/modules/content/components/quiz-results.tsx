@@ -2,6 +2,7 @@ import { RotateCcw } from "lucide-react";
 import { useFetcher } from "react-router";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { useAuth } from "@/shared/hooks/use-auth";
 import { useFetcherToast } from "@/shared/hooks/use-fetcher-toast";
 import { canGrantRetakeOn } from "../domain/quiz.rules";
 import type {
@@ -46,6 +47,7 @@ export function QuizResults({
 	const fetcher = useFetcher<ContentActionData>();
 	useFetcherToast(fetcher);
 	const busy = fetcher.state !== "idle";
+	const isSelf = useAuth().documentId === userDocumentId;
 
 	const attemptOf = new Map(
 		board.attempts
@@ -68,6 +70,7 @@ export function QuizResults({
 				const attempt = attemptOf.get(quiz.quizDocumentId);
 				const retakeable =
 					board.canGrantRetake &&
+					!isSelf &&
 					!accredited &&
 					canGrantRetakeOn(attempt ?? null, quiz.maxAttempts);
 
