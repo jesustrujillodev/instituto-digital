@@ -769,6 +769,8 @@ cliente**—, `localizeError`/`failFrom`, y el runner que registra los conocidos
 | `origin.test.ts` | 10 | Defensa CSRF: sin header se permite (clientes no-navegador), `"null"` se rechaza, un host distinto se rechaza. |
 | `client-ip.test.ts` | 12 | La IP sale de la cabecera del proxy declarado: elemento N desde la derecha de `X-Forwarded-For` (lo que antepone el cliente no cuenta), solo `CF-Connecting-IP` con Cloudflare, nada con `none`; validación de formato. |
 | `body-limit.test.ts` | 7 | Una escritura sin sesión de más de 64 KiB o con sesión de más de 16 MiB da `413` sin leer el cuerpo; sin `Content-Length`, `411`. |
+| `security-headers.test.ts` | 2 | HSTS, `frame-ancestors 'self'`, `X-Frame-Options`, `nosniff` y `Referrer-Policy` en toda respuesta, sin pisar la CSP que ya fijó la ruta (SVG del proxy). |
+| `access-log.test.ts` | 4 | El log de acceso no lleva el token de los QR (`/asistencia/:token`, `/inscripcion/:token`, también en `.data`) ni la consulta (`?key=`, `?redirectTo=`); el resto de rutas queda igual. |
 
 ### `logging/__tests__/` — 17 tests
 

@@ -25,6 +25,7 @@ impeccable
 # ── Documentación y archivos de análisis ─────────────────────────────────────
 *.md
 !README.md
+security-audit
 
 # ── Scripts de desarrollo (no se necesitan en runtime) ───────────────────────
 scripts/

@@ -190,7 +190,7 @@ const certificateAssetSource = createCertificateAssetSource({
 /**
  * El worker que sanea los fondos PDF. En producción, el que `vite.worker.config.ts`
  * deja en `build/worker/`, resuelto desde el directorio de arranque como
- * `react-router-serve ./build/server/index.js`: los bundles parten el código en
+ * `node build/http/index.js`: los bundles parten el código en
  * chunks, así que `import.meta.url` no sirve de ancla. En desarrollo, el
  * fuente, que Node ejecuta quitando los tipos; va por variable porque con un
  * literal Vite reescribiría el `new URL` como un asset.

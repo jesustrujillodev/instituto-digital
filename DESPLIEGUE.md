@@ -29,12 +29,22 @@ Railway construye la imagen con el `Dockerfile` del repositorio. La imagen trae 
 web y el worker ya compilados, pero **solo arranca la web**: el worker existe en la
 imagen y nadie lo ejecuta salvo que se cree un servicio para él (§3).
 
+La web arranca con `node --enable-source-maps build/http/index.js` (`bun run start`
+fuera del contenedor), desde la raíz del proyecto. Es un servidor propio, igual al
+`react-router-serve` de antes salvo el log de acceso: escribe cada visita sin la
+parte de la dirección que lleva credenciales (el código de los QR y lo que va
+después de `?`).
+
+Las imágenes base del `Dockerfile` van fijadas por digest. Para actualizarlas hay
+que resolver el digest nuevo de la misma etiqueta y reemplazarlo; Chromium no se
+fija a una versión exacta, porque Alpine retira la anterior en cada parche.
+
 La imagen ya trae Chromium, que se usa para exportar certificados en PDF y PNG; no
 hay que configurar nada para eso.
 
 El build deja también `build/worker/pdf-sanitize.js`, que limpia los fondos PDF de los
 certificados en un hilo aparte. La web lo busca desde la carpeta en la que arranca, la
-misma de `./build/server/index.js`; con el `Dockerfile` no hay que hacer nada. Si falta,
+raíz del proyecto; con el `Dockerfile` no hay que hacer nada. Si falta,
 subir un fondo PDF falla con un error inesperado en el log, no con "PDF inválido".
 
 ### Variables que la web necesita

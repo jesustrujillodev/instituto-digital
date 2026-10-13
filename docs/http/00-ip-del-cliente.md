@@ -34,8 +34,8 @@ elemento lo escribió el proxy, que vio la conexión real. Con N proxies propios
 fila, la IP del cliente es el elemento N contado desde la derecha. Esto se cumple
 tanto si el proxy conserva la cabecera que llega como si la sobrescribe.
 
-`react-router-serve` no le pasa a la app la IP del socket, así que la cabecera es
-la única fuente. Por eso el despliegue tiene que decir cuál leer.
+El servidor (`app/http.server.ts`, con el adaptador de React Router para express)
+no le pasa a la app la IP del socket, así que la cabecera es la única fuente. Por eso el despliegue tiene que decir cuál leer.
 
 ## 3. Configuración
 

@@ -2,7 +2,7 @@
  * Prueba de carga del asistente de cursos: cada usuario virtual da de alta un
  * borrador y luego alterna abrir un paso y guardarlo, con una pausa de
  * "persona leyendo" entre cada cosa. Mide del lado del cliente, contra un
- * build de producción (`bun run build` + `react-router-serve`).
+ * build de producción (`bun run build` + `bun run start`).
  *
  * Uso:
  *   bun scripts/load-test-wizard.ts --users=250 --think=15000 --duration=120
