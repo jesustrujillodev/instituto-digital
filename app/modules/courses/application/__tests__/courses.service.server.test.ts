@@ -1182,13 +1182,28 @@ describe("coursesService.update", () => {
 });
 
 describe("la portada y la escritura son una sola unidad", () => {
+	/** Los bytes cuentan: el tipo se lee de la firma, no de lo declarado. */
+	const WEBP_BYTES = new Uint8Array([
+		...new TextEncoder().encode("RIFF"),
+		0,
+		0,
+		0,
+		0,
+		...new TextEncoder().encode("WEBP"),
+	]);
+
 	const coverOf = (
-		overrides: Partial<{ name: string; type: string; size: number }> = {},
+		overrides: Partial<{
+			name: string;
+			type: string;
+			size: number;
+			arrayBuffer: () => Promise<ArrayBuffer>;
+		}> = {},
 	) => ({
 		name: "portada.webp",
 		type: "image/webp",
 		size: 120_000,
-		arrayBuffer: async () => new ArrayBuffer(8),
+		arrayBuffer: async () => WEBP_BYTES.slice().buffer,
 		...overrides,
 	});
 
@@ -1314,6 +1329,11 @@ describe("la portada y la escritura son una sola unidad", () => {
 		["un tipo fuera de la allowlist", { type: "image/gif" }],
 		["un archivo por encima del tope", { size: 6 * 1024 * 1024 }],
 		["un archivo vacío", { size: 0 }],
+		// Remediación (Fase C): el navegador declara el tipo que quiera.
+		[
+			"un archivo que no es imagen aunque declare serlo",
+			{ arrayBuffer: async () => new TextEncoder().encode("%PDF-1.7").buffer },
+		],
 	])("rechaza %s sin subir nada", async (_case, overrides) => {
 		const { service, calls } = createHarness();
 

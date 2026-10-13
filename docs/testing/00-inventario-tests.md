@@ -355,6 +355,17 @@ que sus mutaciones sí.
 | `users/…/user.bootstrap.rules.test.ts` | El bootstrap rechaza las contraseñas del repositorio y la que no cumple la política; con un superadministrador activo no hace nada; no promueve una cuenta existente. |
 | `auth/…/iniciar-sesion/index.action.test.ts` | Un login correcto cierra la sesión anterior de ese navegador; uno fallido no. |
 
+### Almacenamiento y contenido (remediación, Fase C)
+
+| Archivo | Qué protege |
+|---|---|
+| `shared/storage/…/object-key.test.ts` · `storage.route.test.ts` | **Una key con `..`, `.`, segmentos vacíos, `\` o caracteres de control responde 404 sin autorizar ni firmar.** |
+| `shared/storage/…/delete-object.job.server.test.ts` | En un bucket que no es de la app no borra ni consulta referencias. |
+| `shared/storage/…/image-upload.test.ts` · `users.service.server.test.ts` · `courses.service.server.test.ts` | **Una foto o portada que no es imagen se rechaza aunque declare serlo**; el tipo y la extensión salen de los bytes. |
+| `shared/rules/…/url.rules.test.ts` · `courses/…/course.validators.test.ts` | El enlace de una sesión solo admite http(s): `javascript:` y `data:` se rechazan. |
+| `certificates/…/certificate-assets.rules.test.ts` · `certificates.service.server.test.ts` | Un SVG ya no se acepta, ni aunque sea solo dibujo. |
+| `content/…/content.rules.test.ts` · `content.service.server.test.ts` · `object-key.test.ts` | La key de una subida firmada lleva un identificador aleatorio y la extensión del tipo firmado; al confirmar se guarda el tipo del objeto, y uno de otra clase o sin tipo se rechaza. |
+
 ### Externos solo `USER` (remediación C09)
 
 | Archivo | Qué protege |

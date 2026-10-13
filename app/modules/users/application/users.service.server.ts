@@ -3,6 +3,7 @@ import { type AccessScope, resolveScope } from "@/shared/auth/scope.rules";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
+import { asSniffedImage } from "@/shared/storage/image-upload";
 import { buildObjectKey } from "@/shared/storage/object-key";
 import { bucketForKey } from "@/shared/storage/storage.policy";
 import {
@@ -306,6 +307,10 @@ export const createUserService = ({
 					maxBytes: USER_PHOTO.maxBytes,
 				});
 				if (reason) throw new InvalidUploadError(reason);
+				const photo = await asSniffedImage(file, USER_PHOTO.allowedTypes);
+				if (!photo) {
+					throw new InvalidUploadError("el contenido no es una imagen válida");
+				}
 
 				// Error de configuración, no de negocio: sale como UNEXPECTED_ERROR y
 				// se registra con su mensaje real, que es lo que necesita quien opera.
@@ -313,8 +318,8 @@ export const createUserService = ({
 					throw new Error("STORAGE_BUCKET_NAME no configurado");
 				}
 
-				const key = buildObjectKey(USER_PHOTO.prefix, file.name);
-				const body = Buffer.from(await file.arrayBuffer());
+				const key = buildObjectKey(USER_PHOTO.prefix, photo.name);
+				const body = Buffer.from(await photo.arrayBuffer());
 
 				// El bucket lo decide la key. Hoy `profile-photos/` no está entre los
 				// prefijos del CDN, así que resuelve al bucket por defecto; se pasa por
@@ -325,7 +330,7 @@ export const createUserService = ({
 					publicBucket: storagePublicBucket,
 				});
 
-				await storageProvider.uploadFile(bucket, key, body, file.type);
+				await storageProvider.uploadFile(bucket, key, body, photo.type);
 
 				// Se persiste la referencia del proxy, no la URL del proveedor: así
 				// cambiar S3↔GCS no invalida lo guardado (ver prisma/schema.prisma).

@@ -102,7 +102,12 @@ const createHarness = (
 		material?: LessonMaterialRaw["content"];
 		materialFileUrl?: string | null;
 		/** `null` finge un objeto que la subida nunca dejó en el bucket. */
-		stat?: { key: string; size: number; lastModified: Date | null } | null;
+		stat?: {
+			key: string;
+			size: number;
+			lastModified: Date | null;
+			contentType?: string | null;
+		} | null;
 	} = {},
 ) => {
 	const calls = {
@@ -208,7 +213,7 @@ const createHarness = (
 		},
 		statObject: async (_bucket: string, key: string) =>
 			options.stat === undefined
-				? { key, size: 1024, lastModified: NOW }
+				? { key, size: 1024, lastModified: NOW, contentType: "application/pdf" }
 				: options.stat,
 	} as unknown as ICradle["storageProvider"];
 
@@ -622,6 +627,11 @@ describe("createUploadUrl", () => {
 			),
 		).toBe(true);
 		expect(result.data.key).not.toContain("/../");
+		// Remediación (Fase C): un identificador aleatorio y no la hora, y la
+		// extensión del tipo firmado.
+		expect(result.data.key).toMatch(
+			/\/clase-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}\.mp4$/,
+		);
 		expect(calls.uploadUrls).toHaveLength(1);
 		expect(calls.uploadUrls[0]).toMatchObject({
 			bucket: "instituto",

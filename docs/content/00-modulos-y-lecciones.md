@@ -180,7 +180,11 @@ Ni al subir ni al bajar.
 3. El navegador confirma con `save-material`. El servidor comprueba con
    `statObject` que el objeto llegó y que **cabe**: una firma de `PUT` fija el
    `Content-Type` pero no el tamaño, así que sin esta comprobación el tope no
-   existiría. Solo entonces escribe la fila, con la referencia del proxy.
+   existiría. Solo entonces escribe la fila, con la referencia del proxy y el
+   tipo que guarda el bucket (el firmado), no el que declara el navegador.
+
+La key lleva un identificador aleatorio en lugar de la hora y la extensión del
+tipo firmado (`uploadFileNameOf`, `MATERIAL_EXTENSIONS`), no la del nombre.
 
 Para leer, el servicio firma una URL de TTL largo en cada carga. Los rangos que
 pide el reproductor van directos al bucket y la key cruda nunca viaja al cliente.

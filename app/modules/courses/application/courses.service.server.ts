@@ -17,6 +17,7 @@ import type { ICradle } from "@/shared/di/container.types";
 import { JOB_NAMES } from "@/shared/queue/queue.config";
 import { ok, toPaginationMeta } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
+import { asSniffedImage } from "@/shared/storage/image-upload";
 import { bucketForKey } from "@/shared/storage/storage.policy";
 import {
 	type StorageTxDeps,
@@ -433,12 +434,20 @@ export const createCourseService = ({
 	 * `DomainError`: llegaría al cliente como error inesperado en vez de decir
 	 * qué tiene de malo el archivo.
 	 */
-	const assertValidCover = (cover: UploadInput) => {
+	const validCoverOf = async (cover: UploadInput): Promise<UploadInput> => {
 		const reason = validateUploadInput(cover, {
 			allowedTypes: COURSE_COVER.allowedTypes,
 			maxBytes: COURSE_COVER.maxBytes,
 		});
 		if (reason) throw new CourseCoverInvalidError(reason);
+
+		// El tipo y la extensión salen de los bytes: el navegador declara lo que
+		// quiera, y la portada se sirve sin sesión.
+		const image = await asSniffedImage(cover, COURSE_COVER.allowedTypes);
+		if (!image) {
+			throw new CourseCoverInvalidError("el contenido no es una imagen válida");
+		}
+		return image;
 	};
 
 	/**
@@ -477,10 +486,10 @@ export const createCourseService = ({
 	): Promise<T> => {
 		if (!cover) return write(null);
 
-		assertValidCover(cover);
+		const image = await validCoverOf(cover);
 
 		return withStorageTransaction(coverTxDeps(), async (tx) => {
-			const uploaded = await tx.upload(COURSE_COVER.prefix, cover);
+			const uploaded = await tx.upload(COURSE_COVER.prefix, image);
 			return write(uploaded.url);
 		});
 	};

@@ -226,7 +226,7 @@ URL firmada (6 h) a través de `urlSigner.signMany`, que firma **todo lo que pin
 la vista en un lote** y reutiliza las firmas que siguen vigentes (en Redis si
 hay, si no en el proceso). La misma URL entre cargas deja que el navegador sirva
 el video o el PDF de su caché. Es seguro porque la key de un objeto nunca cambia
-de contenido (`object-key.ts` le pone marca de tiempo). La autorización ocurre
+de contenido (`object-key.ts` le pone marca de tiempo o un identificador aleatorio). La autorización ocurre
 antes de firmar, igual que sin caché: una URL reutilizada es la misma credencial
 temporal que una recién firmada. El proxy (5 min), las subidas y el gestor de
 nube no se cachean; el porqué está en [redis/00 §5](../redis/00-redis.md).
@@ -310,7 +310,8 @@ subida nueva más grande va por URL firmada, no subiendo el tope.
 1. navegador → POST .../contenido/:leccion  intent=upload-url
                  {nombre, tipo, tamaño}
    servidor:  valida tipo y tamaño ANTES de firmar
-              genera la key con buildObjectKey (§3)
+              genera la key con buildUploadObjectKey: identificador aleatorio
+              y la extensión del tipo firmado, no la del nombre
               getUploadUrl(bucket, key, { contentType })
             ← { key, uploadUrl, expiresInSeconds }
 
@@ -318,8 +319,8 @@ subida nueva más grande va por URL firmada, no subiendo el tope.
             ← 200
 
 3. navegador → POST .../contenido/:leccion  intent=save-material { key, … }
-   servidor:  statObject(bucket, key) → ¿llegó? ¿cabe?
-              persiste toProxyRef(key)
+   servidor:  statObject(bucket, key) → ¿llegó? ¿cabe? ¿de qué tipo es?
+              persiste toProxyRef(key) y el tipo que guarda el bucket
 ```
 
 Tres cosas que no son opcionales:
@@ -331,6 +332,8 @@ Tres cosas que no son opcionales:
    ya es el fallo: el objeto se escribe igual aunque después se rechace la fila.
 3. **El tamaño se comprueba al confirmar.** Una firma de `PUT` fija el
    `Content-Type` pero **no** el tamaño. Sin `statObject`, el tope no existe.
+4. **El tipo que se guarda es el del objeto**, que es el firmado, no el que el
+   navegador declara al confirmar (`requireUploadedObject`).
 
 En S3 el `Content-Type` solo queda fijado porque el adaptador lo pide
 (`signableHeaders`): el presigner del SDK lo deja fuera de la firma por defecto, y
@@ -653,6 +656,9 @@ es por-petición) y con él el cliente del SDK.
 | Logs filtrando credenciales | Puerto `Logger` con redacción automática de claves sensibles |
 | Exposición de prefijos privados por el dominio público | Bucket público **separado**: un Custom Domain expone el bucket entero, así que lo privado no vive en él. `env.server.ts` exige las dos variables juntas (§7.2) |
 | Un prefijo con sesión servido por un dominio abierto | Invariante `CDN_PREFIXES ⊆ PUBLIC_PREFIXES`, testeado en `storage.policy.test.ts` |
+| Una key que empieza por un prefijo público y apunta a uno privado (`media/../documentos/x`) | El proxy solo acepta keys canónicas (`isCanonicalKey`: sin `.`, `..`, segmentos vacíos, `\` ni caracteres de control); lo demás responde 404 como inexistente |
+| Una foto o portada que no es imagen (el navegador declara el tipo que quiera) | `asSniffedImage` lee la firma de bytes (PNG, JPEG, WebP): el tipo guardado y la extensión de la key salen de ella, no del nombre ni de lo declarado |
+| Un `delete-object` alterado en la cola que borra en cualquier bucket | El trabajo solo borra en los buckets configurados; lo ajeno falla y queda en el registro de fallos |
 
 **Límites conocidos (aceptados):**
 
@@ -668,6 +674,18 @@ es por-petición) y con él el cliente del SDK.
 - Las URLs firmadas **rompen la caché del navegador**: la firma cambia en cada
   petición, así que la misma imagen se re-descarga en cada vista (§7.1). Es el
   precio de mantener el bucket privado con TTL corto.
+- **La firma de reproducción del material dura hasta 6 h** (§5.2.1) y es una
+  credencial al portador: sigue valiendo tras una baja o una revocación de
+  sesión, hasta que vence. Se acepta para que un video largo no se corte a la
+  mitad (auditoría, Fase C, 12-10-2026).
+- **Lo que pasa por el servidor se lee entero en memoria**: `request.formData()`
+  no transmite por partes. El middleware lo acota antes de leer (64 KiB sin
+  sesión, 16 MiB con sesión) y lo grande va por URL firmada. Se acepta en vez
+  de un parser en streaming en cada ruta de subida (resto de V03, Fase C,
+  12-10-2026).
+- **La firma de subida no fija el tamaño** todavía: lo que excede el tope se
+  rechaza al confirmar con `statObject`, pero el objeto queda en el bucket
+  hasta que el gestor de nube lo detecta como huérfano.
 
 ## 10. Cómo replicarlo en otro proyecto (plantilla)
 

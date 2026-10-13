@@ -353,6 +353,7 @@ export const createS3StorageProvider = (
 					key,
 					size: head.ContentLength ?? 0,
 					lastModified: head.LastModified ?? null,
+					contentType: head.ContentType ?? null,
 				};
 			} catch (error: unknown) {
 				const err = error as {

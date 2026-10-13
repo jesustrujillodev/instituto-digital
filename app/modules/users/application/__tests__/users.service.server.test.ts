@@ -54,11 +54,16 @@ const actorOf = (
 	mustChangePassword: false,
 });
 
+/** Los bytes cuentan: el tipo se lee de la firma, no de lo declarado. */
+const PNG_BYTES = new Uint8Array([
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0,
+]);
+
 const photoOf = (overrides: Partial<UploadInput> = {}): UploadInput => ({
 	name: "ana.png",
 	type: "image/png",
 	size: 1024,
-	arrayBuffer: async () => new ArrayBuffer(8),
+	arrayBuffer: async () => PNG_BYTES.slice().buffer,
 	...overrides,
 });
 
@@ -1097,6 +1102,38 @@ describe("createUserService — updatePhoto", () => {
 		expect(calls.uploaded).toHaveLength(1);
 		expect(calls.uploaded[0].bucket).toBe(BUCKET);
 		expect(calls.uploaded[0].key.startsWith("profile-photos/")).toBe(true);
+	});
+
+	// Remediación (Fase C): se aceptaba por el tipo que declaraba el navegador,
+	// y la extensión de la key salía del nombre.
+	test("lo que no es una imagen se rechaza aunque declare image/png", async () => {
+		const { service, calls } = createHarness();
+
+		const result = await service.updatePhoto(
+			DOCUMENT_ID,
+			photoOf({
+				arrayBuffer: async () => new TextEncoder().encode("<svg/>").buffer,
+			}),
+			actorOf(),
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: "INVALID_UPLOAD" },
+		});
+		expect(calls.uploaded).toEqual([]);
+	});
+
+	test("la extensión de la key sale de los bytes, no del nombre", async () => {
+		const { service, calls } = createHarness();
+
+		await service.updatePhoto(
+			DOCUMENT_ID,
+			photoOf({ name: "ana.html" }),
+			actorOf(),
+		);
+
+		expect(calls.uploaded[0].key).toMatch(/^profile-photos\/ana-\d+\.png$/);
 	});
 
 	// Se persiste la referencia del proxy: así cambiar S3↔GCS no invalida lo

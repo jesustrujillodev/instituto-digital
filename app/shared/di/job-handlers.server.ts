@@ -45,6 +45,9 @@ export const createJobHandlers = (cradle: ICradle): JobHandlers => {
 			createDeleteObjectJob(
 				cradle.storageProvider,
 				cradle.objectReferenceSources,
+				[cradle.storageBucket, cradle.storagePublicBucket].filter(
+					(bucket): bucket is string => bucket !== null,
+				),
 			)(payload),
 
 		[JOB_NAMES.purgeExpiredSessions]: async () => {

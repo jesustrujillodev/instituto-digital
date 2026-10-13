@@ -34,6 +34,7 @@ import {
 	resolveDeleteOrder,
 	resolveEmbed,
 	toPlainText,
+	uploadFileNameOf,
 } from "../content.rules";
 import type { ReorderContentDto } from "../content.types";
 import {
@@ -538,9 +539,50 @@ describe("el material subido", () => {
 		}
 	});
 
+	// Remediación (Fase C): se guardaba el tipo que declaraba el navegador al
+	// terminar; ahora, el que guarda el bucket, que es el firmado.
+	test("devuelve el tipo que guarda el bucket", () => {
+		expect(
+			requireUploadedObject("FILE", {
+				size: 10,
+				contentType: "application/pdf",
+			}).contentType,
+		).toBe("application/pdf");
+	});
+
+	test.each([
+		["un tipo que no es de su clase", "video/mp4"],
+		["un objeto sin tipo", null],
+	])("rechaza %s", (_case, contentType) => {
+		try {
+			requireUploadedObject("FILE", { size: 10, contentType });
+			expect.unreachable("debió lanzar");
+		} catch (error) {
+			expect((error as ContentUploadInvalidError).code).toBe(
+				CONTENT_ERROR_CODES.UPLOAD_INVALID,
+			);
+		}
+	});
+
+	test("la extensión de la key sale del tipo firmado, no del nombre", () => {
+		expect(uploadFileNameOf("manual.html", "application/pdf")).toBe(
+			"manual.pdf",
+		);
+		expect(uploadFileNameOf("clase", "video/webm")).toBe("clase.webm");
+		expect(
+			uploadFileNameOf(
+				"deck.ppt",
+				"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+			),
+		).toBe("deck.pptx");
+	});
+
 	test("el tope que la firma no impone se impone al confirmar", () => {
 		try {
-			requireUploadedObject("FILE", { size: LESSON_FILE.maxBytes + 1 });
+			requireUploadedObject("FILE", {
+				size: LESSON_FILE.maxBytes + 1,
+				contentType: "application/pdf",
+			});
 			expect.unreachable("debió lanzar");
 		} catch (error) {
 			const typed = error as ContentUploadTooLargeError;

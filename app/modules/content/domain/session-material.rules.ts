@@ -125,7 +125,6 @@ const uploadedSessionMaterial = {
 	availableFromSession,
 	key: sessionMaterialKey,
 	fileName: materialFileName,
-	mimeType: materialMimeType,
 };
 
 export const createSessionMaterialRule = v.variant(

@@ -362,6 +362,7 @@ export const createGcsStorageProvider = (
 					key,
 					size: Number(metadata.size ?? 0),
 					lastModified: metadata.updated ? new Date(metadata.updated) : null,
+					contentType: metadata.contentType ?? null,
 				};
 			} catch (error: unknown) {
 				if ((error as { code?: number }).code === 404) return null;

@@ -746,7 +746,9 @@ describe("certificateService.uploadImage", () => {
 		expect(first.success && first.data).toEqual(second.success && second.data);
 	});
 
-	test("acepta un SVG de dibujo", async () => {
+	// Remediación (Fase C): el filtro de SVG era una lista de rechazo que se
+	// podía esquivar; ahora no se admite ninguno.
+	test("rechaza un SVG, aunque sea solo dibujo", async () => {
 		const { service, calls } = createHarness();
 		const svg = text(
 			'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20"/></svg>',
@@ -759,11 +761,13 @@ describe("certificateService.uploadImage", () => {
 		);
 
 		expect(result).toMatchObject({
-			success: true,
-			data: { widthPx: 40, heightPx: 20 },
+			success: false,
+			error: {
+				code: CERTIFICATE_ERROR_CODES.ASSET_INVALID,
+				details: { reason: "no es una imagen de un formato admitido" },
+			},
 		});
-		expect(calls.uploaded[0].key).toMatch(/\.svg$/);
-		expect(calls.uploaded[0].type).toBe("image/svg+xml");
+		expect(calls.uploaded).toEqual([]);
 	});
 
 	test.each([
@@ -772,11 +776,6 @@ describe("certificateService.uploadImage", () => {
 			"algo que no es imagen",
 			text("GIF89a......"),
 			"no es una imagen de un formato admitido",
-		],
-		[
-			"un SVG con scripts",
-			text("<svg><script>alert(1)</script></svg>"),
-			"el SVG contiene scripts",
 		],
 		[
 			"una imagen de más de 2 MB",

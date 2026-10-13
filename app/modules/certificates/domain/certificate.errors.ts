@@ -50,7 +50,7 @@ export class CertificateNeverPublishedError extends CertificateError {
 	}
 }
 
-/** Una imagen que no es PNG, JPG, WEBP ni un SVG aceptable, o que pesa demasiado. */
+/** Una imagen que no es PNG, JPG ni WEBP, o que pesa demasiado. */
 export class CertificateAssetInvalidError extends CertificateError {
 	readonly code = CERTIFICATE_ERROR_CODES.ASSET_INVALID;
 	readonly details: { reason: string };

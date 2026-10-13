@@ -9,7 +9,6 @@ import {
 	rasterDpiFor,
 	rasterMatches,
 	sniffImageType,
-	svgRejectionOf,
 } from "../certificate-assets.rules";
 
 const COURSE = "11111111-1111-4111-8111-111111111111";
@@ -54,7 +53,7 @@ describe("propiedad de los recursos", () => {
 	});
 
 	test("el nombre guardado lleva la extensión del tipo real", () => {
-		expect(assetFileNameOf("logo.png", "svg")).toBe("logo.svg");
+		expect(assetFileNameOf("logo.svg", "png")).toBe("logo.png");
 		expect(assetFileNameOf("foto", "jpeg")).toBe("foto.jpg");
 		expect(assetFileNameOf(".png", "webp")).toBe(".png.webp");
 		expect(assetFileNameOf("", "png")).toBe("imagen.png");
@@ -66,9 +65,9 @@ describe("tipo por bytes", () => {
 		[bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0), "png"],
 		[bytes(0xff, 0xd8, 0xff, 0xe0), "jpeg"],
 		[text("RIFF\0\0\0\0WEBPVP8 "), "webp"],
-		[text('<?xml version="1.0"?>\n<!-- x -->\n<svg xmlns="x"></svg>'), "svg"],
-		[text("﻿  <svg>"), "svg"],
-		[text("<html><svg>"), null],
+		// Remediación (Fase C): SVG ya no se admite; sus bytes no son de ningún tipo.
+		[text('<?xml version="1.0"?>\n<!-- x -->\n<svg xmlns="x"></svg>'), null],
+		[text("﻿  <svg>"), null],
 		[text("GIF89a"), null],
 	])("%#", (input, type) => {
 		expect(sniffImageType(input)).toBe(type);
@@ -77,32 +76,6 @@ describe("tipo por bytes", () => {
 	test("un PDF empieza por %PDF-", () => {
 		expect(looksLikePdf(text("%PDF-1.7"))).toBe(true);
 		expect(looksLikePdf(text("<svg>"))).toBe(false);
-	});
-});
-
-describe("SVG", () => {
-	test("acepta un SVG de dibujo, con referencias internas", () => {
-		expect(
-			svgRejectionOf(
-				'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><linearGradient id="g"/></defs><rect fill="url(#g)"/><use xlink:href="#g"/></svg>',
-			),
-		).toBeNull();
-	});
-
-	test.each([
-		["<svg><script>alert(1)</script></svg>", "contiene scripts"],
-		['<svg onload="alert(1)"></svg>', "contiene manejadores de eventos"],
-		[
-			'<svg><a href="javascript:alert(1)"/></svg>',
-			"contiene enlaces a JavaScript",
-		],
-		["<svg><foreignObject><div/></foreignObject></svg>", "incrusta HTML"],
-		['<!DOCTYPE svg [<!ENTITY x "y">]><svg/>', "declara entidades"],
-		["<svg><style>@import 'x.css';</style></svg>", "importa estilos externos"],
-		['<svg><image href="https://x/a.png"/></svg>', "enlaza recursos externos"],
-		['<svg><rect fill="url(https://x/a)"/></svg>', "carga recursos externos"],
-	])("rechaza %s", (svg, reason) => {
-		expect(svgRejectionOf(svg)).toBe(reason);
 	});
 });
 

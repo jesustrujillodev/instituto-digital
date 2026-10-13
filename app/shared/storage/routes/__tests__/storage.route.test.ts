@@ -145,6 +145,35 @@ describe("storage proxy — resolución de la key", () => {
 	});
 });
 
+// Remediación (Fase C): la visibilidad se decide por el prefijo, y
+// `media/../documentos/…` empieza por uno público.
+describe("storage proxy — key canónica", () => {
+	test("una key con .. responde 404 sin sesión, sin autorizar ni firmar", async () => {
+		const { context, calls } = createHarness({ authenticated: false });
+
+		const response = await run(
+			requestOf(`?key=${encodeURIComponent("media/../documentos/x.pdf")}`),
+			context,
+		);
+
+		expect((response as Response).status).toBe(404);
+		expect(calls.canRead).toEqual([]);
+		expect(calls.presigned).toEqual([]);
+	});
+
+	test("tampoco con segmentos vacíos", async () => {
+		const { context, calls } = createHarness();
+
+		const response = await run(
+			requestOf(`?key=${encodeURIComponent("media//x.png")}`),
+			context,
+		);
+
+		expect((response as Response).status).toBe(404);
+		expect(calls.presigned).toEqual([]);
+	});
+});
+
 describe("storage proxy — configuración", () => {
 	// Error de configuración, no de negocio: se registra con su mensaje real para
 	// quien opera y se responde genérico.

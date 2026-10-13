@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
 	buildContentObjectKey,
 	buildObjectKey,
+	buildUploadObjectKey,
+	isCanonicalKey,
 	isDocumentIdSegment,
 	sanitizeFileName,
 } from "../object-key";
@@ -119,6 +121,39 @@ describe("buildContentObjectKey", () => {
 
 		vi.setSystemTime(NOW + 1000);
 		expect(buildContentObjectKey("p", "fondo.pdf", DIGEST)).toBe(first);
+	});
+});
+
+// Remediación (Fase C): la hora se adivina; el identificador aleatorio, no.
+describe("buildUploadObjectKey", () => {
+	test("lleva un identificador aleatorio y el nombre saneado", () => {
+		const key = buildUploadObjectKey("documentos/x", "../mi apunte.pdf");
+
+		expect(key).toMatch(/^documentos\/x\/\.\._mi_apunte-[0-9a-f-]{36}\.pdf$/);
+	});
+
+	test("dos subidas del mismo archivo no comparten key", () => {
+		expect(buildUploadObjectKey("p", "a.pdf")).not.toBe(
+			buildUploadObjectKey("p", "a.pdf"),
+		);
+	});
+});
+
+// Remediación (Fase C): `media/../documentos/x` pasaba por pública.
+describe("isCanonicalKey", () => {
+	test.each([
+		["documentos/lecciones/c/l/apuntes-1700000000.pdf", true],
+		["media/cursos/.._portada-abc.png", true],
+		["media/../documentos/x.pdf", false],
+		["media/./x.png", false],
+		["media//x.png", false],
+		["/media/x.png", false],
+		["media/x.png/", false],
+		["media\\..\\documentos\\x.pdf", false],
+		["media/x\u0000.png", false],
+		["", false],
+	])("%s → %s", (key, expected) => {
+		expect(isCanonicalKey(key)).toBe(expected);
 	});
 });
 

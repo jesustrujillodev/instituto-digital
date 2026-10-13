@@ -2,7 +2,6 @@ import { imageSize } from "image-size";
 import {
 	type CertificateImageType,
 	sniffImageType,
-	svgRejectionOf,
 } from "../domain/certificate-assets.rules";
 
 export interface InspectedImage {
@@ -14,7 +13,6 @@ export interface InspectedImage {
 export interface ImageLimits {
 	types: readonly CertificateImageType[];
 	maxBytes: number;
-	maxSvgBytes: number;
 }
 
 const MB = 1024 * 1024;
@@ -35,16 +33,6 @@ export const inspectImage = (
 	const type = sniffImageType(bytes);
 	if (!type || !limits.types.includes(type)) {
 		return { rejection: "no es una imagen de un formato admitido" };
-	}
-
-	if (type === "svg") {
-		if (bytes.byteLength > limits.maxSvgBytes) {
-			return {
-				rejection: `el SVG pesa más de ${limits.maxSvgBytes / 1024} KB`,
-			};
-		}
-		const reason = svgRejectionOf(new TextDecoder().decode(bytes));
-		if (reason) return { rejection: `el SVG ${reason}` };
 	}
 
 	try {

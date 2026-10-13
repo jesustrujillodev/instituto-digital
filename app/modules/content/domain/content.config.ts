@@ -46,6 +46,31 @@ export const LESSON_VIDEO = {
 } as const;
 
 /**
+ * La extensión de cada tipo admitido. La key la toma de aquí y no del nombre:
+ * el proxy sirve por la extensión, y el tipo es el que se firma en la subida.
+ */
+export const MATERIAL_EXTENSIONS: Record<
+	| (typeof LESSON_FILE.allowedTypes)[number]
+	| (typeof LESSON_VIDEO.allowedTypes)[number],
+	string
+> = {
+	"application/pdf": ".pdf",
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/webp": ".webp",
+	"application/msword": ".doc",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		".docx",
+	"application/vnd.ms-excel": ".xls",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+	"application/vnd.ms-powerpoint": ".ppt",
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		".pptx",
+	"video/mp4": ".mp4",
+	"video/webm": ".webm",
+};
+
+/**
  * El material de las sesiones (docs/adr/0026). Prefijo privado aparte del de
  * las lecciones: cada uno tiene su fuente de referencias y su carpeta en la nube.
  */

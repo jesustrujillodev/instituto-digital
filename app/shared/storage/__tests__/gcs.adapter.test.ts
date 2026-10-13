@@ -152,6 +152,7 @@ describe("statObject", () => {
 			key: "documentos/lecciones/m.pdf",
 			size: 2048,
 			lastModified: null,
+			contentType: null,
 		});
 	});
 

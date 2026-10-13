@@ -67,7 +67,7 @@ const createHarness = (
 		sessions?: SessionMaterialsRaw[];
 		/** `null`: quien pregunta no está inscrito. */
 		participantSessions?: SessionMaterialsRaw[] | null;
-		stat?: { size: number } | null;
+		stat?: { size: number; contentType?: string | null } | null;
 	} = {},
 ) => {
 	const calls = {
@@ -124,7 +124,7 @@ const createHarness = (
 		},
 		statObject: async (_bucket: string, key: string) =>
 			options.stat === undefined
-				? { key, size: 1024, lastModified: NOW }
+				? { key, size: 1024, lastModified: NOW, contentType: "application/pdf" }
 				: options.stat,
 	} as unknown as ICradle["storageProvider"];
 
@@ -398,7 +398,9 @@ describe("createUploadUrl", () => {
 
 describe("create", () => {
 	test("guarda el archivo por su referencia del proxy y su tamaño real", async () => {
-		const { service, calls } = createHarness({ stat: { size: 4096 } });
+		const { service, calls } = createHarness({
+			stat: { size: 4096, contentType: "application/pdf" },
+		});
 
 		const result = await service.create(COURSE_DOC, fileDto, actorOf());
 

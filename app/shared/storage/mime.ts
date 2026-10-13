@@ -20,6 +20,12 @@ const MIME_BY_EXT: Record<string, string> = {
 		"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 	".xls": "application/vnd.ms-excel",
 	".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	".ppt": "application/vnd.ms-powerpoint",
+	".pptx":
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	// Video
+	".mp4": "video/mp4",
+	".webm": "video/webm",
 	".csv": "text/csv",
 	".txt": "text/plain",
 	".json": "application/json",

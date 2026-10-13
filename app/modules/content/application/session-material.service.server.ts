@@ -4,7 +4,7 @@ import { allInOrder } from "@/shared/concurrency/all-in-order";
 import type { ICradle } from "@/shared/di/container.types";
 import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
-import { buildObjectKey } from "@/shared/storage/object-key";
+import { buildUploadObjectKey } from "@/shared/storage/object-key";
 import { toProxyRef } from "@/shared/storage/public-url";
 import { LESSON_UPLOAD_TTL_S } from "../domain/content.config";
 import {
@@ -17,6 +17,7 @@ import {
 	assertUploadAllowed,
 	isKeyInFolder,
 	requireUploadedObject,
+	uploadFileNameOf,
 } from "../domain/content.rules";
 import {
 	assertSessionMaterialLimit,
@@ -138,7 +139,7 @@ export const createSessionMaterialService = ({
 			fileUrl: toProxyRef(dto.key),
 			fileName: dto.fileName,
 			fileSize: object.size,
-			mimeType: dto.mimeType,
+			mimeType: object.contentType,
 		};
 	};
 
@@ -225,9 +226,9 @@ export const createSessionMaterialService = ({
 
 				// La key la genera el servidor: nada de lo que mande el cliente
 				// decide dónde cae el objeto.
-				const key = buildObjectKey(
+				const key = buildUploadObjectKey(
 					sessionMaterialFolderOf(courseDocumentId),
-					dto.fileName,
+					uploadFileNameOf(dto.fileName, dto.contentType),
 				);
 				const uploadUrl = await storageProvider.getUploadUrl(
 					requireBucketOf(key),

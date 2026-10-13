@@ -32,7 +32,7 @@ interface InsertPanelProps {
 	onUpload: (file: File, signature: boolean) => void;
 }
 
-const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
+const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
 
 function Tile({
 	label,
@@ -162,7 +162,7 @@ export function InsertPanel({
 					</Button>
 				</div>
 				<p className="text-muted-foreground text-xs">
-					PNG, JPG, WEBP o SVG de hasta 2 MB. La firma, en PNG con fondo
+					PNG, JPG o WEBP de hasta 2 MB. La firma, en PNG con fondo
 					transparente. Quedan privadas de esta capacitación.
 				</p>
 				{picker(false)}

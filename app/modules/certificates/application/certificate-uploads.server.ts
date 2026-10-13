@@ -160,7 +160,6 @@ export const storeCertificateBackground = async (
 	const inspected = inspectImage(rasterBytes, {
 		types: ["webp", "jpeg", "png"],
 		maxBytes: maxRasterBytes,
-		maxSvgBytes: 0,
 	});
 	if (
 		"rejection" in inspected ||

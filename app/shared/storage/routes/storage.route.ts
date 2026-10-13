@@ -1,6 +1,7 @@
 import { redirect } from "react-router";
 import { requireAuth } from "@/shared/auth/require-auth.server";
 import { contentTypeForKey } from "../mime";
+import { isCanonicalKey } from "../object-key";
 import { bucketForKey, isPublicKey } from "../storage.policy";
 import { getKeyFromUrl } from "../storage.utils";
 import type { Route } from "./+types/storage.route";
@@ -59,7 +60,9 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 			finalKey = getKeyFromUrl(finalKey);
 		}
 
-		if (!finalKey) {
+		// Una key con `..` o segmentos vacíos no la emitió ninguna subida, y
+		// podría pasar por pública siendo privada: responde como inexistente.
+		if (!finalKey || !isCanonicalKey(finalKey)) {
 			return new Response("File Key Not Found", { status: 404 });
 		}
 

@@ -13,10 +13,12 @@ export const CERTIFICATE_ASSETS = {
 	prefix: "documentos/certificados",
 	folders: { image: "imagenes", background: "fondos" },
 	image: {
-		/** Lo que el servidor reconoce por sus bytes, no por el nombre. */
-		types: ["png", "jpeg", "webp", "svg"] as const,
+		/**
+		 * Lo que el servidor reconoce por sus bytes, no por el nombre. SVG ya no:
+		 * filtrarlo con una lista de rechazo se podía esquivar (auditoría, Fase C).
+		 */
+		types: ["png", "jpeg", "webp"] as const,
 		maxBytes: 2 * 1024 * 1024,
-		maxSvgBytes: 512 * 1024,
 	},
 	background: {
 		maxPdfBytes: 10 * 1024 * 1024,
@@ -33,7 +35,6 @@ export const IMAGE_EXTENSIONS: Record<CertificateImageType, string> = {
 	png: ".png",
 	jpeg: ".jpg",
 	webp: ".webp",
-	svg: ".svg",
 };
 
 /** Carpeta de un tipo de recurso del curso, sin barra final. */
@@ -97,9 +98,6 @@ const startsWith = (bytes: Uint8Array, signature: readonly number[], at = 0) =>
 
 const ascii = (text: string) => [...text].map((char) => char.charCodeAt(0));
 
-const SVG_HEAD =
-	/^(?:﻿)?\s*(?:<\?xml[^>]*\?>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg[\s>]/i;
-
 /**
  * El tipo real de una imagen por su firma de bytes. El navegador declara el
  * tipo que quiera, y el proxy decide el `Content-Type` por la extensión de la
@@ -113,39 +111,12 @@ export const sniffImageType = (
 	if (startsWith(bytes, [0xff, 0xd8, 0xff])) return "jpeg";
 	if (startsWith(bytes, ascii("RIFF")) && startsWith(bytes, ascii("WEBP"), 8))
 		return "webp";
-
-	const head = new TextDecoder("utf-8", { fatal: false }).decode(
-		bytes.subarray(0, 1024),
-	);
-	return SVG_HEAD.test(head) ? "svg" : null;
+	return null;
 };
 
 /** `%PDF-` en los primeros bytes, como lo exige el estándar. */
 export const looksLikePdf = (bytes: Uint8Array): boolean =>
 	startsWith(bytes, ascii("%PDF-"));
-
-const SVG_FORBIDDEN: readonly [RegExp, string][] = [
-	[/<script[\s>/]/i, "contiene scripts"],
-	[/\son[a-z]+\s*=/i, "contiene manejadores de eventos"],
-	[/javascript:/i, "contiene enlaces a JavaScript"],
-	[/<foreignObject[\s>/]/i, "incrusta HTML"],
-	[/<!DOCTYPE|<!ENTITY/i, "declara entidades"],
-	[/@import/i, "importa estilos externos"],
-	[/\b(?:xlink:)?href\s*=\s*["']\s*(?!#)/i, "enlaza recursos externos"],
-	[/url\(\s*["']?\s*(?!#)/i, "carga recursos externos"],
-];
-
-/**
- * Por qué un SVG no se acepta, o null si se acepta. Una lista de rechazo
- * estricta y no un saneador: el SVG solo se pinta por `<img>` (sin scripts), y
- * esto cierra lo que quedaría si alguien lo abriera directo en el navegador.
- */
-export const svgRejectionOf = (svg: string): string | null => {
-	for (const [pattern, reason] of SVG_FORBIDDEN) {
-		if (pattern.test(svg)) return reason;
-	}
-	return null;
-};
 
 /**
  * El nombre con el que se guarda una imagen: el del archivo sin su extensión,
