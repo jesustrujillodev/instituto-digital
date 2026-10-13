@@ -55,6 +55,8 @@ export const CERTIFICATE_EXPORT = {
 	timeoutMs: 20_000,
 	/** Páginas abiertas a la vez; cada una pide su propia memoria a Chromium. */
 	maxConcurrentPages: 2,
+	/** Exportaciones esperando página. Con más, se responde «ocupado» en vez de encolar sin fin. */
+	maxQueued: 8,
 	contentTypes: { pdf: "application/pdf", png: "image/png" },
 } as const;
 
@@ -77,6 +79,18 @@ export const CERTIFICATE_VERIFY_RATE_LIMIT = {
 	limit: 30,
 	windowMs: 60_000,
 } as const;
+
+/**
+ * Por persona. Cada descarga abre una página de Chromium; bajar uno a uno los
+ * certificados de un grupo cabe de sobra.
+ */
+export const CERTIFICATE_EXPORT_RATE_LIMIT = {
+	limit: 20,
+	windowMs: 60_000,
+} as const;
+
+export const certificateExportRateKeyOf = (userId: number): string =>
+	`certificate-export:${userId}`;
 
 /** Sin IP no se limita: la ruta es pública y una cubeta común la cerraría para todos. */
 export const certificateVerifyRateKeyOf = (ip: string): string =>

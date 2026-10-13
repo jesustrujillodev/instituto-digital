@@ -12,6 +12,8 @@ import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import {
 	CERTIFICATE_EXPORT,
+	CERTIFICATE_EXPORT_RATE_LIMIT,
+	certificateExportRateKeyOf,
 	verificationPathOf,
 } from "../domain/certificate.config";
 import {
@@ -19,6 +21,7 @@ import {
 	CertificateAssetNotOwnedError,
 	CertificateCourseNotFoundError,
 	CertificateDownloadDisabledError,
+	CertificateExportRateLimitedError,
 	CertificateIssueNotFoundError,
 	CertificateIssueRevokedError,
 	CertificateLogoArchivedError,
@@ -71,6 +74,7 @@ type Dependencies = {
 	certificateAssetSource: ICradle["certificateAssetSource"];
 	certificateLogoRepository: ICradle["certificateLogoRepository"];
 	certificatePdfTools: ICradle["certificatePdfTools"];
+	rateLimiter: ICradle["rateLimiter"];
 	appBaseUrl: ICradle["appBaseUrl"];
 	clock: ICradle["clock"];
 	logger: ICradle["logger"];
@@ -85,6 +89,7 @@ export const createCertificateService = ({
 	certificateAssetSource,
 	certificateLogoRepository,
 	certificatePdfTools,
+	rateLimiter,
 	appBaseUrl,
 	clock,
 	logger,
@@ -214,6 +219,17 @@ export const createCertificateService = ({
 		return sources;
 	};
 
+	/** Cada descarga abre una página de Chromium: se limita por persona, antes de leer. */
+	const assertExportAllowed = async (actor: AuthContext) => {
+		const decision = await rateLimiter.consume(
+			certificateExportRateKeyOf(actor.userId),
+			CERTIFICATE_EXPORT_RATE_LIMIT,
+		);
+		if (!decision.allowed) {
+			throw new CertificateExportRateLimitedError(decision.retryAfterMs);
+		}
+	};
+
 	/**
 	 * El archivo de un certificado. Todo lo que se dibuja viene de la base:
 	 * ni el diseño ni los datos llegan nunca en la petición.
@@ -336,6 +352,7 @@ export const createCertificateService = ({
 
 		async downloadIssue({ documentId, format }, actor) {
 			return run("downloadIssue", async () => {
+				await assertExportAllowed(actor);
 				const issue = await certificateRepository.findIssue(
 					documentId,
 					teachingCourseWhere(resolveTeachingScope(actor)),
@@ -380,6 +397,7 @@ export const createCertificateService = ({
 
 		async downloadMine({ documentId, format }, actor) {
 			return run("downloadMine", async () => {
+				await assertExportAllowed(actor);
 				const issue = await certificateRepository.findMyIssue(
 					documentId,
 					actor.userId,
@@ -412,6 +430,7 @@ export const createCertificateService = ({
 
 		async downloadSample({ documentId, version, format }, actor) {
 			return run("downloadSample", async () => {
+				await assertExportAllowed(actor);
 				const course = await requireCourse(documentId, actor);
 				const { draft, published } = await certificateRepository.findRecord(
 					course.id,

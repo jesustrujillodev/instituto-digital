@@ -203,6 +203,8 @@ const createHarness = (
 		sanitizeError?: CertificateBackgroundInvalidError;
 		/** Keys que ya no están en storage. */
 		missing?: string[];
+		/** El limitador de exportaciones niega el cupo. */
+		exportLimited?: boolean;
 	} = {},
 ) => {
 	const calls = {
@@ -224,6 +226,7 @@ const createHarness = (
 		mineFor: [] as number[],
 		mineTake: [] as (number | undefined)[],
 		myIssueFor: [] as { documentId: string; userId: number }[],
+		rateKeys: [] as string[],
 	};
 
 	const certificateRepository = {
@@ -346,12 +349,22 @@ const createHarness = (
 		},
 	} as unknown as ICradle["certificatePdfTools"];
 
+	const rateLimiter = {
+		consume: async (key: string) => {
+			calls.rateKeys.push(key);
+			return options.exportLimited
+				? { allowed: false, retryAfterMs: 30_000 }
+				: { allowed: true, retryAfterMs: 0 };
+		},
+	} as unknown as ICradle["rateLimiter"];
+
 	const service = createCertificateService({
 		certificateRepository,
 		certificateAssetSource,
 		certificateExporter,
 		certificateLogoRepository,
 		certificatePdfTools,
+		rateLimiter,
 		appBaseUrl: "https://capacitacion.test",
 		clock: { now: () => NOW },
 		logger: silentLogger,
@@ -1324,5 +1337,61 @@ describe("certificateService.downloadMine", () => {
 			error: { code: CERTIFICATE_ERROR_CODES.DOWNLOAD_DISABLED },
 		});
 		expect(calls.exported).toEqual([]);
+	});
+});
+
+// Remediación (Fase C): las exportaciones no tenían límite y cada una abre una
+// página de Chromium.
+describe("límite de exportaciones", () => {
+	test.each([
+		[
+			"downloadIssue",
+			(service: ReturnType<typeof createHarness>["service"]) =>
+				service.downloadIssue(
+					{ documentId: ISSUE_DOC, format: "pdf" },
+					actorOf(),
+				),
+		],
+		[
+			"downloadMine",
+			(service: ReturnType<typeof createHarness>["service"]) =>
+				service.downloadMine(
+					{ documentId: ISSUE_DOC, format: "pdf" },
+					actorOf(),
+				),
+		],
+		[
+			"downloadSample",
+			(service: ReturnType<typeof createHarness>["service"]) =>
+				service.downloadSample(
+					{ documentId: COURSE_DOC, version: "draft", format: "pdf" },
+					actorOf(),
+				),
+		],
+	])("%s sin cupo no lee ni exporta", async (_, download) => {
+		const { service, calls } = createHarness({ exportLimited: true });
+
+		expect(await download(service)).toMatchObject({
+			success: false,
+			error: {
+				code: CERTIFICATE_ERROR_CODES.EXPORT_RATE_LIMITED,
+				details: { retryAfterMs: 30_000 },
+			},
+		});
+		expect(calls.findIssue).toEqual([]);
+		expect(calls.myIssueFor).toEqual([]);
+		expect(calls.findCourse).toEqual([]);
+		expect(calls.exported).toEqual([]);
+	});
+
+	test("el cupo es por persona", async () => {
+		const { service, calls } = createHarness();
+
+		await service.downloadMine(
+			{ documentId: ISSUE_DOC, format: "pdf" },
+			actorOf({ userId: 42 }),
+		);
+
+		expect(calls.rateKeys).toEqual(["certificate-export:42"]);
 	});
 });

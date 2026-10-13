@@ -378,6 +378,8 @@ que sus mutaciones sí.
 | `groups/…/group.rules.test.ts` · `groups.service.server.test.ts` · `group.mapper.test.ts` | **Un grupo archivado o de una dependencia desactivada no se edita ni cambia de miembros**; se archiva siempre y se restaura solo con la dependencia activa. |
 | `ratings/…/rating.rules.test.ts` · `ratings.repository.server.test.ts` | Los comentarios anónimos no llevan fecha ni se ordenan por llegada. |
 | `shared/query/…/bracket-params.test.ts` | `a[toString][x]` y `b[hasOwnProperty]` son claves nuevas: nada se escribe en el prototipo. |
+| `certificates/…/certificates.service.server.test.ts` | **Sin cupo, las tres descargas responden `CERTIFICATE_EXPORT_RATE_LIMITED` sin leer ni exportar**; el cupo es por persona. |
+| `certificates/…/chromium-exporter.server.test.ts` | Con las páginas ocupadas y la fila llena, la exportación sobrante responde `CERTIFICATE_EXPORT_BUSY`; las encoladas salen en orden. |
 
 ### Externos solo `USER` (remediación C09)
 

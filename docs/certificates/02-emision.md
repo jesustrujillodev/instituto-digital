@@ -114,13 +114,26 @@ error en un toast, cosa que un `<a download>` no puede hacer.
 3. `certificateExporter.export(html, formato)`:
    - Abre una página del Chromium del proceso, que se lanza la primera vez y se reabre si
      se cae.
-   - Máximo dos páginas a la vez.
+   - Máximo dos páginas a la vez y ocho exportaciones esperando. Con la fila llena responde
+     `CERTIFICATE_EXPORT_BUSY` (503) en vez de encolar sin fin
+     (`CERTIFICATE_EXPORT.maxQueued`).
    - La página corre **sin JavaScript** y aborta toda petición que no sea `data:`.
    - Espera a `document.fonts.ready` antes de capturar.
    - PDF de 1100×780 px en una página, o PNG al doble (2200×1560).
 
 Una firma que no se puede leer detiene la exportación: nunca sale un certificado sin una de
 sus firmas.
+
+Las tres descargas (la de quien imparte, la propia y la muestra del editor) se limitan **por
+persona** antes de leer nada: 20 por minuto (`CERTIFICATE_EXPORT_RATE_LIMIT`). Pasado el
+cupo responden `CERTIFICATE_EXPORT_RATE_LIMITED` (429) con la espera.
+
+**Chromium sin sandbox (aceptado).** Dentro del contenedor corre con `--no-sandbox`
+(`CHROMIUM_NO_SANDBOX`). Se acepta por lo que dice el
+[ADR 0019](../adr/0019-snapshot-del-diseno-y-puerto-de-exportacion.md) §2.2: la página no
+ejecuta JavaScript ni hace peticiones, y todo llega como `data:`. Las imágenes no se
+re-codifican, pero solo entran PNG, JPEG o WebP comprobados por sus bytes, y ya no SVG
+(auditoría, Fase C, 13-10-2026).
 
 Cada certificado lleva en el pie un QR hacia su verificación pública. La dirección se calcula
 al descargar y no se congela ([03-verificacion.md](./03-verificacion.md)).

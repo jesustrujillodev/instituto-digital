@@ -19,6 +19,8 @@ export const CERTIFICATE_ERROR_CODES = {
 	EXPORT_UNAVAILABLE: "CERTIFICATE_EXPORT_UNAVAILABLE",
 	EXPORT_FAILED: "CERTIFICATE_EXPORT_FAILED",
 	VERIFY_RATE_LIMITED: "CERTIFICATE_VERIFY_RATE_LIMITED",
+	EXPORT_RATE_LIMITED: "CERTIFICATE_EXPORT_RATE_LIMITED",
+	EXPORT_BUSY: "CERTIFICATE_EXPORT_BUSY",
 	DOWNLOAD_DISABLED: "CERTIFICATE_DOWNLOAD_DISABLED",
 } as const;
 
@@ -190,6 +192,24 @@ export class CertificateVerifyRateLimitedError extends CertificateError {
 	constructor(retryAfterMs: number) {
 		super("Too many certificate verifications");
 		this.details = { retryAfterMs };
+	}
+}
+
+/** Quien descarga agotó su cupo de exportaciones. */
+export class CertificateExportRateLimitedError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.EXPORT_RATE_LIMITED;
+	readonly details: { retryAfterMs: number };
+	constructor(retryAfterMs: number) {
+		super("Too many certificate exports");
+		this.details = { retryAfterMs };
+	}
+}
+
+/** La fila de exportaciones está llena: el proceso no encola sin fin. */
+export class CertificateExportBusyError extends CertificateError {
+	readonly code = CERTIFICATE_ERROR_CODES.EXPORT_BUSY;
+	constructor() {
+		super("Certificate export queue is full");
 	}
 }
 

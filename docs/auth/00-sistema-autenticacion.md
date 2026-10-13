@@ -438,6 +438,18 @@ nada.
 - **El single-flight sigue en memoria a propósito.** Con varios nodos, las capas
   de DB mantienen la corrección (CAS + gracia persistida); llevarlo a Redis
   guardaría pares de tokens fuera de la base ([ADR 0032](../adr/0032-redis-opcional-cache-y-coordinacion.md)).
+- **La ventana de gracia del refresh se queda en 60 s** (`AUTH_REFRESH_GRACE_S`).
+  Dentro de ella, quien presenta el refresh anterior recibe el par nuevo; es lo que
+  evita cerrar la sesión de dos pestañas que renuevan a la vez o de una red lenta.
+  Un par cacheado ya no sobrevive a la revocación (C01, [02](./02-revocacion-inmediata-epoch.md)),
+  y fuera de la ventana el reuso revoca la familia (auditoría, Fase C, 13-10-2026).
+- **Sin CSP completa.** Toda respuesta lleva HSTS, `frame-ancestors 'self'`,
+  `X-Frame-Options`, `nosniff` y `Referrer-Policy` (`shared/http/security-headers.ts`),
+  que es el mínimo que pidió la auditoría. Una política de scripts tendría que
+  admitir los scripts en línea que React Router escribe para hidratar, con nonce por
+  petición en `entry.server.tsx`; se deja para cuando se pueda probar pantalla por
+  pantalla. Lo servido desde el proxy de storage ya lleva su propia CSP `sandbox`
+  (auditoría, Fase C, 13-10-2026).
 
 ## 9. Manejo de errores y observabilidad
 
