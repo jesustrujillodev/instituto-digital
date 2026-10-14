@@ -138,8 +138,12 @@ services:
       REDIS_URL: redis://redis:6379
       REDIS_KEY_PREFIX: "queued:"
     # El HEALTHCHECK de la imagen pide el puerto de la web, que el worker no abre.
+    # El proceso sigue vivo: sin Redis o con el arranque roto, sale. Sin
+    # healthcheck, `up --wait` falla en Compose v2.
     healthcheck:
-      disable: true
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 2s
+      retries: 15
     depends_on:
       <<: *app-depends
       redis:

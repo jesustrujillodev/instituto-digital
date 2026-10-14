@@ -174,4 +174,4 @@ Además, `bun run test:e2e` comprueba al final que el worker se detiene limpio c
   actual lanza `Region is missing` con la región vacía. El E2E declara solo
   `STORAGE_REGION` para arrancar sin almacenamiento.
 - **El `HEALTHCHECK` de la imagen pide `/`**, que no revisa ni la base ni Redis, y el
-  worker no tiene healthcheck (por eso compose se lo desactiva).
+  worker no tiene healthcheck (en compose.test.yml solo se comprueba que su proceso siga vivo).
