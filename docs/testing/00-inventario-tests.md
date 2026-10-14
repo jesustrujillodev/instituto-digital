@@ -930,9 +930,10 @@ mensaje de un error de infraestructura viajaría al cliente.
   `bun run test:integration` ([01-integracion-y-e2e.md](./01-integracion-y-e2e.md)).
   El resto de los repositorios Prisma se sigue ejercitando solo con dobles, y esas
   pruebas no entran en el cómputo de cobertura.
-- **GCS sin integración.** `s3.adapter.ts` ya se prueba contra MinIO en la
-  integración; `gcs.adapter.ts` solo se cubre indirectamente
-  (`storage.factory.test.ts` verifica qué config recibe).
+- **Adaptadores de storage sin integración, a propósito.** `s3.adapter.ts` y
+  `gcs.adapter.ts` se cubren con pruebas unitarias; un S3 local no reproduciría lo que
+  falla contra el bucket de producción (credenciales, endpoint, CORS). Ver
+  [01-integracion-y-e2e.md §1](./01-integracion-y-e2e.md).
 - **Composition root sin cobertura unitaria.** `container.server.ts` y
   `worker.server.ts` se ejercitan de punta a punta en el E2E contra la imagen
   (`bun run test:e2e`), no en `bun run test`.

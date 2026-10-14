@@ -5,12 +5,10 @@ export const TOPOLOGIES = [
 	{
 		name: "queued",
 		baseURL: "https://queued.idc.test",
-		bucket: "queued-storage",
 	},
 	{
 		name: "inline",
 		baseURL: "https://inline.idc.test",
-		bucket: "inline-storage",
 	},
 ] as const;
 

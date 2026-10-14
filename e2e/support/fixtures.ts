@@ -1,4 +1,3 @@
-import { HeadObjectCommand, NotFound, S3Client } from "@aws-sdk/client-s3";
 import { test as base, expect, type Page } from "@playwright/test";
 import {
 	SEED_PASSWORD,
@@ -37,24 +36,6 @@ const waitForMail = async (to: string): Promise<MailpitMessage> => {
 	return (await message.json()) as MailpitMessage;
 };
 
-// Firma contra MinIO directo: lo que se comprueba es el bucket, no el proxy TLS.
-const s3 = new S3Client({
-	endpoint: "http://minio:9000",
-	region: "us-east-1",
-	forcePathStyle: true,
-	credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
-});
-
-const objectExists = async (bucket: string, key: string) => {
-	try {
-		await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-		return true;
-	} catch (error) {
-		if (error instanceof NotFound) return false;
-		throw error;
-	}
-};
-
 /** Entra con una cuenta en una página propia, sin tocar la del superadmin. */
 const signIn = async (page: Page, email: string, password = SEED_PASSWORD) => {
 	await page.goto("/iniciar-sesion");
@@ -91,4 +72,4 @@ export const test = base.extend<{
 	},
 });
 
-export { expect, objectExists, signIn, waitForMail };
+export { expect, signIn, waitForMail };

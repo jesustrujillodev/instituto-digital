@@ -15,14 +15,13 @@ import { createJobProcessor, toFailureRecord } from "../queue.processor.server";
 
 /**
  * El cableado de `app/worker.server.ts` con los handlers reales del cradle:
- * Postgres, Mailpit y MinIO de compose.test.yml, y un prefijo de cola propio.
+ * Postgres y Mailpit de compose.test.yml, y un prefijo de cola propio.
  */
 const url = process.env.REDIS_TEST_URL as string;
 const run = Date.now().toString(36);
 const prefix = queuePrefixOf(`int${run}:`);
 const { cradle } = createSystemContainer();
 const logger = cradle.logger.child({ module: "worker-int" });
-const bucket = cradle.storageBucket as string;
 
 const connections: Redis[] = [];
 const connection = (role: "producer" | "worker") => {
@@ -58,7 +57,7 @@ const eventually = async (
 	throw new Error(`La condición no se cumplió en ${timeoutMs} ms`);
 };
 
-describe("worker de colas con Redis, Postgres, Mailpit y MinIO reales", () => {
+describe("worker de colas con Redis, Postgres y Mailpit reales", () => {
 	afterAll(async () => {
 		await Promise.all(workers.map((worker) => worker.close()));
 		for (const queueName of Object.values(QUEUE_NAMES)) {
@@ -98,17 +97,6 @@ describe("worker de colas con Redis, Postgres, Mailpit y MinIO reales", () => {
 			});
 			return row.status === "SENT";
 		});
-	});
-
-	test("delete-object borra del bucket un objeto que nadie referencia", async () => {
-		const key = `documentos/int-${run}/huerfano.txt`;
-		await cradle.storageProvider.uploadFile(bucket, key, "x", "text/plain");
-
-		await client.add(JOB_NAMES.deleteObject, { bucket, key });
-
-		await eventually(
-			async () => !(await cradle.storageProvider.fileExists(bucket, key)),
-		);
 	});
 
 	test("un trabajo que agota sus intentos queda en job_failure", async () => {

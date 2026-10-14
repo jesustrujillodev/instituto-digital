@@ -18,7 +18,7 @@ const COMPOSE = [
 		? ["-f", process.env.COMPOSE_TEST_OVERRIDE]
 		: []),
 ];
-const INFRA = ["postgres", "redis", "minio", "minio-init", "mailpit"];
+const INFRA = ["postgres", "redis", "mailpit"];
 const APP = ["--profile", "app"];
 
 const [mode, ...rest] = process.argv.slice(2);

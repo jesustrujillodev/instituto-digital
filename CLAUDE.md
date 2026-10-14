@@ -322,7 +322,7 @@ Reglas:
    no se ejecuta y por tanto no protege nada — la convencion falla de forma visible.
 5. Los imports dentro del test usan `../` para el archivo bajo prueba y `../../` para cruzar a
    otra capa del mismo modulo; el alias `@/` no cambia.
-6. Las pruebas contra servicios reales (Postgres, Redis, MinIO, SMTP) se llaman
+6. Las pruebas contra servicios reales (Postgres, Redis, SMTP) se llaman
    `<archivo>.int.test.ts`, en el mismo `__tests__/` de su capa. `vitest.config.ts` las
    excluye y solo las corre `bun run test:integration` (`vitest.integration.config.ts`),
    contra `compose.test.yml` y nunca contra Neon. Las E2E de Playwright viven en `e2e/`,
