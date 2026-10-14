@@ -36,33 +36,43 @@ interface TodayCourse {
 	href: string;
 }
 
-/** Algo que pide atención hoy, con la acción que lo resuelve. */
-export type TodayItem =
-	| (TodayCourse & {
-			kind: "session";
-			role: "teaching" | "learning";
-			sessionDocumentId: string;
-			startsAt: Date;
-			endsAt: Date;
-			venue: string | null;
-			link: string | null;
-			inProgress: boolean;
-	  })
-	| (TodayCourse & { kind: "pendingFinish"; lastSessionEndsAt: Date })
-	| (TodayCourse & { kind: "invitation"; closesAt: Date | null });
-
-/** Lo siguiente de la semana, para cuando hoy no hay nada. */
-export interface NextUp {
-	title: string;
-	startsAt: Date;
+/** Una sesión de hoy que todavía no termina, desde el lado que le toca. */
+export interface TodaySession extends TodayCourse {
 	role: "teaching" | "learning";
+	sessionDocumentId: string;
+	startsAt: Date;
+	endsAt: Date;
+	venue: string | null;
+	link: string | null;
+	inProgress: boolean;
 }
 
 export interface DashboardToday {
-	items: TodayItem[];
-	/** Los que no cupieron. */
+	sessions: TodaySession[];
+	/** Las que no cupieron. */
 	overflow: number;
-	nextUp: NextUp | null;
+}
+
+/** Algo que espera una decisión de quien entra, con la pantalla que lo resuelve. */
+export type AttentionItem =
+	| (TodayCourse & { kind: "pendingFinish"; lastSessionEndsAt: Date })
+	| (TodayCourse & { kind: "invitation"; closesAt: Date | null })
+	| (TodayCourse & { kind: "withoutTrainer"; firstSessionAt: Date | null })
+	| {
+			kind: "overdueLine";
+			lineDocumentId: string;
+			title: string;
+			plannedMonth: number;
+			href: string;
+	  }
+	| (TodayCourse & { kind: "draft"; updatedAt: Date });
+
+export type AttentionKind = AttentionItem["kind"];
+
+export interface DashboardAttention {
+	items: AttentionItem[];
+	/** Listas que se leyeron recortadas: la pantalla dueña tiene el resto. */
+	more: Record<Exclude<AttentionKind, "invitation">, boolean>;
 }
 
 export interface DashboardHeader {
@@ -72,7 +82,7 @@ export interface DashboardHeader {
 
 export interface DashboardLearning {
 	courses: MyCoursesDigest;
-	/** Las que no urgen: las urgentes ya van en «Para hoy». */
+	/** Las que no urgen: las urgentes ya van en «Requiere tu atención». */
 	invitations: MyCourseInvitation[];
 	certificates: MyCertificate[];
 	credits: YearCredits;
@@ -91,11 +101,35 @@ export interface DashboardPlatform {
 	health: OperationsHealth;
 }
 
+/** Lo que la plataforma no pudo resolver sola, con la pantalla que lo resuelve. */
+export type PlatformAttentionItem =
+	| { kind: "emails"; failed: number; stuck: number }
+	| { kind: "jobs"; failed: number; windowDays: number }
+	| { kind: "withoutHead"; dependency: DependencyRef; withoutPlan: boolean };
+
+export interface PlatformAttentionList {
+	items: PlatformAttentionItem[];
+	/** Dependencias sin titular que no cupieron. */
+	overflow: number;
+}
+
+export interface CoverageTotals {
+	done: number;
+	/** Lo vigente: lo planeado menos lo cancelado. */
+	active: number;
+	/** `null` si ningún plan tiene nada vigente. */
+	ratio: number | null;
+	withPlan: number;
+	dependencies: number;
+}
+
 export interface DashboardData {
 	header: DashboardHeader;
 	facets: DashboardFacets;
 	/** `null` para quien no cursa, no imparte ni organiza. */
 	today: DashboardToday | null;
+	/** Mismo criterio que `today`. */
+	attention: DashboardAttention | null;
 	week: CalendarWeek;
 	platform: DashboardPlatform | null;
 	organizing: DashboardOrganizing | null;

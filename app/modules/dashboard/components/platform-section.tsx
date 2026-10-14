@@ -1,210 +1,360 @@
-import { CircleCheck, ShieldAlert, TriangleAlert } from "lucide-react";
+import {
+	Building2,
+	CircleCheck,
+	MailWarning,
+	ServerCrash,
+	ShieldAlert,
+} from "lucide-react";
 import { Link, useRouteLoaderData } from "react-router";
-import { PlanProgressBar } from "@/modules/annual-plan/components/plan-badges";
+import { cn } from "@/lib/utils";
 import type { PlanCoverage } from "@/modules/annual-plan/domain/annual-plan.types";
-import type { DependencyRef } from "@/modules/dependencies/domain/dependency.types";
 import { STUCK_EMAIL_MINUTES } from "@/modules/operations/domain/operations.config";
 import type { OperationsHealth } from "@/modules/operations/domain/operations.types";
-import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/shared/components/ui/card";
 import { DASHBOARD_LAYOUT_ID } from "@/shared/layout/layout.constants";
 import type { DashboardLayoutData } from "@/shared/layout/layout.types";
-import { DashboardList, DashboardListItem } from "./dashboard-list";
-import { DashboardSection, MoreLink } from "./dashboard-section";
+import {
+	sortPlansByProgress,
+	summarizeCoverage,
+} from "../domain/dashboard.rules";
+import type {
+	DashboardAttention,
+	PlatformAttentionItem,
+	PlatformAttentionList,
+} from "../domain/dashboard.types";
+import { AttentionCard, AttentionChip, AttentionList } from "./attention-card";
+import {
+	PersonalAttentionCards,
+	PersonalAttentionMore,
+} from "./attention-section";
+import { OverflowLink } from "./dashboard-list";
+import { DashboardSection, EmptyNote } from "./dashboard-section";
+import {
+	MeterBar,
+	TABLE_ROW,
+	TableCard,
+	TableGroup,
+	TableSummary,
+} from "./dashboard-table";
+import { StatusStrip, type StripTone } from "./status-strip";
 
 const plural = (count: number, one: string, many: string) =>
 	count === 1 ? one : many.replace("{n}", String(count));
 
-const healthLines = (health: OperationsHealth) =>
-	[
-		health.failedEmails > 0 &&
-			plural(
-				health.failedEmails,
-				"1 correo agotó sus intentos y no se envió.",
-				"{n} correos agotaron sus intentos y no se enviaron.",
-			),
-		health.stuckEmails > 0 &&
-			plural(
-				health.stuckEmails,
-				`1 correo pendiente lleva más de ${STUCK_EMAIL_MINUTES} minutos atrasado.`,
-				`{n} correos pendientes llevan más de ${STUCK_EMAIL_MINUTES} minutos atrasados.`,
-			),
+const percentOf = (ratio: number | null) => Math.round((ratio ?? 0) * 100);
+
+function useLockdown() {
+	const layout = useRouteLoaderData<DashboardLayoutData>(DASHBOARD_LAYOUT_ID);
+	return Boolean(layout?.data.securityState?.lockdownAt);
+}
+
+const operationsSummary = (health: OperationsHealth) => {
+	const emails = health.failedEmails + health.stuckEmails;
+	const parts = [
+		emails > 0 &&
+			plural(emails, "1 correo sin enviar", "{n} correos sin enviar"),
 		health.recentJobFailures > 0 &&
 			plural(
 				health.recentJobFailures,
-				`1 trabajo de fondo falló en los últimos ${health.windowDays} días.`,
-				`{n} trabajos de fondo fallaron en los últimos ${health.windowDays} días.`,
+				"1 trabajo de fondo con falla",
+				"{n} trabajos de fondo con falla",
 			),
-	].filter((line): line is string => Boolean(line));
+	].filter((part): part is string => Boolean(part));
 
-/** Lo que la plataforma no pudo hacer sola y lo que bloquea que una dependencia opere. */
-export function PlatformAttention({
+	return parts.length === 0
+		? "Correos y trabajos de fondo al día"
+		: parts.join(" · ");
+};
+
+/** Cómo está la plataforma, en una línea. */
+export function PlatformStatusStrip({
 	health,
 	activeSessions,
-	withoutHead,
 }: {
 	health: OperationsHealth;
 	activeSessions: number;
-	withoutHead: DependencyRef[];
 }) {
-	const layout = useRouteLoaderData<DashboardLayoutData>(DASHBOARD_LAYOUT_ID);
-	const lockdown = layout?.data.securityState?.lockdownAt ?? null;
-	const problems = healthLines(health);
-	const onlyJobs = health.failedEmails === 0 && health.stuckEmails === 0;
+	const lockdown = useLockdown();
+	const hasProblems =
+		health.failedEmails + health.stuckEmails + health.recentJobFailures > 0;
+	const tone: StripTone = lockdown ? "danger" : hasProblems ? "warning" : "ok";
 
 	return (
-		<div className="flex flex-col gap-6">
-			<Card>
-				<CardHeader>
-					<h2 className="font-medium text-base">Operación</h2>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-3 text-sm">
-					{lockdown && (
-						<p className="flex items-start gap-2 font-medium text-destructive">
-							<ShieldAlert
-								className="mt-0.5 size-4 shrink-0"
-								aria-hidden="true"
-							/>
-							<span>
-								Hay un bloqueo de emergencia activo.{" "}
-								<Link
-									to="/dashboard/sesiones"
-									className="underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-								>
-									Se administra en Sesiones
-								</Link>
-								.
-							</span>
-						</p>
-					)}
-					{problems.length === 0 ? (
-						<p className="flex items-center gap-2 font-medium text-success-foreground">
-							<CircleCheck className="size-4 shrink-0" aria-hidden="true" />
-							Correos y trabajos de fondo al día.
-						</p>
-					) : (
-						<div className="flex flex-col items-start gap-3">
-							<ul className="flex flex-col gap-1.5">
-								{problems.map((line) => (
-									<li key={line} className="flex items-start gap-2">
-										<TriangleAlert
-											className="mt-0.5 size-4 shrink-0 text-warning-foreground"
-											aria-hidden="true"
-										/>
-										{line}
-									</li>
-								))}
-							</ul>
-							<Button asChild size="sm" variant="outline">
-								<Link
-									to={
-										onlyJobs
-											? "/dashboard/operacion?tab=jobs"
-											: "/dashboard/operacion"
-									}
-								>
-									Revisar
-								</Link>
-							</Button>
-						</div>
-					)}
-					<p className="text-muted-foreground">
-						{plural(
-							activeSessions,
-							"1 sesión de acceso abierta ahora.",
-							"{n} sesiones de acceso abiertas ahora.",
-						)}{" "}
-						<Link
-							to="/dashboard/sesiones"
-							className="text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/30"
-						>
-							Ver sesiones
-						</Link>
-					</p>
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-					<h2 className="font-medium text-base">Dependencias sin titular</h2>
-					<MoreLink label="Dependencias" to="/dashboard/dependencias" />
-				</CardHeader>
-				<CardContent>
-					{withoutHead.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							Todas las dependencias activas tienen titular.
-						</p>
-					) : (
-						<DashboardList>
-							{withoutHead.map((dependency) => (
-								<DashboardListItem
-									key={dependency.documentId}
-									title={dependency.name}
-									meta="Sin titular no hay quien administre su personal ni su plan."
-									action={
-										<Button asChild size="sm" variant="outline">
-											<Link
-												to={`/dashboard/dependencias/${dependency.documentId}/editar`}
-											>
-												Designar titular
-											</Link>
-										</Button>
-									}
-								/>
-							))}
-						</DashboardList>
-					)}
-				</CardContent>
-			</Card>
-		</div>
+		<StatusStrip
+			label="Estado de la plataforma"
+			tone={tone}
+			status={
+				{
+					ok: "Sistema en orden",
+					warning: "Hay pendientes de operación",
+					danger: "Lockdown activo",
+				}[tone]
+			}
+			facts={[
+				operationsSummary(health),
+				plural(
+					activeSessions,
+					"1 sesión de acceso abierta",
+					"{n} sesiones de acceso abiertas",
+				),
+			]}
+			link={{ label: "Ver sesiones", to: "/dashboard/sesiones" }}
+		/>
 	);
 }
 
+const emailsDescription = (failed: number, stuck: number) =>
+	[
+		failed > 0 &&
+			plural(
+				failed,
+				"1 correo agotó sus intentos y no se envió.",
+				"{n} correos agotaron sus intentos y no se enviaron.",
+			),
+		stuck > 0 &&
+			plural(
+				stuck,
+				`1 correo pendiente lleva más de ${STUCK_EMAIL_MINUTES} minutos atrasado.`,
+				`{n} correos pendientes llevan más de ${STUCK_EMAIL_MINUTES} minutos atrasados.`,
+			),
+	]
+		.filter(Boolean)
+		.join(" ");
+
+function PlatformAttentionCard({
+	item,
+	fiscalYear,
+}: {
+	item: PlatformAttentionItem;
+	fiscalYear: number;
+}) {
+	switch (item.kind) {
+		case "emails":
+			return (
+				<AttentionCard
+					icon={MailWarning}
+					title="Correos sin enviar"
+					description={emailsDescription(item.failed, item.stuck)}
+					action={{ label: "Revisar correos", to: "/dashboard/operacion" }}
+				/>
+			);
+		case "jobs":
+			return (
+				<AttentionCard
+					icon={ServerCrash}
+					title="Trabajos de fondo con fallas"
+					description={plural(
+						item.failed,
+						`1 trabajo de fondo falló en los últimos ${item.windowDays} días.`,
+						`{n} trabajos de fondo fallaron en los últimos ${item.windowDays} días.`,
+					)}
+					action={{
+						label: "Revisar trabajos",
+						to: "/dashboard/operacion?tab=jobs",
+					}}
+				/>
+			);
+		case "withoutHead":
+			return (
+				<AttentionCard
+					icon={Building2}
+					title={item.dependency.name}
+					chips={
+						<>
+							<AttentionChip>Sin titular</AttentionChip>
+							{item.withoutPlan && (
+								<AttentionChip>Sin plan {fiscalYear}</AttentionChip>
+							)}
+						</>
+					}
+					description={
+						item.withoutPlan
+							? "Nadie administra su personal ni su plan. Designa a un titular para que pueda armar el plan anual."
+							: "Nadie administra su personal ni su plan. Designa a un titular para que pueda operar."
+					}
+					action={{
+						label: "Designar titular",
+						to: `/dashboard/dependencias/${item.dependency.documentId}/editar`,
+					}}
+				/>
+			);
+	}
+}
+
+/**
+ * Lo que la plataforma no pudo hacer sola y lo que bloquea que una dependencia
+ * opere. Si el superadministrador además imparte, lo suyo va detrás.
+ */
+export function PlatformAttention({
+	attention,
+	personal,
+	fiscalYear,
+	today,
+}: {
+	attention: PlatformAttentionList;
+	personal: DashboardAttention | null;
+	fiscalYear: number;
+	today: string;
+}) {
+	const lockdown = useLockdown();
+	const count =
+		attention.items.length +
+		attention.overflow +
+		(personal?.items.length ?? 0) +
+		(lockdown ? 1 : 0);
+
+	return (
+		<DashboardSection
+			title="Requiere tu atención"
+			count={{
+				value: count,
+				noun: ["pendiente", "pendientes"],
+				tone: "warning",
+			}}
+		>
+			{count === 0 ? (
+				<EmptyNote icon={CircleCheck} tone="success">
+					Nada pendiente: la operación está al día y todas las dependencias
+					activas tienen titular.
+				</EmptyNote>
+			) : (
+				<>
+					<AttentionList>
+						{lockdown && (
+							<AttentionCard
+								tone="danger"
+								icon={ShieldAlert}
+								title="Lockdown activo"
+								description="La plataforma está en lockdown de emergencia. Revisa su alcance y levántalo desde Sesiones."
+								action={{ label: "Ir a Sesiones", to: "/dashboard/sesiones" }}
+							/>
+						)}
+						{attention.items.map((item) => (
+							<PlatformAttentionCard
+								key={
+									item.kind === "withoutHead"
+										? item.dependency.documentId
+										: item.kind
+								}
+								item={item}
+								fiscalYear={fiscalYear}
+							/>
+						))}
+						{personal && (
+							<PersonalAttentionCards attention={personal} today={today} />
+						)}
+					</AttentionList>
+					<OverflowLink
+						count={attention.overflow}
+						to="/dashboard/dependencias"
+					/>
+					{personal && <PersonalAttentionMore attention={personal} />}
+				</>
+			)}
+		</DashboardSection>
+	);
+}
+
+const COVERAGE_ROW = cn(
+	TABLE_ROW,
+	"grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 @xl:grid-cols-[minmax(0,1fr)_minmax(7rem,13rem)_3rem_minmax(0,10rem)]",
+);
+
 /** El avance del plan de cada dependencia en el ejercicio, y quién no lo tiene. */
 export function PlanCoverageSection({ coverage }: { coverage: PlanCoverage }) {
+	const totals = summarizeCoverage(coverage);
+	const plans = sortPlansByProgress(coverage.plans);
+
 	return (
 		<DashboardSection
 			title={`Plan anual ${coverage.fiscalYear}`}
-			description="El avance de cada dependencia: realizadas sobre lo vigente del plan."
-			more={{ label: "Planes", to: "/dashboard/plan-anual" }}
+			description="Capacitaciones realizadas de las vigentes en el plan de cada dependencia."
+			more={{ label: "Ver planes", to: "/dashboard/plan-anual" }}
 		>
-			<Card>
-				<CardContent className="flex flex-col gap-4">
-					{coverage.plans.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							Ninguna dependencia ha creado su plan de {coverage.fiscalYear}.
-						</p>
-					) : (
-						<ul className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-							{coverage.plans.map((plan) => (
-								<li
-									key={plan.documentId}
-									className="flex min-w-0 flex-col gap-1.5"
-								>
-									<Link
-										to={`/dashboard/plan-anual/${plan.documentId}`}
-										className="truncate rounded-sm font-medium text-sm outline-none hover:text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/30"
-									>
-										{plan.dependencyName}
-									</Link>
-									<PlanProgressBar progress={plan.progress} />
+			<TableCard>
+				{totals.dependencies === 0 ? (
+					<p className="px-6 py-5 text-muted-foreground text-sm">
+						Aún no hay dependencias activas con las que medir el plan.
+					</p>
+				) : (
+					<>
+						<TableSummary
+							figure={
+								totals.ratio === null
+									? undefined
+									: `${percentOf(totals.ratio)} %`
+							}
+						>
+							{totals.ratio === null
+								? `Ningún plan de ${coverage.fiscalYear} tiene capacitaciones vigentes todavía`
+								: `${totals.done} de ${plural(totals.active, "1 capacitación realizada en total", "{n} capacitaciones realizadas en total")}`}
+							{" · "}
+							{totals.withPlan} de{" "}
+							{plural(
+								totals.dependencies,
+								"1 dependencia con plan",
+								"{n} dependencias con plan",
+							)}
+						</TableSummary>
+
+						<TableGroup>
+							{plans.map((plan) => {
+								const active = plan.progress.total - plan.progress.cancelled;
+								const complete = active > 0 && plan.progress.done >= active;
+
+								return (
+									<li key={plan.documentId} className={COVERAGE_ROW}>
+										<Link
+											to={`/dashboard/plan-anual/${plan.documentId}`}
+											className="col-span-2 truncate rounded-sm font-medium text-foreground text-sm outline-none hover:text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/30 @xl:col-span-1"
+										>
+											{plan.dependencyName}
+										</Link>
+										<MeterBar
+											percent={percentOf(plan.progress.ratio)}
+											complete={complete}
+											label={`Avance del plan de ${plan.dependencyName}`}
+											value={plan.progress.ratio === null ? "—" : undefined}
+										/>
+										<p
+											className={cn(
+												"col-span-2 text-xs tabular-nums @xl:col-span-1",
+												complete
+													? "flex items-center gap-1.5 font-medium text-success-foreground"
+													: "text-foreground/80",
+											)}
+										>
+											{complete && (
+												<CircleCheck
+													className="size-3.5 shrink-0"
+													aria-hidden="true"
+												/>
+											)}
+											{active === 0
+												? "Sin capacitaciones vigentes"
+												: complete
+													? `Completo · ${plan.progress.done} de ${active}`
+													: `${plan.progress.done} de ${active} realizadas`}
+										</p>
+									</li>
+								);
+							})}
+							{coverage.withoutPlan.map((dependency) => (
+								<li key={dependency.documentId} className={COVERAGE_ROW}>
+									<p className="truncate font-medium text-foreground text-sm">
+										{dependency.name}
+									</p>
+									<p className="hidden text-muted-foreground text-xs @xl:col-span-2 @xl:block">
+										Sin plan registrado
+									</p>
+									<p className="whitespace-nowrap font-medium text-warning-foreground text-xs">
+										Sin plan
+									</p>
 								</li>
 							))}
-						</ul>
-					)}
-					{coverage.withoutPlan.length > 0 && (
-						<p className="border-t pt-3 text-sm">
-							<span className="font-medium text-warning-foreground">
-								Sin plan:{" "}
-							</span>
-							{coverage.withoutPlan
-								.map((dependency) => dependency.name)
-								.join(", ")}
-							.
-						</p>
-					)}
-				</CardContent>
-			</Card>
+						</TableGroup>
+					</>
+				)}
+			</TableCard>
 		</DashboardSection>
 	);
 }

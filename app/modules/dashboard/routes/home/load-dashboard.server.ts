@@ -17,6 +17,7 @@ import type { ErrorMessageMap } from "@/shared/response/response.messages";
 import type { AppResponse } from "@/shared/response/response.types";
 import { DASHBOARD_LIMITS } from "../../domain/dashboard.config";
 import {
+	buildAttention,
 	buildToday,
 	hasTodayPanel,
 	resolveDashboardFacets,
@@ -124,6 +125,7 @@ export const loadDashboard = async (
 	const operations = unwrap(health, OPERATIONS_ERROR_MESSAGES);
 
 	const invitations = digest?.invitations ?? [];
+	const withToday = hasTodayPanel(facets);
 
 	return {
 		header: {
@@ -131,16 +133,16 @@ export const loadDashboard = async (
 			dependencyName: ownDependency?.name ?? null,
 		},
 		facets,
-		today: hasTodayPanel(facets)
-			? buildToday(
-					{
-						now: context.clock.now(),
-						week: calendar,
-						pendingFinish: teaching?.awaitingFinish ?? [],
-						invitations,
-					},
-					limit.today,
-				)
+		today: withToday
+			? buildToday({ now: context.clock.now(), week: calendar }, limit.today)
+			: null,
+		attention: withToday
+			? buildAttention({
+					pending: teaching,
+					invitations,
+					courses: courseAttention,
+					plan: currentPlan,
+				})
 			: null,
 		week: calendar,
 		platform:

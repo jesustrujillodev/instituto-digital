@@ -13,6 +13,7 @@ export const DASHBOARD_LIMITS = {
 	certificates: 3,
 	pendingFinish: 6,
 	attention: 5,
+	withoutHead: 4,
 	openEnrollment: 6,
 	dueLines: 6,
 } as const;

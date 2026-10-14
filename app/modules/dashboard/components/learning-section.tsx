@@ -1,26 +1,168 @@
-import { BookOpen, Star } from "lucide-react";
+import { Download, Star } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { formatZonedDate, formatZonedDateTime } from "@/lib/date-utils";
-import { ProgressBar } from "@/modules/content/components/progress-bar";
+import { cn } from "@/lib/utils";
+import { useFileDownload } from "@/modules/certificates/hooks/use-file-download";
+import { myCertificateDownloadUrl } from "@/modules/certificates/utils/certificate-urls";
 import { modalityLabelOf } from "@/modules/courses/components/course-card-frame";
 import { formatHours } from "@/modules/courses/domain/course.labels";
 import { countsContent } from "@/modules/courses/domain/course.rules";
 import type {
 	AttendanceOutlook,
+	MyCourseDigestItem,
 	MyCourseInProgress,
+	MyCourseInvitation,
+	MyCourseUpcoming,
 } from "@/modules/enrollments/domain/enrollment-summary.types";
+import { RateCourseDialog } from "@/modules/ratings/components/rate-course-dialog";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent } from "@/shared/components/ui/card";
+import { Card } from "@/shared/components/ui/card";
 import type { DashboardLearning } from "../domain/dashboard.types";
-import {
-	DashboardList,
-	DashboardListItem,
-	OverflowLink,
-} from "./dashboard-list";
+import { OverflowLink } from "./dashboard-list";
 import { DashboardSection } from "./dashboard-section";
+import {
+	MeterBar,
+	TABLE_ROW,
+	TableCard,
+	TableFooter,
+	TableGroup,
+} from "./dashboard-table";
 
 const MY_COURSES = "/dashboard/mis-capacitaciones";
+const MY_CERTIFICATES = "/dashboard/mis-certificados";
 const myCourseHref = (documentId: string) => `${MY_COURSES}/${documentId}`;
+
+const TITLE_LINK =
+	"line-clamp-2 rounded-sm font-medium text-foreground text-sm outline-none hover:text-primary hover:underline focus-visible:ring-3 focus-visible:ring-ring/30";
+
+function ColumnTitle({ title, count }: { title: string; count?: number }) {
+	return (
+		<h3 className="font-medium text-muted-foreground text-xs">
+			{title}
+			{count !== undefined && count > 0 && (
+				<span className="tabular-nums"> · {count}</span>
+			)}
+		</h3>
+	);
+}
+
+function ToRateColumn({
+	courses,
+	total,
+}: {
+	courses: MyCourseDigestItem[];
+	total: number;
+}) {
+	const [rating, setRating] = useState<MyCourseDigestItem | null>(null);
+
+	return (
+		<div className="flex flex-col gap-3">
+			<ColumnTitle title="Por valorar" count={total} />
+			{courses.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					No tienes capacitaciones por valorar.
+				</p>
+			) : (
+				<ul className="flex flex-col gap-3">
+					{courses.map((course) => (
+						<li
+							key={course.courseDocumentId}
+							className="flex items-center justify-between gap-3"
+						>
+							<div className="flex min-w-0 flex-col gap-0.5">
+								<Link
+									to={myCourseHref(course.courseDocumentId)}
+									className={TITLE_LINK}
+								>
+									{course.title}
+								</Link>
+								<span className="text-muted-foreground text-xs">
+									Tu opinión ayuda a mejorarlo.
+								</span>
+							</div>
+							<Button
+								size="sm"
+								variant="outline"
+								className="shrink-0"
+								onClick={() => setRating(course)}
+							>
+								<Star data-icon="inline-start" aria-hidden="true" />
+								Valorar
+								<span className="sr-only"> «{course.title}»</span>
+							</Button>
+						</li>
+					))}
+				</ul>
+			)}
+			<OverflowLink count={total - courses.length} to={MY_COURSES} />
+			{rating && (
+				<RateCourseDialog
+					courseDocumentId={rating.courseDocumentId}
+					courseTitle={rating.title}
+					open
+					onOpenChange={(open) => {
+						if (!open) setRating(null);
+					}}
+				/>
+			)}
+		</div>
+	);
+}
+
+function CertificatesColumn({
+	certificates,
+}: {
+	certificates: DashboardLearning["certificates"];
+}) {
+	const { download, pending } = useFileDownload();
+
+	return (
+		<div className="flex flex-col gap-3">
+			<ColumnTitle title="Certificados recientes" />
+			{certificates.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					Aquí aparecerán los certificados de lo que acredites.
+				</p>
+			) : (
+				<ul className="flex flex-col gap-3">
+					{certificates.map((certificate) => {
+						const url = myCertificateDownloadUrl(certificate.documentId, "pdf");
+
+						return (
+							<li
+								key={certificate.documentId}
+								className="flex items-center justify-between gap-3"
+							>
+								<div className="flex min-w-0 flex-col gap-0.5">
+									<Link to={MY_CERTIFICATES} className={TITLE_LINK}>
+										{certificate.courseTitle}
+									</Link>
+									<span className="text-muted-foreground text-xs tabular-nums">
+										{certificate.issuedOn} · Folio {certificate.folio}
+									</span>
+								</div>
+								{certificate.downloadable && (
+									<Button
+										size="icon-sm"
+										variant="outline"
+										className="shrink-0"
+										disabled={pending !== null}
+										pending={pending === url}
+										onClick={() => download(url, "certificado.pdf")}
+										aria-label={`Descargar el certificado de «${certificate.courseTitle}» en PDF`}
+									>
+										<Download aria-hidden="true" />
+									</Button>
+								)}
+							</li>
+						);
+					})}
+				</ul>
+			)}
+		</div>
+	);
+}
 
 /** Cuánta asistencia falta, dicho como lo que todavía se puede hacer. */
 const attendancePhrase = (outlook: AttendanceOutlook) => {
@@ -33,53 +175,68 @@ const attendancePhrase = (outlook: AttendanceOutlook) => {
 	return `Te falta asistir a ${sessions}; quedan ${outlook.remaining}.`;
 };
 
-function InProgressItem({ course }: { course: MyCourseInProgress }) {
+function InProgressRow({ course }: { course: MyCourseInProgress }) {
 	const next = course.nextSession;
+	const lost = course.attendance !== null && !course.attendance.reachable;
+	const href = myCourseHref(course.courseDocumentId);
 
 	return (
-		<DashboardListItem
-			title={course.title}
-			href={myCourseHref(course.courseDocumentId)}
-			meta={[
-				modalityLabelOf(course),
-				next
-					? `Próxima sesión: ${formatZonedDateTime(new Date(next.startsAt))}`
-					: null,
-			]
-				.filter(Boolean)
-				.join(" · ")}
-			note={course.attendance ? attendancePhrase(course.attendance) : undefined}
-			tone={
-				course.attendance && !course.attendance.reachable
-					? "warning"
-					: "neutral"
-			}
-			action={
-				<Button asChild size="sm" variant="outline">
-					<Link to={myCourseHref(course.courseDocumentId)}>Continuar</Link>
-				</Button>
-			}
-		>
-			{countsContent(course.completionRule) && (
-				<div className="flex items-center gap-2 pt-1">
-					<ProgressBar
-						value={course.progressPercent}
-						label={`Avance en el contenido de ${course.title}`}
-						className="max-w-56"
-					/>
-					<span className="text-muted-foreground text-xs tabular-nums">
-						{course.progressPercent} %
-					</span>
-				</div>
+		<li
+			className={cn(
+				TABLE_ROW,
+				"grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 @xl:grid-cols-[minmax(0,1fr)_minmax(6rem,9rem)_3rem_auto]",
 			)}
-		</DashboardListItem>
+		>
+			<div className="col-span-2 flex min-w-0 flex-col gap-1 @xl:col-span-1">
+				<Link to={href} className={TITLE_LINK}>
+					{course.title}
+				</Link>
+				<p className="text-muted-foreground text-xs tabular-nums">
+					{[
+						modalityLabelOf(course),
+						next
+							? `Próxima sesión: ${formatZonedDateTime(new Date(next.startsAt))}`
+							: null,
+					]
+						.filter(Boolean)
+						.join(" · ")}
+				</p>
+				{course.attendance && (
+					<p
+						className={cn(
+							"text-xs",
+							lost
+								? "font-medium text-warning-foreground"
+								: "text-muted-foreground",
+						)}
+					>
+						{attendancePhrase(course.attendance)}
+					</p>
+				)}
+			</div>
+			{countsContent(course.completionRule) ? (
+				<MeterBar
+					percent={course.progressPercent}
+					complete={course.progressPercent >= 100}
+					label={`Avance en el contenido de ${course.title}`}
+				/>
+			) : (
+				<span className="hidden @xl:col-span-2 @xl:block" />
+			)}
+			<Button
+				asChild
+				size="sm"
+				variant="outline"
+				className="col-span-2 @xl:col-span-1"
+			>
+				<Link to={href}>Continuar</Link>
+			</Button>
+		</li>
 	);
 }
 
-const startsPhrase = (
-	daysToStart: number | null,
-	firstSessionAt: Date | null,
-) => {
+const startsPhrase = (course: MyCourseUpcoming) => {
+	const { daysToStart, firstSessionAt } = course;
 	if (daysToStart === null || !firstSessionAt)
 		return "Sin fecha de inicio todavía";
 	const date = formatZonedDate(new Date(firstSessionAt));
@@ -88,177 +245,144 @@ const startsPhrase = (
 	return `Empieza en ${daysToStart} días, el ${date}`;
 };
 
-function SideList({
+function SimpleRow({
 	title,
-	children,
+	href,
+	detail,
 }: {
 	title: string;
-	children: React.ReactNode;
+	href: string;
+	detail: string;
 }) {
 	return (
-		<div className="flex flex-col gap-2">
-			<h3 className="font-medium text-sm">{title}</h3>
-			{children}
-		</div>
+		<li
+			className={cn(
+				TABLE_ROW,
+				"flex flex-col gap-1 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-4",
+			)}
+		>
+			<Link to={href} className={TITLE_LINK}>
+				{title}
+			</Link>
+			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+				{detail}
+			</span>
+		</li>
 	);
 }
 
+const invitationDetail = (invitation: MyCourseInvitation) =>
+	invitation.closesAt
+		? `Responde antes del ${formatZonedDate(new Date(invitation.closesAt))}`
+		: invitation.dependencyName;
+
+/**
+ * Lo que la persona cursa: sus créditos, lo que tiene por valorar y sus
+ * certificados de un vistazo; debajo, lo que está cursando o por empezar.
+ */
 export function LearningSection({ learning }: { learning: DashboardLearning }) {
 	const { courses, invitations, certificates, credits } = learning;
 	const { counts } = courses;
-	const hasMain = courses.inProgress.length > 0 || courses.upcoming.length > 0;
-	const hasSide =
+	const hasCourses =
 		invitations.length > 0 ||
-		courses.toRate.length > 0 ||
-		certificates.length > 0;
-
-	const creditsLine =
-		credits.total === 0
-			? `Aún no tienes créditos en ${credits.fiscalYear}.`
-			: `${credits.total} ${credits.total === 1 ? "crédito" : "créditos"} en ${credits.fiscalYear}${credits.hours > 0 ? ` · ${formatHours(credits.hours)}` : ""}.`;
+		courses.inProgress.length > 0 ||
+		courses.upcoming.length > 0;
+	const moreCourses =
+		counts.inProgress -
+		courses.inProgress.length +
+		(counts.upcoming - courses.upcoming.length);
 
 	return (
 		<DashboardSection
 			title="Tu capacitación"
-			description={creditsLine}
+			description="Lo que tomas tú como participante."
 			more={{ label: "Mis capacitaciones", to: MY_COURSES }}
 		>
-			{!hasMain && !hasSide ? (
-				<Card size="sm">
-					<CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<div className="flex items-start gap-3">
-							<BookOpen
-								className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-								aria-hidden="true"
-							/>
-							<div className="flex flex-col gap-0.5">
-								<p className="font-medium text-sm">
-									{counts.finished > 0
-										? "No tienes capacitaciones en curso."
-										: "Aún no estás inscrito en ninguna capacitación."}
-								</p>
-								<p className="text-muted-foreground text-sm">
-									En el catálogo están las que tu dependencia y las demás
-									abrieron para ti.
-								</p>
-							</div>
+			<Card className="@container gap-0 py-0">
+				<div className="grid divide-y @2xl:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_minmax(0,1fr)] @2xl:divide-x @2xl:divide-y-0">
+					<div className="flex flex-col gap-2 px-5 py-5 @xl:px-6">
+						<ColumnTitle title={`Créditos en ${credits.fiscalYear}`} />
+						<p className="font-bold text-4xl text-foreground tabular-nums tracking-tight">
+							{credits.total}
+						</p>
+						{credits.hours > 0 && (
+							<p className="text-muted-foreground text-xs tabular-nums">
+								{formatHours(credits.hours)} acreditadas
+							</p>
+						)}
+					</div>
+					<div className="px-5 py-5 @xl:px-6">
+						<ToRateColumn courses={courses.toRate} total={counts.toRate} />
+					</div>
+					<div className="px-5 py-5 @xl:px-6">
+						<CertificatesColumn certificates={certificates} />
+					</div>
+				</div>
+			</Card>
+
+			{hasCourses ? (
+				<TableCard>
+					{invitations.length > 0 && (
+						<TableGroup label="Invitaciones">
+							{invitations.map((invitation) => (
+								<SimpleRow
+									key={invitation.courseDocumentId}
+									title={invitation.title}
+									href={myCourseHref(invitation.courseDocumentId)}
+									detail={invitationDetail(invitation)}
+								/>
+							))}
+						</TableGroup>
+					)}
+					{courses.inProgress.length > 0 && (
+						<TableGroup label="En curso">
+							{courses.inProgress.map((course) => (
+								<InProgressRow key={course.courseDocumentId} course={course} />
+							))}
+						</TableGroup>
+					)}
+					{courses.upcoming.length > 0 && (
+						<TableGroup label="Por empezar">
+							{courses.upcoming.map((course) => (
+								<SimpleRow
+									key={course.courseDocumentId}
+									title={course.title}
+									href={myCourseHref(course.courseDocumentId)}
+									detail={startsPhrase(course)}
+								/>
+							))}
+						</TableGroup>
+					)}
+					{moreCourses > 0 && (
+						<TableFooter>
+							<OverflowLink count={moreCourses} to={MY_COURSES} />
+						</TableFooter>
+					)}
+				</TableCard>
+			) : (
+				counts.finished === 0 && (
+					<div className="flex flex-col gap-3 rounded-2xl bg-card px-5 py-4 text-sm ring-1 ring-foreground/5 sm:flex-row sm:items-center sm:justify-between dark:ring-foreground/10">
+						<div className="flex flex-col gap-0.5">
+							<p className="font-medium text-foreground">
+								Aún no estás inscrito en ninguna capacitación.
+							</p>
+							<p className="text-muted-foreground">
+								En el catálogo están las que tu dependencia y las demás abrieron
+								para ti.
+							</p>
 						</div>
-						<Button asChild size="sm" variant="outline">
+						<Button
+							asChild
+							size="sm"
+							variant="outline"
+							className="self-start sm:self-auto"
+						>
 							<Link to="/dashboard/catalogo-de-capacitaciones">
 								Explorar el catálogo
 							</Link>
 						</Button>
-					</CardContent>
-				</Card>
-			) : (
-				<div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-					{hasMain && (
-						<Card className={hasSide ? undefined : "lg:col-span-2"}>
-							<CardContent className="flex flex-col gap-6">
-								{courses.inProgress.length > 0 && (
-									<SideList title="En curso">
-										<DashboardList>
-											{courses.inProgress.map((course) => (
-												<InProgressItem
-													key={course.courseDocumentId}
-													course={course}
-												/>
-											))}
-										</DashboardList>
-										<OverflowLink
-											count={counts.inProgress - courses.inProgress.length}
-											to={MY_COURSES}
-										/>
-									</SideList>
-								)}
-								{courses.upcoming.length > 0 && (
-									<SideList title="Por empezar">
-										<DashboardList>
-											{courses.upcoming.map((course) => (
-												<DashboardListItem
-													key={course.courseDocumentId}
-													title={course.title}
-													href={myCourseHref(course.courseDocumentId)}
-													meta={startsPhrase(
-														course.daysToStart,
-														course.firstSessionAt,
-													)}
-												/>
-											))}
-										</DashboardList>
-										<OverflowLink
-											count={counts.upcoming - courses.upcoming.length}
-											to={MY_COURSES}
-										/>
-									</SideList>
-								)}
-							</CardContent>
-						</Card>
-					)}
-
-					{hasSide && (
-						<Card size="sm" className={hasMain ? undefined : "lg:col-span-2"}>
-							<CardContent className="flex flex-col gap-5">
-								{invitations.length > 0 && (
-									<SideList title="Invitaciones">
-										<DashboardList>
-											{invitations.map((invitation) => (
-												<DashboardListItem
-													key={invitation.courseDocumentId}
-													title={invitation.title}
-													href={myCourseHref(invitation.courseDocumentId)}
-													meta={
-														invitation.closesAt
-															? `Responde antes del ${formatZonedDate(new Date(invitation.closesAt))}`
-															: invitation.dependencyName
-													}
-												/>
-											))}
-										</DashboardList>
-									</SideList>
-								)}
-								{courses.toRate.length > 0 && (
-									<SideList title="Por valorar">
-										<DashboardList>
-											{courses.toRate.map((course) => (
-												<DashboardListItem
-													key={course.courseDocumentId}
-													leading={
-														<Star
-															className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-															aria-hidden="true"
-														/>
-													}
-													title={course.title}
-													href={myCourseHref(course.courseDocumentId)}
-													meta="Tu valoración ayuda a mejorar el curso."
-												/>
-											))}
-										</DashboardList>
-										<OverflowLink
-											count={counts.toRate - courses.toRate.length}
-											to={MY_COURSES}
-										/>
-									</SideList>
-								)}
-								{certificates.length > 0 && (
-									<SideList title="Certificados recientes">
-										<DashboardList>
-											{certificates.map((certificate) => (
-												<DashboardListItem
-													key={certificate.documentId}
-													title={certificate.courseTitle}
-													href="/dashboard/mis-certificados"
-													meta={`Emitido el ${certificate.issuedOn} · Folio ${certificate.folio}`}
-												/>
-											))}
-										</DashboardList>
-									</SideList>
-								)}
-							</CardContent>
-						</Card>
-					)}
-				</div>
+					</div>
+				)
 			)}
 		</DashboardSection>
 	);

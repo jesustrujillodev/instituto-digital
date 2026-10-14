@@ -10,13 +10,18 @@ import type { SessionUser } from "@/shared/auth/session-user";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Button } from "@/shared/components/ui/button";
 import { useAuth } from "@/shared/hooks/use-auth";
+import { AttentionSection } from "../../components/attention-section";
 import { LearningSection } from "../../components/learning-section";
-import { OrganizingSection } from "../../components/organizing-section";
+import { OpenEnrollmentSection } from "../../components/open-enrollment-section";
+import { PlanCard } from "../../components/plan-card";
 import {
 	PlanCoverageSection,
 	PlatformAttention,
+	PlatformStatusStrip,
 } from "../../components/platform-section";
-import { TodayPanel } from "../../components/today-panel";
+import { TodaySection } from "../../components/today-section";
+import { DASHBOARD_LIMITS } from "../../domain/dashboard.config";
+import { buildPlatformAttention } from "../../domain/dashboard.rules";
 import type { DashboardData } from "../../domain/dashboard.types";
 import { shouldRevalidateDashboard } from "../../utils/dashboard-revalidation";
 import type { Route } from "./+types/index";
@@ -76,44 +81,61 @@ export default function DashboardHomePage({
 }: Route.ComponentProps) {
 	const data = loaderData.data;
 	const user = useAuth();
-	const { header, facets, today, week, platform, organizing, learning } = data;
-
-	const scopedToCreator =
-		facets.organizes && !facets.plans && user.role === "USER";
+	const { header, today, attention, week, platform, organizing, learning } =
+		data;
 
 	return (
 		<div className="flex flex-col gap-10 pb-10">
-			<PageHeader
-				title={header.firstName ? `Hola, ${header.firstName}` : "Hola"}
-				description={`${formatDayLabel(week.today)} · ${roleLineOf(user, header.dependencyName)}`}
-				actions={<Shortcuts data={data} />}
-				collapseActionsOnMobile
-			/>
-
-			<div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-				{today ? (
-					<TodayPanel today={today} />
-				) : (
-					platform && (
-						<PlatformAttention
-							health={platform.health}
-							activeSessions={platform.activeSessions}
-							withoutHead={platform.withoutHead}
-						/>
-					)
+			<div className="flex flex-col gap-6">
+				<PageHeader
+					title={header.firstName ? `Hola, ${header.firstName}` : "Hola"}
+					description={`${formatDayLabel(week.today)} · ${roleLineOf(user, header.dependencyName)}`}
+					actions={<Shortcuts data={data} />}
+					collapseActionsOnMobile
+				/>
+				{platform && (
+					<PlatformStatusStrip
+						health={platform.health}
+						activeSessions={platform.activeSessions}
+					/>
 				)}
-				<CalendarWeekCard week={week} />
 			</div>
 
-			{platform && <PlanCoverageSection coverage={platform.coverage} />}
-
-			{organizing && (
-				<OrganizingSection
-					organizing={organizing}
-					dependencyName={header.dependencyName}
-					scopedToCreator={scopedToCreator}
-				/>
-			)}
+			<div className="grid items-start gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+				<div className="flex min-w-0 flex-col gap-10 empty:hidden">
+					{today && <TodaySection today={today} />}
+					{platform ? (
+						<>
+							<PlatformAttention
+								attention={buildPlatformAttention(
+									platform,
+									DASHBOARD_LIMITS.withoutHead,
+								)}
+								personal={attention}
+								fiscalYear={platform.coverage.fiscalYear}
+								today={week.today}
+							/>
+							<PlanCoverageSection coverage={platform.coverage} />
+						</>
+					) : (
+						attention && (
+							<AttentionSection attention={attention} today={week.today} />
+						)
+					)}
+					{organizing && (
+						<OpenEnrollmentSection
+							summary={organizing.openEnrollment}
+							today={week.today}
+						/>
+					)}
+				</div>
+				<div className="flex min-w-0 flex-col gap-6">
+					<CalendarWeekCard week={week} />
+					{organizing?.plan && (
+						<PlanCard summary={organizing.plan} today={week.today} />
+					)}
+				</div>
+			</div>
 
 			{learning && <LearningSection learning={learning} />}
 		</div>

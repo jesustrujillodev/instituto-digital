@@ -153,7 +153,7 @@ describe("dashboard loader", () => {
 			platform: null,
 			organizing: null,
 			learning: { invitations: [{ courseDocumentId: "calma" }] },
-			today: { items: [{ kind: "invitation", courseDocumentId: "urge" }] },
+			attention: { items: [{ kind: "invitation", courseDocumentId: "urge" }] },
 		});
 	});
 
