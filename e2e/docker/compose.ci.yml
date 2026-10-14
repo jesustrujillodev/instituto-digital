@@ -4,16 +4,16 @@
 services:
   db-setup:
     build:
-      cache_from: [type=gha,scope=build-env]
-      cache_to: [type=gha,scope=build-env,mode=max]
+      cache_from: ["type=gha,scope=build-env"]
+      cache_to: ["type=gha,scope=build-env,mode=max"]
   web:
     build:
-      cache_from: [type=gha,scope=app]
-      cache_to: [type=gha,scope=app,mode=max]
+      cache_from: ["type=gha,scope=app"]
+      cache_to: ["type=gha,scope=app,mode=max"]
   # La misma imagen: leen la caché que escribe `web`.
   worker:
     build:
-      cache_from: [type=gha,scope=app]
+      cache_from: ["type=gha,scope=app"]
   web-inline:
     build:
-      cache_from: [type=gha,scope=app]
+      cache_from: ["type=gha,scope=app"]
