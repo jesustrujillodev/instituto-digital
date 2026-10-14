@@ -1,0 +1,23 @@
+# TLS delante de la app, como el borde de Railway: en producción APP_BASE_URL
+# exige https y las cookies viajan con `Secure` y prefijo `__Host-`. El bucket
+# también va por https, o el navegador bloquearía la subida directa desde una
+# página https (contenido mixto).
+{
+	local_certs
+	skip_install_trust
+}
+
+queued.idc.test {
+	tls internal
+	reverse_proxy web:3000
+}
+
+inline.idc.test {
+	tls internal
+	reverse_proxy web-inline:3000
+}
+
+storage.idc.test {
+	tls internal
+	reverse_proxy minio:9000
+}

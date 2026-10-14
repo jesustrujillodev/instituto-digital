@@ -1,0 +1,19 @@
+# Solo en GitHub Actions (COMPOSE_TEST_OVERRIDE): la caché de capas de la imagen
+# vive en la caché de Actions, así que un PR sin cambios de dependencias no
+# reinstala Chromium ni node_modules.
+services:
+  db-setup:
+    build:
+      cache_from: [type=gha,scope=build-env]
+      cache_to: [type=gha,scope=build-env,mode=max]
+  web:
+    build:
+      cache_from: [type=gha,scope=app]
+      cache_to: [type=gha,scope=app,mode=max]
+  # La misma imagen: leen la caché que escribe `web`.
+  worker:
+    build:
+      cache_from: [type=gha,scope=app]
+  web-inline:
+    build:
+      cache_from: [type=gha,scope=app]

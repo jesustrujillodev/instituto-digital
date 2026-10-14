@@ -1,0 +1,223 @@
+# Entorno efímero de las pruebas de integración y E2E (docs/testing/01-integracion-y-e2e.md).
+# Nunca apunta a Neon: todo vive aquí y se borra con `down -v`.
+#
+#   Infraestructura (sin perfil)  → la usa `bun run test:integration` desde el host.
+#   Perfil `app`                  → la imagen del Dockerfile en las dos formas de
+#                                   despliegue: `queued` (web + Redis + worker) e
+#                                   `inline` (solo web, como QA hoy).
+#   Perfil `e2e`                  → el contenedor de Playwright.
+#
+# Puertos en 127.0.0.1 y distintos de compose.yml para convivir con el entorno de
+# desarrollo.
+name: idc-test
+
+x-app-env: &app-env
+  NODE_ENV: production
+  JWT_SECRET: e2e-jwt-secret-solo-para-pruebas-0123456789
+  COOKIE_SECRET: e2e-cookie-secret-solo-para-pruebas-012345
+  CLIENT_IP_SOURCE: proxy
+  TRUSTED_PROXY_HOPS: "1"
+  # Todo el tráfico de Playwright sale de una sola IP. El límite por email sí se
+  # prueba con su valor por defecto.
+  AUTH_LOGIN_MAX_PER_IP: "1000"
+  STORAGE_PROVIDER: s3
+  STORAGE_ENDPOINT: https://storage.idc.test
+  STORAGE_FORCE_PATH_STYLE: "true"
+  STORAGE_REGION: us-east-1
+  STORAGE_ACCESS_KEY_ID: minioadmin
+  STORAGE_SECRET_ACCESS_KEY: minioadmin
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  MAIL_FROM: "Instituto Digital de Capacitación <no-responder@idc.test>"
+  # La CA interna de Caddy, para que el SDK de S3 confíe en storage.idc.test.
+  NODE_EXTRA_CA_CERTS: /caddy-ca/root.crt
+
+x-app: &app
+  build:
+    context: .
+  image: idc-test-app
+  profiles: [app]
+  volumes:
+    - caddy_ca:/caddy-ca:ro
+  depends_on: &app-depends
+    db-setup:
+      condition: service_completed_successfully
+    caddy-ca:
+      condition: service_completed_successfully
+    mailpit:
+      condition: service_started
+    minio-init:
+      condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: idc_queued
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - ./e2e/docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "idc_integration"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+
+  minio:
+    image: minio/minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "127.0.0.1:59000:9000"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      retries: 30
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./e2e/docker/minio-init.sh:/minio-init.sh:ro
+    entrypoint: ["/bin/sh", "/minio-init.sh"]
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "127.0.0.1:51025:1025"
+      - "127.0.0.1:58025:8025"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [app]
+    volumes:
+      - ./e2e/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      default:
+        aliases: [queued.idc.test, inline.idc.test, storage.idc.test]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/data/caddy/pki/authorities/local/root.crt"]
+      interval: 2s
+      retries: 30
+
+  # Caddy guarda su CA en un directorio que solo lee root, y la app corre como
+  # `node`: se copia el certificado raíz (no la llave) con permiso de lectura.
+  caddy-ca:
+    image: caddy:2-alpine
+    profiles: [app]
+    depends_on:
+      caddy:
+        condition: service_healthy
+    volumes:
+      - caddy_data:/data:ro
+      - caddy_ca:/ca
+    entrypoint: ["/bin/sh", "-c", "cp /data/caddy/pki/authorities/local/root.crt /ca/root.crt && chmod 644 /ca/root.crt"]
+
+  # Schema por `db push` (no hay prisma/migrations; la base nace vacía en tmpfs,
+  # sin --force-reset) y seed en las dos bases. Usa la etapa `build-env` del
+  # Dockerfile, que ya trae bun y el código.
+  db-setup:
+    build:
+      context: .
+      target: build-env
+    profiles: [app]
+    environment:
+      NODE_ENV: development
+      JWT_SECRET: e2e-jwt-secret-solo-para-pruebas-0123456789
+      COOKIE_SECRET: e2e-cookie-secret-solo-para-pruebas-012345
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for db in idc_queued idc_inline; do
+          export DATABASE_URL="postgresql://postgres:password@postgres:5432/$$db"
+          bunx prisma db push
+          bun prisma/seed.ts
+        done
+
+  web:
+    <<: *app
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/idc_queued
+      APP_BASE_URL: https://queued.idc.test
+      STORAGE_BUCKET_NAME: queued-storage
+      STORAGE_PUBLIC_BUCKET_NAME: queued-public
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: "queued:"
+    depends_on:
+      <<: *app-depends
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *app
+    command: ["node", "--enable-source-maps", "build/worker/index.js"]
+    environment:
+      <<: *app-env
+      CLIENT_IP_SOURCE: none
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/idc_queued
+      APP_BASE_URL: https://queued.idc.test
+      STORAGE_BUCKET_NAME: queued-storage
+      STORAGE_PUBLIC_BUCKET_NAME: queued-public
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: "queued:"
+    # El HEALTHCHECK de la imagen pide el puerto de la web, que el worker no abre.
+    healthcheck:
+      disable: true
+    depends_on:
+      <<: *app-depends
+      redis:
+        condition: service_healthy
+
+  web-inline:
+    <<: *app
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/idc_inline
+      APP_BASE_URL: https://inline.idc.test
+      STORAGE_BUCKET_NAME: inline-storage
+      STORAGE_PUBLIC_BUCKET_NAME: inline-public
+      # Sin Redis el web sondea el outbox; corto para no alargar las esperas.
+      EMAIL_WORKER_INTERVAL_S: "2"
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    profiles: [e2e]
+    working_dir: /work
+    volumes:
+      - .:/work
+    environment:
+      CI: ${CI:-}
+    ipc: host
+    entrypoint: ["node", "node_modules/@playwright/test/cli.js", "test", "-c", "e2e/playwright.config.ts"]
+
+volumes:
+  caddy_data:
+  caddy_ca:
