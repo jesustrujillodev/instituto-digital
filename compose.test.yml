@@ -1,0 +1,173 @@
+# Entorno efímero de las pruebas de integración y E2E (docs/testing/01-integracion-y-e2e.md).
+# Nunca apunta a Neon: todo vive aquí y se borra con `down -v`.
+#
+#   Infraestructura (sin perfil)  → la usa `bun run test:integration` desde el host.
+#   Perfil `app`                  → la imagen del Dockerfile en las dos formas de
+#                                   despliegue: `queued` (web + Redis + worker) e
+#                                   `inline` (solo web, como QA hoy).
+#   Perfil `e2e`                  → el contenedor de Playwright.
+#
+# Puertos en 127.0.0.1 y distintos de compose.yml para convivir con el entorno de
+# desarrollo.
+name: idc-test
+
+x-app-env: &app-env
+  NODE_ENV: production
+  JWT_SECRET: e2e-jwt-secret-solo-para-pruebas-0123456789
+  COOKIE_SECRET: e2e-cookie-secret-solo-para-pruebas-012345
+  CLIENT_IP_SOURCE: proxy
+  TRUSTED_PROXY_HOPS: "1"
+  # Todo el tráfico de Playwright sale de una sola IP. El límite por email sí se
+  # prueba con su valor por defecto.
+  AUTH_LOGIN_MAX_PER_IP: "1000"
+  # Sin almacenamiento (docs/testing/01 §1). La región sola no lo activa, pero sin
+  # ella la app no arranca: el contenedor construye el cliente S3 aunque falte
+  # STORAGE_PROVIDER, y el SDK lanza con la región vacía (hallazgo §5).
+  STORAGE_REGION: us-east-1
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  MAIL_FROM: "Instituto Digital de Capacitación <no-responder@idc.test>"
+
+x-app: &app
+  build:
+    context: .
+  image: idc-test-app
+  profiles: [app]
+  depends_on: &app-depends
+    db-setup:
+      condition: service_completed_successfully
+    mailpit:
+      condition: service_started
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: idc_queued
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - ./e2e/docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "idc_integration"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "127.0.0.1:51025:1025"
+      - "127.0.0.1:58025:8025"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [app]
+    volumes:
+      - ./e2e/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      default:
+        aliases: [queued.idc.test, inline.idc.test]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/data/caddy/pki/authorities/local/root.crt"]
+      interval: 2s
+      retries: 30
+
+  # Schema por `db push` (no hay prisma/migrations; la base nace vacía en tmpfs,
+  # sin --force-reset) y seed en las dos bases. Usa la etapa `build-env` del
+  # Dockerfile, que ya trae bun y el código.
+  db-setup:
+    build:
+      context: .
+      target: build-env
+    profiles: [app]
+    environment:
+      NODE_ENV: development
+      JWT_SECRET: e2e-jwt-secret-solo-para-pruebas-0123456789
+      COOKIE_SECRET: e2e-cookie-secret-solo-para-pruebas-012345
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for db in idc_queued idc_inline; do
+          export DATABASE_URL="postgresql://postgres:password@postgres:5432/$$db"
+          bunx prisma db push
+          bun prisma/seed.ts
+        done
+
+  web:
+    <<: *app
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/idc_queued
+      APP_BASE_URL: https://queued.idc.test
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: "queued:"
+    depends_on:
+      <<: *app-depends
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *app
+    command: ["node", "--enable-source-maps", "build/worker/index.js"]
+    environment:
+      <<: *app-env
+      CLIENT_IP_SOURCE: none
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/idc_queued
+      APP_BASE_URL: https://queued.idc.test
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: "queued:"
+    # El HEALTHCHECK de la imagen pide el puerto de la web, que el worker no abre.
+    # El proceso sigue vivo: sin Redis o con el arranque roto, sale. Sin
+    # healthcheck, `up --wait` falla en Compose v2.
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 2s
+      retries: 15
+    depends_on:
+      <<: *app-depends
+      redis:
+        condition: service_healthy
+
+  web-inline:
+    <<: *app
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/idc_inline
+      APP_BASE_URL: https://inline.idc.test
+      # Sin Redis el web sondea el outbox; corto para no alargar las esperas.
+      EMAIL_WORKER_INTERVAL_S: "2"
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    profiles: [e2e]
+    working_dir: /work
+    volumes:
+      - .:/work
+    environment:
+      CI: ${CI:-}
+    ipc: host
+    entrypoint: ["node", "node_modules/@playwright/test/cli.js", "test", "-c", "e2e/playwright.config.ts"]
+
+volumes:
+  caddy_data:

@@ -1,0 +1,74 @@
+# Integración contra servicios reales y E2E contra la imagen del Dockerfile
+# (docs/testing/01-integracion-y-e2e.md). Nada de esto corre en los hooks.
+name: Integración y E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: integracion-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Vitest contra Postgres, Redis y Mailpit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      # Prisma 7 no genera el cliente al instalar. prisma.config.ts exige
+      # DATABASE_URL aunque generar no conecte (igual que en el Dockerfile).
+      - run: bunx prisma generate
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+      - run: bun run test:integration
+
+  e2e:
+    name: Playwright contra la imagen (queued e inline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      COMPOSE_TEST_OVERRIDE: e2e/docker/compose.ci.yml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - uses: docker/setup-buildx-action@v3
+      # Expone el token de la caché de Actions a `type=gha` dentro de compose.
+      - uses: crazy-max/ghaction-github-runtime@v3
+      - run: bun run test:e2e
+      - name: La imagen no arranca con los secretos de ejemplo
+        run: |
+          set +e
+          output=$(docker run --rm \
+            -e NODE_ENV=production \
+            -e DATABASE_URL=postgresql://x:x@localhost:5432/x \
+            -e JWT_SECRET=change-me-to-a-long-random-secret-of-32-chars-min \
+            -e COOKIE_SECRET=change-me-to-a-long-random-secret-of-32-chars-min \
+            -e CLIENT_IP_SOURCE=proxy \
+            -e APP_BASE_URL=https://ejemplo.test \
+            idc-test-app 2>&1)
+          status=$?
+          set -e
+          echo "$output"
+          test "$status" -ne 0
+          echo "$output" | grep -q "JWT_SECRET conserva el valor de ejemplo"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright
+          path: |
+            e2e/.report
+            e2e/.results
+          retention-days: 7

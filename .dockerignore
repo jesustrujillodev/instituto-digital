@@ -29,3 +29,7 @@ security-audit
 
 # ── Scripts de desarrollo (no se necesitan en runtime) ───────────────────────
 scripts/
+# ── Pruebas de integración y E2E (corren fuera de la imagen) ─────────────────
+e2e
+compose.test.yml
+vitest.integration.*

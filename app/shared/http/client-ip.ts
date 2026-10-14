@@ -34,6 +34,24 @@ export const clientIpPolicyOf = (config: {
 };
 
 /**
+ * Los saltos de proxy en los que confía Express (`trust proxy`): los mismos que
+ * `getClientIp`. Detrás de un borde TLS (Railway, Cloudflare) el esquema real
+ * solo llega en X-Forwarded-Proto, y React Router arma `request.url` con él:
+ * sin confiar en el proxy, la URL queda en `http://` y su protección CSRF
+ * rechaza todo action que el navegador manda con `Origin: https://…`.
+ */
+export const trustedProxyHopsOf = (policy: ClientIpPolicy): number => {
+	switch (policy.source) {
+		case "proxy":
+			return policy.trustedHops;
+		case "cloudflare":
+			return 1;
+		case "none":
+			return 0;
+	}
+};
+
+/**
  * La IP es la clave de los límites por IP y se guarda en la sesión, así que
  * solo se lee de donde la escribe un proxy de confianza. Cada proxy AGREGA al
  * final de X-Forwarded-For la IP que vio: lo de la izquierda lo escribió el

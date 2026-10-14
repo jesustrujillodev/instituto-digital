@@ -9,6 +9,9 @@ export default defineConfig({
 		// obligatoria de pruebas"). Un test co-localizado con su archivo no corre:
 		// la convencion falla de forma visible en vez de depender de disciplina.
 		include: ["app/**/__tests__/**/*.test.{ts,tsx}"],
+		// Necesitan los servicios de compose.test.yml: corren con
+		// `bun run test:integration` (vitest.integration.config.ts).
+		exclude: ["**/node_modules/**", "**/*.int.test.ts"],
 		globals: false,
 		// Los mensajes en español de valibot se registran en un store global al
 		// importar el modulo, y en la app eso lo hace `app/root.tsx`. Sin esto la
@@ -40,8 +43,9 @@ export default defineConfig({
 				// Testing Library, que no estan en el proyecto (ver "Huecos conocidos"
 				// en docs/testing/00-inventario-tests.md).
 				"app/**/hooks/**",
-				// Exigen integracion real (BD o SDK del proveedor), no unidad. Quedan
-				// como hueco declarado en docs/testing/00-inventario-tests.md.
+				// Exigen integracion real (BD o SDK del proveedor), no unidad: los
+				// prueban `bun run test:integration` y `bun run test:e2e`, que no
+				// cuentan para este umbral (docs/testing/01-integracion-y-e2e.md).
 				"app/core/db.server.ts",
 				"app/shared/di/container.server.ts",
 				"app/shared/storage/s3.adapter.ts",

@@ -925,19 +925,18 @@ mensaje de un error de infraestructura viajaría al cliente.
   `app/modules/theme/hooks/`) no están cubiertos y quedan fuera del cómputo de
   cobertura. Los loaders y actions **sí** lo están: se
   ejercitan con un cradle falso y `Request` estándar, sin levantar el framework.
-- **Sin tests de integración contra la base.** Los repositorios Prisma
-  (`app/modules/*/infrastructure/*.repository.server.ts`) se ejercitan solo a
-  través de dobles en los tests de aplicación. Falta el contract test que
-  [reglas.md §12](../reglas.md) exige para los adaptadores.
-- **Adaptadores de storage sin integración.** `s3.adapter.ts` y `gcs.adapter.ts`
-  solo se cubren indirectamente: `storage.factory.test.ts` verifica qué config
-  reciben, no que hablen correctamente con el proveedor. La excepción es la URL
-  de subida de S3: `s3.adapter.presign.test.ts` la firma con el SDK real, sin red,
-  y comprueba que fija el `Content-Type`. El resto del subsistema
-  —transacción, política, keys, MIME y el proxy— sí tiene cobertura completa.
-- **Composition root sin cobertura.** `container.server.ts` cablea el contenedor y
-  ejecuta el silent refresh por petición; probarlo de verdad exige levantar una
-  petición completa contra una base real.
+- **Integración contra la base, parcial.** El SQL crudo de los repositorios
+  (bloqueos, outbox, epoch) se prueba contra Postgres real con
+  `bun run test:integration` ([01-integracion-y-e2e.md](./01-integracion-y-e2e.md)).
+  El resto de los repositorios Prisma se sigue ejercitando solo con dobles, y esas
+  pruebas no entran en el cómputo de cobertura.
+- **Adaptadores de storage sin integración, a propósito.** `s3.adapter.ts` y
+  `gcs.adapter.ts` se cubren con pruebas unitarias; un S3 local no reproduciría lo que
+  falla contra el bucket de producción (credenciales, endpoint, CORS). Ver
+  [01-integracion-y-e2e.md §1](./01-integracion-y-e2e.md).
+- **Composition root sin cobertura unitaria.** `container.server.ts` y
+  `worker.server.ts` se ejercitan de punta a punta en el E2E contra la imagen
+  (`bun run test:e2e`), no en `bun run test`.
 
 ## Hallazgos resueltos
 
