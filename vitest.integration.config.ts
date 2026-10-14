@@ -30,11 +30,19 @@ export default defineConfig({
 			// SMTP, y una variable que se colara cambiaría lo que se prueba.
 			DOTENV_CONFIG_PATH: ".env.integration-no-existe",
 			DOTENV_CONFIG_QUIET: "true",
+			// Tampoco la config de AWS del desarrollador: su región tapaba que el
+			// contenedor no arranca sin STORAGE_REGION (CI no la tiene).
+			AWS_CONFIG_FILE: ".aws-integration-no-existe",
+			AWS_SHARED_CREDENTIALS_FILE: ".aws-integration-no-existe",
 			DATABASE_URL:
 				"postgresql://postgres:password@127.0.0.1:55432/idc_integration",
 			JWT_SECRET: "test-jwt-secret-de-al-menos-32-caracteres",
 			COOKIE_SECRET: "test-cookie-secret-de-al-menos-32-chars",
 			REDIS_TEST_URL: "redis://127.0.0.1:56379",
+			// Sin almacenamiento, como el E2E: la región sola no lo activa, pero el
+			// contenedor construye el cliente S3 y sin ella no carga
+			// (docs/testing/01-integracion-y-e2e.md §5).
+			STORAGE_REGION: "us-east-1",
 			SMTP_HOST: "127.0.0.1",
 			SMTP_PORT: "51025",
 			MAIL_FROM: "Instituto Digital <no-responder@idc.test>",

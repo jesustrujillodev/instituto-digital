@@ -10,12 +10,12 @@ en los hooks de husky: necesitan Docker y tardan minutos.
 | Integración | `bun run test:integration` | Postgres, Redis y Mailpit de `compose.test.yml`, desde el host | ¿El SQL crudo, las colas y los adaptadores de Redis y SMTP hacen lo que prometen? |
 | E2E | `bun run test:e2e` | La imagen del `Dockerfile`, en las dos formas de despliegue | ¿Lo que se despliega arranca y sus flujos cruzan bien todos los servicios? |
 
-Las dos aceptan `--keep` para dejar el entorno arriba al terminar, y lo que va después
-de `--` pasa al runner:
+Las dos aceptan `--keep` para dejar el entorno arriba al terminar; el resto de los
+argumentos pasa al runner:
 
 ```bash
-bun run test:integration -- app/shared/queue        # solo un directorio
-bun run test:e2e --keep -- --project=queued         # una topología, sin bajar nada
+bun run test:integration app/shared/queue           # solo un directorio
+bun run test:e2e --keep --project=queued            # una topología, sin bajar nada
 docker compose -f compose.test.yml --profile app down -v   # bajarlo después
 ```
 
@@ -39,7 +39,9 @@ Es un proyecto aparte (`idc-test`) con puertos propios, así que convive con
 `globalSetup` de la integración (`vitest.integration.setup.ts`) aborta antes de
 conectarse si `DATABASE_URL` no apunta a `127.0.0.1:55432`. Además
 `vitest.integration.config.ts` desactiva el `.env` del desarrollador
-(`DOTENV_CONFIG_PATH`), para que ninguna variable de ahí se cuele en la corrida.
+(`DOTENV_CONFIG_PATH`) y su configuración de AWS (`AWS_CONFIG_FILE`), para que nada de
+ahí se cuele en la corrida: una región en `~/.aws/config` tapaba en local un fallo que
+CI sí veía.
 
 **El schema va por `db push`, sin `--force-reset`.** No hay `prisma/migrations`, y la
 base nace vacía en cada `up`. Prisma además bloquea `--force-reset` cuando lo lanza un
@@ -50,7 +52,7 @@ adaptador habla con *un* S3, no con el bucket de producción: lo que de verdad f
 desplegar (credenciales, endpoint, CORS del bucket) no se reproduce aquí. El adaptador
 y todo el subsistema de storage se cubren con las pruebas unitarias
 ([00-inventario-tests.md](./00-inventario-tests.md)), y la app de E2E corre sin
-`STORAGE_PROVIDER` (solo con `STORAGE_REGION`, ver §5).
+`STORAGE_PROVIDER`. La integración y el E2E declaran solo `STORAGE_REGION` (ver §5).
 
 ## 2. Integración (Vitest)
 
@@ -171,7 +173,7 @@ Además, `bun run test:e2e` comprueba al final que el worker se detiene limpio c
 - **Sin `STORAGE_PROVIDER` la app no arranca.** `.env.example`, `env.server.ts` y
   `DESPLIEGUE.md` dicen que el almacenamiento es opcional, pero `container.server.ts`
   construye el cliente S3 al cargar el módulo aunque falte el proveedor, y el AWS SDK
-  actual lanza `Region is missing` con la región vacía. El E2E declara solo
-  `STORAGE_REGION` para arrancar sin almacenamiento.
+  actual lanza `Region is missing` con la región vacía. La integración y el E2E
+  declaran solo `STORAGE_REGION` para arrancar sin almacenamiento.
 - **El `HEALTHCHECK` de la imagen pide `/`**, que no revisa ni la base ni Redis, y el
   worker no tiene healthcheck (en compose.test.yml solo se comprueba que su proceso siga vivo).

@@ -1,8 +1,8 @@
 // Levanta compose.test.yml, corre las pruebas y lo baja aunque fallen
 // (docs/testing/01-integracion-y-e2e.md).
 //
-//   bun run test:integration [--keep] [-- <args de vitest>]
-//   bun run test:e2e         [--keep] [-- <args de playwright>]
+//   bun run test:integration [--keep] [<args de vitest>]
+//   bun run test:e2e         [--keep] [<args de playwright>]
 //
 // `--keep` deja el entorno arriba para depurar; `docker compose -f
 // compose.test.yml --profile app down -v` lo baja después. Con
@@ -22,10 +22,9 @@ const INFRA = ["postgres", "redis", "mailpit"];
 const APP = ["--profile", "app"];
 
 const [mode, ...rest] = process.argv.slice(2);
-const separator = rest.indexOf("--");
-const flags = separator === -1 ? rest : rest.slice(0, separator);
-const passthrough = separator === -1 ? [] : rest.slice(separator + 1);
-const keep = flags.includes("--keep");
+// `bun run` se come el `--`: todo lo que no es `--keep` va al runner.
+const keep = rest.includes("--keep");
+const passthrough = rest.filter((arg) => arg !== "--keep" && arg !== "--");
 
 const run = (command: string, args: string[]) =>
 	spawnSync(command, args, { stdio: "inherit" }).status ?? 1;
@@ -110,7 +109,7 @@ if (mode === "integration") {
 	finish(status, APP);
 } else {
 	console.error(
-		"Uso: bun scripts/test-stack.ts <integration|e2e> [--keep] [-- args]",
+		"Uso: bun scripts/test-stack.ts <integration|e2e> [--keep] [args del runner]",
 	);
 	process.exit(2);
 }
