@@ -3,6 +3,7 @@ import {
 	type ClientIpPolicy,
 	clientIpPolicyOf,
 	getClientIp,
+	trustedProxyHopsOf,
 } from "../client-ip";
 
 const requestOf = (headers: Record<string, string>) =>
@@ -141,5 +142,19 @@ describe("clientIpPolicyOf", () => {
 		expect(clientIpPolicyOf({ TRUSTED_PROXY_HOPS: 1 })).toEqual({
 			source: "none",
 		});
+	});
+});
+
+// Express confía en X-Forwarded-Proto solo con estos saltos: sin ellos,
+// detrás de un borde TLS React Router rechaza todo action con 400.
+describe("trustedProxyHopsOf", () => {
+	test("confía en los mismos proxies que la IP del cliente", () => {
+		expect(trustedProxyHopsOf(ONE_PROXY)).toBe(1);
+		expect(trustedProxyHopsOf(TWO_PROXIES)).toBe(2);
+		expect(trustedProxyHopsOf(CLOUDFLARE)).toBe(1);
+	});
+
+	test("sin fuente declarada no confía en ninguno", () => {
+		expect(trustedProxyHopsOf(NONE)).toBe(0);
 	});
 });

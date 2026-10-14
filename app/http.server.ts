@@ -13,6 +13,11 @@ import compression from "compression";
 import express from "express";
 import type { ServerBuild } from "react-router";
 import { formatAccessLine } from "@/shared/http/access-log";
+import {
+	type ClientIpPolicy,
+	clientIpPolicyOf,
+	trustedProxyHopsOf,
+} from "@/shared/http/client-ip";
 
 // Antes de cargar la app, que valida el entorno al importarse.
 process.env.NODE_ENV = process.env.NODE_ENV ?? "production";
@@ -26,6 +31,18 @@ const build: ServerBuild = await import(
 
 const app = express();
 app.disable("x-powered-by");
+// El build de arriba ya validó estas variables al importarse (env.server).
+app.set(
+	"trust proxy",
+	trustedProxyHopsOf(
+		clientIpPolicyOf({
+			CLIENT_IP_SOURCE: process.env.CLIENT_IP_SOURCE as
+				| ClientIpPolicy["source"]
+				| undefined,
+			TRUSTED_PROXY_HOPS: Number(process.env.TRUSTED_PROXY_HOPS ?? 1),
+		}),
+	),
+);
 app.use(compression());
 app.use(
 	"/assets",

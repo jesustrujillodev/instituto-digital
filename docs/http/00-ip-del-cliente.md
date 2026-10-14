@@ -77,6 +77,19 @@ mirar la IP de esa sesión en `/dashboard/sesiones`:
 Al poner o quitar un proxy delante (Cloudflare, balanceador) hay que volver a
 ajustar la variable y repetir la comprobación.
 
+### El esquema y el host de la petición
+
+La misma política decide en cuántos saltos confía Express (`trust proxy`, en
+`app/http.server.ts`): `proxy` confía en `TRUSTED_PROXY_HOPS`, `cloudflare` en 1 y
+`none` en ninguno.
+
+De eso depende `request.url`. Detrás de un borde que termina TLS, el esquema real solo
+llega en `X-Forwarded-Proto`. Sin confiar en el proxy, React Router arma la URL con
+`http://`, y desde la 7.18 su protección CSRF compara el origen completo con el
+`Origin` del navegador (`https://…`): **todo action responde 400**, login incluido. El
+E2E (`bun run test:e2e`, que corre detrás de Caddy con TLS) lo detectó; ver
+[testing/01](../testing/01-integracion-y-e2e.md).
+
 ## 4. Cuando no hay IP
 
 Sin IP no se consume ninguna cubeta por IP. Antes todas caían en una cubeta común
@@ -95,5 +108,6 @@ Sin IP no se consume ninguna cubeta por IP. Antes todas caían en una cubeta com
 | Pieza | Qué hace |
 |---|---|
 | `app/core/env.server.ts` | Valida las dos variables y exige `CLIENT_IP_SOURCE` en producción. |
-| `app/shared/http/client-ip.ts` | `clientIpPolicyOf(env)` y `getClientIp(request, policy)`, ambas puras. |
+| `app/shared/http/client-ip.ts` | `clientIpPolicyOf(env)`, `getClientIp(request, policy)` y `trustedProxyHopsOf(policy)`, las tres puras. |
+| `app/http.server.ts` | `trust proxy` de Express con `trustedProxyHopsOf`: el esquema y el host de `request.url`. |
 | `clientIpPolicy` en el cradle | La política ya resuelta. Las rutas la pasan a `getClientIp` y nunca leen el entorno. |
