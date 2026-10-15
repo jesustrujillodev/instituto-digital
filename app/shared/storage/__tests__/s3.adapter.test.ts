@@ -4,6 +4,7 @@ import type { Logger } from "@/shared/logging/logger";
 // Se sustituye el SDK: lo que se prueba es la TRADUCCIÓN entre el puerto y los
 // comandos de S3 (qué se envía y cómo se lee la respuesta), no la red.
 const send = vi.fn();
+const clientConfigs: Record<string, unknown>[] = [];
 
 vi.mock("@aws-sdk/client-s3", () => {
 	const command = (name: string) =>
@@ -15,6 +16,9 @@ vi.mock("@aws-sdk/client-s3", () => {
 	return {
 		S3Client: class {
 			send = send;
+			constructor(config: Record<string, unknown>) {
+				clientConfigs.push(config);
+			}
 		},
 		CreateBucketCommand: command("CreateBucket"),
 		DeleteObjectCommand: command("DeleteObject"),
@@ -29,7 +33,9 @@ vi.mock("@aws-sdk/client-s3", () => {
 const getSignedUrl = vi.fn(async () => "https://firmada");
 vi.mock("@aws-sdk/s3-request-presigner", () => ({ getSignedUrl }));
 
-const { createS3StorageProvider } = await import("../s3.adapter");
+const { createS3StorageProvider, S3_REQUEST_HANDLER } = await import(
+	"../s3.adapter"
+);
 
 const silentLogger: Logger = {
 	debug: () => {},
@@ -213,5 +219,17 @@ describe("statObject", () => {
 		expect(
 			await provider().statObject("b", "documentos/lecciones/no.pdf"),
 		).toBe(null);
+	});
+});
+
+describe("cliente", () => {
+	// Sin tope, un endpoint que acepta la conexión y no contesta (MinIO
+	// arrancando detrás del proxy de Docker) dejaba la subida colgada.
+	test("se crea con tope de conexión y de petición", () => {
+		createS3StorageProvider({}, silentLogger);
+		expect(clientConfigs.at(-1)?.requestHandler).toEqual(S3_REQUEST_HANDLER);
+		expect(S3_REQUEST_HANDLER.connectionTimeout).toBeGreaterThan(0);
+		expect(S3_REQUEST_HANDLER.requestTimeout).toBeGreaterThan(0);
+		expect(S3_REQUEST_HANDLER.throwOnRequestTimeout).toBe(true);
 	});
 });

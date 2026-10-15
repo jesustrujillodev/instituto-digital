@@ -29,6 +29,19 @@ const safeHeaderFilename = (key: string): string =>
 const DELETE_BATCH_SIZE = 1000;
 const MAX_LIST_KEYS = 1000;
 
+/**
+ * Topes de red del cliente, en ms. El SDK no trae ninguno: un endpoint que
+ * acepta la conexión y no contesta dejaba la petición colgada sin fin. El de
+ * petición es de inactividad del socket, no de duración: no corta una subida
+ * grande que avanza. Con los 3 intentos del SDK, lo peor ronda los 35 s.
+ */
+export const S3_REQUEST_HANDLER = {
+	connectionTimeout: 3_000,
+	requestTimeout: 10_000,
+	// Sin esto el SDK solo avisa en el log al vencer el tope, y sigue esperando.
+	throwOnRequestTimeout: true,
+} as const;
+
 export const createS3StorageProvider = (
 	config: StorageConfig,
 	logger: Logger,
@@ -46,6 +59,7 @@ export const createS3StorageProvider = (
 		// lo calcula sobre un cuerpo vacío, y un proveedor que lo valide rechaza
 		// el archivo real.
 		requestChecksumCalculation: "WHEN_REQUIRED",
+		requestHandler: S3_REQUEST_HANDLER,
 	};
 
 	if (config.endpoint) {
