@@ -6,6 +6,17 @@ import {
 	type SessionRefs,
 	sessionNumberLabel,
 } from "@/modules/courses/utils/session-label";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/shared/components/ui/alert-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -131,35 +142,63 @@ export function FollowUpBoardPanel({
 									>
 										{STATE_LABELS[followUp.state]}
 									</Badge>
-									{manual && board.canToggle && followUp.state !== "CLOSED" && (
-										<Button
-											type="button"
-											size="sm"
-											variant={
-												followUp.state === "OPEN" ? "outline" : "default"
-											}
-											disabled={busy || followUp.questionCount === 0}
-											onClick={() =>
-												toggle(
-													followUp.state === "OPEN"
-														? CONTENT_INTENTS.closeFollowUp
-														: CONTENT_INTENTS.openFollowUp,
-													followUp.documentId,
-												)
-											}
-										>
-											{followUp.state === "OPEN" ? (
-												<>
+									{manual &&
+										board.canToggle &&
+										followUp.state === "SCHEDULED" && (
+											<Button
+												type="button"
+												size="sm"
+												disabled={busy || followUp.questionCount === 0}
+												onClick={() =>
+													toggle(
+														CONTENT_INTENTS.openFollowUp,
+														followUp.documentId,
+													)
+												}
+											>
+												<Play aria-hidden="true" />
+												Abrir
+											</Button>
+										)}
+									{manual && board.canToggle && followUp.state === "OPEN" && (
+										<AlertDialog>
+											<AlertDialogTrigger asChild>
+												<Button
+													type="button"
+													size="sm"
+													variant="outline"
+													disabled={busy || followUp.questionCount === 0}
+												>
 													<Lock aria-hidden="true" />
 													Cerrar
-												</>
-											) : (
-												<>
-													<Play aria-hidden="true" />
-													Abrir
-												</>
-											)}
-										</Button>
+												</Button>
+											</AlertDialogTrigger>
+											<AlertDialogContent>
+												<AlertDialogHeader>
+													<AlertDialogTitle>
+														¿Cerrar «{followUp.title}»?
+													</AlertDialogTitle>
+													<AlertDialogDescription>
+														{followUp.countsTowardGrade
+															? "Nadie podrá presentarla después y no se puede volver a abrir. Quien no la haya presentado queda con 0 en esta evaluación."
+															: "Nadie podrá presentarla después y no se puede volver a abrir."}
+													</AlertDialogDescription>
+												</AlertDialogHeader>
+												<AlertDialogFooter>
+													<AlertDialogCancel>Cancelar</AlertDialogCancel>
+													<AlertDialogAction
+														onClick={() =>
+															toggle(
+																CONTENT_INTENTS.closeFollowUp,
+																followUp.documentId,
+															)
+														}
+													>
+														Cerrar evaluación
+													</AlertDialogAction>
+												</AlertDialogFooter>
+											</AlertDialogContent>
+										</AlertDialog>
 									)}
 								</div>
 							</div>

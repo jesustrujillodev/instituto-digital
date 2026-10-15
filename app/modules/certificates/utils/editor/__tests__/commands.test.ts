@@ -5,6 +5,7 @@ import {
 	type DesignElement,
 	designV2Schema,
 } from "../../../domain/design/design-v2.schema";
+import { aabbOf, intersects, isInside } from "../../../domain/design/geometry";
 import {
 	addElements,
 	DUPLICATE_OFFSET_PT,
@@ -25,6 +26,7 @@ import {
 	createTextElement,
 	isMandatory,
 	keepsAspect,
+	placeInFreeSpot,
 } from "../elements";
 
 const design = PRESETS.institucional;
@@ -84,6 +86,47 @@ describe("elementos nuevos", () => {
 		expect(isMandatory(text)).toBe(false);
 		expect(keepsAspect(qr) && keepsAspect(logo)).toBe(true);
 		expect(keepsAspect(text)).toBe(false);
+	});
+
+	test("lo insertado no tapa al participante ni a lo recién insertado", () => {
+		let current = design;
+		const inserted: DesignElement[] = [];
+		const next = counter();
+		const participant = design.elements.find((e) =>
+			(e as { content?: string }).content?.includes("{participante}"),
+		) as DesignElement;
+		for (const make of [
+			(id: string) => createTextElement(id, page),
+			(id: string) => createShapeElement(id, page, "rect"),
+			(id: string) => createShapeElement(id, page, "ellipse"),
+			(id: string) => createShapeElement(id, page, "line"),
+			(id: string) => createFieldElement(id, page, "fecha"),
+		]) {
+			const placed = placeInFreeSpot(make(next()), current.elements, page);
+			for (const other of [participant, ...inserted])
+				expect(intersects(aabbOf(placed), aabbOf(other))).toBe(false);
+			expect(isInside(placed, { x: 0, y: 0, ...page })).toBe(true);
+			inserted.push(placed);
+			current = addElements(current, [placed]);
+		}
+	});
+
+	test("en una página vacía lo insertado queda centrado", () => {
+		const text = createTextElement("t", page);
+		expect(placeInFreeSpot(text, [], page)).toEqual(text);
+	});
+
+	test("sin hueco libre, lo insertado no cae sobre lo recién insertado", () => {
+		const full = createShapeElement("fondo", page, "rect");
+		const cover = { ...full, x: 0, y: 0, w: page.w, h: page.h };
+		const first = placeInFreeSpot(createTextElement("a", page), [cover], page);
+		const second = placeInFreeSpot(
+			createTextElement("b", page),
+			[cover, first],
+			page,
+		);
+		expect(intersects(first, second)).toBe(false);
+		expect(isInside(second, { x: 0, y: 0, ...page })).toBe(true);
 	});
 });
 

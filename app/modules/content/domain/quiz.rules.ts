@@ -113,6 +113,10 @@ const ownedBySingleParent = <T extends QuizOwnerRef>(entry: T) =>
 		entry.followUpDocumentId ?? null,
 	].filter((id) => id !== null).length <= 1;
 
+/**
+ * El rechazo va al campo de la lección (`v.forward`): un `v.check` sobre el
+ * objeto no lleva ruta, y `toFieldErrors` descarta lo que no la tiene.
+ */
 const OWNER_CONFLICT_MESSAGE =
 	"Un cuestionario cuelga de una lección, de un módulo o de una sesión, no de varios.";
 
@@ -217,17 +221,23 @@ const questions = v.pipe(
 
 export const saveQuizRule = v.pipe(
 	v.object({ ...owner, ...bankFields, questions }),
-	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+	v.forward(v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE), [
+		"lessonDocumentId",
+	]),
 );
 
 export const renameQuizRule = v.pipe(
 	v.object({ ...owner, title }),
-	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+	v.forward(v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE), [
+		"lessonDocumentId",
+	]),
 );
 
 export const findQuizRule = v.pipe(
 	v.object(owner),
-	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+	v.forward(v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE), [
+		"lessonDocumentId",
+	]),
 );
 
 export const submitQuizRule = v.pipe(
@@ -244,14 +254,18 @@ export const submitQuizRule = v.pipe(
 			v.maxLength(QUIZ_MAX_QUESTIONS, "Hay más respuestas que preguntas."),
 		),
 	}),
-	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+	v.forward(v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE), [
+		"lessonDocumentId",
+	]),
 );
 
 export const moduleQuizRule = v.object({ moduleDocumentId: documentId });
 
 export const grantRetakeRule = v.pipe(
 	v.object({ ...owner, userDocumentId: documentId }),
-	v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE),
+	v.forward(v.check(ownedBySingleParent, OWNER_CONFLICT_MESSAGE), [
+		"lessonDocumentId",
+	]),
 );
 
 const followUpMinutes = (label: string) =>

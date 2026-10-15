@@ -10,12 +10,13 @@ import type {
 	ShapeElement,
 	TextElement,
 } from "../../domain/design/design-v2.schema";
+import { aabbOf } from "../../domain/design/geometry";
 import { roundPt } from "./geometry";
 
 // ===============================================================
 // Elementos nuevos
 // ===============================================================
-// Lo que el editor inserta, centrado en la página. Puras: el id lo da quien
+// Lo que el editor inserta, creado en el centro de la página (placeInFreeSpot lo aparta de lo que ya hay). Puras: el id lo da quien
 // llama, así se prueban sin azar.
 
 export interface PageSize {
@@ -137,6 +138,59 @@ export const createImageElement = (
 		src,
 		fit: "contain",
 	};
+};
+
+/** Paso de la rejilla donde se buscan huecos, y aire que se deja alrededor. */
+const FREE_SPOT_STEP_PT = 12;
+
+/**
+ * Lleva un elemento recién creado a donde menos tape lo que ya hay y, entre
+ * esas posiciones, a la más cercana a donde se creó (el centro). Si no hay
+ * hueco libre, queda donde menos cubre en vez de encima del contenido.
+ */
+export const placeInFreeSpot = <T extends DesignElement>(
+	element: T,
+	others: readonly DesignElement[],
+	page: PageSize,
+): T => {
+	const step = FREE_SPOT_STEP_PT;
+	const boxes = others
+		.filter((other) => !other.hidden)
+		.map((other) => {
+			const box = aabbOf(other);
+			return {
+				x: box.x - step / 2,
+				y: box.y - step / 2,
+				w: box.w + step,
+				h: box.h + step,
+			};
+		});
+	const covered = (x: number, y: number) =>
+		boxes.reduce(
+			(area, box) =>
+				area +
+				Math.max(
+					0,
+					Math.min(x + element.w, box.x + box.w) - Math.max(x, box.x),
+				) *
+					Math.max(
+						0,
+						Math.min(y + element.h, box.y + box.h) - Math.max(y, box.y),
+					),
+			0,
+		);
+	if (covered(element.x, element.y) === 0) return element;
+
+	// ponytail: barrido O(rejilla × elementos), unos miles de cajas por inserción.
+	let best = { x: element.x, y: element.y, area: Infinity, distance: 0 };
+	for (let y = 0; y <= page.h - element.h; y += step)
+		for (let x = 0; x <= page.w - element.w; x += step) {
+			const area = covered(x, y);
+			const distance = (x - element.x) ** 2 + (y - element.y) ** 2;
+			if (area < best.area || (area === best.area && distance < best.distance))
+				best = { x, y, area, distance };
+		}
+	return { ...element, x: roundPt(best.x), y: roundPt(best.y) };
 };
 
 /** QR y folio: se mueven y se estilizan, pero no se borran ni se duplican. */
