@@ -57,7 +57,7 @@ se sigue mostrando en la página, pero no sirve para buscar.
   y entra igual en la vista previa y en el PDF.
 - La dirección (`verificationUrl`) **no se congela**. `downloadIssue` la calcula al
   descargar como `APP_BASE_URL + /verificar/<documentId>`. Por eso también la llevan los
-  certificados emitidos antes de F-10.
+  certificados emitidos antes de la verificación pública.
 - La vista previa y la muestra del editor usan una dirección de muestra
   (`/verificar/00000000-…`), que la verificación responde como inexistente.
 

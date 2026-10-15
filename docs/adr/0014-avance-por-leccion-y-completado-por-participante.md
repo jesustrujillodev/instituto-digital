@@ -1,7 +1,7 @@
 # ADR 0014 · Avance por lección, caché de porcentaje y completado por participante
 
 **Estado:** aceptado · 2026-09-22
-**Contexto del cambio:** MVP-02 · F-05, el aula del participante
+**Contexto del cambio:** el aula del participante
 **Sustituye en parte a:** [ADR-0011](./0011-formato-de-curso-y-regla-de-completado.md)
 §2.3 (`BOTH`), §2.4 (evaluación obligatoria con `CONTENT`) y §2.8 (cierre del
 autogestivo)
@@ -178,8 +178,8 @@ dispositivo.
 - El cradle gana `completionSync`, `progressSync`, `lessonMaterialReader`,
   `classroomRepository` y `classroomService`. `createContentService` gana
   `lessonMaterialReader` y `progressSync`.
-- Los pasos 10 a 12 de la verificación manual de F-01, que finalizaban un
-  autogestivo, dejan de valer: ahora se rechaza.
+- Los pasos 10 a 12 de la verificación manual del formato autogestivo, que
+  finalizaban un autogestivo, dejan de valer: ahora se rechaza.
 - Queda fuera: exigir material para publicar (ADR-0013 §3). Un temario con una
   lección vacía se completa marcándola a mano.
 

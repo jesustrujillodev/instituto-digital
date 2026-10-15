@@ -3,7 +3,7 @@
 **Estado:** aceptado · 2026-09-21 · §2.1 (sesión híbrida) y §2.6 enmendados por
 [ADR-0025](./0025-modalidad-y-como-se-imparte.md) · §2.3 (`BOTH`), §2.4 y §2.8 sustituidos por
 [ADR-0014](./0014-avance-por-leccion-y-completado-por-participante.md)
-**Contexto del cambio:** MVP-02 · F-01, el cimiento del curso autogestivo
+**Contexto del cambio:** el cimiento del curso autogestivo
 
 ## 1. Contexto
 
@@ -19,7 +19,7 @@ en un sitio: está repartida en tres puertas cerradas, en dos módulos.
    devuelve la lista vacía. Aunque se pudiera cerrar, no otorgaría un solo
    crédito.
 
-El MVP-02 pide un curso que se recorra a ritmo propio. Abrir una de las tres
+Se pide un curso que se recorra a ritmo propio. Abrir una de las tres
 puertas sin las otras deja el curso publicable y muerto, o cerrable y sin
 acreditar.
 
@@ -53,7 +53,7 @@ exactamente como antes.
 
 ### 2.2 No existe un valor `BLENDED`
 
-El alcance del MVP-02 proponía un tercer valor para el curso que mezcla sesiones
+Se propuso un tercer valor para el curso que mezcla sesiones
 y contenido. Se rechaza por dos motivos. El primero es de vocabulario: en español
 `BLENDED` y `HYBRID` se dicen igual —«mixto»— y el lector tendría que recordar
 cuál de los dos ejes nombra cada uno. El segundo es que sería redundante: un

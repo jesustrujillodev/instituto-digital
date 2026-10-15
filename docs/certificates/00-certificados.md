@@ -4,7 +4,7 @@
 
 El núcleo que dibuja el certificado de un curso. Recibe un diseño y los datos de una
 emisión y devuelve HTML+CSS. De esa misma salida tienen que salir la vista previa del
-editor (F-08), el PDF y el PNG (F-09) y lo que enseña la verificación pública (F-10).
+editor, el PDF y el PNG y lo que enseña la verificación pública.
 Las decisiones de fondo están en
 [ADR 0017](../adr/0017-certificado-html-y-un-solo-renderizador.md).
 
@@ -23,7 +23,7 @@ app/modules/certificates/domain/
 ├── certificate.renderer.ts   # renderCertificate y renderCertificateDocument
 └── templates/
     ├── shared.ts             # estilos base, fuentes, pie, cuerpo común
-    ├── qr.ts                 # el QR de verificación como SVG puro (F-10)
+    ├── qr.ts                 # el QR de verificación como SVG puro
     ├── institucional.ts
     ├── minima.ts
     └── marco.ts
@@ -37,9 +37,9 @@ app/modules/certificates/domain/
 | `CertificateRenderData` | El sistema, al emitir | Nombre de quien recibe, título y descripción del curso, dependencia, horas, fecha y folio, **ya formateados** |
 | `CertificateRenderOptions` | Quien llama | `assetBaseUrl`, la base contra la que se resuelven fuentes y logo; y, al exportar, `assets`: fuentes, logo y firmas como data URIs para un documento autocontenido ([02-emision.md](./02-emision.md)) |
 
-- `hours` es `null` cuando el curso no tiene horas (`courseHoursOf`, F-02), y entonces
+- `hours` es `null` cuando el curso no tiene horas (`courseHoursOf`), y entonces
   la línea «Con una duración de…» no se pinta.
-- Los tokens del folio (`{seq}`, `{year}`, `{month}`) los resuelve la emisión (F-09): el
+- Los tokens del folio (`{seq}`, `{year}`, `{month}`) los resuelve la emisión: el
   renderer recibe el folio ya armado.
 
 ## 3. Salidas

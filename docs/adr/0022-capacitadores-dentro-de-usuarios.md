@@ -1,7 +1,7 @@
 # ADR 0022 · Los capacitadores se administran desde Usuarios
 
 **Estado:** aceptado · 2026-09-28
-**Contexto del cambio:** MVP-02 · la sección «Capacitadores» duplicaba la tabla de usuarios
+**Contexto del cambio:** la sección «Capacitadores» duplicaba la tabla de usuarios
 **Enmienda:** [ADR-0002](./0002-perfil-de-capacitador-y-transaccion-entre-modulos.md) (dónde
 se administra el perfil; el modelo no cambia)
 

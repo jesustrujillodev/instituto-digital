@@ -38,7 +38,7 @@ Ni `courses` ni `teaching` escriben nada en el plan: publicar, cancelar o
 finalizar un curso cambia el estado de su línea en la siguiente lectura.
 
 Un autogestivo nunca se finaliza (ADR 0014), así que su línea queda realizada
-al publicarse (D-04, MVP-02 · F-12). En borrador sigue programada y, cancelado,
+al publicarse. En borrador sigue programada y, cancelado,
 la devuelve a pendiente, como cualquier curso. La pantalla lleva la leyenda
 «Autogestivo» bajo el curso para que se entienda por qué está realizada sin
 haberse finalizado.

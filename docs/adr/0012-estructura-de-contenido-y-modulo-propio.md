@@ -1,7 +1,7 @@
 # ADR 0012 · Estructura de contenido y módulo propio
 
 **Estado:** aceptado · 2026-09-21
-**Contexto del cambio:** MVP-02 · F-03, el temario del curso autogestivo
+**Contexto del cambio:** el temario del curso autogestivo
 
 ## 1. Contexto
 
@@ -12,7 +12,7 @@ el resultado capturado a mano, que es la vía que ya existía, y el propio ADR d
 escrito el pendiente: «el término de contenido de `isCompleted`, el valor `BOTH`,
 y el pendiente de publicación *al menos una lección*».
 
-Hoy un autogestivo es un curso sin sesiones y sin nada dentro. F-03 pone el
+Hoy un autogestivo es un curso sin sesiones y sin nada dentro. El temario pone el
 esqueleto —módulos y lecciones ordenados— y el pendiente de publicación que lo
 exige. El material de cada lección y el avance de quien la recorre llegan después.
 

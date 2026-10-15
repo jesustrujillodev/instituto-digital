@@ -1,7 +1,7 @@
 # ADR 0020 · Ruta pública de verificación del certificado
 
 **Estado:** aceptado · 2026-09-23
-**Contexto del cambio:** MVP-02 · F-10, verificación pública del folio
+**Contexto del cambio:** verificación pública del folio
 **Extiende:** [ADR-0019](./0019-snapshot-del-diseno-y-puerto-de-exportacion.md) (la
 emisión y sus snapshots)
 

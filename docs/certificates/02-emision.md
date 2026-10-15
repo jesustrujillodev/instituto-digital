@@ -17,7 +17,7 @@ app/modules/certificates/
 │   ├── certificate-issuance.server.ts   # diff, folios y snapshots
 │   └── certificates.service.server.ts   # downloadIssue, downloadSample
 ├── infrastructure/
-│   ├── chromium-exporter.server.ts      # puppeteer-core + Chromium del sistema (D-01)
+│   ├── chromium-exporter.server.ts      # puppeteer-core + Chromium del sistema
 │   └── certificate-assets.server.ts     # fuentes, logo y firmas como data URIs
 └── routes/
     ├── certificados/$documentId.descargar/     # GET, emisión
@@ -55,8 +55,9 @@ dependencia.
 | Volver a sincronizar sin cambios | Nada: el diff es vacío |
 
 «Emitir certificados», en la pestaña Acreditación de la impartición, cubre lo completado
-**antes** de F-09. Solo aparece si hay pendientes y pide el mismo permiso que corregir: en un
-finalizado, el titular o un auxiliar de la dependencia. En un curso por impartir responde
+**antes** de que existiera la emisión automática. Solo aparece si hay pendientes y pide el
+mismo permiso que corregir: en un finalizado, el titular o un auxiliar de la dependencia.
+En un curso por impartir responde
 `TEACHING_CERTIFICATES_NOT_ISSUABLE`.
 
 ## 4. Folio

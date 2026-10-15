@@ -13,9 +13,9 @@ solo veredicto. No cabe "Práctica 1", "Examen parcial" y "Proyecto final".
 Las sesiones tampoco ayudan: `CourseSession` solo sostiene el pase de lista
 (`course_attendance`) y no conoce el concepto de evaluar.
 
-El cuestionario en línea sigue fuera del MVP (M6). Lo que se pide es más
-modesto: que quien imparte pueda abrir tantas evaluaciones como necesite y
-capturar, por persona, aprobado / no aprobado y una observación en texto.
+Lo que se pide es modesto: que quien imparte pueda abrir tantas evaluaciones
+como necesite y capturar, por persona, aprobado / no aprobado y una
+observación en texto.
 
 ## 2. Decisiones
 
@@ -59,7 +59,7 @@ capturar. Lo único que bloquea el cierre es un veredicto final en `PENDING`.
 
 La alternativa —derivar el veredicto de "aprobó todas"— obligaría a decidir qué
 pasa con las evaluaciones opcionales, con las ponderaciones y con quien se
-incorpora a mitad del curso. Nada de eso está en el alcance MVP.
+incorpora a mitad del curso.
 
 ### 2.5 Módulo propio sin dueño compartido
 

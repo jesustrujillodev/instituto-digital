@@ -1,15 +1,15 @@
 # ADR 0018 · Diseño del certificado en JSON con borrador y publicado
 
 **Estado:** aceptado · 2026-09-23
-**Contexto del cambio:** MVP-02 · F-08, editor de certificados
+**Contexto del cambio:** editor de certificados
 **Extiende:** [ADR-0017](./0017-certificado-html-y-un-solo-renderizador.md) (el
 renderizador que dibuja lo que aquí se guarda)
 
 ## 1. Contexto
 
 Cada curso otorga un certificado propio, diseñado por quien lo administra. La
-emisión (F-09) tiene que leer un diseño estable mientras alguien sigue editando
-otro. El renderizador de F-07 ya fijó el contrato del diseño (`CertificateDesign`);
+emisión tiene que leer un diseño estable mientras alguien sigue editando
+otro. El núcleo de render ya fijó el contrato del diseño (`CertificateDesign`);
 faltaba dónde guardarlo, quién puede tocarlo y cómo se ven las firmas.
 
 El theme builder (`app/modules/theme/`) ya resolvió dos veces el mismo problema:
@@ -24,7 +24,8 @@ un blob JSON validado al leer, con borrador y publicado separados.
 - `course_id` es único.
 - `draft_design` y `published_design` son `Json`, este último nulo hasta publicar.
 - Lleva `published_at`.
-- `is_downloadable` y `email_message` nacen aquí para F-11, sin pantalla todavía.
+- `is_downloadable` y `email_message` nacen aquí para la entrega al participante,
+  sin pantalla todavía.
 
 La fila nace en el primer guardado (upsert). Sin fila, el curso usa
 `DEFAULT_CERTIFICATE_DESIGN`.
@@ -37,7 +38,7 @@ coste es que la validación se escribe a mano, y por eso es obligatoria al leer.
 `toCertificateDesign` valida con `v.safeParse` y nunca lanza. Si el blob no valida,
 el repositorio registra el error y cae al diseño por defecto. Casos típicos: una fila
 de un esquema anterior, una plantilla que ya no existe o una edición a mano. Un blob
-roto no puede tumbar el editor ni, en F-09, la emisión.
+roto no puede tumbar el editor ni la emisión.
 
 ### 2.3 Se publica lo guardado
 
@@ -57,7 +58,7 @@ La guarda es la misma que la del temario: `courseScopeWriteWhere(resolveCourseSc
   un curso para impartirlo no basta.
 
 Se edita en todo estado **menos cancelado**, incluido finalizado. La emisión congela
-el diseño en su propia fila (F-09), así que editarlo después solo alcanza a las
+el diseño en su propia fila, así que editarlo después solo alcanza a las
 emisiones futuras.
 
 ### 2.5 Firmas privadas, con el curso en la key
@@ -77,8 +78,8 @@ titular quedaba descargable para cualquiera con la URL. Se cambió a
   un curso podría imprimir la firma de un titular ajeno.
 - **La imagen se sube sola.** Pasa por el servidor, es un PNG pequeño, y la
   referencia entra al diseño al guardar. Una subida que nunca se guarda queda
-  huérfana y la detecta el gestor de nube, como el material de F-04.
-- **Reemplazar no borra la anterior.** El publicado o, desde F-09, una emisión
+  huérfana y la detecta el gestor de nube, como el material de la lección.
+- **Reemplazar no borra la anterior.** El publicado o una emisión
   pueden seguir usándola.
 
 ### 2.6 Vista previa en `iframe` con `allow-same-origin` y sin `allow-scripts`
@@ -115,12 +116,13 @@ institucional y cada guardado tiene que ser intencional.
 - **Esquema**: `org.course_certificates` y la relación `Course.certificate`.
 - **Cradle**: `certificateRepository` y `certificateService`, y la fuente de firmas en
   `objectReferenceSources`. `ObjectOwnerType` gana `"certificate"`.
-- **Adelantos para F-09**: `resolveFolio` (tokens `{seq}`, `{year}` y `{month}`) y
+- **Adelantos para la emisión**: `resolveFolio` (tokens `{seq}`, `{year}` y `{month}`) y
   `formatZonedLongDate` ya existen. La vista previa los usa con el primer
   consecutivo.
 - **Fuera de alcance**:
-  - El panel «Exportar» y la emisión (F-09).
-  - Los controles de `is_downloadable` y `email_message` (F-11).
+  - El panel «Exportar» y la emisión.
+  - Los controles de `is_downloadable` y `email_message` de la entrega al
+    participante.
   - Incrustar la firma privada en el PDF: el exportador tendrá que leer los bytes con
     `storageProvider.getFile`, porque no tiene la sesión del navegador.
 

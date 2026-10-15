@@ -5,7 +5,7 @@
 
 Primer ADR del repositorio. `docs/reglas.md` §3 y §15.4 exigen la carpeta desde
 siempre; este es el primer cambio que de verdad la necesita, porque fija tres
-decisiones que el resto del MVP da por hechas y que revisar más tarde costaría
+decisiones que el resto del sistema da por hechas y que revisar más tarde costaría
 una migración de datos.
 
 ## 1. Contexto
@@ -25,8 +25,7 @@ Se amplía la tupla `ROLES` con `SUPERADMIN`, `DEPENDENCY_HEAD` y
 `DEPENDENCY_DEPUTY`, y `User` gana una única `dependencyId`. No hay tabla
 `rol_dependencia`.
 
-**Por qué:** en el alcance del MVP una persona pertenece a exactamente una
-dependencia, y una tabla de membresías cobraría su precio en cada consulta —un
+**Por qué:** una tabla de membresías cobraría su precio en cada consulta —un
 join más en todo listado— a cambio de una flexibilidad que ninguna regla pide.
 `USER` se reutiliza como participante en vez de introducir `PARTICIPANT`: evita
 un backfill y es el valor por defecto que ya tiene la columna.
@@ -106,7 +105,7 @@ tupla: ahora el mapper valida al leer, y la migración normaliza lo que hubiera.
 
 | Alternativa | Por qué no |
 | --- | --- |
-| Tabla de membresías `rol_dependencia` | Un join en cada listado por una flexibilidad que el alcance del MVP prohíbe explícitamente |
+| Tabla de membresías `rol_dependencia` | Un join en cada listado por una flexibilidad que ninguna regla pide |
 | Resolver la dependencia por petición | Un `SELECT` en cada petición autenticada, contra el diseño de revocación por epoch |
 | Alcance inyectado en el cradle | Compila cuando se olvida, y deja el servicio inservible desde la semilla |
 | Enum nativo de Postgres para `role` | Cada rol nuevo sería una migración; la tupla de valibot ya es el punto único de variación |
@@ -114,9 +113,9 @@ tupla: ahora el mapper valida al leer, y la migración normaliza lo que hubiera.
 
 ## 5. Actualización · 2026-09-18 — se retira `ADMIN`
 
-`ADMIN` sobrevivía de la plantilla con alcance global sin figurar en el alcance
-del MVP. Se retira de la tupla: todo lo que podía hacer —incluida la nube, que
-era exclusiva suya— pasa a `SUPERADMIN`. La tupla queda en orden jerárquico
+`ADMIN` sobrevivía de la plantilla con alcance global. Se retira de la tupla:
+todo lo que podía hacer —incluida la nube, que era exclusiva suya— pasa a
+`SUPERADMIN`. La tupla queda en orden jerárquico
 (`SUPERADMIN`, `DEPENDENCY_HEAD`, `DEPENDENCY_DEPUTY`, `USER`), que es el orden
 en que la muestran selectores y filtros.
 
