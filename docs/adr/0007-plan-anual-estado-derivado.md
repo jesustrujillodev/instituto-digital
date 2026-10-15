@@ -37,12 +37,12 @@ PRD-06, PRD-07 se entrega con `prisma db push`.
 ```
 cancelled_at no nulo                     → CANCELLED
 curso vinculado no cancelado, FINISHED   → DONE
-  …autogestivo y PUBLISHED               → DONE   (MVP-02 · F-12)
+  …autogestivo y PUBLISHED               → DONE
 curso vinculado no cancelado, otro       → SCHEDULED
 ninguno                                  → PENDING
 ```
 
-**Enmienda MVP-02 · F-12 (D-04).** Un autogestivo nunca se finaliza
+**Enmienda: el autogestivo en el plan anual.** Un autogestivo nunca se finaliza
 ([0014](./0014-avance-por-leccion-y-completado-por-participante.md) §2.1): cada
 participante lo completa por su cuenta. Su línea queda realizada **al
 publicarse**, porque publicarlo es ponerlo a disposición. La regla ramifica por

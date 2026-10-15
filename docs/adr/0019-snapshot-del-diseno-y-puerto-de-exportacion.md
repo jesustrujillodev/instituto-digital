@@ -1,7 +1,7 @@
 # ADR 0019 · Snapshot del diseño en la emisión y puerto de exportación
 
 **Estado:** aceptado · 2026-09-23
-**Contexto del cambio:** MVP-02 · F-09, emisión, folio y descarga; cierra D-01
+**Contexto del cambio:** emisión, folio y descarga; decide el motor de exportación del certificado
 **Extiende:** [ADR-0017](./0017-certificado-html-y-un-solo-renderizador.md) (el
 renderizador) y [ADR-0018](./0018-diseno-del-certificado-borrador-y-publicado.md) (el
 diseño publicado)
@@ -9,7 +9,7 @@ diseño publicado)
 ## 1. Contexto
 
 Un certificado emitido es un documento institucional: si alguien lo baja en enero y otra
-vez en marzo, tiene que ser el mismo. F-08 dejó un diseño editable por curso y un
+vez en marzo, tiene que ser el mismo. El editor dejó un diseño editable por curso y un
 renderizador HTML. Faltaban cuatro cosas:
 
 - cuándo se emite y a quién;
@@ -17,11 +17,11 @@ renderizador HTML. Faltaban cuatro cosas:
 - qué se congela;
 - con qué se convierte en PDF y PNG.
 
-Esta última era la decisión D-01.
+Esta última era la decisión que seguía abierta.
 
 ## 2. Decisiones
 
-### 2.1 D-01: Chromium propio detrás de un puerto
+### 2.1 Chromium propio detrás de un puerto
 
 `ICertificateExporter` (`domain/certificate.exporter.ts`) recibe HTML ya autocontenido y
 devuelve bytes. El adaptador, `chromium-exporter.server.ts`, usa `puppeteer-core` con el
@@ -108,7 +108,7 @@ El formato ahora **exige** `{seq}`. `folio` es `@unique` como última defensa.
 
 No hay `storageKey`: el archivo se dibuja cada vez desde los snapshots. Así no hay objetos
 que invalidar al revocar o restaurar, ni huérfanos, ni una segunda fuente de verdad. Si la
-carga lo pide, F-11 puede añadir caché sin cambiar el modelo.
+carga lo pide, se puede añadir caché sin cambiar el modelo.
 
 ### 2.7 El diseño nunca viaja desde el navegador
 
@@ -136,7 +136,7 @@ imagen: el certificado ya entregado no puede quedarse sin firma.
   - `vite.config.ts` excluye `puppeteer-core` del preempaquetado de desarrollo.
 - **Compartido:** `StorageObjectLockedError` y los status 502 y 503 en `HTTP_STATUS`.
 - **Fuera de alcance:** «Mis certificados» y la descarga del propio participante, el correo
-  al emitir e `is_downloadable` (F-11); la verificación pública del folio (F-10).
+  al emitir e `is_downloadable`; la verificación pública del folio.
 
 ## 4. Rechazos
 

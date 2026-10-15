@@ -1,7 +1,7 @@
 # ADR 0013 · Material de la lección
 
 **Estado:** aceptado · 2026-09-22
-**Contexto del cambio:** MVP-02 · F-04, lo que la lección enseña
+**Contexto del cambio:** lo que la lección enseña
 
 ## 1. Contexto
 
@@ -14,8 +14,8 @@ Eso es literalmente lo que pasa: `Lesson.type` se elige al crear la lección —
 comentario del schema dice que decide «el editor que se abre»— y ese editor no
 existe. Un curso autogestivo se publica con un temario que no enseña nada.
 
-El alcance del MVP-02 dejaba dos decisiones abiertas que bloqueaban la ficha: en
-qué formato se escribe el texto (D-02) y si el video se aloja o se enlaza (D-03).
+Quedaban abiertas dos decisiones que bloqueaban la ficha: en qué formato se
+escribe el texto y si el video se aloja o se enlaza.
 
 ## 2. Decisiones
 

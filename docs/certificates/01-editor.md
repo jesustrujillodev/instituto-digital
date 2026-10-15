@@ -14,7 +14,7 @@ en [00-certificados.md](./00-certificados.md).
 
 ```
 app/modules/certificates/
-├── domain/          # reglas, mapper, puertos, errores (+ el renderizador de F-07)
+├── domain/          # reglas, mapper, puertos, errores (+ el renderizador)
 ├── application/     # certificates.service.server.ts
 ├── infrastructure/  # repositorio y fuente de referencias de firmas
 ├── routes/          # cursos/$documentId.certificado (loader, action, pantalla)
@@ -27,7 +27,7 @@ app/modules/certificates/
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `org.course_certificates` | Una fila por curso, con `draft_design`, `published_design` (nulo hasta publicar), `published_at`, `is_downloadable` y `email_message` (estos dos para F-11) |
+| `org.course_certificates` | Una fila por curso, con `draft_design`, `published_design` (nulo hasta publicar), `published_at`, `is_downloadable` y `email_message` (estos dos para la entrega al participante) |
 
 La fila nace al primer guardado. Los dos blobs se leen con `toCertificateDesign`: uno
 que no valida cae a `DEFAULT_CERTIFICATE_DESIGN` y queda en el log.

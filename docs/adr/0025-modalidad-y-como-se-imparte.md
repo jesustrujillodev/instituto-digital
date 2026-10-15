@@ -1,7 +1,7 @@
 # ADR 0025 · Modalidad primero, y el híbrido autogestivo
 
 **Estado:** aceptado · 2026-09-28
-**Contexto del cambio:** MVP-02 · paso Programa del alta de cursos
+**Contexto del cambio:** paso Programa del alta de cursos
 **Enmienda:** [ADR-0011](./0011-formato-de-curso-y-regla-de-completado.md) §2.1 (qué pide
 cada sesión de un híbrido) y §2.6 (un autogestivo es siempre `ONLINE`)
 

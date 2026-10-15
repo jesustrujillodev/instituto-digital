@@ -1,7 +1,7 @@
 # ADR 0026 · Material de las sesiones
 
 **Estado:** aceptado · 2026-09-28
-**Contexto del cambio:** MVP-02 · apoyo para las sesiones presenciales y en línea
+**Contexto del cambio:** apoyo para las sesiones presenciales y en línea
 **Relacionado:** [ADR-0013](./0013-material-de-la-leccion.md) (material de la lección),
 [ADR-0025](./0025-modalidad-y-como-se-imparte.md) (sesiones del híbrido autogestivo)
 

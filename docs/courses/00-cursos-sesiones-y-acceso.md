@@ -89,8 +89,7 @@ Decisiones que el schema no dice por sí solo:
   sola función pura, `courseHoursOf`, y la usan la ficha, «Mis capacitaciones», el Excel
   de finalizados y «Mis créditos». La columna es nula en los cursos anteriores,
   que siguen mostrando las horas de sus sesiones. Las horas se muestran y no se
-  convierten: un curso completado vale un crédito, dure lo que dure (D-06 de
-  MVP-02).
+  convierten: un curso completado vale un crédito, dure lo que dure.
 - **No hay `archived_at`.** La baja de un curso es `status = CANCELLED`, que
   conserva sus sesiones, capacitadores y audiencia (§6.5). Dos mecanismos de baja
   sobre la misma fila se contradirían.

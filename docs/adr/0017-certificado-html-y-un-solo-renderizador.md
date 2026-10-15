@@ -1,15 +1,15 @@
 # ADR 0017 · El certificado es HTML y un solo renderizador lo dibuja
 
 **Estado:** aceptado · 2026-09-23
-**Contexto del cambio:** MVP-02 · F-07, núcleo de render de certificados
+**Contexto del cambio:** núcleo de render de certificados
 **Referencia de diseño:** `CERTIFICATE_EDITOR.md` (anatomía del editor de ClassroomIO)
 
 ## 1. Contexto
 
 Cada curso otorga un certificado propio, diseñado por quien lo imparte. Ese
 documento tiene tres consumidores que llegan en fichas distintas: la vista previa
-del editor (F-08), la exportación a PDF y PNG (F-09) y la verificación pública por
-folio (F-10). Si cada uno dibujara el certificado con su propio motor, la vista previa
+del editor, la exportación a PDF y PNG y la verificación pública por
+folio. Si cada uno dibujara el certificado con su propio motor, la vista previa
 y el archivo descargado acabarían siendo documentos distintos.
 
 Lo que el sistema necesitaba antes de cualquier pantalla:
@@ -36,14 +36,14 @@ importa directamente; no se inyecta, porque no tiene estado.
 - `CertificateDesign` es lo que configura el capacitador y se persistirá: plantilla,
   acento, subtítulo, descripción, **exactamente dos firmantes** que se encienden o
   apagan, y el formato del folio. El esquema de valibot vive en `certificate.rules.ts`,
-  listo para la frontera de F-08.
+  listo para la frontera del editor.
 - `CertificateRenderData` es lo que pone el sistema al emitir: quién lo recibe, el
   curso, la dependencia, las horas, la fecha y el folio. Nunca se guarda en el diseño.
   Si se guardara ahí, editar la plantilla podría reescribir a quién se otorgó un
   certificado.
 
 Los textos de `RenderData` llegan **ya formateados**: el renderer no sabe de fechas, de
-zonas horarias ni de plurales. Las horas salen de `courseHoursOf` (F-02).
+zonas horarias ni de plurales. Las horas salen de `courseHoursOf`.
 
 ### 2.3 Lienzo fijo de 1100 × 780
 
@@ -65,7 +65,7 @@ Las fuentes y el logo se resuelven contra `options.assetBaseUrl`:
 | --- | --- |
 | La app | `""` |
 | El script de muestras | `""`, servido desde su propio servidor local |
-| La exportación (F-09) | Una URL absoluta |
+| La exportación | Una URL absoluta |
 
 El logo del Ayuntamiento lleva texto blanco, así que las tres plantillas lo colocan
 sobre una superficie del color de acento.
@@ -100,7 +100,7 @@ que no compila si falta una.
 ## 3. Consecuencias
 
 - **Módulo nuevo**: `app/modules/certificates/`, solo con `domain/` en esta ficha.
-  F-08 añade la persistencia y el editor, y F-09 el puerto de exportación.
+  El editor añade la persistencia, y la emisión el puerto de exportación.
 - **Cambio en notifications**: su `escapeHtml` privado pasa a `app/shared/html/`, sin
   cambio de comportamiento.
 - **Herramienta**: `bun run certificates:samples` escribe quince muestras en
@@ -108,9 +108,10 @@ que no compila si falta una.
   abrirlas como `file://` porque el navegador bloquea las fuentes cargadas desde
   archivo.
 - **Fuera de alcance**:
-  - El QR de verificación: F-10 añadirá un campo opcional a `RenderData`.
-  - La resolución de los tokens del folio: F-09.
-  - La lectura tolerante del blob guardado: F-08.
+  - El QR de verificación: la verificación pública añadirá un campo opcional a
+    `RenderData`.
+  - La resolución de los tokens del folio: la emisión.
+  - La lectura tolerante del blob guardado: el editor.
 
 ## 4. Alternativas descartadas
 

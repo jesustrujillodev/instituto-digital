@@ -6,10 +6,9 @@
 ## 1. Contexto
 
 Hasta ahora la asistencia solo se registraba con el pase de lista manual del
-capacitador (`teachingService.saveAttendance`). El alcance MVP v2 descartaba el
-QR de forma explícita ("Asistencia por QR con ventana de vigencia | No | Pase de
-lista manual"), pero en un aula de cuarenta personas el pase de lista es lento y
-en línea obliga a cotejar nombres contra la lista de asistentes.
+capacitador (`teachingService.saveAttendance`). En un aula de cuarenta personas
+el pase de lista es lento y en línea obliga a cotejar nombres contra la lista de
+asistentes.
 
 Se reincorpora en su forma más simple: **un QR estático por curso** que el
 asistente escanea para registrarse él mismo.

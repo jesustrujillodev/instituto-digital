@@ -4,7 +4,7 @@
 sustituidos por [ADR-0027](./0027-seguimiento-en-linea-y-fin-de-la-captura-manual.md); §2.1 y §2.2 (la práctica) y §2.4 (la nota del examen)
 enmendados por [ADR-0021](./0021-practica-evaluativa-y-calificacion-por-promedio.md); el
 intento único, enmendado por [ADR-0024](./0024-intentos-configurables-y-calificacion-minima-del-curso.md) (intentos por cuestionario)
-**Contexto del cambio:** MVP-02 · F-06, los cuestionarios
+**Contexto del cambio:** los cuestionarios del curso autogestivo
 
 ## 1. Contexto
 
@@ -19,8 +19,8 @@ Un autogestivo que exige evaluación se completa en vivo
 depende de que alguien capture su resultado. Si nadie lo hace, el curso no se
 completa aunque la persona haya terminado todo.
 
-F-06 añade dos cosas: el **examen en línea**, que escribe el resultado solo, y el
-**cuestionario de práctica**, que forma parte del temario.
+Los cuestionarios añaden dos cosas: el **examen en línea**, que escribe el
+resultado solo, y el **cuestionario de práctica**, que forma parte del temario.
 
 ## 2. Decisiones
 

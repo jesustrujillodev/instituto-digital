@@ -1,7 +1,7 @@
 # ADR 0027 · Seguimiento en línea por sesión y fin de la captura manual
 
 **Estado:** aceptado · 2026-10-01
-**Contexto del cambio:** MVP-02 · rediseño del paso Evaluación
+**Contexto del cambio:** rediseño del paso Evaluación
 **Sustituye:** [ADR-0010](./0010-evaluaciones-por-curso.md) (evaluaciones de seguimiento
 documentales)
 **Enmienda:** [ADR-0015](./0015-cuestionarios-autocalificados.md) §2.3 y §2.4 (método de

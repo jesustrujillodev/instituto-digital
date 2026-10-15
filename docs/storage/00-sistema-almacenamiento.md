@@ -403,7 +403,7 @@ Las firmas de los certificados viven en `documentos/firmas/<courseDocumentId>/`
 **privadas a propósito**: fuera de `media/`, el proxy exige sesión, y la firma de
 un titular no queda descargable para quien consiga la URL. El curso en la key es lo
 que deja a su fuente de referencias saber de quién es cada objeto sin tabla propia.
-Desde F-09 esa fuente cuenta también las firmas que imprimen certificados ya
+Desde la emisión de certificados esa fuente cuenta también las firmas que imprimen certificados ya
 emitidos: el exportador las lee con `storageProvider.getFile`, porque Chromium no
 tiene sesión, y el gestor de nube no puede borrarlas
 ([ADR 0019](../adr/0019-snapshot-del-diseno-y-puerto-de-exportacion.md)).

@@ -11,8 +11,8 @@ sus sesiones (calendario), sus cursos (inscripciones), lo que imparte
 (impartición), lo que organiza (cursos, inscripciones, plan anual) y, para la
 plataforma, dependencias, sesiones y la entrega de fondo.
 
-El alcance del MVP descartó «tableros, gráficas y comparativos». El panel no los
-reabre: es una lista de trabajo, con cifras dentro de frases y barras de avance.
+El panel no es un tablero de gráficas ni comparativos: es una lista de trabajo,
+con cifras dentro de frases y barras de avance.
 
 ## 2. Decisión
 

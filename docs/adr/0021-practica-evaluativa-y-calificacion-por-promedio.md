@@ -2,7 +2,7 @@
 
 **Estado:** aceptado · 2026-09-25 · §2.1–2.4 enmendados por
 [ADR-0024](./0024-intentos-configurables-y-calificacion-minima-del-curso.md) (presentada cuenta, la mejor nota y la mínima del curso)
-**Contexto del cambio:** MVP-02 · reprobar tiene que bloquear el crédito y el certificado
+**Contexto del cambio:** reprobar tiene que bloquear el crédito y el certificado
 **Enmienda:** [ADR-0015](./0015-cuestionarios-autocalificados.md) §2.1 y §2.2 (la práctica)
 y §2.4 (la nota del examen). **Extiende:** [ADR-0016](./0016-evaluacion-por-modulo.md) §2.2
 (qué cuenta como contenido)

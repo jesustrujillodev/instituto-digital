@@ -1,7 +1,7 @@
 # ADR 0023 · Publicar el certificado en un paso
 
 **Estado:** aceptado · 2026-09-28
-**Contexto del cambio:** MVP-02 · cursos que emitían el diseño por defecto
+**Contexto del cambio:** cursos que emitían el diseño por defecto
 **Enmienda:** [ADR-0018](./0018-diseno-del-certificado-borrador-y-publicado.md) §2.3 (qué
 publica «Publicar»)
 

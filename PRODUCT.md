@@ -29,7 +29,7 @@ Un LMS hecho para la estructura de un Ayuntamiento, no un LMS genérico: aloja y
 ## Operating Context
 
 - Administración (titulares, auxiliares, superadmin) en escritorio; participantes mayormente en móvil. Ambos contextos son de primera clase.
-- Sin autoregistro público: las cuentas las da de alta un administrador con contraseña temporal. No hay recuperación de contraseña de autoservicio en el MVP.
+- Sin autoregistro público: las cuentas las da de alta un administrador con contraseña temporal. No hay recuperación de contraseña de autoservicio.
 - La página pública `/` es solo puerta de acceso: identifica la plataforma y lleva al inicio de sesión. No promociona ni muestra catálogo.
 - El inicio de sesión debe poder recibir después un segundo botón (Llave BC, autenticador institucional) sin reformar la pantalla.
 - Calendario mensual con vista de lista; quien acumula roles ve juntos, y diferenciados, lo que cursa, lo que imparte y lo que organiza.
@@ -51,7 +51,7 @@ Un LMS hecho para la estructura de un Ayuntamiento, no un LMS genérico: aloja y
 
 ## Evidence on Hand
 
-- Alcance MVP v1.1 y ADR 0001–0026 en `docs/adr/`.
+- ADR 0001–0034 en `docs/adr/`.
 - Assets de identidad en `public/` (ver Brand Commitments).
 - No hay testimonios, cifras de uso ni fotografía institucional en el repositorio. No se fabrican.
 
