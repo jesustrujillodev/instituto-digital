@@ -72,6 +72,7 @@ import {
 	createShapeElement,
 	createTextElement,
 	isMandatory,
+	placeInFreeSpot,
 } from "../../utils/editor/elements";
 import { canRedo, canUndo } from "../../utils/editor/history";
 import type { EditorCommand } from "../../utils/editor/keymap";
@@ -234,7 +235,8 @@ export function CertificateEditor({
 
 	const page = { w: design.page.widthPt, h: design.page.heightPt };
 	const taken = () => new Set(design.elements.map((element) => element.id));
-	const insert = (element: DesignElement, message: string) => {
+	const insert = (created: DesignElement, message: string) => {
+		const element = placeInFreeSpot(created, design.elements, page);
 		commit(addElements(design, [element]), undefined, [element.id]);
 		setAnnouncement(message);
 	};
@@ -273,16 +275,20 @@ export function CertificateEditor({
 			dispatch({
 				type: "commit",
 				design: addElements(design, [
-					createImageElement(
-						newId(new Set(design.elements.map((element) => element.id))),
+					placeInFreeSpot(
+						createImageElement(
+							newId(new Set(design.elements.map((element) => element.id))),
+							{ w: design.page.widthPt, h: design.page.heightPt },
+							{
+								kind: "asset",
+								ref: image.ref,
+								role: signature ? "signature" : "image",
+							},
+							image,
+							signature ? "Firma" : "Imagen",
+						),
+						design.elements,
 						{ w: design.page.widthPt, h: design.page.heightPt },
-						{
-							kind: "asset",
-							ref: image.ref,
-							role: signature ? "signature" : "image",
-						},
-						image,
-						signature ? "Firma" : "Imagen",
 					),
 				]),
 			});
