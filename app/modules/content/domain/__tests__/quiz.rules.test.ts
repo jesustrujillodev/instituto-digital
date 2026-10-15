@@ -12,19 +12,23 @@ import {
 	courseResultOf,
 	courseScoresOf,
 	FINAL_QUIZ_OWNER,
+	findQuizRule,
 	followUpAvailabilityOf,
 	followUpOwnerOf,
 	followUpStateOf,
 	followUpWindowOf,
 	gradeAttempt,
+	grantRetakeRule,
 	isAccredited,
 	nextAttemptNumberOf,
 	pointsToPass,
 	quizAvailabilityOf,
 	quizKindOf,
+	renameQuizRule,
 	saveFollowUpQuestionsRule,
 	saveFollowUpRule,
 	saveQuizRule,
+	submitQuizRule,
 	toFollowUpSettingsWrite,
 	toQuizBankWrite,
 	toQuizOutcome,
@@ -466,6 +470,48 @@ describe("el dueño del cuestionario", () => {
 			}).success,
 		).toBe(false);
 	});
+
+	test.each([
+		[
+			"guardar",
+			saveQuizRule,
+			{
+				title: "Examen",
+				passingScore: 70,
+				maxAttempts: 1,
+				shuffleQuestions: false,
+				questions: [
+					{
+						statement: "¿Cuál?",
+						type: "SINGLE_CHOICE",
+						points: 1,
+						options: [
+							{ text: "A", isCorrect: true },
+							{ text: "B", isCorrect: false },
+						],
+					},
+				],
+			},
+		],
+		["renombrar", renameQuizRule, { title: "Examen" }],
+		["buscar", findQuizRule, {}],
+		["presentar", submitQuizRule, { answers: [] }],
+		["dar otro intento", grantRetakeRule, { userDocumentId: Q2 }],
+	] as const)(
+		"al %s con dos dueños, el rechazo conserva su mensaje",
+		(_, rule, fields) => {
+			const result = v.safeParse(rule, {
+				lessonDocumentId: Q1,
+				moduleDocumentId: MODULE,
+				...fields,
+			});
+
+			expect(toFieldErrors(result.issues ?? [])).toEqual({
+				lessonDocumentId:
+					"Un cuestionario cuelga de una lección, de un módulo o de una sesión, no de varios.",
+			});
+		},
+	);
 });
 
 describe("el banco", () => {
