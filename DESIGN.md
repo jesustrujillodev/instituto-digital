@@ -264,19 +264,18 @@ La página de un curso, en el catálogo y en «Mis cursos». `app/modules/enroll
 - **Estado:** `CourseDetailStatus`, un icono y una frase en peso medio con el tono de la tarjeta de curso, y debajo lo que la explica (fecha límite, avance, asistencia, próxima sesión). Sustituye a la fila de distintivos y a los avisos sueltos.
 - **Cuerpo:** «Sesiones» solo si el curso las tiene; «Acerca del curso» con la descripción y los capacitadores. Lado a lado en escritorio, apilados en móvil.
 
-### Inputs / Fields
-- **Style:** 36px de alto, esquina de 8.8px, sin borde visible en reposo. El relleno es apenas perceptible: la superficie apagada (gris apagado) en claro y el gris campo al 30% en oscuro. Aplica a campos de texto, áreas de texto, selects, grupos de campo, buscador de comandos y buscador de la barra lateral.
-- **Focus:** el borde toma el color del anillo y aparece un halo de 3px al 30%.
-- **Error / Disabled:** en error, borde y halo rojo institucional; deshabilitado al 50% de opacidad.
-
-### Navigation
-- **Style:** barra lateral guinda profundo con texto claro, ítems de 36px y esquina de 5.6px.
-- **States:** hover y activo en guinda cabildo; el activo además en peso medio. Los grupos se despliegan con un chevron que gira 90°.
-- **Header:** icono del escudo (32px) con "Instituto Digital / de Capacitación".
-- **Mobile:** hoja superpuesta que se cierra al elegir destino.
-
-### Superficie de marca
-Portada y panel de acceso usan la superficie guinda de la barra lateral con el logotipo completo del Ayuntamiento, que es blanco y solo se lee sobre guinda (64px de alto en escritorio, 48px en móvil). El nombre de la plataforma va en Display y un filete oro de 64×4px puede anteceder al titular de la portada.
+### Panel de inicio
+El resumen de cada persona, con el mismo vocabulario para todos los roles. `app/modules/dashboard/components/`.
+- **Composición:** saludo y, debajo, dos columnas en escritorio: el trabajo a la izquierda y, a la derecha (22rem, 26rem desde xl), «Esta semana» y, para quien escribe el plan, la tarjeta del plan anual. «Tu capacitación» va a todo lo ancho al final. Entre secciones, 40px.
+- **Encabezado de sección:** título Semibold 1.125rem con un contador redondo al lado cuando la sección cuenta algo (neutro, o en aviso para «Requiere tu atención»; «6+» cuando la lectura se recortó), descripción en gris secundario y el enlace «Ver …» a la derecha.
+- **Franja de estado** (`StatusStrip`): solo el superadministrador, que no tiene otro lugar donde ver la salud de la plataforma. Un punto y la frase que lo nombra («Sistema en orden», «Hay pendientes de operación», «Lockdown activo»), los datos que lo explican y «Ver sesiones».
+- **Requiere tu atención:** para quien cursa, imparte u organiza, una sola tarjeta con un grupo por tipo, en este orden: por finalizar, invitaciones por responder, publicados sin capacitador, líneas del plan atrasadas y borradores sin publicar. Cada grupo lleva su título con cuántos son, una pista a la derecha («Sus sesiones ya terminaron»), hasta tres renglones (icono en cuadro de 32px —aviso, o apagado para los borradores—, título, una línea con fecha en dd-mm-aaaa y tiempo relativo, y un botón de contorno con verbo) y, si hay más, el enlace a su pantalla. El superadministrador ve en cambio una tarjeta por pendiente (`AttentionCard`, tinte de aviso o destructivo para el lockdown).
+- **Para hoy:** solo aparece si hay sesiones hoy que siguen o están en curso: la hora en dos líneas, el lado («Impartes», «Cursas»), un chip verde mientras está en curso y su acción («Mostrar QR», «Entrar», «Ver detalles»).
+- **Inscripciones abiertas:** tabla con encabezados (Capacitación · Cierre · Inscritos) que se abren por consulta de contenedor. El cierre cercano va en aviso con reloj («Cierra mañana, 15-10-2026»); el cupo lleno, en un chip apagado; sin cupo se lee «sin límite».
+- **Plan anual (tarjeta):** el porcentaje en Bold 1.875rem con «1 de 3 realizadas», la barra y una línea de estado: en verde servicio si todo lo planeado hasta el mes en curso tiene capacitación, si no cuántas líneas faltan. Sin plan, la invitación a crearlo.
+- **Tu capacitación:** una tarjeta en tres columnas (créditos del ejercicio en Bold 2.25rem, por valorar con «Valorar» que abre el diálogo ahí mismo, certificados recientes con descarga en PDF) y, si hay, una tabla con invitaciones, en curso y por empezar.
+- **Tarjeta-tabla** (`TableCard`): renglones separados por un filete, grupos con un rótulo en gris sobre un velo apagado y un pie «y N más →». Las barras de avance son neutras y pasan a verde servicio al completarse.
+- **Esta semana:** el día elegido es una ficha invertida (fondo del texto, texto del fondo); hoy, sin elegir, lleva el número en primario. La agenda del día va en bloques apagados y, si el día es hoy, debajo lo que sigue agrupado por día («Mañana · jueves 15»), con horario y título.
 
 ### Estados de carga
 Un solo vocabulario para toda la plataforma. Nada aparece antes de 150 ms (una espera menor no se nota y enseñarla solo parpadea) y, una vez visible, nada desaparece antes de 300 ms (`app/shared/hooks/use-delayed-flag.ts`).
