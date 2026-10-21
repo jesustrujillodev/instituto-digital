@@ -110,6 +110,7 @@ const courseOf = (
 	requiresEvaluation: false,
 	minPassingGrade: 70,
 	qrClosesAfterMinutes: 15,
+	finalQuizOpensAt: null,
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 0,

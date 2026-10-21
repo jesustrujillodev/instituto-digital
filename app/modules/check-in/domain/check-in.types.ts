@@ -68,6 +68,8 @@ export interface CheckInPreview {
 export interface RotatedQrToken {
 	token: string;
 	rotatedAt: Date;
+	/** Había un código antes: el impreso dejó de funcionar. */
+	replaced: boolean;
 }
 
 // ── Envelopes ─────────────────────────────────────────────────────────────────

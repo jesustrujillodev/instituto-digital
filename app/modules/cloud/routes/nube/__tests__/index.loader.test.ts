@@ -99,7 +99,25 @@ describe("nube loader", () => {
 
 		const result = await run(BASE, context);
 
-		expect(result.data).toEqual({ configured: false, path: "" });
+		expect(result.data).toEqual({
+			configured: false,
+			reason: "missing",
+			path: "",
+		});
+	});
+
+	test("con el storage caído pinta un aviso en vez de un 500", async () => {
+		const { context } = createHarness({
+			failWith: CLOUD_ERROR_CODES.UNAVAILABLE,
+		});
+
+		const result = await run(`${BASE}?path=media%2F`, context);
+
+		expect(result.data).toEqual({
+			configured: false,
+			reason: "unavailable",
+			path: "media/",
+		});
 	});
 
 	test("cualquier otro fallo corta con error de ruta", async () => {

@@ -25,10 +25,21 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
 	const result = await context.cloudService.list(input.data);
 
 	if (!result.success) {
-		// La plataforma arranca sin storage: eso es un estado de la pantalla, no un
-		// error de ruta.
+		// Sin storage o con el storage caído no hay nada que listar: es un estado
+		// de la pantalla, no un error de ruta.
 		if (result.error.code === CLOUD_ERROR_CODES.NOT_CONFIGURED) {
-			return ok({ configured: false as const, path: input.data.path });
+			return ok({
+				configured: false as const,
+				reason: "missing" as const,
+				path: input.data.path,
+			});
+		}
+		if (result.error.code === CLOUD_ERROR_CODES.UNAVAILABLE) {
+			return ok({
+				configured: false as const,
+				reason: "unavailable" as const,
+				path: input.data.path,
+			});
 		}
 		throw toRouteError(result.error, CLOUD_ERROR_MESSAGES);
 	}

@@ -89,11 +89,24 @@ export default function NubePage({ loaderData }: Route.ComponentProps) {
 						<EmptyMedia variant="icon">
 							<CloudOff aria-hidden="true" />
 						</EmptyMedia>
-						<EmptyTitle>El almacenamiento no está configurado</EmptyTitle>
-						<EmptyDescription>
-							Define STORAGE_PROVIDER y STORAGE_BUCKET_NAME en el entorno del
-							servidor para ver y gestionar los archivos aquí.
-						</EmptyDescription>
+						{data.reason === "unavailable" ? (
+							<>
+								<EmptyTitle>El almacenamiento no responde</EmptyTitle>
+								<EmptyDescription>
+									No se pudo conectar con el servidor de archivos. Vuelve a
+									cargar la página en unos minutos; si sigue igual, avisa al
+									equipo técnico.
+								</EmptyDescription>
+							</>
+						) : (
+							<>
+								<EmptyTitle>El almacenamiento no está configurado</EmptyTitle>
+								<EmptyDescription>
+									Pide al equipo técnico que conecte el servidor de archivos
+									para ver y gestionar los archivos aquí.
+								</EmptyDescription>
+							</>
+						)}
 					</EmptyHeader>
 				</Empty>
 			</div>

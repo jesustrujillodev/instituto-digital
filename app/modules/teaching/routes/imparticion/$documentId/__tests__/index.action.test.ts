@@ -57,6 +57,7 @@ const createHarness = (
 			finish: record("finish"),
 			issueCertificates: record("issueCertificates"),
 		},
+		checkInService: { rotateToken: record("rotateToken") },
 	} as unknown as ActionArgs["context"];
 
 	return { context, calls };
@@ -73,6 +74,34 @@ const run = (context: ActionArgs["context"], fields: Record<string, string>) =>
 	} as unknown as ActionArgs);
 
 describe("impartición action", () => {
+	test("el primer código QR no avisa de un impreso anterior", async () => {
+		const { context } = createHarness(
+			okReply({ token: "t", rotatedAt: new Date(), replaced: false }),
+		);
+
+		const result = await run(context, { intent: "rotate-qr" });
+
+		expect(result).toMatchObject({
+			success: true,
+			message:
+				"Código QR generado. Imprímelo y colócalo antes de la primera sesión.",
+		});
+	});
+
+	test("regenerar el código QR avisa que el impreso dejó de funcionar", async () => {
+		const { context } = createHarness(
+			okReply({ token: "t", rotatedAt: new Date(), replaced: true }),
+		);
+
+		const result = await run(context, { intent: "rotate-qr" });
+
+		expect(result).toMatchObject({
+			success: true,
+			message:
+				"Código QR regenerado. El impreso anterior dejó de funcionar: imprime el nuevo.",
+		});
+	});
+
 	test("la lista llega como JSON y se valida antes del servicio", async () => {
 		const { context, calls } = createHarness();
 

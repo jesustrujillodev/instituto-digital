@@ -183,28 +183,38 @@ export default function UsuariosPage({ loaderData }: Route.ComponentProps) {
 
 	const columns = useMemo(
 		() => [
-			columnHelpers.custom<UserRow>("firstName", "Usuario", (user) => {
-				const trainerLine = trainerLineOf(user);
+			columnHelpers.custom<UserRow>(
+				"firstName",
+				"Usuario",
+				(user) => {
+					const trainerLine = trainerLineOf(user);
 
-				return (
-					<div className="flex items-center gap-3">
-						<Avatar>
-							{user.photoUrl && <AvatarImage src={user.photoUrl} alt="" />}
-							<AvatarFallback>{initialsOf(user)}</AvatarFallback>
-						</Avatar>
-						<div className="flex min-w-0 flex-col">
-							<span className="font-medium text-foreground text-sm">
-								{fullNameOf(user) || "Sin nombre"}
-							</span>
-							{trainerLine && (
-								<span className="max-w-64 truncate text-muted-foreground text-xs">
-									{trainerLine}
+					return (
+						<div className="flex items-center gap-3">
+							<Avatar>
+								{user.photoUrl && <AvatarImage src={user.photoUrl} alt="" />}
+								<AvatarFallback>{initialsOf(user)}</AvatarFallback>
+							</Avatar>
+							<div className="flex min-w-0 flex-col">
+								<span className="font-medium text-foreground text-sm">
+									{fullNameOf(user) || "Sin nombre"}
 								</span>
-							)}
+								{trainerLine && (
+									<span className="max-w-64 truncate text-muted-foreground text-xs">
+										{trainerLine}
+									</span>
+								)}
+							</div>
 						</div>
-					</div>
-				);
-			}),
+					);
+				},
+				{
+					// La tabla no cabe sin desplazar en pantallas de escritorio comunes:
+					// la persona queda a la vista mientras se recorren las demás columnas.
+					className:
+						"sticky left-0 z-10 bg-card [thead_&]:bg-muted after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-border",
+				},
+			),
 			columnHelpers.text<UserRow>("email", "Correo"),
 			columnHelpers.text<UserRow>("employeeNumber", "N.º de empleado"),
 			columnHelpers.text<UserRow>("phone", "Teléfono"),

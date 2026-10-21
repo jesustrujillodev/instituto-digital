@@ -15,10 +15,11 @@ import { formatDuration, sessionMinutes } from "../utils/session-duration";
 /**
  * Columnas de la lista de sesiones en escritorio. El encabezado y cada fila las
  * comparten para que todo quede alineado sin ser una `<table>`: una fila se
- * edita, y en móvil se apila como tarjeta.
+ * edita, y en móvil se apila como tarjeta. La última pista (Material y quitar)
+ * es fija: con `auto` medía 0 en el encabezado y lo descuadraba.
  */
 export const SESSION_GRID =
-	"sm:grid-cols-[1.75rem_minmax(0,1fr)_7.5rem_7.5rem_7.5rem_auto]";
+	"sm:grid-cols-[1.75rem_minmax(0,1fr)_7.5rem_7.5rem_7.5rem_9rem]";
 
 interface CourseSessionRowProps {
 	index: number;

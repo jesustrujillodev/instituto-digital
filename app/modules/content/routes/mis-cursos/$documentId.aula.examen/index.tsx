@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react";
+import { formatZonedDateTime } from "@/lib/date-utils";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import {
@@ -44,6 +45,15 @@ export default function AulaExamenPage({ loaderData }: Route.ComponentProps) {
 						<QuizOutcomeView outcome={view.outcome} />
 						{view.canRequestRetake && <QuizRetakeHint />}
 					</>
+				) : view.availability === "NOT_YET" ? (
+					<Alert>
+						<Lock />
+						<AlertDescription>
+							{view.opensAt
+								? `El examen se abre el ${formatZonedDateTime(new Date(view.opensAt))}, cuando empieza la última sesión.`
+								: "El examen todavía no se abre."}
+						</AlertDescription>
+					</Alert>
 				) : view.availability === "LOCKED_BY_CONTENT" ? (
 					<Alert>
 						<Lock />

@@ -370,6 +370,18 @@ describe("list — árbol unificado", () => {
 
 		expect(errorCode(result)).toBe(CLOUD_ERROR_CODES.NOT_CONFIGURED);
 	});
+
+	test("con el storage caído responde UNAVAILABLE en vez de un error inesperado", async () => {
+		const storage = createMemoryStorage({});
+		storage.provider.listObjects = async () => {
+			throw new AggregateError([], "connect ECONNREFUSED 127.0.0.1:9000");
+		};
+		const { service } = createHarness({ storage });
+
+		const result = await service.list({ path: "" });
+
+		expect(errorCode(result)).toBe(CLOUD_ERROR_CODES.UNAVAILABLE);
+	});
 });
 
 describe("downloadUrl", () => {

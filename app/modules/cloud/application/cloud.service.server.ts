@@ -21,6 +21,7 @@ import {
 	CloudFolderTooLargeError,
 	CloudNotConfiguredError,
 	CloudNothingSelectedError,
+	CloudUnavailableError,
 	CloudZipTooLargeError,
 	InvalidCloudCursorError,
 } from "../domain/cloud.errors";
@@ -291,6 +292,8 @@ export const createCloudService = (
 					throw new InvalidCloudCursorError();
 				}
 
+				// El adaptador ya registró la causa; aquí solo se tipa para que la
+				// pantalla lo pinte como aviso en vez de un 500.
 				const pages = await Promise.all(
 					toQuery.map(async (bucket) => ({
 						bucket,
@@ -301,7 +304,9 @@ export const createCloudService = (
 							limit: CLOUD_LIMITS.listPageSize,
 						}),
 					})),
-				);
+				).catch(() => {
+					throw new CloudUnavailableError();
+				});
 
 				const folderPrefixes = new Set<string>();
 				const objects: StorageObject[] = [];

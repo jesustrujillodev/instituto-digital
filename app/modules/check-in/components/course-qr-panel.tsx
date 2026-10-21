@@ -30,6 +30,8 @@ export interface CourseQrPanelProps {
 		rotatedAt: Date | null;
 		opensBeforeMinutes: number;
 		closesAfterMinutes: number;
+		/** Finalizado, un QR nuevo ya no registraría asistencia. */
+		rotatable: boolean;
 	};
 }
 
@@ -69,57 +71,61 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 
 						{qr.rotatedAt && (
 							<p className="text-center text-xs text-muted-foreground">
-								Regenerado el {formatZonedDate(qr.rotatedAt)}
+								Generado el {formatZonedDate(qr.rotatedAt)}
 							</p>
 						)}
 					</>
 				) : (
 					<p className="text-sm text-muted-foreground">
-						Esta capacitación todavía no tiene código QR.
+						{qr.rotatable
+							? "Esta capacitación todavía no tiene código QR."
+							: "La capacitación terminó sin código QR."}
 					</p>
 				)}
 
-				<AlertDialog>
-					<AlertDialogTrigger asChild>
-						<Button
-							type="button"
-							variant={qr.token ? "ghost" : "default"}
-							className="w-full"
-							pending={rotating}
-						>
-							<RefreshCw className="size-4" aria-hidden />
-							{qr.token ? "Regenerar código QR" : "Generar código QR"}
-						</Button>
-					</AlertDialogTrigger>
-
-					<AlertDialogContent>
-						<AlertDialogHeader>
-							<AlertDialogTitle>
-								{qr.token
-									? "¿Regenerar el código QR?"
-									: "¿Generar el código QR?"}
-							</AlertDialogTitle>
-							<AlertDialogDescription>
-								{qr.token
-									? "El código impreso dejará de funcionar de inmediato. Tendrás que imprimir y colocar el nuevo antes de la siguiente sesión. No se borra ninguna asistencia ya registrada."
-									: "Se creará el código que el personal escaneará para registrar su asistencia."}
-							</AlertDialogDescription>
-						</AlertDialogHeader>
-						<AlertDialogFooter>
-							<AlertDialogCancel>Cancelar</AlertDialogCancel>
-							<AlertDialogAction
-								onClick={() =>
-									fetcher.submit(
-										{ [INTENT_FIELD]: TEACHING_INTENTS.rotateQr },
-										{ method: "post" },
-									)
-								}
+				{qr.rotatable && (
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button
+								type="button"
+								variant={qr.token ? "ghost" : "default"}
+								className="w-full"
+								pending={rotating}
 							>
-								{qr.token ? "Regenerar" : "Generar"}
-							</AlertDialogAction>
-						</AlertDialogFooter>
-					</AlertDialogContent>
-				</AlertDialog>
+								<RefreshCw className="size-4" aria-hidden />
+								{qr.token ? "Regenerar código QR" : "Generar código QR"}
+							</Button>
+						</AlertDialogTrigger>
+
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>
+									{qr.token
+										? "¿Regenerar el código QR?"
+										: "¿Generar el código QR?"}
+								</AlertDialogTitle>
+								<AlertDialogDescription>
+									{qr.token
+										? "El código impreso dejará de funcionar de inmediato. Tendrás que imprimir y colocar el nuevo antes de la siguiente sesión. No se borra ninguna asistencia ya registrada."
+										: "Se creará el código que el personal escaneará para registrar su asistencia."}
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancelar</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={() =>
+										fetcher.submit(
+											{ [INTENT_FIELD]: TEACHING_INTENTS.rotateQr },
+											{ method: "post" },
+										)
+									}
+								>
+									{qr.token ? "Regenerar" : "Generar"}
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				)}
 			</CardContent>
 		</Card>
 	);

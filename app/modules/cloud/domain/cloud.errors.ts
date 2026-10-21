@@ -6,6 +6,7 @@ import { DomainError } from "@/shared/errors/domain-error";
 
 export const CLOUD_ERROR_CODES = {
 	NOT_CONFIGURED: "CLOUD_NOT_CONFIGURED",
+	UNAVAILABLE: "CLOUD_UNAVAILABLE",
 	INVALID_CURSOR: "CLOUD_INVALID_CURSOR",
 	FOLDER_TOO_LARGE: "CLOUD_FOLDER_TOO_LARGE",
 	ZIP_TOO_LARGE: "CLOUD_ZIP_TOO_LARGE",
@@ -25,6 +26,17 @@ export class CloudNotConfiguredError extends CloudError {
 	readonly code = CLOUD_ERROR_CODES.NOT_CONFIGURED;
 	constructor() {
 		super("Storage is not configured");
+	}
+}
+
+/**
+ * Hay bucket configurado pero el storage no respondió al listar. El adaptador
+ * ya registró la causa; la pantalla lo pinta como aviso, no como un 500.
+ */
+export class CloudUnavailableError extends CloudError {
+	readonly code = CLOUD_ERROR_CODES.UNAVAILABLE;
+	constructor() {
+		super("Storage did not respond");
 	}
 }
 

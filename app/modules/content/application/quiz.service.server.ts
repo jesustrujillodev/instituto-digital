@@ -467,6 +467,7 @@ export const createQuizService = ({
 							attempt,
 							kind,
 							quiz.maxAttempts,
+							clock.now(),
 						);
 
 				return ok({
@@ -489,7 +490,9 @@ export const createQuizService = ({
 						canGrantRetakeOn(attempt, quiz.maxAttempts),
 					opensAt: followUp
 						? followUpWindowOf(followUp, followUp.session).opensAt
-						: null,
+						: kind === "FINAL"
+							? course.finalQuizOpensAt
+							: null,
 					checkInClosed: followUp
 						? isCheckInClosed(course, followUp.session, clock.now())
 						: false,
@@ -546,6 +549,7 @@ export const createQuizService = ({
 									latest,
 									kind,
 									quiz.maxAttempts,
+									now,
 								),
 					);
 

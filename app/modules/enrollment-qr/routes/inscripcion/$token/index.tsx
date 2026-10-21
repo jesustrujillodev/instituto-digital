@@ -23,6 +23,13 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 /** El loader siempre redirige o corta; esto solo se ve mientras navega. */
+export function meta() {
+	return [
+		{ title: "Inscripción a la capacitación" },
+		{ name: "robots", content: "noindex, nofollow" },
+	];
+}
+
 export default function InscripcionPage() {
 	return (
 		<Shell>

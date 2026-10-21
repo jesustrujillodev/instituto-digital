@@ -11,6 +11,7 @@ import { ok } from "@/shared/response/response.helpers";
 import { createOperationRunner } from "@/shared/response/run-operation";
 import { QR_TOKEN_BYTES } from "../domain/check-in.config";
 import {
+	CheckInCourseNotOpenError,
 	CheckInForbiddenScopeError,
 	CheckInInvalidTokenError,
 } from "../domain/check-in.errors";
@@ -124,12 +125,15 @@ export const createCheckInService = ({
 				if (!course || !canWrite(course, scope)) {
 					throw new CheckInForbiddenScopeError();
 				}
+				// Finalizado, el QR ya no registra asistencia: uno nuevo no sirve.
+				if (course.status !== "PUBLISHED")
+					throw new CheckInCourseNotOpenError();
 
 				const now = clock.now();
 				const token = generateQrToken();
 				await courseRepository.rotateQrToken(course.id, token, now);
 
-				return ok({ token, rotatedAt: now });
+				return ok({ token, rotatedAt: now, replaced: course.qrToken !== null });
 			});
 		},
 	};

@@ -1,10 +1,10 @@
 import { Outlet } from "react-router";
-import { formatZonedDate } from "@/lib/date-utils";
 import { PageHeader } from "@/shared/components/common/page-header";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import type { BreadcrumbHandle } from "@/shared/layout/breadcrumb.types";
 import { ClassroomOutline } from "../../../components/classroom-outline";
 import { ProgressBar } from "../../../components/progress-bar";
+import { classroomProgressNote } from "../../../utils/content-labels";
 import type { Route } from "./+types/index";
 
 export { loader } from "./index.loader";
@@ -28,34 +28,6 @@ export function meta({ data }: Route.MetaArgs) {
 	return [{ title: data ? `Aula · ${data.data.course.title}` : "Aula" }];
 }
 
-/** Lo que el curso le dice a quien lo recorre sobre qué cuenta y cuándo. */
-function progressNote({
-	countsContent,
-	readOnly,
-	contentCompletedAt,
-	completed,
-	withModuleQuizzes,
-}: {
-	countsContent: boolean;
-	readOnly: boolean;
-	contentCompletedAt: Date | string | null;
-	completed: boolean;
-	withModuleQuizzes: boolean;
-}): string {
-	if (!countsContent) {
-		return "Material de apoyo: recorrerlo no cuenta para acreditar la capacitación.";
-	}
-	if (completed) return "Acreditaste la capacitación.";
-	if (contentCompletedAt) {
-		return `Terminaste el contenido el ${formatZonedDate(new Date(contentCompletedAt))}.`;
-	}
-	if (readOnly) return "La capacitación terminó: puedes repasar sus lecciones.";
-
-	return withModuleQuizzes
-		? "Completa las lecciones obligatorias y aprueba la evaluación de cada módulo para terminar la capacitación."
-		: "Completa las lecciones obligatorias para terminar la capacitación.";
-}
-
 export default function AulaLayout({ loaderData }: Route.ComponentProps) {
 	const {
 		data: {
@@ -72,12 +44,14 @@ export default function AulaLayout({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col">
 			<PageHeader
 				title={course.title}
-				description={progressNote({
+				description={classroomProgressNote({
 					countsContent: course.countsContent,
 					readOnly: course.readOnly,
 					contentCompletedAt,
 					completed,
 					withModuleQuizzes: modules.some((module) => module.quiz !== null),
+					withFinalQuiz: finalQuiz !== null,
+					withLessons: modules.length > 0,
 				})}
 				goBack={MY_COURSES_PATH}
 			/>

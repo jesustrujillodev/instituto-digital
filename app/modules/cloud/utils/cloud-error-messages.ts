@@ -36,6 +36,11 @@ export const CLOUD_ERROR_MESSAGES: ErrorMessageMap = {
 	},
 	[CLOUD_ERROR_CODES.NOT_CONFIGURED]:
 		"El almacenamiento en la nube no está configurado.",
+	[CLOUD_ERROR_CODES.UNAVAILABLE]: {
+		message:
+			"El almacenamiento no responde. Inténtalo de nuevo en unos minutos.",
+		status: HTTP_STATUS.SERVICE_UNAVAILABLE,
+	},
 	[CLOUD_ERROR_CODES.INVALID_CURSOR]: {
 		message: "La página pedida ya no es válida. Vuelve a abrir la carpeta.",
 		status: HTTP_STATUS.BAD_REQUEST,

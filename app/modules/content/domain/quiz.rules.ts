@@ -486,9 +486,15 @@ const isReopened = (
  * Una evaluación aprobada se cierra. Una reprobada se reintenta mientras queden
  * intentos o alguien habilite otro, y se cierra en cuanto el curso se acredita:
  * la nota ya quedó fija (docs/adr/0024).
+ *
+ * Con sesiones, el examen final abre cuando empieza la última: se evalúa al
+ * final de lo impartido. Sin `now` no se mira la fecha.
  */
 export const quizAvailabilityOf = (
-	course: { completionRule: CourseCompletionRule },
+	course: {
+		completionRule: CourseCompletionRule;
+		finalQuizOpensAt?: Date | null;
+	},
 	enrollment: {
 		contentCompletedAt: Date | null;
 		result: EnrollmentResult;
@@ -497,9 +503,18 @@ export const quizAvailabilityOf = (
 	latestAttempt: AttemptSummary | null,
 	kind: QuizKind,
 	maxAttempts: number | null,
+	now?: Date,
 ): QuizAvailability => {
 	if (latestAttempt && !isReopened(enrollment, latestAttempt, maxAttempts)) {
 		return "TAKEN";
+	}
+	if (
+		kind === "FINAL" &&
+		now &&
+		course.finalQuizOpensAt &&
+		now < course.finalQuizOpensAt
+	) {
+		return "NOT_YET";
 	}
 	if (
 		kind === "FINAL" &&
