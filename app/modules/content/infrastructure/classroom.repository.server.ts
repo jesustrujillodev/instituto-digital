@@ -30,6 +30,12 @@ export const createClassroomRepository = ({
 				requiresEvaluation: true,
 				minPassingGrade: true,
 				qrClosesAfterMinutes: true,
+				// Solo la última: de ahí abre el examen final.
+				sessions: {
+					orderBy: { startsAt: "desc" },
+					take: 1,
+					select: { startsAt: true },
+				},
 				enrollments: {
 					where: { userId },
 					select: {
@@ -44,8 +50,12 @@ export const createClassroomRepository = ({
 		});
 		if (!course) return null;
 
-		const { enrollments, ...rest } = course;
-		return { ...rest, enrollment: enrollments.at(0) ?? null };
+		const { enrollments, sessions, ...rest } = course;
+		return {
+			...rest,
+			finalQuizOpensAt: sessions.at(0)?.startsAt ?? null,
+			enrollment: enrollments.at(0) ?? null,
+		};
 	},
 
 	async findProgress(courseId, userId) {

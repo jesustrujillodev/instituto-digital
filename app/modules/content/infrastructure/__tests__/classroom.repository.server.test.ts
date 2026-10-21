@@ -45,6 +45,7 @@ describe("classroomRepository", () => {
 			status: "PUBLISHED",
 			format: "SELF_PACED",
 			completionRule: "CONTENT",
+			sessions: [],
 			enrollments: [
 				{
 					status: "ENROLLED",
@@ -61,6 +62,39 @@ describe("classroomRepository", () => {
 		});
 	});
 
+	test("el examen final abre cuando empieza la última sesión", async () => {
+		const last = new Date("2026-10-21T17:00:00.000Z");
+		const { repository, calls } = createHarness({
+			id: 7,
+			status: "PUBLISHED",
+			format: "SCHEDULED",
+			enrollments: [],
+			sessions: [{ startsAt: last }],
+		});
+
+		expect(await repository.findCourse(COURSE_DOC, 50)).toMatchObject({
+			finalQuizOpensAt: last,
+		});
+		expect(calls.courseFindUnique[0]).toMatchObject({
+			select: {
+				sessions: { orderBy: { startsAt: "desc" }, take: 1 },
+			},
+		});
+	});
+
+	test("sin sesiones, el examen final no espera ninguna fecha", async () => {
+		const { repository } = createHarness({
+			id: 7,
+			format: "SELF_PACED",
+			enrollments: [],
+			sessions: [],
+		});
+
+		expect(await repository.findCourse(COURSE_DOC, 50)).toMatchObject({
+			finalQuizOpensAt: null,
+		});
+	});
+
 	test("sin inscripción la deja en null", async () => {
 		const { repository } = createHarness({
 			id: 7,
@@ -69,6 +103,7 @@ describe("classroomRepository", () => {
 			status: "PUBLISHED",
 			format: "SELF_PACED",
 			completionRule: "CONTENT",
+			sessions: [],
 			enrollments: [],
 		});
 

@@ -267,6 +267,26 @@ describe("disponibilidad", () => {
 		);
 	});
 
+	// Se evalúa al final de lo impartido: el examen abre con la última sesión.
+	test("con sesiones, el examen final espera a que empiece la última", () => {
+		const opensAt = new Date("2026-10-21T17:00:00Z");
+		const scheduled = { ...attendance, finalQuizOpensAt: opensAt };
+		const before = new Date("2026-10-21T16:59:00Z");
+
+		expect(
+			quizAvailabilityOf(scheduled, enrollmentOf(), null, "FINAL", 1, before),
+		).toBe("NOT_YET");
+		expect(
+			quizAvailabilityOf(scheduled, enrollmentOf(), null, "FINAL", 1, opensAt),
+		).toBe("AVAILABLE");
+		expect(
+			quizAvailabilityOf(scheduled, enrollmentOf(), null, "MODULE", 1, before),
+		).toBe("AVAILABLE");
+		expect(
+			quizAvailabilityOf(scheduled, enrollmentOf(), taken, "FINAL", 1, before),
+		).toBe("TAKEN");
+	});
+
 	test("sin contenido que contar, está disponible desde la inscripción", () => {
 		expect(
 			quizAvailabilityOf(attendance, enrollmentOf(), null, "FINAL", 1),

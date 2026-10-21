@@ -6,6 +6,7 @@ import {
 	Lock,
 } from "lucide-react";
 import { NavLink } from "react-router";
+import { formatZonedDateTime } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import type { LessonProgressStatus } from "../domain/classroom.rules";
 import type {
@@ -46,6 +47,10 @@ const quizNote = (quiz: ClassroomQuizStatus) => {
 			return `Presentado · ${quiz.score} · ${quiz.passed ? "aprobado" : "no aprobado"}`;
 		case "LOCKED_BY_CONTENT":
 			return "Se habilita al terminar las lecciones obligatorias";
+		case "NOT_YET":
+			return quiz.opensAt
+				? `Se abre el ${formatZonedDateTime(new Date(quiz.opensAt))}`
+				: "Todavía no se abre";
 		case "AVAILABLE": {
 			const attempts =
 				quiz.attemptsLeft === null
@@ -72,7 +77,8 @@ function QuizLink({ to, quiz }: { to: string; quiz: ClassroomQuizStatus }) {
 				)
 			}
 		>
-			{quiz.availability === "LOCKED_BY_CONTENT" ? (
+			{quiz.availability === "LOCKED_BY_CONTENT" ||
+			quiz.availability === "NOT_YET" ? (
 				<Lock
 					aria-hidden="true"
 					className="mt-0.5 size-4 shrink-0 text-muted-foreground"

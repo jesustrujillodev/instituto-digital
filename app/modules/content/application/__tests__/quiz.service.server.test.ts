@@ -84,6 +84,7 @@ const classroomCourseOf = (
 	requiresEvaluation: true,
 	minPassingGrade: 70,
 	qrClosesAfterMinutes: 15,
+	finalQuizOpensAt: null,
 	enrollment: {
 		status: "ENROLLED",
 		progressPercent: 100,
@@ -516,6 +517,22 @@ describe("submit: examen final", () => {
 		expect(calls.lockedInTransaction).toEqual([true]);
 	});
 
+	test("antes de la última sesión no se presenta ni se escribe nada", async () => {
+		const { service, calls } = createHarness({
+			course: classroomCourseOf({
+				finalQuizOpensAt: new Date(NOW.getTime() + 60_000),
+			}),
+		});
+
+		const result = await service.submit(COURSE_DOC, submitDto(RIGHT), ANA);
+
+		expect(result).toMatchObject({
+			success: false,
+			error: { code: CONTENT_ERROR_CODES.FOLLOW_UP_NOT_OPEN },
+		});
+		expect(calls.attempts).toEqual([]);
+	});
+
 	test("reprobar también guarda el intento y recalcula", async () => {
 		const { service, calls } = createHarness();
 
@@ -881,6 +898,20 @@ describe("findView", () => {
 		).toMatchObject({
 			success: true,
 			data: { availability: "TAKEN", sheet: null, canRequestRetake: false },
+		});
+	});
+
+	test("antes de la última sesión enseña cuándo abre, sin las preguntas", async () => {
+		const opensAt = new Date(NOW.getTime() + 60_000);
+		const { service } = createHarness({
+			course: classroomCourseOf({ finalQuizOpensAt: opensAt }),
+		});
+
+		expect(
+			await service.findView(COURSE_DOC, FINAL_QUIZ_OWNER, ANA),
+		).toMatchObject({
+			success: true,
+			data: { availability: "NOT_YET", sheet: null, opensAt },
 		});
 	});
 

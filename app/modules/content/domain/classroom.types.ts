@@ -32,6 +32,8 @@ export interface ClassroomCourse {
 	minPassingGrade: number;
 	/** Minutos tras el fin de cada sesión en que el QR todavía registra asistencia. */
 	qrClosesAfterMinutes: number;
+	/** Inicio de la última sesión; `null` sin sesiones (autogestivo). */
+	finalQuizOpensAt: Date | null;
 	enrollment: {
 		status: EnrollmentStatus;
 		progressPercent: number;
@@ -67,6 +69,8 @@ export interface ClassroomQuizStatus {
 	passed: boolean | null;
 	/** Contando el siguiente; `null` sin límite. */
 	attemptsLeft: number | null;
+	/** Solo el examen final con sesiones: cuándo se puede presentar. */
+	opensAt?: Date | null;
 }
 
 export interface ClassroomModule {
