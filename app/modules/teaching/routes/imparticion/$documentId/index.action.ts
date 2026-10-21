@@ -127,8 +127,9 @@ export const action = async ({
 				return localizeError(result, CHECK_IN_ERROR_MESSAGES);
 
 			return ok(null, {
-				message:
-					"Código QR regenerado. El impreso anterior dejó de funcionar: imprime el nuevo.",
+				message: result.data.replaced
+					? "Código QR regenerado. El impreso anterior dejó de funcionar: imprime el nuevo."
+					: "Código QR generado. Imprímelo y colócalo antes de la primera sesión.",
 			});
 		}
 		default:

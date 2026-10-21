@@ -67,6 +67,8 @@ interface HarnessOptions {
 	now?: Date;
 	/** Quien imparte finaliza el curso mientras el escaneo espera el bloqueo. */
 	finishedOnLock?: boolean;
+	/** El QR que ya tenía el curso al rotarlo. */
+	currentQrToken?: string | null;
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -101,7 +103,8 @@ const createHarness = (options: HarnessOptions = {}) => {
 			log.checkIns.push({ sessionId, userId, at });
 			return options.written ?? true;
 		},
-		findCourse: async () => teachingCourseOf(),
+		findCourse: async () =>
+			teachingCourseOf({ qrToken: options.currentQrToken ?? null }),
 	} as unknown as ICradle["teachingRepository"];
 
 	const service = createCheckInService({
@@ -292,6 +295,19 @@ describe("rotateToken", () => {
 		expect(result.data.token).toMatch(QR_TOKEN_PATTERN);
 		expect(log.rotations).toHaveLength(1);
 		expect(log.rotations[0]?.token).toBe(result.data.token);
+	});
+
+	// El aviso de la pantalla cambia: solo un reemplazo invalida lo impreso.
+	test("dice si reemplazó un código anterior o es el primero", async () => {
+		const actor = actorOf({ role: "SUPERADMIN", dependencyId: null });
+
+		const first = await createHarness().service.rotateToken(COURSE_DOC, actor);
+		const again = await createHarness({
+			currentQrToken: "anterior",
+		}).service.rotateToken(COURSE_DOC, actor);
+
+		expect(first.success && first.data.replaced).toBe(false);
+		expect(again.success && again.data.replaced).toBe(true);
 	});
 
 	test("dos rotaciones no devuelven el mismo token", async () => {

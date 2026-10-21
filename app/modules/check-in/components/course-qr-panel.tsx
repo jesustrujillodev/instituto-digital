@@ -69,7 +69,7 @@ export function CourseQrPanel({ title, qr }: CourseQrPanelProps) {
 
 						{qr.rotatedAt && (
 							<p className="text-center text-xs text-muted-foreground">
-								Regenerado el {formatZonedDate(qr.rotatedAt)}
+								Generado el {formatZonedDate(qr.rotatedAt)}
 							</p>
 						)}
 					</>

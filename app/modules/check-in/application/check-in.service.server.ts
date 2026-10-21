@@ -129,7 +129,7 @@ export const createCheckInService = ({
 				const token = generateQrToken();
 				await courseRepository.rotateQrToken(course.id, token, now);
 
-				return ok({ token, rotatedAt: now });
+				return ok({ token, rotatedAt: now, replaced: course.qrToken !== null });
 			});
 		},
 	};
