@@ -28,7 +28,7 @@ export default function IniciarSesionPage() {
 	return (
 		<main className="grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
 			<section className="flex flex-col justify-between gap-10 bg-sidebar px-6 py-8 text-sidebar-foreground sm:px-10 lg:px-14 lg:py-14">
-				<InstitutionalLogo className="h-12 lg:h-16" />
+				<InstitutionalLogo className="h-12 self-start lg:h-16" />
 				<div className="max-w-md space-y-3">
 					<p className="text-3xl font-bold tracking-tight text-balance lg:text-4xl">
 						Instituto Digital de Capacitación

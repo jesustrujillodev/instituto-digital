@@ -12,7 +12,7 @@ export default function LandingPage() {
 				<ThemeModeToggle />
 			</div>
 
-			<InstitutionalLogo />
+			<InstitutionalLogo className="self-start" />
 
 			<div className="my-auto max-w-2xl space-y-6 py-16">
 				<div className="h-1 w-16 bg-sidebar-primary" />

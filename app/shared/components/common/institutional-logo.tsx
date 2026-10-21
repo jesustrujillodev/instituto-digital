@@ -11,10 +11,7 @@ export function InstitutionalLogo({ className }: { className?: string }) {
 			alt="XXV Ayuntamiento de Tijuana"
 			width={245}
 			height={80}
-			className={cn(
-				"h-16 w-auto max-w-full self-start object-contain",
-				className,
-			)}
+			className={cn("h-16 w-auto max-w-full object-contain", className)}
 		/>
 	);
 }
