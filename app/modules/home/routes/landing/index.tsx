@@ -3,6 +3,10 @@ import { ThemeModeToggle } from "@/modules/theme/components/theme-mode-toggle";
 import { InstitutionalLogo } from "@/shared/components/common/institutional-logo";
 import { Button } from "@/shared/components/ui/button";
 
+export function meta() {
+	return [{ title: "Instituto Digital de Capacitación" }];
+}
+
 export default function LandingPage() {
 	return (
 		<main className="relative flex min-h-dvh flex-col bg-sidebar px-6 py-8 text-sidebar-foreground sm:px-10 lg:px-16 lg:py-12">

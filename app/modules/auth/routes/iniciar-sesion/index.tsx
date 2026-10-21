@@ -17,6 +17,10 @@ import type { loader } from "./index.loader";
 export { action } from "./index.action";
 export { loader } from "./index.loader";
 
+export function meta() {
+	return [{ title: "Iniciar sesión" }];
+}
+
 export default function IniciarSesionPage() {
 	const { data } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();

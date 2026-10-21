@@ -42,6 +42,13 @@ function Shell({ children }: { children: React.ReactNode }) {
 	);
 }
 
+export function meta() {
+	return [
+		{ title: "Registro de asistencia" },
+		{ name: "robots", content: "noindex, nofollow" },
+	];
+}
+
 export default function AsistenciaPage() {
 	const { data } = useLoaderData<typeof loader>();
 	const fetcher = useFetcher<CheckInActionData>();
