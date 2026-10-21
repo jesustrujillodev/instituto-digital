@@ -214,6 +214,7 @@ export const toTeachingDetail = (
 					rotatedAt: course.qrTokenRotatedAt,
 					opensBeforeMinutes: course.qrOpensBeforeMinutes,
 					closesAfterMinutes: course.qrClosesAfterMinutes,
+					rotatable: course.status === "PUBLISHED",
 				}
 			: null,
 		sessions: course.sessions.map((session) => ({

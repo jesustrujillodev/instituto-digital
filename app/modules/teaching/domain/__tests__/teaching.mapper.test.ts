@@ -103,6 +103,23 @@ describe("toTeachingDetail", () => {
 		).toBe(false);
 	});
 
+	// Un QR nuevo de un curso finalizado ya no registraría asistencia.
+	test("solo un curso publicado deja regenerar su código QR", () => {
+		const head = resolveTeachingScope(
+			actorOf({ role: "DEPENDENCY_HEAD", isTrainer: false }),
+		);
+		const finished = courseOf({ status: "FINISHED", finishedAt: LAST_DAY });
+
+		expect(
+			toTeachingDetail(courseOf(), head, LAST_DAY, false).qr,
+		).toMatchObject({
+			rotatable: true,
+		});
+		expect(toTeachingDetail(finished, head, LAST_DAY, false).qr).toMatchObject({
+			rotatable: false,
+		});
+	});
+
 	test("un curso por impartir no tiene certificados pendientes", () => {
 		const detail = toTeachingDetail(
 			courseOf({ participants: [participantOf({ completed: true })] }),

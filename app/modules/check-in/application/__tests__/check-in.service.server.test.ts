@@ -69,6 +69,8 @@ interface HarnessOptions {
 	finishedOnLock?: boolean;
 	/** El QR que ya tenía el curso al rotarlo. */
 	currentQrToken?: string | null;
+	/** Estado del curso que lee quien imparte al rotar el QR. */
+	teachingStatus?: "PUBLISHED" | "FINISHED";
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -104,7 +106,10 @@ const createHarness = (options: HarnessOptions = {}) => {
 			return options.written ?? true;
 		},
 		findCourse: async () =>
-			teachingCourseOf({ qrToken: options.currentQrToken ?? null }),
+			teachingCourseOf({
+				qrToken: options.currentQrToken ?? null,
+				status: options.teachingStatus ?? "PUBLISHED",
+			}),
 	} as unknown as ICradle["teachingRepository"];
 
 	const service = createCheckInService({
@@ -308,6 +313,18 @@ describe("rotateToken", () => {
 
 		expect(first.success && first.data.replaced).toBe(false);
 		expect(again.success && again.data.replaced).toBe(true);
+	});
+
+	test("un curso finalizado no regenera su código QR", async () => {
+		const { service, log } = createHarness({ teachingStatus: "FINISHED" });
+
+		const result = await service.rotateToken(
+			COURSE_DOC,
+			actorOf({ role: "SUPERADMIN", dependencyId: null }),
+		);
+
+		expect(errorCodeOf(result)).toBe(CHECK_IN_ERROR_CODES.COURSE_NOT_OPEN);
+		expect(log.rotations).toEqual([]);
 	});
 
 	test("dos rotaciones no devuelven el mismo token", async () => {

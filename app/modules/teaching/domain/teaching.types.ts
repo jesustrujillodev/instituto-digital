@@ -212,6 +212,8 @@ export interface TeachingQrView {
 	rotatedAt: Date | null;
 	opensBeforeMinutes: number;
 	closesAfterMinutes: number;
+	/** Solo publicado: finalizado, un QR nuevo ya no registraría asistencia. */
+	rotatable: boolean;
 }
 
 export interface TeachingWriteResult {
